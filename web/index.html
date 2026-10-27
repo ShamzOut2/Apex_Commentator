@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apex Commentator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span id="status-dot" class="dot"></span>Apex</div>
+    <div id="session-line" class="session-line">Waiting for iRacing…</div>
+    <div class="topbar-right">
+      <span id="league-badge" class="badge muted" title="Active league">No league</span>
+      <span id="replay-badge" class="badge">—</span>
+      <button id="btn-live" class="btn primary" title="Back to live (L)">Go live</button>
+    </div>
+  </header>
+
+  <section class="controls" aria-label="Spectate controls">
+    <div class="group">
+      <span class="label">Camera</span>
+      <select id="camera-group" title="Camera group"></select>
+      <div id="camera-quick" class="chips"></div>
+    </div>
+    <div class="group">
+      <span class="label">Spectate</span>
+      <button class="btn" data-cmd="step_car" data-direction="-1" title="Car ahead (↑)">▲ Ahead</button>
+      <button class="btn" data-cmd="step_car" data-direction="1" title="Car behind (↓)">▼ Behind</button>
+      <button class="btn" data-cmd="watch_special" data-mode="leader">Leader</button>
+      <button class="btn" data-cmd="watch_special" data-mode="exciting" title="iRacing picks the most exciting car">Exciting</button>
+      <button class="btn" data-cmd="watch_special" data-mode="incident" title="iRacing incident camera">Incident cam</button>
+    </div>
+    <div class="group">
+      <span class="label">Replay</span>
+      <button class="btn" data-cmd="replay_seconds" data-seconds="10" title="Instant replay 10 s (R)">↺ 10s</button>
+      <button class="btn" data-cmd="replay_seconds" data-seconds="30">↺ 30s</button>
+      <button class="btn" data-cmd="replay_incident" data-direction="-1" title="Previous iRacing incident marker">◀ Inc</button>
+      <button class="btn" data-cmd="replay_incident" data-direction="1" title="Next iRacing incident marker">Inc ▶</button>
+      <button class="btn" data-cmd="replay_speed" data-speed="0" title="Pause">❚❚</button>
+      <button class="btn" data-cmd="replay_speed" data-speed="1" title="Play">▶</button>
+    </div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="drivers">Drivers <span id="driver-count" class="count"></span></button>
+    <button class="tab" data-tab="events">Events <span id="event-count" class="count"></span></button>
+    <button class="tab" data-tab="league">League builder</button>
+  </nav>
+
+  <main>
+    <section id="tab-drivers" class="panel active">
+      <table class="grid drivers">
+        <thead>
+          <tr>
+            <th class="c-pos">P</th><th class="c-num">#</th><th>Driver</th><th class="c-num">Lap</th>
+            <th class="c-time">Gap</th><th class="c-time col-wide">Int</th><th class="c-time col-wide">Last</th><th class="c-time col-wide">Best</th>
+            <th class="c-num" title="Incident points">Inc</th><th class="c-status"></th><th class="c-actions"></th>
+          </tr>
+        </thead>
+        <tbody id="driver-rows"></tbody>
+      </table>
+      <p id="drivers-empty" class="empty">No drivers yet. Start iRacing and join or spectate a session.</p>
+    </section>
+
+    <section id="tab-events" class="panel">
+      <div class="toolbar">
+        <div class="chips" id="event-filter">
+          <button class="chip active" data-filter="all">All</button>
+          <button class="chip" data-filter="overtake">Overtakes</button>
+          <button class="chip" data-filter="incident">Incidents</button>
+        </div>
+        <button class="btn subtle" data-cmd="clear_events">Clear</button>
+      </div>
+      <ul id="event-list" class="events"></ul>
+      <p id="events-empty" class="empty">Overtakes and incidents appear here as they happen.</p>
+    </section>
+
+    <section id="tab-league" class="panel">
+      <div class="league-layout">
+        <aside class="league-side">
+          <h3>Load a league</h3>
+          <form id="fetch-form" class="row">
+            <input id="fetch-id" inputmode="numeric" placeholder="League ID" aria-label="League ID">
+            <button class="btn primary" type="submit">Fetch</button>
+          </form>
+          <p id="api-hint" class="hint"></p>
+          <form id="session-form" class="row">
+            <input id="session-name" placeholder="Name (from current session)" aria-label="League name">
+            <button class="btn" type="submit">Build</button>
+          </form>
+          <button id="btn-new-league" class="btn subtle">+ Blank league</button>
+          <h3>Saved leagues</h3>
+          <ul id="league-list" class="league-list"></ul>
+        </aside>
+        <div class="league-editor" id="league-editor" hidden>
+          <div class="row">
+            <input id="edit-name" class="grow" placeholder="League name" aria-label="League name">
+            <input id="edit-league-id" class="narrow" placeholder="League ID" aria-label="iRacing League ID">
+            <button id="btn-save-league" class="btn primary">Save</button>
+            <button id="btn-activate-league" class="btn">Use in overlay</button>
+          </div>
+          <p class="hint">Nicknames, teams and notes show next to drivers in the overlay. Drivers are matched by iRacing customer ID, or by car number when there is no ID.</p>
+          <table class="grid roster">
+            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num">#</th><th>Nickname</th><th>Team</th><th>Notes</th><th></th></tr></thead>
+            <tbody id="roster-rows"></tbody>
+          </table>
+          <button id="btn-add-driver" class="btn subtle">+ Add driver</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

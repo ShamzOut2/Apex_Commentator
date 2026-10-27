@@ -1,2 +1,161 @@
-# Apex_Commentator
-iRacing overlay suite directed to commentators.
+# Apex Commentator
+
+A lightweight iRacing overlay suite for commentators. It runs a small local web
+app next to iRacing. Open it in a browser on a second monitor, or add it as an
+OBS dock.
+
+- **Live driver list**: positions (live order while racing), gaps, intervals,
+  last/best laps, incident points, and pit and off-track status. The car you are
+  watching is highlighted.
+- **League builder**: pull a league roster from iRacing by **League ID**, then
+  add nicknames, teams and notes that show next to each driver in the overlay.
+- **Spectate controls**: watch any driver in one click, step to the car
+  ahead or behind, jump to the leader, iRacing's incident/exciting cameras, and
+  quick camera-group buttons (TV1, Chase, Cockpit…).
+- **Replays**: overtakes and incidents are detected for every car and
+  saved with their exact session time. One click replays a driver's latest
+  moment, or any moment from the event feed, and **Go live** takes you back.
+
+![layout: control bar, driver table with Watch / Replay / events per driver](docs/overview.png)
+
+## Quick start
+
+Requires **Python 3.9+** on the PC running iRacing.
+
+```bat
+git clone https://github.com/ShamzOut2/Apex_Commentator
+cd Apex_Commentator
+start.bat
+```
+
+`start.bat` installs the one dependency (`pyirsdk`) and opens
+<http://localhost:8180>. Join or spectate a session in iRacing and the
+overlay connects automatically. It reconnects if iRacing restarts.
+
+**No iRacing handy?** Run `start-mock.bat` (or `python -m apex --mock`) for a
+simulated race. It works on any OS with no dependencies.
+`--mock-speed 5` speeds it up.
+
+Other options: `python -m apex --help` (`--port`, `--host`, `--no-browser`,
+`--config`).
+
+### Using it from another PC or in OBS
+
+- **Second PC on your LAN:** set `"host": "0.0.0.0"` in `config.json`, then
+  open `http://<iRacing-PC-IP>:8180` from the other machine. The overlay
+  has no login, so only do this on a network you trust.
+- **OBS:** *Docks → Custom Browser Docks*, URL `http://localhost:8180`. The
+  layout compacts itself for narrow docks.
+
+## Keyboard shortcuts
+
+| Key | Action |
+| --- | --- |
+| `L` | Back to live |
+| `R` | Instant replay (last 10 s) |
+| `↑` / `↓` | Watch the car ahead / behind |
+
+## How replays work
+
+The overlay watches telemetry for **every** car, so this works when you
+spectate. It records:
+
+| Event | How it is detected |
+| --- | --- |
+| **Overtake** | In a race under green, cars close on track swap order *and stay swapped* for 1.5 s, with both on track. Swaps from pit stops, offs or side-by-side jostling don't count. The event is timestamped when the pass started. |
+| **Off track** | A car's track surface changes to off track. |
+| **Slowdown** | A car's speed collapses relative to its recent pace (spin, contact, stopping). Ignored on pit road and under caution. |
+| **Incident points** | When iRacing reports more incident points for a driver, they are attached to that driver's off/slowdown from the last 15 s, or logged as their own incident. |
+
+Pressing **Replay** pauses playback, seeks the replay tape to the event's
+session time minus a pre-roll (6 s by default), points the camera at the
+driver and plays. It seeks by **session time**, not frame numbers or
+iRacing's incident markers, so it lands on the right moment even after you
+have been scrubbing around. **Go live** (or `L`) returns to the live feed.
+Set `replay_auto_return_s` to return automatically.
+
+Other replay buttons: **↺ 10s / 30s** (instant replay of whoever is on camera),
+**◀ Inc / Inc ▶** (step through iRacing's own incident markers), pause/play.
+
+Things to know:
+
+- Replays need iRacing's replay buffer. Keep *Options → Replay → Write
+  Replay Data* enabled, and give it enough memory to cover the race.
+- Detection pauses while you are watching a replay (telemetry then shows the
+  replay, not the live race), so moments that happen during a replay are
+  not logged. iRacing's **◀ Inc / Inc ▶** markers still cover them.
+- Incident **points** for other drivers only appear if iRacing shares them
+  with you, for example as a league admin or in hosted sessions. Off-track and
+  slowdown detection works regardless.
+- Thresholds (`overtake_hold_s`, `slowdown_ratio`…) can be tuned in
+  `config.json`.
+
+## League builder
+
+Open the **League builder** tab.
+
+1. **Fetch by League ID**: pulls the league name and roster (names, customer
+   IDs, car numbers, nicknames) from the iRacing Data API. Needs API
+   credentials (below).
+2. **Build from the current session**: no credentials needed. It takes the
+   drivers in the session you are in.
+3. **Blank league**: type it in by hand.
+
+Edit nicknames, teams and notes (for example "Championship leader" or a
+pronunciation hint), **Save**, then **Use in overlay**. Drivers are matched by
+iRacing customer ID, or by car number for hand-added entries without one.
+Re-fetching a league updates names and numbers, adds new members and keeps your
+notes. Profiles are plain JSON in `data/leagues/`.
+
+### iRacing API credentials
+
+iRacing retired username/password API logins in December 2025. The Data
+API now uses OAuth, and a script like this needs a **client ID and client
+secret** issued by iRacing ("password limited" grant) plus your iRacing login.
+iRacing support handles client ID requests, and has paused new ones at times.
+See their [OAuth client credentials article](https://support.iracing.com/support/solutions/articles/31000177790-oauth-client-credentials).
+
+Put them in `config.json` (copy `config.example.json`; `config.json` is
+git-ignored) or set environment variables:
+
+```bat
+set IRACING_USERNAME=you@example.com
+set IRACING_PASSWORD=...
+set IRACING_CLIENT_ID=...
+set IRACING_CLIENT_SECRET=...
+```
+
+Credentials are masked as iRacing requires before they are sent, and only go
+to `oauth.iracing.com` and `members-ng.iracing.com`.
+
+## Configuration
+
+All keys are optional. See `config.example.json` for the full list and
+defaults:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `port` / `host` | `8180` / `127.0.0.1` | Where the overlay is served |
+| `replay_preroll_s` | `6` | Seconds before the event a replay starts |
+| `replay_auto_return_s` | `0` | Return to live after N seconds (0 = manual) |
+| `default_camera_group` | `""` | Camera group for Watch/Replay, e.g. `"TV1"` (blank = keep current) |
+| `overtake_hold_s` | `1.5` | How long a pass must hold to count |
+| `slowdown_ratio` | `0.35` | Speed below this fraction of recent pace counts as a slowdown |
+| `event_cooldown_s` | `8` | Minimum gap between incidents logged for the same car |
+
+## Development
+
+```
+apex/
+  sources.py   iRacing (pyirsdk) and mock telemetry sources
+  events.py    overtake / incident detection
+  core.py      poll loop, snapshot, spectate & replay commands
+  league.py    iRacing Data API client and league profiles
+  server.py    stdlib HTTP server + Server-Sent Events
+web/           the overlay UI (plain HTML/CSS/JS, no build step)
+tests/
+```
+
+Run the tests with `python -m unittest discover -s tests -t .`. They need
+nothing installed. The iRacing source is tested against a stand-in for
+pyirsdk.
