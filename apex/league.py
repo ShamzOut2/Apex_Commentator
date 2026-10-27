@@ -9,15 +9,27 @@ A league profile is a small JSON file in ``data/leagues/``::
       "name": "Sunday Night GT3",
       "source": "iracing",          # iracing | session | manual
       "updated_at": "2026-10-27T19:00:00Z",
+      "classes": [
+        {"id": "pro", "name": "Pro", "color": "#e8463c", "match": ["GT3"],
+         "logo": "pro-1a2b3c4d.png", "logo_bg": "auto", "logo_tolerance": 18,
+         "logo_fill": "edges"}
+      ],
       "drivers": [
         {"cust_id": 123456, "name": "Jane Doe", "nickname": "JD",
-         "car_number": "7", "team": "Apex Racing", "notes": "Leads the title"}
+         "car_number": "7", "team": "Apex Racing", "notes": "Leads the title",
+         "class_id": "pro"}
       ]
     }
 
-Commentator edits (nicknames, teams, notes) live in the profile, so they
-survive re-fetching: a refresh only adds new members and updates names and
-numbers.
+A driver's class is their ``class_id`` when set, otherwise the first class
+whose ``match`` list contains their iRacing car class name. Class logos are
+stored in ``data/leagues/logos/<league>/``; the overlay recolours each logo's
+background to the class colour (``logo_bg``: ``auto`` detects the background,
+a ``#rrggbb`` value names it, ``keep`` leaves the logo untouched).
+
+Commentator edits (nicknames, teams, notes, classes) live in the profile, so
+they survive re-fetching: a refresh only adds new members and updates names
+and numbers.
 
 Authentication uses iRacing's OAuth "password limited" grant, which needs a
 client ID and secret issued by iRacing in addition to your login. See
@@ -28,6 +40,7 @@ import base64
 import hashlib
 import json
 import re
+import shutil
 import threading
 import time
 import urllib.error
@@ -38,7 +51,12 @@ from pathlib import Path
 
 TOKEN_URL = "https://oauth.iracing.com/oauth2/token"
 DATA_URL = "https://members-ng.iracing.com/data"
-EDITABLE_FIELDS = ("nickname", "team", "notes")
+EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id")
+# Distinct defaults handed to new classes, in order.
+CLASS_PALETTE = ["#e8463c", "#2f80ed", "#27ae60", "#f2c94c", "#9b51e0", "#f2994a", "#56ccf2", "#eb5ea8"]
+MAX_LOGO_BYTES = 2 * 1024 * 1024
+LOGO_TYPES = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp", "svg": "image/svg+xml"}
+HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
 class LeagueError(Exception):
@@ -196,7 +214,24 @@ def merge_profiles(existing, fresh):
             merged.append(d)
     result = dict(fresh)
     result["drivers"] = merged
+    result["classes"] = existing.get("classes", [])
     return result
+
+
+def _classes_from_session(drivers):
+    """One league class per iRacing car class in the session, using iRacing's colours."""
+    classes = []
+    seen = set()
+    for d in drivers:
+        name = d.get("car_class") or ""
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        color = d.get("class_color")
+        if not (isinstance(color, str) and HEX_COLOR.match(color)) or color.lower() in ("#000000", "#ffffff"):
+            color = CLASS_PALETTE[len(classes) % len(CLASS_PALETTE)]
+        classes.append({"id": _slug(name), "name": name, "color": color, "match": [name]})
+    return classes
 
 
 def profile_from_session(drivers, name):
@@ -207,6 +242,7 @@ def profile_from_session(drivers, name):
         "name": name,
         "source": "session",
         "updated_at": _now_iso(),
+        "classes": _classes_from_session(drivers),
         "drivers": [{
             "cust_id": d.get("cust_id"),
             "name": d.get("name", ""),
@@ -216,6 +252,51 @@ def profile_from_session(drivers, name):
             "notes": "",
         } for d in drivers],
     }
+
+
+def normalise_classes(classes):
+    out = []
+    ids = set()
+    for i, c in enumerate(classes or []):
+        if not isinstance(c, dict):
+            continue
+        name = str(c.get("name") or "").strip()
+        if not name:
+            raise LeagueError("Every class needs a name.")
+        cid = _slug(c.get("id") or name)
+        base, n = cid, 2
+        while cid in ids:
+            cid, n = f"{base}-{n}", n + 1
+        ids.add(cid)
+        color = str(c.get("color") or "").strip()
+        if not HEX_COLOR.match(color):
+            color = CLASS_PALETTE[i % len(CLASS_PALETTE)]
+        match = c.get("match") or []
+        if isinstance(match, str):
+            match = match.split(",")
+        logo = c.get("logo") or None
+        if logo is not None and not re.fullmatch(r"[a-z0-9-]+\.(png|jpg|webp|svg)", str(logo)):
+            logo = None
+        logo_bg = str(c.get("logo_bg") or "auto").strip().lower()
+        if logo_bg not in ("auto", "keep") and not HEX_COLOR.match(logo_bg):
+            logo_bg = "auto"
+        try:
+            tolerance = min(60, max(0, int(c.get("logo_tolerance", 18))))
+        except (TypeError, ValueError):
+            tolerance = 18
+        out.append({
+            "id": cid,
+            "name": name,
+            "color": color.lower(),
+            "match": [m.strip() for m in match if str(m).strip()],
+            "logo": logo,
+            "logo_bg": logo_bg,
+            "logo_tolerance": tolerance,
+            # "edges": recolour background connected to the logo's border;
+            # "all": also enclosed areas of the same colour (e.g. inside an "O").
+            "logo_fill": "all" if c.get("logo_fill") == "all" else "edges",
+        })
+    return out
 
 
 def normalise_profile(profile):
@@ -233,6 +314,8 @@ def normalise_profile(profile):
             league_id = int(league_id)
         except (TypeError, ValueError) as e:
             raise LeagueError("League ID must be a number.") from e
+    classes = normalise_classes(profile.get("classes"))
+    class_ids = {c["id"] for c in classes}
     drivers = []
     for d in profile.get("drivers") or []:
         if not isinstance(d, dict):
@@ -249,6 +332,8 @@ def normalise_profile(profile):
         }
         for key in EDITABLE_FIELDS:
             entry[key] = str(d.get(key) or "").strip()
+        if entry["class_id"] not in class_ids:
+            entry["class_id"] = ""
         if entry["name"] or entry["cust_id"] is not None:
             drivers.append(entry)
     pid = str(profile.get("id") or (league_id if league_id is not None else _slug(name)))
@@ -258,8 +343,25 @@ def normalise_profile(profile):
         "name": name,
         "source": profile.get("source") or "manual",
         "updated_at": _now_iso(),
+        "classes": classes,
         "drivers": drivers,
     }
+
+
+def sniff_logo(data):
+    """Return the file extension for a supported image, or raise."""
+    if len(data) > MAX_LOGO_BYTES:
+        raise LeagueError("Logo is too large (max 2 MB).")
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    head = data[:1024].lstrip().lower()
+    if head.startswith(b"<svg") or (head.startswith(b"<?xml") and b"<svg" in head):
+        return "svg"
+    raise LeagueError("Logo must be a PNG, JPG, WebP or SVG image.")
 
 
 class LeagueStore:
@@ -293,6 +395,7 @@ class LeagueStore:
                 "league_id": p.get("league_id"),
                 "name": p.get("name", path.stem),
                 "drivers": len(p.get("drivers", [])),
+                "classes": len(p.get("classes", [])),
                 "source": p.get("source"),
                 "updated_at": p.get("updated_at"),
                 "active": p.get("id", path.stem) == self.active_id,
@@ -315,12 +418,53 @@ class LeagueStore:
             tmp.replace(self._path(profile["id"]))
             if profile["id"] == self.active_id:
                 self._active = profile
+            self._prune_logos(profile)
         return profile
+
+    # -- class logos --------------------------------------------------------
+
+    def _logo_dir(self, profile_id):
+        return self.dir / "logos" / _slug(profile_id)
+
+    def _prune_logos(self, profile):
+        """Delete logo files no class refers to any more."""
+        folder = self._logo_dir(profile["id"])
+        if not folder.is_dir():
+            return
+        used = {c.get("logo") for c in profile.get("classes", [])}
+        for f in folder.iterdir():
+            if f.name not in used:
+                f.unlink(missing_ok=True)
+
+    def save_logo(self, profile_id, class_id, data):
+        """Store an uploaded logo for a class and point the class at it."""
+        profile = self.get(profile_id)
+        if profile is None:
+            raise LeagueError("Save the league before adding logos.")
+        cls = next((c for c in profile.get("classes", []) if c["id"] == class_id), None)
+        if cls is None:
+            raise LeagueError("Save the class before adding its logo.")
+        ext = sniff_logo(data)
+        # The content hash in the name makes browsers pick up a replaced logo.
+        name = f"{cls['id']}-{hashlib.sha256(data).hexdigest()[:8]}.{ext}"
+        folder = self._logo_dir(profile["id"])
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_bytes(data)
+        cls["logo"] = name
+        return self.save(profile)
+
+    def logo_file(self, profile_id, filename):
+        """Path of a stored logo, or None. Guards against path tricks."""
+        if not re.fullmatch(r"[a-z0-9-]+\.(png|jpg|webp|svg)", filename or ""):
+            return None
+        path = self._logo_dir(profile_id) / filename
+        return path if path.is_file() else None
 
     def delete(self, profile_id):
         path = self._path(profile_id)
         if path.exists():
             path.unlink()
+        shutil.rmtree(self._logo_dir(profile_id), ignore_errors=True)
         if profile_id == self.active_id:
             self.set_active(None)
 
@@ -360,3 +504,23 @@ class LeagueStore:
             if by_number is None and d.get("cust_id") is None and car_number and d.get("car_number") == car_number:
                 by_number = d
         return by_number
+
+    def class_for(self, entry, car_class, profile=None):
+        """A league's class for a driver: their own pick, else by car class.
+
+        Uses the active league unless ``profile`` is given.
+        """
+        profile = profile or self._active
+        if not profile:
+            return None
+        classes = profile.get("classes", [])
+        if entry and entry.get("class_id"):
+            for c in classes:
+                if c["id"] == entry["class_id"]:
+                    return c
+        wanted = (car_class or "").lower()
+        if wanted:
+            for c in classes:
+                if wanted in (m.lower() for m in c.get("match", [])):
+                    return c
+        return None

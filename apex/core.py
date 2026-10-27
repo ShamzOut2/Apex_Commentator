@@ -171,6 +171,8 @@ class App:
             for ev in events:
                 counts[ev["car_idx"]] = counts.get(ev["car_idx"], 0) + 1
                 last_event[ev["car_idx"]] = ev["id"]
+            classes = {}
+            active_league = self.leagues.active()
             rows = []
             for idx, d in self._drivers.items():
                 lap = _at(frame.lap, idx, -1)
@@ -179,6 +181,7 @@ class App:
                 row = dict(d)
                 league = self.leagues.lookup(d["cust_id"], d["number"])
                 row["league"] = {k: league.get(k, "") for k in ("nickname", "team", "notes")} if league else None
+                row["class_key"] = self._class_key(classes, active_league, league, d)
                 row.update({
                     "lap": lap if lap is not None and lap >= 0 else None,
                     "pct": round(pct, 4) if pct is not None and pct >= 0 else None,
@@ -196,8 +199,12 @@ class App:
                 })
                 rows.append(row)
             self._assign_positions(rows, racing)
+            in_class = {}
             for r in rows:
                 del r["progress"]
+                if r["pos"] is not None:
+                    in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
+                    r["class_pos"] = in_class[r["class_key"]]
             session = self._session(frame)
             snap = {
                 "connected": True,
@@ -220,6 +227,7 @@ class App:
                     "speed": frame.replay_speed,
                 },
                 "drivers": rows,
+                "classes": self._ordered_classes(classes),
                 "events": events[-100:],
                 "league": self._league_summary(),
             }
@@ -234,6 +242,40 @@ class App:
             rows.sort(key=lambda r: (r["official_pos"] or 999, r["best_lap"] or 1e9, -r["progress"]))
         for pos, r in enumerate(rows, start=1):
             r["pos"] = pos if (r["official_pos"] or r["progress"] >= 0) else None
+
+    def _class_key(self, classes, active_league, league_entry, driver):
+        """Record the driver's class in ``classes`` and return its key.
+
+        League classes win; otherwise the iRacing car class is used as-is.
+        """
+        cls = self.leagues.class_for(league_entry, driver["car_class"], active_league)
+        if cls is not None:
+            key = f"league:{cls['id']}"
+            if key not in classes:
+                logo = f"/api/logos/{active_league['id']}/{cls['logo']}" if cls.get("logo") else None
+                order = active_league["classes"].index(cls)
+                classes[key] = {
+                    "key": key, "name": cls["name"], "color": cls["color"], "logo": logo,
+                    "logo_bg": cls.get("logo_bg", "auto"), "logo_tolerance": cls.get("logo_tolerance", 18),
+                    "logo_fill": cls.get("logo_fill", "edges"),
+                    "order": order,
+                }
+            return key
+        name = driver["car_class"] or "Field"
+        key = f"iracing:{name}"
+        if key not in classes:
+            classes[key] = {
+                "key": key, "name": name, "color": driver["class_color"] or "#8b93a3", "logo": None,
+                "logo_bg": "keep", "logo_tolerance": 0, "logo_fill": "edges", "order": 1000 + len(classes),
+            }
+        return key
+
+    @staticmethod
+    def _ordered_classes(classes):
+        out = sorted(classes.values(), key=lambda c: c["order"])
+        for c in out:
+            del c["order"]
+        return out
 
     def _league_summary(self):
         active = self.leagues.active()

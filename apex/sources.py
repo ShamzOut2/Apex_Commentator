@@ -226,7 +226,8 @@ class MockSource:
         self.replay_speed = 1
         self.commands = []  # log of received commands (used by tests)
         n = self.num_cars
-        self.base_lap = [88.0 + self.rng.uniform(0, 4) for _ in range(n)]
+        # Every third car is a slower GT4 so the mock race is multiclass.
+        self.base_lap = [88.0 + self.rng.uniform(0, 4) + (5.0 if self._is_gt4(i) else 0.0) for i in range(n)]
         # Staggered grid: car i starts slightly behind car i-1.
         self.progress = [-(i * 0.006) for i in range(n)]
         self.slow_until = [0.0] * n
@@ -239,6 +240,10 @@ class MockSource:
         self.lap_start = [0.0] * n
         self.phase = [self.rng.uniform(0, math.tau) for _ in range(n)]
         self.drivers = self._build_drivers()
+
+    @staticmethod
+    def _is_gt4(i):
+        return i % 3 == 2
 
     def _build_drivers(self):
         drivers = [{
@@ -256,8 +261,10 @@ class MockSource:
                 "CarIdx": i + 1, "UserName": name, "AbbrevName": f"{last}, {first[0]}",
                 "UserID": 100000 + i, "TeamName": "", "CarNumber": num,
                 "CarNumberRaw": int(num), "CarIsPaceCar": 0, "IsSpectator": 0,
-                "CarScreenNameShort": "GT3", "CarClassShortName": "GT3",
-                "CarClassColor": 0xFFDA59, "IRating": 1500 + (self.num_cars - i) * 120,
+                "CarScreenNameShort": "GT4" if self._is_gt4(i) else "GT3",
+                "CarClassShortName": "GT4" if self._is_gt4(i) else "GT3",
+                "CarClassID": 4084 if self._is_gt4(i) else 4083,
+                "CarClassColor": 0x53FF77 if self._is_gt4(i) else 0xFFDA59, "IRating": 1500 + (self.num_cars - i) * 120,
                 "LicString": "A 3.21", "CurDriverIncidentCount": 0, "TeamIncidentCount": 0,
             })
         return drivers

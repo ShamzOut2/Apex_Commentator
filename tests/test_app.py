@@ -62,6 +62,9 @@ class CoreTests(unittest.TestCase):
         self.assertTrue(snap["connected"])
         drivers = snap["drivers"]
         self.assertEqual(len(drivers), 18)  # pace car excluded
+        # Without a league, classes come straight from iRacing.
+        self.assertEqual([c["key"] for c in snap["classes"]], ["iracing:GT3", "iracing:GT4"])
+        self.assertEqual(snap["classes"][0]["color"], "#ffda59")
         self.assertEqual([d["pos"] for d in drivers], list(range(1, 19)))
         gaps = [d["gap"] for d in drivers]
         self.assertEqual(gaps, sorted(gaps))
@@ -183,7 +186,33 @@ class ServerTests(unittest.TestCase):
         self.assertIn("Rocket", nicknames)
         status, body = self.request("/api/leagues/fetch", {"league_id": "123"})
         self.assertEqual(status, 400)  # no API client configured
+        # Session-built leagues get one class per iRacing class, coloured like iRacing.
+        self.assertEqual(sorted(c["name"] for c in league["classes"]), ["GT3", "GT4"])
+        names = {c["key"]: c for c in snap["classes"]}
+        self.assertEqual(set(names), {"league:gt3", "league:gt4"})
+        for cls_key in names:
+            in_class = [d["class_pos"] for d in snap["drivers"] if d["class_key"] == cls_key]
+            self.assertEqual(in_class, list(range(1, len(in_class) + 1)))
         self.assertEqual(self.request(f"/api/leagues/{league['id']}", method="DELETE")[0], 200)
+
+    def test_logo_upload_and_serve(self):
+        league = self.request("/api/leagues", {"name": "Logo League", "classes": [{"name": "Pro", "color": "#e8463c"}]})[1]["league"]
+        png = b"\x89PNG\r\n\x1a\n" + b"\0" * 16
+        req = urllib.request.Request(f"{self.base}/api/leagues/{league['id']}/classes/pro/logo", data=png,
+                                     method="POST", headers={"Content-Type": "image/png"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            logo = json.load(r)["league"]["classes"][0]["logo"]
+        with urllib.request.urlopen(f"{self.base}/api/logos/{league['id']}/{logo}", timeout=5) as r:
+            self.assertEqual(r.read(), png)
+            self.assertEqual(r.headers["Content-Type"], "image/png")
+            self.assertIn("default-src 'none'", r.headers["Content-Security-Policy"])
+        req = urllib.request.Request(f"{self.base}/api/leagues/{league['id']}/classes/pro/logo", data=b"nope",
+                                     method="POST")
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req, timeout=5)
+        self.assertEqual(ctx.exception.code, 400)
+        self.assertEqual(self.request(f"/api/logos/{league['id']}/..%2F..%2Fx.png")[0], 404)
+        self.request(f"/api/leagues/{league['id']}", method="DELETE")
         self.assertEqual(self.request(f"/api/leagues/{league['id']}")[0], 404)
 
 

@@ -49,7 +49,30 @@ class ProfileTests(unittest.TestCase):
             normalise_profile({"name": "X", "league_id": "abc"})
         p = normalise_profile({"name": "My League!", "drivers": [{"name": " A ", "cust_id": "12"}, {"name": ""}]})
         self.assertEqual(p["id"], "my-league")
-        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": ""}])
+        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": "", "class_id": ""}])
+
+    def test_normalise_classes(self):
+        p = normalise_profile({"name": "L", "classes": [
+            {"name": "Pro", "color": "#E8463C", "match": "GT3, ,GT3 Cup", "logo_bg": "#FFFFFF", "logo_tolerance": 999},
+            {"name": "Pro", "color": "red", "logo": "../../etc/passwd", "logo_bg": "javascript:", "logo_fill": "all"},
+        ], "drivers": [{"name": "A", "class_id": "pro"}, {"name": "B", "class_id": "ghost"}]})
+        pro, pro2 = p["classes"]
+        self.assertEqual((pro["id"], pro["color"], pro["match"]), ("pro", "#e8463c", ["GT3", "GT3 Cup"]))
+        self.assertEqual((pro["logo_bg"], pro["logo_tolerance"], pro["logo_fill"]), ("#ffffff", 60, "edges"))
+        self.assertEqual(pro2["id"], "pro-2")  # ids stay unique
+        self.assertTrue(pro2["color"].startswith("#"))
+        self.assertIsNone(pro2["logo"])
+        self.assertEqual((pro2["logo_bg"], pro2["logo_fill"]), ("auto", "all"))
+        self.assertEqual([d["class_id"] for d in p["drivers"]], ["pro", ""])
+        with self.assertRaises(LeagueError):
+            normalise_profile({"name": "L", "classes": [{"name": " "}]})
+
+    def test_refresh_keeps_classes(self):
+        old = normalise_profile(dict(profile_from_api(API_LEAGUE), classes=[{"name": "Am", "color": "#2f80ed"}]))
+        old["drivers"][0]["class_id"] = "am"
+        merged = merge_profiles(old, profile_from_api(API_LEAGUE))
+        self.assertEqual([c["id"] for c in merged["classes"]], ["am"])
+        self.assertEqual(merged["drivers"][0]["class_id"], "am")
 
 
 class FakeClient:
@@ -87,6 +110,41 @@ class StoreTests(unittest.TestCase):
         self.store.delete("4242")
         self.assertEqual(self.store.list(), [])
         self.assertIsNone(self.store.active())
+
+    def test_class_for_prefers_driver_pick_then_car_class(self):
+        p = self.store.fetch(4242)
+        p["classes"] = [{"name": "Pro", "color": "#e8463c", "match": ["GT3"]}, {"name": "Am", "color": "#2f80ed"}]
+        p["drivers"][0]["class_id"] = "am"
+        self.store.save(p)
+        self.store.set_active("4242")
+        amy = self.store.lookup(1, "7")
+        self.assertEqual(self.store.class_for(amy, "GT3")["id"], "am")
+        self.assertEqual(self.store.class_for(self.store.lookup(2, "99"), "gt3")["id"], "pro")
+        self.assertIsNone(self.store.class_for(None, "GT4"))
+
+    def test_logos(self):
+        p = self.store.fetch(4242)
+        p["classes"] = [{"name": "Pro", "color": "#e8463c"}]
+        self.store.save(p)
+        png = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
+        saved = self.store.save_logo("4242", "pro", png)
+        name = saved["classes"][0]["logo"]
+        self.assertRegex(name, r"^pro-[0-9a-f]{8}\.png$")
+        self.assertEqual(self.store.logo_file("4242", name).read_bytes(), png)
+        self.assertIsNone(self.store.logo_file("4242", "../4242.json"))
+        with self.assertRaises(LeagueError):
+            self.store.save_logo("4242", "pro", b"<html>not an image</html>")
+        with self.assertRaises(LeagueError):
+            self.store.save_logo("4242", "nope", png)
+        # Replacing the logo removes the old file; removing the class removes the rest.
+        svg = b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>'
+        name2 = self.store.save_logo("4242", "pro", svg)["classes"][0]["logo"]
+        self.assertTrue(name2.endswith(".svg"))
+        self.assertIsNone(self.store.logo_file("4242", name))
+        p = self.store.get("4242")
+        p["classes"] = []
+        self.store.save(p)
+        self.assertIsNone(self.store.logo_file("4242", name2))
 
     def test_bad_league_id(self):
         with self.assertRaises(LeagueError):

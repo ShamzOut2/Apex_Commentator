@@ -17,6 +17,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body {
   background: var(--bg);
@@ -130,6 +131,18 @@ main { flex: 1; overflow: auto; }
 .actions { display: flex; gap: 4px; justify-content: flex-end; }
 .ev-count { min-width: 22px; text-align: center; }
 
+/* class headers */
+.class-row td { padding: 10px 0 4px; border-bottom: none; }
+.class-head {
+  display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px 0 0;
+  border-radius: var(--radius); font-weight: 700; letter-spacing: .02em; overflow: hidden;
+}
+.class-head .class-name:first-child { padding-left: 12px; }
+.class-logo { height: 34px; max-width: 120px; object-fit: contain; display: block; }
+.class-logo.pending { width: 34px; }
+.class-detail { margin-left: auto; font-weight: 500; font-size: 12px; opacity: .8; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; cursor: pointer; }
+
 .driver-events td { background: var(--panel); padding: 6px 6px 8px 40px; }
 .driver-events .events { margin: 0; }
 
@@ -162,9 +175,31 @@ main { flex: 1; overflow: auto; }
 }
 .league-list li.selected { border-color: var(--accent); }
 .league-list .meta { color: var(--muted); font-size: 12px; }
+.league-layout > * { min-width: 0; }
 .league-editor { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.league-editor > .row { flex-wrap: wrap; }
+.roster-scroll { overflow-x: auto; }
+.roster { min-width: 760px; }
 .roster input { width: 100%; padding: 4px 6px; }
 .roster th { background: var(--panel); }
+
+.section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 18px 0 6px; }
+.class-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.class-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; background: var(--panel-2); }
+.class-preview { margin-bottom: 8px; }
+.class-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 6px; }
+.class-fields label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.class-fields label.grow { flex: 1; min-width: 200px; }
+.class-fields label.grow input { flex: 1; }
+.class-fields input, .class-fields select { color: var(--text); font-size: 13px; }
+.class-fields label.btn { color: var(--text); font-size: 13px; }
+.class-fields input[type="color"] { width: 40px; height: 28px; padding: 2px; }
+.class-fields input[type="range"] { width: 110px; }
+.field-label { color: var(--muted); font-size: 12px; }
+.detected { margin: 0; display: inline-flex; align-items: center; gap: 4px; }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line); }
+.c-class { width: 130px; }
+.roster select { width: 100%; padding: 4px; }
 
 .toast {
   position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(20px);

@@ -4,7 +4,9 @@
 * ``GET  /api/state``            current snapshot
 * ``GET  /api/stream``           Server-Sent Events stream of snapshots
 * ``POST /api/cmd``              ``{"action": "...", "params": {...}}`` spectate/replay commands
-* ``/api/leagues...``            league builder (see ``LeagueRoutes``)
+* ``/api/leagues...``            league builder
+* ``POST /api/leagues/<id>/classes/<class>/logo``  upload a class logo (raw image body)
+* ``GET  /api/logos/<id>/<file>``  serve a class logo
 """
 
 import json
@@ -16,7 +18,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from .core import CommandError
-from .league import LeagueError, profile_from_session
+from .league import LOGO_TYPES, MAX_LOGO_BYTES, LeagueError, profile_from_session
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 MAX_BODY = 2 * 1024 * 1024
@@ -74,6 +76,8 @@ class Handler(BaseHTTPRequestHandler):
                 "replay_auto_return_s": cfg["replay_auto_return_s"],
                 "api_configured": bool(self.app.leagues.client and self.app.leagues.client.configured),
             })
+        if path.startswith("/api/logos/"):
+            return self._logo(path)
         if path == "/api/leagues":
             return self._send_json({"leagues": self.app.leagues.list(), "active": self.app.leagues.active_id})
         if path.startswith("/api/leagues/"):
@@ -85,6 +89,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self._path()
+        parts = path.split("/")
+        if len(parts) == 7 and parts[:3] == ["", "api", "leagues"] and parts[4] == "classes" and parts[6] == "logo":
+            return self._upload_logo(parts[3], parts[5])
         try:
             body = self._body()
         except ValueError as e:
@@ -144,6 +151,35 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
+
+    def _upload_logo(self, league_id, class_id):
+        length = int(self.headers.get("Content-Length") or 0)
+        if not 0 < length <= MAX_LOGO_BYTES:
+            return self._error("Logo must be between 1 byte and 2 MB")
+        data = self.rfile.read(length)
+        try:
+            league = self.app.leagues.save_logo(league_id, class_id, data)
+        except LeagueError as e:
+            return self._error(str(e))
+        self.app.publish()
+        return self._send_json({"ok": True, "league": league})
+
+    def _logo(self, path):
+        parts = path.split("/")
+        target = self.app.leagues.logo_file(parts[3], parts[4]) if len(parts) == 5 else None
+        if target is None:
+            return self._error("Not found", HTTPStatus.NOT_FOUND)
+        data = target.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", LOGO_TYPES[target.suffix.lstrip(".")])
+        self.send_header("Content-Length", str(len(data)))
+        # Names are content-addressed, so they can be cached for good.
+        self.send_header("Cache-Control", "max-age=31536000, immutable")
+        # Uploaded SVGs must never run script if opened directly.
+        self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(data)
 
     def _static(self, path):
         rel = "index.html" if path == "/" else path.lstrip("/")

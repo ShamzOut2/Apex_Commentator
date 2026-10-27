@@ -9,6 +9,9 @@ OBS dock.
   watching is highlighted.
 - **League builder**: pull a league roster from iRacing by **League ID**, then
   add nicknames, teams and notes that show next to each driver in the overlay.
+  Define **classes** with your own names, colours and logos. The driver list
+  groups by class under coloured headers, and each logo's background is
+  recoloured to match its class.
 - **Spectate controls**: watch any driver in one click, step to the car
   ahead or behind, jump to the leader, iRacing's incident/exciting cameras, and
   quick camera-group buttons (TV1, Chase, Cockpit…).
@@ -106,6 +109,48 @@ pronunciation hint), **Save**, then **Use in overlay**. Drivers are matched by
 iRacing customer ID, or by car number for hand-added entries without one.
 Re-fetching a league updates names and numbers, adds new members and keeps your
 notes. Profiles are plain JSON in `data/leagues/`.
+
+### Classes and logos
+
+![class editor](docs/class-editor.png)
+
+Each class has a **name**, a **colour**, and optionally a **logo**.
+**Build from the current session** creates one class per iRacing car class,
+in iRacing's colours. Rename and recolour them as you like, or add your own
+(for example Pro and Am within the same car).
+
+A driver's class comes from:
+
+1. the **Class** picked for them in the roster, or otherwise
+2. the first class whose **iRacing classes** list contains their car class
+   (e.g. `GT3`), or otherwise
+3. their iRacing car class as-is.
+
+In the **Drivers** tab, *Group by class* shows each class under its header,
+with positions, gaps and intervals within the class.
+
+![driver list grouped by class](docs/classes.png)
+
+**Logo backgrounds.** Upload a PNG, JPG, WebP or SVG (up to 2 MB) per class.
+The overlay replaces the logo's background with the class colour, so the
+logo blends into the header, and it updates live as you change the colour:
+
+- **Auto-detect** reads the background from the logo's border: transparent,
+  or its most common colour (white, black…). The detected colour is shown
+  under the class.
+- **Pick logo background** names the colour to replace, for logos where
+  auto-detect guesses wrong.
+- **Keep logo as is** turns recolouring off.
+- **Tolerance** sets how close to the background a pixel must be to get
+  recoloured. Raise it for JPEG noise; lower it if parts of the logo get
+  eaten.
+- **Enclosed areas too** also recolours background-coloured areas that don't
+  touch the edge, like the inside of an "O". It's off by default because it
+  would also recolour white artwork inside the logo.
+
+By default only the background connected to the logo's edge is replaced,
+with anti-aliased edges blended into the new colour. Your original file is kept
+untouched, in `data/leagues/logos/<league>/`.
 
 ### iRacing API credentials
 

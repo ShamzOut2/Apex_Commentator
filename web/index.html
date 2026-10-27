@@ -50,6 +50,9 @@
 
   <main>
     <section id="tab-drivers" class="panel active">
+      <div class="toolbar">
+        <label class="toggle"><input type="checkbox" id="group-classes" checked> Group by class</label>
+      </div>
       <table class="grid drivers">
         <thead>
           <tr>
@@ -100,11 +103,18 @@
             <button id="btn-save-league" class="btn primary">Save</button>
             <button id="btn-activate-league" class="btn">Use in overlay</button>
           </div>
+          <h3 class="section-title">Classes</h3>
+          <p class="hint">Each class gets its own colour and header in the driver list. Drivers join a class by their iRacing car class (the "iRacing classes" field) or by picking it in the roster below. A logo's background is recoloured to the class colour.</p>
+          <div id="class-list" class="class-list"></div>
+          <button id="btn-add-class" class="btn subtle">+ Add class</button>
+          <h3 class="section-title">Drivers</h3>
           <p class="hint">Nicknames, teams and notes show next to drivers in the overlay. Drivers are matched by iRacing customer ID, or by car number when there is no ID.</p>
+          <div class="roster-scroll">
           <table class="grid roster">
-            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num">#</th><th>Nickname</th><th>Team</th><th>Notes</th><th></th></tr></thead>
+            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num">#</th><th>Nickname</th><th>Team</th><th>Notes</th><th class="c-class">Class</th><th></th></tr></thead>
             <tbody id="roster-rows"></tbody>
           </table>
+          </div>
           <button id="btn-add-driver" class="btn subtle">+ Add driver</button>
         </div>
       </div>
