@@ -7,7 +7,8 @@ import threading
 import time
 
 from .events import EventDetector
-from .league import logo_url
+from .gridwalk import GridWalk, grid_order, parse_design
+from .league import driver_key, logo_url
 from .sources import (
     CS_AT_EXCITING,
     CS_AT_INCIDENT,
@@ -67,6 +68,10 @@ class App:
         self._frame = None
         self._return_timer = None
         self._last_push = 0.0
+        self.gridwalk = GridWalk(cfg.get("gridwalk_interval_s", 8), cfg.get("gridwalk_style", "grid"))
+        self._grid_order = []      # car_idx in starting order
+        self._grid_source = ""
+        self._grid_keys = []       # entry keys in automatic order, from the last snapshot
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -85,6 +90,10 @@ class App:
                 self.tick()
             except Exception as e:  # keep the overlay alive whatever happens
                 print(f"[apex] poll error: {e!r}")
+            with self._lock:
+                stepped = self.gridwalk.tick(len(self._grid_keys))
+            if stepped:
+                self.publish()
             if time.monotonic() - self._last_push >= push_period:
                 self._last_push = time.monotonic()
                 self.publish()
@@ -148,8 +157,12 @@ class App:
                 "irating": d.get("IRating"),
                 "license": d.get("LicString", ""),
                 "incidents": incidents if isinstance(incidents, int) and incidents >= 0 else None,
+                "car_design": parse_design(d.get("CarDesignStr")),
+                "helmet_design": parse_design(d.get("HelmetDesignStr")),
             }
         self._drivers = drivers
+        official = {i: p for i, p in enumerate(frame.position) if i in drivers} if frame else None
+        self._grid_order, self._grid_source = grid_order(drivers, info, official)
 
     def _session(self, frame):
         return self._session_meta.get("sessions", {}).get(frame.session_num, {})
@@ -163,7 +176,10 @@ class App:
         with self._lock:
             frame = self._frame
             if frame is None:
-                return {"connected": False, "source": self.source.name, "league": self._league_summary()}
+                return {
+                    "connected": False, "source": self.source.name, "league": self._league_summary(),
+                    "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
+                }
             is_race = self._is_race(frame)
             racing = is_race and frame.session_state == STATE_RACING
             events = self.detector.events
@@ -228,6 +244,7 @@ class App:
                     "speed": frame.replay_speed,
                 },
                 "drivers": rows,
+                "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
                 "classes": self._ordered_classes(classes),
                 "events": events[-100:],
                 "league": self._league_summary(),
@@ -278,6 +295,68 @@ class App:
             del c["order"]
         return out
 
+    # -- grid walk ----------------------------------------------------------
+
+    def _gridwalk_snapshot(self, classes, active_league, frame):
+        """Grid entries in walk order plus the walk state.
+
+        Adds any class it meets to ``classes`` so the overlay can colour it.
+        """
+        entries = {}
+        for idx in self._grid_order:
+            d = self._drivers.get(idx)
+            if d is None:
+                continue
+            league = self.leagues.lookup(d["cust_id"], d["number"])
+            surface = _at(frame.surface, idx, TRK_NOT_IN_WORLD) if frame else TRK_NOT_IN_WORLD
+            entries[f"car:{idx}"] = self._grid_entry(
+                d, league, active_league, classes, car_idx=idx, in_session=True,
+                in_world=surface != TRK_NOT_IN_WORLD,
+            )
+        if self.gridwalk.include_absent and active_league:
+            present_ids = {d["cust_id"] for d in self._drivers.values()}
+            present_names = {d["name"].lower() for d in self._drivers.values()}
+            for ld in active_league.get("drivers", []):
+                if ld.get("cust_id") in present_ids or (ld.get("cust_id") is None and ld["name"].lower() in present_names):
+                    continue
+                d = {"name": ld["name"], "number": ld.get("car_number", ""), "team": "", "car": "",
+                     "car_class": "", "class_color": None, "cust_id": ld.get("cust_id"),
+                     "car_design": None, "helmet_design": None}
+                entries[f"league:{driver_key(ld)}"] = self._grid_entry(
+                    d, ld, active_league, classes, car_idx=None, in_session=False, in_world=False,
+                )
+        self._grid_keys = list(entries)
+        order = self.gridwalk.apply_order(self._grid_keys)
+        in_class = {}
+        out = []
+        for pos, key in enumerate(order, start=1):
+            e = entries[key]
+            in_class[e["class_key"]] = in_class.get(e["class_key"], 0) + 1
+            out.append(dict(e, key=key, grid_pos=pos, class_pos=in_class[e["class_key"]]))
+        return {**self.gridwalk.state(), "source": "manual" if self.gridwalk.manual_order else self._grid_source,
+                "entries": out}
+
+    def _grid_entry(self, d, league, active_league, classes, car_idx, in_session, in_world):
+        league = league or {}
+        pid = active_league["id"] if active_league else ""
+        team = league.get("team") or d.get("team") or ""
+        return {
+            "car_idx": car_idx,
+            "name": d["name"],
+            "nickname": league.get("nickname", ""),
+            "number": d.get("number", ""),
+            "team": team,
+            "team_logo": logo_url(pid, self.leagues.team_logo(team, active_league)) if pid else None,
+            "car": d.get("car", ""),
+            "car_image": logo_url(pid, league.get("car_image")) if pid else None,
+            "helmet_image": logo_url(pid, league.get("helmet_image")) if pid else None,
+            "car_design": d.get("car_design"),
+            "helmet_design": d.get("helmet_design"),
+            "class_key": self._class_key(classes, active_league, league or None, d),
+            "in_session": in_session,
+            "in_world": in_world,
+        }
+
     def _league_summary(self):
         active = self.leagues.active()
         return {"id": active["id"], "name": active["name"]} if active else None
@@ -323,7 +402,8 @@ class App:
         handler = getattr(self, f"cmd_{action}", None)
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
-        if not self.source.connected:
+        # The grid walk can run from the last known grid while disconnected.
+        if not self.source.connected and not action.startswith("gridwalk_"):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -444,3 +524,50 @@ class App:
     def cmd_clear_events(self):
         self.detector.clear()
         self._info_update = None  # re-baseline incident counts
+
+    # -- grid walk commands ---------------------------------------------------
+
+    def _grid_count(self):
+        self.build_snapshot()  # refreshes the entry list
+        return len(self._grid_keys)
+
+    def cmd_gridwalk_start(self, index=0):
+        if not self._grid_count():
+            raise CommandError("No drivers on the grid yet")
+        self.gridwalk.start(int(index))
+
+    def cmd_gridwalk_pause(self):
+        self.gridwalk.pause()
+
+    def cmd_gridwalk_resume(self):
+        if not self._grid_count():
+            raise CommandError("No drivers on the grid yet")
+        self.gridwalk.resume()
+
+    def cmd_gridwalk_next(self):
+        self.gridwalk.step(1, self._grid_count())
+
+    def cmd_gridwalk_prev(self):
+        self.gridwalk.step(-1, self._grid_count())
+
+    def cmd_gridwalk_goto(self, index):
+        self.gridwalk.goto(int(index), self._grid_count())
+
+    def cmd_gridwalk_hide(self):
+        self.gridwalk.hide()
+
+    def cmd_gridwalk_settings(self, interval=None, style=None, loop=None, include_absent=None):
+        try:
+            self.gridwalk.configure(interval, style, loop, include_absent)
+        except ValueError as e:
+            raise CommandError(str(e)) from e
+
+    def cmd_gridwalk_move(self, key, direction):
+        self._grid_count()
+        try:
+            self.gridwalk.move(self._grid_keys, str(key), int(direction))
+        except ValueError as e:
+            raise CommandError(str(e)) from e
+
+    def cmd_gridwalk_reset_order(self):
+        self.gridwalk.reset_order()

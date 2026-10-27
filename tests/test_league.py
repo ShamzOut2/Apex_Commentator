@@ -50,7 +50,7 @@ class ProfileTests(unittest.TestCase):
             normalise_profile({"name": "X", "league_id": "abc"})
         p = normalise_profile({"name": "My League!", "drivers": [{"name": " A ", "cust_id": "12"}, {"name": ""}]})
         self.assertEqual(p["id"], "my-league")
-        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": "", "class_id": ""}])
+        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": "", "class_id": "", "car_image": "", "helmet_image": ""}])
 
     def test_normalise_classes(self):
         p = normalise_profile({"name": "L", "classes": [
@@ -171,6 +171,39 @@ class StoreTests(unittest.TestCase):
             self.assertIn('data-apex-fill="class"', text, path.name)
             self.assertIn('data-apex-fill="ink"', text, path.name)
             self.assertNotIn("<script", text.lower(), path.name)
+
+    def test_driver_and_team_images(self):
+        from apex.league import driver_key
+        p = self.store.fetch(4242)
+        p["drivers"][0]["team"] = "Apex Racing"
+        p["drivers"].append({"name": "No ID", "car_number": "55"})
+        self.store.save(p)
+        png = b"\x89PNG\r\n\x1a\n" + b"\0" * 16
+        amy = self.store.save_image("4242", "car:cust:1", png)["drivers"][0]
+        self.assertRegex(amy["car_image"], r"^car-cust-1-[0-9a-f]{8}\.png$")
+        no_id = next(d for d in self.store.save_image("4242", "helmet:name:no id", png)["drivers"] if d["name"] == "No ID")
+        self.assertEqual(driver_key(no_id), "name:no id")
+        self.assertTrue(no_id["helmet_image"].startswith("helmet-name-no-id-"))
+        team = self.store.save_image("4242", "team:apex racing", png)["teams"]
+        self.assertEqual([t["name"] for t in team], ["apex racing"])
+        self.store.set_active("4242")
+        self.assertEqual(self.store.team_logo("Apex Racing"), team[0]["logo"])
+        with self.assertRaises(LeagueError):
+            self.store.save_image("4242", "car:cust:999", png)
+        with self.assertRaises(LeagueError):
+            self.store.save_image("4242", "wheel:cust:1", png)
+        # Re-fetching keeps photos; dropping a photo deletes its file.
+        refreshed = self.store.fetch(4242)
+        self.assertEqual(refreshed["drivers"][0]["car_image"], amy["car_image"])
+        self.assertTrue(self.store.logo_file("4242", amy["car_image"]))
+        refreshed["drivers"][0]["car_image"] = ""
+        self.store.save(refreshed)
+        self.assertIsNone(self.store.logo_file("4242", amy["car_image"]))
+        # Junk image references are dropped.
+        junk = normalise_profile({"name": "L", "drivers": [{"name": "A", "car_image": "../../x.png"}],
+                                  "teams": [{"name": "T", "logo": "../x.png"}, {"name": "t"}, {"name": ""}]})
+        self.assertEqual(junk["drivers"][0]["car_image"], "")
+        self.assertEqual(junk["teams"], [{"name": "T", "logo": None}])
 
     def test_bad_league_id(self):
         with self.assertRaises(LeagueError):

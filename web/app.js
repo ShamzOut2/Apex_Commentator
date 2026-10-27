@@ -1,30 +1,8 @@
 "use strict";
 
 // ---------------------------------------------------------------------------
-// helpers
+// control panel helpers (shared ones live in common.js)
 // ---------------------------------------------------------------------------
-
-const $ = (sel) => document.querySelector(sel);
-const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
-function fmtLap(t) {
-  if (!t || t <= 0) return "";
-  const m = Math.floor(t / 60);
-  const s = (t - m * 60).toFixed(3).padStart(6, "0");
-  return m ? `${m}:${s}` : (+s).toFixed(3);
-}
-
-function fmtClock(t) {
-  t = Math.max(0, Math.floor(t || 0));
-  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
-  const mm = String(m).padStart(2, "0"), ss = String(s).padStart(2, "0");
-  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-}
-
-function fmtDelta(d) {
-  if (d == null || !isFinite(d)) return "";
-  return (d >= 0 ? "+" : "−") + Math.abs(d).toFixed(1);
-}
 
 let toastTimer;
 function toast(msg, isError = false) {
@@ -54,208 +32,6 @@ async function cmd(action, params = {}, okMsg) {
   } catch (e) {
     toast(e.message, true);
   }
-}
-
-// ---------------------------------------------------------------------------
-// class colours and logos
-// ---------------------------------------------------------------------------
-
-function hexToRgb(hex) {
-  const n = parseInt(String(hex).slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-function rgbToHex([r, g, b]) {
-  return "#" + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
-}
-
-// White stays as long as it keeps 3:1 contrast on the class colour (the
-// large-text minimum); lighter colours get near-black instead.
-function inkFor(hex) {
-  const [r, g, b] = hexToRgb(hex).map((v) => {
-    v /= 255;
-    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-  });
-  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return 1.05 / (luminance + 0.05) >= 3 ? "#fff" : "#111";
-}
-
-const ALPHA_CLEAR = 40;   // alpha below this counts as transparent background
-const MAX_LOGO_PX = 512;  // logos are scaled down to this before processing
-
-// Work out a logo's background from its border pixels: mostly transparent,
-// or the most common colour (bucketed so JPEG noise doesn't split it).
-function detectBackground(px, w, h) {
-  const idx = [];
-  const step = Math.max(1, Math.floor((2 * (w + h)) / 2000));
-  for (let x = 0; x < w; x += step) idx.push(x, (h - 1) * w + x);
-  for (let y = 0; y < h; y += step) idx.push(y * w, y * w + w - 1);
-  let clear = 0;
-  const buckets = new Map();
-  for (const i of idx) {
-    const o = i * 4;
-    if (px[o + 3] < ALPHA_CLEAR) {
-      clear++;
-      continue;
-    }
-    const key = ((px[o] >> 4) << 8) | ((px[o + 1] >> 4) << 4) | (px[o + 2] >> 4);
-    const b = buckets.get(key) || { n: 0, r: 0, g: 0, b: 0 };
-    b.n++; b.r += px[o]; b.g += px[o + 1]; b.b += px[o + 2];
-    buckets.set(key, b);
-  }
-  if (clear >= idx.length * 0.4 || !buckets.size) return { transparent: true, rgb: null };
-  let best = null;
-  for (const b of buckets.values()) if (!best || b.n > best.n) best = b;
-  return { transparent: false, rgb: [best.r / best.n, best.g / best.n, best.b / best.n] };
-}
-
-// Replace the logo's background colour with the class colour. Background is
-// either everything connected to the border ("edges") or every matching
-// pixel ("all"). Anti-aliased fringe pixels are shifted by how much
-// background they contain, so edges stay smooth.
-function recolourBackground(px, w, h, bg, target, tolerance, fillAll) {
-  const t = Math.max(0.02, tolerance / 100);
-  const n = w * h;
-  const dist = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    const o = i * 4;
-    dist[i] = px[o + 3] < ALPHA_CLEAR ? 0
-      : Math.hypot(px[o] - bg[0], px[o + 1] - bg[1], px[o + 2] - bg[2]) / 441.7;
-  }
-  const filled = new Uint8Array(n);
-  if (fillAll) {
-    for (let i = 0; i < n; i++) if (dist[i] <= t) filled[i] = 1;
-  } else {
-    const queue = new Int32Array(n);
-    let head = 0, tail = 0;
-    const seed = (i) => {
-      if (!filled[i] && dist[i] <= t) {
-        filled[i] = 1;
-        queue[tail++] = i;
-      }
-    };
-    for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x); }
-    for (let y = 0; y < h; y++) { seed(y * w); seed(y * w + w - 1); }
-    while (head < tail) {
-      const i = queue[head++];
-      const x = i % w;
-      if (x > 0) seed(i - 1);
-      if (x < w - 1) seed(i + 1);
-      if (i >= w) seed(i - w);
-      if (i < n - w) seed(i + w);
-    }
-  }
-  for (let i = 0; i < n; i++) {
-    const o = i * 4;
-    if (filled[i]) {
-      px[o] = target[0]; px[o + 1] = target[1]; px[o + 2] = target[2]; px[o + 3] = 255;
-      continue;
-    }
-    const x = i % w;
-    const touches = (x > 0 && filled[i - 1]) || (x < w - 1 && filled[i + 1]) ||
-      (i >= w && filled[i - w]) || (i < n - w && filled[i + w]);
-    if (!touches) continue;
-    const k = Math.min(1, Math.max(0, 1 - (dist[i] - t) / (t * 1.5)));
-    const a = px[o + 3] / 255;
-    for (let c = 0; c < 3; c++) {
-      // Shift the background share to the target, then flatten any transparency onto it.
-      const shifted = px[o + c] + k * (target[c] - bg[c]);
-      px[o + c] = Math.min(255, Math.max(0, shifted * a + target[c] * (1 - a)));
-    }
-    px[o + 3] = 255;
-  }
-}
-
-// Lay a transparent logo onto a solid class colour.
-function fillTransparent(px, target) {
-  for (let o = 0; o < px.length; o += 4) {
-    const a = px[o + 3] / 255;
-    for (let c = 0; c < 3; c++) px[o + c] = px[o + c] * a + target[c] * (1 - a);
-    px[o + 3] = 255;
-  }
-}
-
-// Layered SVGs (made by tools/logo_to_svg.py, or hand-made) mark their
-// parts: data-apex-fill="class" takes the class colour exactly, and
-// data-apex-fill="ink" stays white unless the class colour is too light for
-// it. Returns null for any other image so it goes through pixel recolouring.
-async function recolourLayeredSvg(src, color, keep) {
-  if (!/\.svg$/i.test(src)) return null;
-  const text = await (await fetch(src)).text();
-  const doc = new DOMParser().parseFromString(text, "image/svg+xml");
-  const layers = doc.querySelectorAll('[data-apex-fill="class"]');
-  if (doc.querySelector("parsererror") || !layers.length) return null;
-  if (keep) return { url: src, detected: "layered" };
-  layers.forEach((el) => el.setAttribute("fill", color));
-  const ink = inkFor(color) === "#fff" ? "#ffffff" : "#111111";
-  doc.querySelectorAll('[data-apex-fill="ink"]').forEach((el) => el.setAttribute("fill", ink));
-  const blob = new Blob([new XMLSerializer().serializeToString(doc)], { type: "image/svg+xml" });
-  return { url: URL.createObjectURL(blob), detected: "layered" };
-}
-
-async function processLogo(src, color, mode, tolerance, fill) {
-  const layered = await recolourLayeredSvg(src, color, mode === "keep");
-  if (layered) return layered;
-  const img = new Image();
-  img.src = src;
-  await img.decode();
-  let w = img.naturalWidth || 256, h = img.naturalHeight || 256;
-  const scale = Math.min(1, MAX_LOGO_PX / Math.max(w, h));
-  w = Math.max(1, Math.round(w * scale));
-  h = Math.max(1, Math.round(h * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0, w, h);
-  const data = ctx.getImageData(0, 0, w, h);
-  const detected = detectBackground(data.data, w, h);
-  const result = { detected: detected.transparent ? "transparent" : rgbToHex(detected.rgb) };
-  if (mode === "keep") return { ...result, url: src };
-  const target = hexToRgb(color);
-  if (/^#[0-9a-f]{6}$/i.test(mode)) {
-    recolourBackground(data.data, w, h, hexToRgb(mode), target, tolerance, fill === "all");
-  } else if (detected.transparent) {
-    fillTransparent(data.data, target);
-  } else {
-    recolourBackground(data.data, w, h, detected.rgb, target, tolerance, fill === "all");
-  }
-  ctx.putImageData(data, 0, 0);
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-  return { ...result, url: URL.createObjectURL(blob) };
-}
-
-// Processed logos keyed by every setting that affects them. Rendering is
-// synchronous: a miss starts processing and calls onReady when done.
-const logoCache = new Map();
-const LOGO_CACHE_MAX = 60;
-
-function classLogo(cls, onReady) {
-  if (!cls || !cls.logo) return null;
-  const key = [cls.logo, cls.color, cls.logo_bg, cls.logo_tolerance, cls.logo_fill].join("|");
-  const hit = logoCache.get(key);
-  if (hit) return hit.url ? hit : null;
-  logoCache.set(key, {});
-  processLogo(cls.logo, cls.color, cls.logo_bg, cls.logo_tolerance, cls.logo_fill)
-    .then((r) => logoCache.set(key, r))
-    .catch(() => logoCache.set(key, { url: cls.logo, detected: null, failed: true }))
-    .then(() => {
-      while (logoCache.size > LOGO_CACHE_MAX) {
-        const [oldKey, old] = logoCache.entries().next().value;
-        if (old.url && old.url.startsWith("blob:")) URL.revokeObjectURL(old.url);
-        logoCache.delete(oldKey);
-      }
-      if (onReady) onReady();
-    });
-  return null;
-}
-
-function classHeaderHtml(cls, detail, onReady) {
-  const logo = classLogo(cls, onReady);
-  return `<div class="class-head" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">
-    ${logo ? `<img class="class-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}" title="${esc(cls.name)}">`
-      : `<span class="class-name">${esc(cls.name)}</span>`}${detail ? `<span class="class-detail">${esc(detail)}</span>` : ""}
-  </div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +81,7 @@ function render() {
   const lb = $("#league-badge");
   lb.textContent = league ? league.name : "No league";
   lb.classList.toggle("muted", !league);
+  renderGridwalk(s);
 
   if (!s.connected) {
     $("#session-line").textContent = s.source === "iracing" ? "Waiting for iRacing…" : "Not connected";
@@ -511,6 +288,82 @@ function renderEvents(s) {
 }
 
 // ---------------------------------------------------------------------------
+// grid walk
+// ---------------------------------------------------------------------------
+
+let gwRowsKey = "";
+
+function renderGridwalk(s) {
+  const g = s.gridwalk;
+  if (!g) return;
+  const entries = g.entries || [];
+  const classes = new Map((s.classes || []).map((c) => [c.key, c]));
+  $("#gridwalk-badge").textContent = g.visible ? (g.running ? "● on air" : "❚❚ on air") : "";
+  $("#gw-toggle").textContent = g.running ? "❚❚ Pause" : "▶ Resume";
+  for (const [id, value, prop] of [["#gw-interval", g.interval, "value"], ["#gw-style", g.style, "value"],
+    ["#gw-loop", g.loop, "checked"], ["#gw-absent", g.include_absent, "checked"]]) {
+    const el = $(id);
+    if (document.activeElement !== el) el[prop] = value;
+  }
+  const sources = {
+    qualifying: "Grid order from qualifying.", "qualifying session": "Grid order from the qualifying session.",
+    "current positions": "Grid order from current positions (no qualifying results yet).",
+    "car number": "No qualifying results yet: ordered by car number.", manual: "Grid order set by hand.",
+  };
+  $("#gw-source").textContent = entries.length ? sources[g.source] || "" : "";
+  $("#gw-reset-order").hidden = !g.manual_order;
+  $("#gw-empty").hidden = entries.length > 0;
+  // Rebuild rows only when they change, so buttons aren't replaced mid-click.
+  const key = JSON.stringify([g.index, g.visible, entries.map((e) => [e.key, e.number, e.name, e.nickname, e.team,
+    e.in_session, e.in_world, (classes.get(e.class_key) || {}).color])]);
+  if (key === gwRowsKey) return;
+  gwRowsKey = key;
+  $("#gw-rows").innerHTML = entries.map((e, i) => {
+    const onScreen = g.visible && (i === g.index || i === g.index + 1);
+    const color = (classes.get(e.class_key) || {}).color || "var(--muted)";
+    const status = !e.in_session ? '<span class="tag out">NOT IN SESSION</span>'
+      : !e.in_world ? '<span class="tag out">NOT ON TRACK</span>' : "";
+    return `<tr class="${onScreen ? "on-screen" : ""}">
+      <td class="pos">P${e.grid_pos}</td>
+      <td><span class="num" style="border-left-color:${esc(color)}">${esc(e.number)}</span></td>
+      <td><span class="name">${esc(e.name)}</span>${e.nickname ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
+      <td class="sub">${esc(e.team)}</td>
+      <td>${status}</td>
+      <td><div class="actions">
+        <button class="btn" data-gw-goto="${i}" title="Show this driver's pair now">Show</button>
+        <button class="btn icon" data-gw-move="${esc(e.key)}" data-dir="-1" ${i ? "" : "disabled"} title="Move up the grid">↑</button>
+        <button class="btn icon" data-gw-move="${esc(e.key)}" data-dir="1" ${i < entries.length - 1 ? "" : "disabled"} title="Move down the grid">↓</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+}
+
+$("#tab-gridwalk").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  const g = ui.snap && ui.snap.gridwalk;
+  if (btn.dataset.gw) {
+    const action = {
+      start: "gridwalk_start", prev: "gridwalk_prev", next: "gridwalk_next", hide: "gridwalk_hide",
+      toggle: g && g.running ? "gridwalk_pause" : "gridwalk_resume",
+    }[btn.dataset.gw];
+    return cmd(action, {});
+  }
+  if (btn.dataset.gwGoto != null) return cmd("gridwalk_goto", { index: +btn.dataset.gwGoto });
+  if (btn.dataset.gwMove) return cmd("gridwalk_move", { key: btn.dataset.gwMove, direction: +btn.dataset.dir });
+  if (btn.id === "gw-reset-order") return cmd("gridwalk_reset_order", {}, "Grid order reset");
+  if (btn.id === "gw-copy") {
+    navigator.clipboard.writeText($("#gw-url").textContent).then(() => toast("Copied"), () => toast("Copy failed", true));
+  }
+});
+
+$("#gw-interval").addEventListener("change", (e) => cmd("gridwalk_settings", { interval: +e.target.value }));
+$("#gw-style").addEventListener("change", (e) => cmd("gridwalk_settings", { style: e.target.value }));
+$("#gw-loop").addEventListener("change", (e) => cmd("gridwalk_settings", { loop: e.target.checked }));
+$("#gw-absent").addEventListener("change", (e) => cmd("gridwalk_settings", { include_absent: e.target.checked }));
+$("#gw-url").textContent = `${location.origin}/gridwalk.html`;
+
+// ---------------------------------------------------------------------------
 // interactions
 // ---------------------------------------------------------------------------
 
@@ -626,6 +479,7 @@ function openEditor(profile) {
   $("#btn-activate-league").textContent = profile.id && profile.id === ui.activeLeague ? "Active in overlay" : "Use in overlay";
   profile.classes = profile.classes || [];
   renderClasses();
+  renderTeams();
   renderRoster();
   document.querySelectorAll("#league-list li").forEach((li) => li.classList.toggle("selected", li.dataset.league === profile.id));
 }
@@ -640,8 +494,86 @@ function renderRoster() {
   $("#roster-rows").innerHTML = drivers.map((d, i) => `<tr>${ROSTER_FIELDS.map(([f]) =>
     `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"></td>`).join("")}
     <td><select data-row="${i}" data-field="class_id" aria-label="Class">${classOptions(d.class_id || "")}</select></td>
+    <td><div class="photos">${["car", "helmet"].map((kind) => photoButton(d, i, kind)).join("")}</div></td>
     <td><button class="btn icon danger" data-remove="${i}" title="Remove">✕</button></td></tr>`).join("");
 }
+
+function photoButton(d, i, kind) {
+  const file = d[`${kind}_image`];
+  const label = kind === "car" ? "Car" : "Helmet";
+  return `<span class="photo">
+    <label class="thumb" title="${file ? `Replace ${label.toLowerCase()} photo` : `Add ${label.toLowerCase()} photo`}">
+      ${file ? `<img src="${esc(logoSrc(file))}" alt="${label}">` : `+ ${label}`}
+      <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-photo="${kind}" data-row="${i}" hidden>
+    </label>
+    ${file ? `<button class="clear" data-clear-photo="${kind}" data-row="${i}" title="Remove ${label.toLowerCase()} photo">✕</button>` : ""}
+  </span>`;
+}
+
+// Same key the server uses (league.driver_key) to find a roster driver.
+function driverKey(d) {
+  const id = String(d.cust_id ?? "").trim();
+  return /^\d+$/.test(id) ? `cust:${+id}` : `name:${String(d.name || "").trim().toLowerCase()}`;
+}
+
+// Save the league, then upload an image for one of its classes, teams or drivers.
+async function uploadImage(target, file) {
+  const saved = await saveEditor();
+  const res = await fetch(`/api/leagues/${encodeURIComponent(saved.id)}/images?target=${encodeURIComponent(target)}`, {
+    method: "POST",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+  openEditor(data.league);
+  return data.league;
+}
+
+// -- teams --------------------------------------------------------------------
+
+function editorTeams() {
+  const teams = (ui.editing.teams = ui.editing.teams || []);
+  const known = new Set(teams.map((t) => t.name.toLowerCase()));
+  for (const d of ui.editing.drivers || []) {
+    const name = String(d.team || "").trim();
+    if (name && !known.has(name.toLowerCase())) {
+      known.add(name.toLowerCase());
+      teams.push({ name, logo: null });
+    }
+  }
+  return teams;
+}
+
+function renderTeams() {
+  const teams = editorTeams();
+  $("#team-list").innerHTML = teams.length ? teams.map((t, i) => `<div class="team-row">
+      <span class="team-logo">${t.logo ? `<img src="${esc(logoSrc(t.logo))}" alt="">` : ""}</span>
+      <span class="team-name">${esc(t.name)}</span>
+      <label class="btn">${t.logo ? "Replace logo" : "Upload logo"}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-team="${i}" hidden></label>
+      ${t.logo ? `<button class="btn subtle" data-clear-team="${i}">Remove</button>` : ""}
+    </div>`).join("") : '<p class="hint">No teams yet: fill in the Team column below.</p>';
+}
+
+$("#team-list").addEventListener("change", async (e) => {
+  const input = e.target.closest("[data-team]");
+  if (!input || !input.files.length) return;
+  const team = editorTeams()[+input.dataset.team];
+  try {
+    await uploadImage(`team:${team.name}`, input.files[0]);
+    toast(`Logo added to ${team.name}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
+$("#team-list").addEventListener("click", (e) => {
+  const clear = e.target.closest("[data-clear-team]");
+  if (clear) {
+    editorTeams()[+clear.dataset.clearTeam].logo = null;
+    renderTeams();
+  }
+});
 
 // -- classes ------------------------------------------------------------------
 
@@ -785,18 +717,9 @@ $("#class-list").addEventListener("change", async (e) => {
   const i = +input.dataset.upload;
   const file = input.files[0];
   try {
-    // The class needs a saved id before it can own a logo.
-    const saved = await saveEditor();
-    const cls = saved.classes[i];
-    const res = await fetch(`/api/leagues/${encodeURIComponent(saved.id)}/classes/${encodeURIComponent(cls.id)}/logo`, {
-      method: "POST",
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-      body: file,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
-    openEditor(data.league);
-    toast(`Logo added to ${cls.name}`);
+    // Class ids are set when a class is added and kept on save.
+    const saved = await uploadImage(`class:${ui.editing.classes[i].id}`, file);
+    toast(`Logo added to ${saved.classes[i].name}`);
   } catch (err) {
     toast(err.message, true);
   }
@@ -839,7 +762,25 @@ $("#roster-rows").addEventListener("input", (e) => {
   const { row, field } = e.target.dataset;
   if (row != null) ui.editing.drivers[+row][field] = e.target.value;
 });
+$("#roster-rows").addEventListener("change", async (e) => {
+  if (e.target.dataset.field === "team") return renderTeams();
+  const input = e.target.closest("[data-photo]");
+  if (!input || !input.files.length) return;
+  const d = ui.editing.drivers[+input.dataset.row];
+  if (!d.name && !d.cust_id) return toast("Give the driver a name first", true);
+  try {
+    await uploadImage(`${input.dataset.photo}:${driverKey(d)}`, input.files[0]);
+    toast(`${input.dataset.photo === "car" ? "Car" : "Helmet"} photo added for ${d.name}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
 $("#roster-rows").addEventListener("click", (e) => {
+  const clearPhoto = e.target.closest("[data-clear-photo]");
+  if (clearPhoto) {
+    ui.editing.drivers[+clearPhoto.dataset.row][`${clearPhoto.dataset.clearPhoto}_image`] = "";
+    return renderRoster();
+  }
   const rm = e.target.closest("[data-remove]");
   if (rm) {
     ui.editing.drivers.splice(+rm.dataset.remove, 1);
@@ -907,7 +848,7 @@ $("#session-form").addEventListener("submit", async (e) => {
 });
 
 $("#btn-new-league").addEventListener("click", () => {
-  openEditor({ id: "", name: "", league_id: null, source: "manual", classes: [], drivers: [] });
+  openEditor({ id: "", name: "", league_id: null, source: "manual", classes: [], teams: [], drivers: [] });
   $("#edit-name").focus();
 });
 

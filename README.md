@@ -18,6 +18,9 @@ OBS dock.
 - **Replays**: overtakes and incidents are detected for every car and
   saved with their exact session time. One click replays a driver's latest
   moment, or any moment from the event feed, and **Go live** takes you back.
+- **Grid walk**: an on-stream graphic that walks the starting grid two drivers
+  at a time, with livery, helmet, name, team and team logo. It's drawn on a
+  starting grid or as a head-to-head, and advances on a timer you set.
 
 ![layout: control bar, driver table with Watch / Replay / events per driver](docs/overview.png)
 
@@ -93,6 +96,45 @@ Things to know:
 - Thresholds (`overtake_hold_s`, `slowdown_ratio`…) can be tuned in
   `config.json`.
 
+## Grid walk
+
+![grid walk on a drawn starting grid](docs/gridwalk-grid.png)
+
+The **Grid walk** tab runs a broadcast graphic that goes through the whole
+field, front to back, two drivers at a time:
+
+- **Order**: the grid comes from qualifying. If there are no qualifying
+  results yet, the latest qualifying session's results are used, then current
+  positions, then car number. Every driver entered in the session is included,
+  even if they haven't loaded onto the track (flagged *Not on track*). Drivers
+  without a qualifying time go to the back. Use **↑ / ↓** to fix the order by
+  hand (inverted grids, penalties), and **Reset order** to go back.
+  *League drivers not in session* adds the active league's remaining roster at
+  the back.
+- **Each driver** shows grid position (and class position in multiclass
+  races), car number in the class colour, class logo, name, nickname, team,
+  team logo, car livery and helmet.
+- **Photos**: upload a car livery photo and a helmet photo per driver in the
+  league builder (**Photos** column), and team logos in the **Teams**
+  section. A driver without photos gets a car and helmet drawn in their actual
+  iRacing paint colours (from the sim's design strings), so nobody shows up
+  blank.
+- **Controls**: *Start from P1*, *Pause/Resume*, *Prev/Next* pair, *Show*
+  on any driver to jump to their pair, and *Hide* to take it off screen.
+  *Seconds per pair* sets the timer, and *Loop* restarts from the front.
+  Without Loop, the graphic leaves the screen after the last pair.
+- **Style**: *Starting grid* draws the whole grid with the current pair lit
+  up, and the two cards in staggered grid boxes. *Head to head* puts the
+  pair side by side.
+
+![grid walk head to head](docs/gridwalk-h2h.png)
+
+**On stream**: in OBS add a **Browser Source** of 1920×1080 pointing at
+`http://localhost:8180/gridwalk.html`. Its background is transparent, so it
+sits over your game feed. The walk runs on the server, so the OBS source, the
+preview in the tab, and any other copy all stay in step. Add `?preview=1` to
+the URL to view it on a backdrop in a normal browser.
+
 ## League builder
 
 Open the **League builder** tab.
@@ -140,7 +182,7 @@ hard to read on that colour (under 3:1 contrast), when it turns dark: Gold
 and Silver, for example.
 
 **Logo backgrounds.** You can also upload your own PNG, JPG, WebP or SVG (up
-to 2 MB) per class. For SVGs with marked layers, the overlay recolours those
+to 8 MB) per class. For SVGs with marked layers, the overlay recolours those
 layers exactly (see *Adding logos* below). For any other image it replaces
 the logo's background with the class colour, so the logo blends into the
 header, and the result updates live as you change the colour:
@@ -210,6 +252,8 @@ defaults:
 | `overtake_hold_s` | `1.5` | How long a pass must hold to count |
 | `slowdown_ratio` | `0.35` | Speed below this fraction of recent pace counts as a slowdown |
 | `event_cooldown_s` | `8` | Minimum gap between incidents logged for the same car |
+| `gridwalk_interval_s` | `8` | Grid walk: seconds each pair stays on screen |
+| `gridwalk_style` | `"grid"` | Grid walk style: `"grid"` or `"h2h"` |
 
 ## Development
 
@@ -218,9 +262,13 @@ apex/
   sources.py   iRacing (pyirsdk) and mock telemetry sources
   events.py    overtake / incident detection
   core.py      poll loop, snapshot, spectate & replay commands
+  gridwalk.py  grid order and grid walk state
   league.py    iRacing Data API client and league profiles
   server.py    stdlib HTTP server + Server-Sent Events
 web/           the overlay UI (plain HTML/CSS/JS, no build step)
+  index.html   control panel (app.js)
+  gridwalk.html  grid walk broadcast graphic for OBS (gridwalk.js)
+  common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos
 tools/
   logo_to_svg.py  converts badge logos to layered SVG (dev only)

@@ -6,6 +6,8 @@
   "replay_preroll_s": 6.0,
   "replay_auto_return_s": 0,
   "default_camera_group": "",
+  "gridwalk_interval_s": 8,
+  "gridwalk_style": "grid",
   "overtake_hold_s": 1.5,
   "overtake_max_gap_laps": 0.04,
   "slowdown_ratio": 0.35,

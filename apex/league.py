@@ -59,10 +59,11 @@ UPLOADED_LOGO = re.compile(r"[a-z0-9-]+\.(png|jpg|webp|svg)")
 LIBRARY_LOGO = re.compile(r"lib:([a-z0-9-]+\.svg)")
 TOKEN_URL = "https://oauth.iracing.com/oauth2/token"
 DATA_URL = "https://members-ng.iracing.com/data"
-EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id")
+EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "car_image", "helmet_image")
+DRIVER_IMAGES = ("car_image", "helmet_image")
 # Distinct defaults handed to new classes, in order.
 CLASS_PALETTE = ["#e8463c", "#2f80ed", "#27ae60", "#f2c94c", "#9b51e0", "#f2994a", "#56ccf2", "#eb5ea8"]
-MAX_LOGO_BYTES = 2 * 1024 * 1024
+MAX_IMAGE_BYTES = 8 * 1024 * 1024  # livery screenshots can be big
 LOGO_TYPES = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp", "svg": "image/svg+xml"}
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
@@ -223,6 +224,7 @@ def merge_profiles(existing, fresh):
     result = dict(fresh)
     result["drivers"] = merged
     result["classes"] = existing.get("classes", [])
+    result["teams"] = existing.get("teams", [])
     return result
 
 
@@ -375,8 +377,22 @@ def normalise_profile(profile):
             entry[key] = str(d.get(key) or "").strip()
         if entry["class_id"] not in class_ids:
             entry["class_id"] = ""
+        for key in DRIVER_IMAGES:
+            if not UPLOADED_LOGO.fullmatch(entry[key]):
+                entry[key] = ""
         if entry["name"] or entry["cust_id"] is not None:
             drivers.append(entry)
+    teams = []
+    seen_teams = set()
+    for t in profile.get("teams") or []:
+        if not isinstance(t, dict):
+            continue
+        team_name = str(t.get("name") or "").strip()
+        if not team_name or team_name.lower() in seen_teams:
+            continue
+        seen_teams.add(team_name.lower())
+        logo = t.get("logo") or None
+        teams.append({"name": team_name, "logo": logo if logo and _valid_logo_ref(str(logo)) else None})
     pid = str(profile.get("id") or (league_id if league_id is not None else _slug(name)))
     return {
         "id": _slug(pid) if league_id is None else str(pid),
@@ -385,14 +401,22 @@ def normalise_profile(profile):
         "source": profile.get("source") or "manual",
         "updated_at": _now_iso(),
         "classes": classes,
+        "teams": teams,
         "drivers": drivers,
     }
 
 
+def driver_key(driver):
+    """Stable reference to a roster driver: their customer ID, else their name."""
+    if driver.get("cust_id") is not None:
+        return f"cust:{driver['cust_id']}"
+    return f"name:{driver.get('name', '').strip().lower()}"
+
+
 def sniff_logo(data):
     """Return the file extension for a supported image, or raise."""
-    if len(data) > MAX_LOGO_BYTES:
-        raise LeagueError("Logo is too large (max 2 MB).")
+    if len(data) > MAX_IMAGE_BYTES:
+        raise LeagueError("Image is too large (max 8 MB).")
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "png"
     if data.startswith(b"\xff\xd8\xff"):
@@ -402,7 +426,7 @@ def sniff_logo(data):
     head = data[:1024].lstrip().lower()
     if head.startswith(b"<svg") or (head.startswith(b"<?xml") and b"<svg" in head):
         return "svg"
-    raise LeagueError("Logo must be a PNG, JPG, WebP or SVG image.")
+    raise LeagueError("Image must be a PNG, JPG, WebP or SVG file.")
 
 
 class LeagueStore:
@@ -468,30 +492,60 @@ class LeagueStore:
         return self.dir / "logos" / _slug(profile_id)
 
     def _prune_logos(self, profile):
-        """Delete logo files no class refers to any more."""
+        """Delete image files nothing in the profile refers to any more."""
         folder = self._logo_dir(profile["id"])
         if not folder.is_dir():
             return
         used = {c.get("logo") for c in profile.get("classes", [])}
+        used |= {t.get("logo") for t in profile.get("teams", [])}
+        used |= {d.get(k) for d in profile.get("drivers", []) for k in DRIVER_IMAGES}
         for f in folder.iterdir():
             if f.name not in used:
                 f.unlink(missing_ok=True)
 
     def save_logo(self, profile_id, class_id, data):
         """Store an uploaded logo for a class and point the class at it."""
+        return self.save_image(profile_id, f"class:{class_id}", data)
+
+    def save_image(self, profile_id, target, data):
+        """Store an uploaded image and point the profile at it.
+
+        ``target`` is ``class:<class id>``, ``team:<team name>``,
+        ``car:<driver key>`` or ``helmet:<driver key>`` (see ``driver_key``).
+        """
         profile = self.get(profile_id)
         if profile is None:
-            raise LeagueError("Save the league before adding logos.")
-        cls = next((c for c in profile.get("classes", []) if c["id"] == class_id), None)
-        if cls is None:
-            raise LeagueError("Save the class before adding its logo.")
+            raise LeagueError("Save the league before adding images.")
+        kind, _, key = str(target).partition(":")
+        if kind == "class":
+            owner = next((c for c in profile.get("classes", []) if c["id"] == key), None)
+            if owner is None:
+                raise LeagueError("Save the class before adding its logo.")
+            field, prefix = "logo", owner["id"]
+        elif kind == "team":
+            key = key.strip()
+            if not key:
+                raise LeagueError("Team needs a name.")
+            teams = profile.setdefault("teams", [])
+            owner = next((t for t in teams if t["name"].lower() == key.lower()), None)
+            if owner is None:
+                owner = {"name": key, "logo": None}
+                teams.append(owner)
+            field, prefix = "logo", f"team-{_slug(key)}"
+        elif kind in ("car", "helmet"):
+            owner = next((d for d in profile.get("drivers", []) if driver_key(d) == key), None)
+            if owner is None:
+                raise LeagueError("Save the driver before adding images.")
+            field, prefix = f"{kind}_image", f"{kind}-{_slug(key)}"
+        else:
+            raise LeagueError("Unknown image target.")
         ext = sniff_logo(data)
-        # The content hash in the name makes browsers pick up a replaced logo.
-        name = f"{cls['id']}-{hashlib.sha256(data).hexdigest()[:8]}.{ext}"
+        # The content hash in the name makes browsers pick up a replaced image.
+        name = f"{prefix}-{hashlib.sha256(data).hexdigest()[:8]}.{ext}"
         folder = self._logo_dir(profile["id"])
         folder.mkdir(parents=True, exist_ok=True)
         (folder / name).write_bytes(data)
-        cls["logo"] = name
+        owner[field] = name
         return self.save(profile)
 
     def logo_file(self, profile_id, filename):
@@ -564,4 +618,14 @@ class LeagueStore:
             for c in classes:
                 if wanted in (m.lower() for m in c.get("match", [])):
                     return c
+        return None
+
+    def team_logo(self, team_name, profile=None):
+        """Logo reference for a team in a league (the active one by default)."""
+        profile = profile or self._active
+        if not profile or not team_name:
+            return None
+        for t in profile.get("teams", []):
+            if t["name"].lower() == team_name.strip().lower():
+                return t.get("logo")
         return None

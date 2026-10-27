@@ -154,7 +154,7 @@ class IRacingSource:
             update = self.ir.session_info_update
             if update != self._info_update:
                 info = {}
-                for key in ("WeekendInfo", "SessionInfo", "DriverInfo", "CameraInfo"):
+                for key in ("WeekendInfo", "SessionInfo", "DriverInfo", "CameraInfo", "QualifyResultsInfo"):
                     try:
                         info[key] = self.ir[key] or {}
                     except Exception:
@@ -188,6 +188,9 @@ class IRacingSource:
 # ---------------------------------------------------------------------------
 # Mock source
 # ---------------------------------------------------------------------------
+
+MOCK_TEAMS = ["Apex Racing", "Redline Motorsport", "Northbound GT", "Kestrel Works", "Vanta Racing", "Halcyon Motorsport"]
+MOCK_COLORS = ["d7263d", "1b76d1", "f2c94c", "111111", "ffffff", "2a9d58", "f2994a", "7b2cbf", "56ccf2", "9aa5b1"]
 
 MOCK_NAMES = [
     "Ayrton Vale", "Kimi Strand", "Lena Brooks", "Marco Feld", "Sofia Reyes",
@@ -228,8 +231,12 @@ class MockSource:
         n = self.num_cars
         # Every third car is a slower GT4 so the mock race is multiclass.
         self.base_lap = [88.0 + self.rng.uniform(0, 4) + (5.0 if self._is_gt4(i) else 0.0) for i in range(n)]
-        # Staggered grid: car i starts slightly behind car i-1.
-        self.progress = [-(i * 0.006) for i in range(n)]
+        # Qualifying order: quickest base pace first, with a little luck.
+        self.qual_order = sorted(range(n), key=lambda i: self.base_lap[i] + self.rng.uniform(0, 1.5))
+        # Staggered grid in qualifying order.
+        self.progress = [0.0] * n
+        for rank, i in enumerate(self.qual_order):
+            self.progress[i] = -(rank * 0.006)
         self.slow_until = [0.0] * n
         self.offtrack_until = [0.0] * n
         self.pit_until = [0.0] * n
@@ -259,15 +266,23 @@ class MockSource:
             num = str((i * 7) % 97 + 2)
             drivers.append({
                 "CarIdx": i + 1, "UserName": name, "AbbrevName": f"{last}, {first[0]}",
-                "UserID": 100000 + i, "TeamName": "", "CarNumber": num,
+                "UserID": 100000 + i, "TeamName": MOCK_TEAMS[i % len(MOCK_TEAMS)], "CarNumber": num,
                 "CarNumberRaw": int(num), "CarIsPaceCar": 0, "IsSpectator": 0,
                 "CarScreenNameShort": "GT4" if self._is_gt4(i) else "GT3",
                 "CarClassShortName": "GT4" if self._is_gt4(i) else "GT3",
                 "CarClassID": 4084 if self._is_gt4(i) else 4083,
                 "CarClassColor": 0x53FF77 if self._is_gt4(i) else 0xFFDA59, "IRating": 1500 + (self.num_cars - i) * 120,
                 "LicString": "A 3.21", "CurDriverIncidentCount": 0, "TeamIncidentCount": 0,
+                "CarDesignStr": self._design(),
+                "HelmetDesignStr": self._design(),
+                "CarNumberDesignStr": "0,0,ffffff,111111,000000",
             })
         return drivers
+
+    def _design(self):
+        """A random iRacing-style design string: pattern,colour1,colour2,colour3."""
+        colors = self.rng.sample(MOCK_COLORS, 3)
+        return f"{self.rng.randint(0, 20)},{colors[0]},{colors[1]},{colors[2]}"
 
     def connect(self):
         self.connected = True
@@ -389,6 +404,10 @@ class MockSource:
                     "SessionLaps": "30", "SessionTime": "unlimited",
                 }]},
                 "DriverInfo": {"DriverCarIdx": 1, "Drivers": [dict(d) for d in self.drivers]},
+                "QualifyResultsInfo": {"Results": [
+                    {"Position": pos, "ClassPosition": pos, "CarIdx": i + 1, "FastestTime": round(self.base_lap[i] - 1.2, 3)}
+                    for pos, i in enumerate(self.qual_order)
+                ]},
                 "CameraInfo": {"Groups": [
                     {"GroupNum": 1, "GroupName": "Nose"},
                     {"GroupNum": 2, "GroupName": "Gearbox"},

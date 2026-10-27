@@ -4,6 +4,7 @@ import threading
 import time
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from apex.config import DEFAULTS
@@ -116,6 +117,28 @@ class CoreTests(unittest.TestCase):
         with self.assertRaises(CommandError):
             self.app.command("replay_event", {"event_id": 10 ** 9})
 
+    def test_grid_walk(self):
+        g = self.app.build_snapshot()["gridwalk"]
+        entries = g["entries"]
+        self.assertEqual(len(entries), 18)
+        self.assertEqual(g["source"], "qualifying")
+        self.assertEqual([e["grid_pos"] for e in entries], list(range(1, 19)))
+        # The mock's grid follows its qualifying order.
+        self.assertEqual([e["car_idx"] for e in entries], [i + 1 for i in self.source.qual_order])
+        self.assertTrue(all(e["car_design"] and e["helmet_design"] for e in entries))
+        self.assertEqual(entries[0]["team"], self.source.drivers[entries[0]["car_idx"]]["TeamName"])
+        self.app.command("gridwalk_start", {})
+        self.app.command("gridwalk_next", {})
+        g = self.app.build_snapshot()["gridwalk"]
+        self.assertEqual((g["visible"], g["running"], g["index"]), (True, True, 2))
+        self.app.command("gridwalk_move", {"key": entries[1]["key"], "direction": -1})
+        g = self.app.build_snapshot()["gridwalk"]
+        self.assertEqual((g["entries"][0]["key"], g["source"]), (entries[1]["key"], "manual"))
+        self.app.command("gridwalk_reset_order", {})
+        self.app.command("gridwalk_hide", {})
+        with self.assertRaises(CommandError):
+            self.app.command("gridwalk_settings", {"style": "nope"})
+
     def test_unknown_action_and_bad_car(self):
         with self.assertRaises(CommandError):
             self.app.command("self_destruct", {})
@@ -194,6 +217,33 @@ class ServerTests(unittest.TestCase):
             in_class = [d["class_pos"] for d in snap["drivers"] if d["class_key"] == cls_key]
             self.assertEqual(in_class, list(range(1, len(in_class) + 1)))
         self.assertEqual(self.request(f"/api/leagues/{league['id']}", method="DELETE")[0], 200)
+
+    def test_grid_walk_league_details(self):
+        status, body = self.request("/api/leagues/from-session", {"name": "Grid League"})
+        league = body["league"]
+        first = league["drivers"][0]
+        first["nickname"] = "Rocket"
+        league["drivers"].append({"name": "Absent Andy", "car_number": "404", "team": "Ghost GP"})
+        league = self.request("/api/leagues", league)[1]["league"]
+        png = b"\x89PNG\r\n\x1a\n" + b"\0" * 16
+        for target in (f"car:cust:{first['cust_id']}", f"team:{first['team']}"):
+            req = urllib.request.Request(f"{self.base}/api/leagues/{league['id']}/images?target={urllib.parse.quote(target)}",
+                                         data=png, method="POST", headers={"Content-Type": "image/png"})
+            urllib.request.urlopen(req, timeout=5).close()
+        self.request("/api/leagues/active", {"id": league["id"]})
+        self.request("/api/cmd", {"action": "gridwalk_settings", "params": {"include_absent": True}})
+        entries = self.request("/api/state")[1]["gridwalk"]["entries"]
+        mine = next(e for e in entries if e["name"] == first["name"])
+        self.assertEqual(mine["nickname"], "Rocket")
+        self.assertTrue(mine["car_image"].startswith(f"/api/logos/{league['id']}/car-"))
+        self.assertTrue(mine["team_logo"].startswith(f"/api/logos/{league['id']}/team-"))
+        self.assertIsNone(mine["helmet_image"])
+        absent = entries[-1]
+        self.assertEqual((absent["name"], absent["in_session"], absent["grid_pos"]), ("Absent Andy", False, len(entries)))
+        with urllib.request.urlopen(self.base + mine["car_image"], timeout=5) as r:
+            self.assertEqual(r.read(), png)
+        self.request("/api/cmd", {"action": "gridwalk_settings", "params": {"include_absent": False}})
+        self.request(f"/api/leagues/{league['id']}", method="DELETE")
 
     def test_logo_upload_and_serve(self):
         league = self.request("/api/leagues", {"name": "Logo League", "classes": [{"name": "Pro", "color": "#e8463c"}]})[1]["league"]

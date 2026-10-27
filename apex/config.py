@@ -24,6 +24,9 @@ DEFAULTS = {
     "replay_preroll_s": 6.0,      # start replays this many seconds before the event
     "replay_auto_return_s": 0,    # >0: jump back to live after this many seconds
     "default_camera_group": "",   # camera group name to use for Watch/Replay ("" = keep current)
+    # Grid walk defaults (both can be changed live from the Grid walk tab).
+    "gridwalk_interval_s": 8,     # seconds each pair of drivers stays on screen
+    "gridwalk_style": "grid",     # "grid" (starting grid drawing) or "h2h" (head to head)
     # Event detection tuning.
     "overtake_hold_s": 1.5,       # a pass must hold this long to count
     "overtake_max_gap_laps": 0.04,  # only cars this close on track are compared

@@ -6,6 +6,7 @@
 * ``POST /api/cmd``              ``{"action": "...", "params": {...}}`` spectate/replay commands
 * ``/api/leagues...``            league builder
 * ``POST /api/leagues/<id>/classes/<class>/logo``  upload a class logo (raw image body)
+* ``POST /api/leagues/<id>/images?target=...``     upload a class/team/car/helmet image
 * ``GET  /api/logos/<id>/<file>``  serve a class logo
 * ``GET  /api/logo-library``     the built-in class logos (``web/logos/``)
 """
@@ -16,10 +17,10 @@ import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .core import CommandError
-from .league import LOGO_TYPES, MAX_LOGO_BYTES, LeagueError, logo_library, profile_from_session
+from .league import LOGO_TYPES, MAX_IMAGE_BYTES, LeagueError, logo_library, profile_from_session
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 MAX_BODY = 2 * 1024 * 1024
@@ -94,7 +95,10 @@ class Handler(BaseHTTPRequestHandler):
         path = self._path()
         parts = path.split("/")
         if len(parts) == 7 and parts[:3] == ["", "api", "leagues"] and parts[4] == "classes" and parts[6] == "logo":
-            return self._upload_logo(parts[3], parts[5])
+            return self._upload_image(parts[3], f"class:{parts[5]}")
+        if len(parts) == 5 and parts[:3] == ["", "api", "leagues"] and parts[4] == "images":
+            target = parse_qs(urlparse(self.path).query).get("target", [""])[0]
+            return self._upload_image(parts[3], target)
         try:
             body = self._body()
         except ValueError as e:
@@ -155,13 +159,13 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
-    def _upload_logo(self, league_id, class_id):
+    def _upload_image(self, league_id, target):
         length = int(self.headers.get("Content-Length") or 0)
-        if not 0 < length <= MAX_LOGO_BYTES:
-            return self._error("Logo must be between 1 byte and 2 MB")
+        if not 0 < length <= MAX_IMAGE_BYTES:
+            return self._error("Image must be between 1 byte and 8 MB")
         data = self.rfile.read(length)
         try:
-            league = self.app.leagues.save_logo(league_id, class_id, data)
+            league = self.app.leagues.save_image(league_id, target, data)
         except LeagueError as e:
             return self._error(str(e))
         self.app.publish()

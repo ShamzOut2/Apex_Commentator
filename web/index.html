@@ -45,6 +45,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab active" data-tab="drivers">Drivers <span id="driver-count" class="count"></span></button>
     <button class="tab" data-tab="events">Events <span id="event-count" class="count"></span></button>
+    <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
     <button class="tab" data-tab="league">League builder</button>
   </nav>
 
@@ -79,6 +80,47 @@
       <p id="events-empty" class="empty">Overtakes and incidents appear here as they happen.</p>
     </section>
 
+    <section id="tab-gridwalk" class="panel">
+      <div class="gw-layout">
+        <div class="gw-side">
+          <div class="gw-controls">
+            <button class="btn primary" data-gw="start" title="Start from the front of the grid">▶ Start from P1</button>
+            <button class="btn" data-gw="toggle" id="gw-toggle">❚❚ Pause</button>
+            <button class="btn" data-gw="prev" title="Previous pair">◀ Prev</button>
+            <button class="btn" data-gw="next" title="Next pair">Next ▶</button>
+            <button class="btn subtle" data-gw="hide" title="Take the graphic off screen">Hide</button>
+          </div>
+          <div class="gw-settings">
+            <label>Seconds per pair <input id="gw-interval" type="number" min="2" max="120" step="1"></label>
+            <label>Style
+              <select id="gw-style">
+                <option value="grid">Starting grid</option>
+                <option value="h2h">Head to head</option>
+              </select>
+            </label>
+            <label class="toggle"><input type="checkbox" id="gw-loop"> Loop</label>
+            <label class="toggle" title="Add drivers from the active league who are not in this session, at the back">
+              <input type="checkbox" id="gw-absent"> League drivers not in session</label>
+          </div>
+          <p class="hint">On stream: add a <b>Browser Source</b> in OBS (1920×1080) with
+            <code id="gw-url"></code> <button class="btn subtle icon" id="gw-copy" title="Copy URL">Copy</button>.
+            Its background is transparent.</p>
+          <div class="gw-preview"><iframe id="gw-frame" title="Grid walk preview" src="gridwalk.html?preview=1"></iframe></div>
+        </div>
+        <div class="gw-order">
+          <div class="toolbar">
+            <span id="gw-source" class="hint"></span>
+            <button class="btn subtle" id="gw-reset-order" hidden>Reset order</button>
+          </div>
+          <table class="grid gw-table">
+            <thead><tr><th class="c-pos">Grid</th><th class="c-num">#</th><th>Driver</th><th>Team</th><th class="c-status"></th><th class="c-actions"></th></tr></thead>
+            <tbody id="gw-rows"></tbody>
+          </table>
+          <p id="gw-empty" class="empty">The grid appears once drivers are in the session.</p>
+        </div>
+      </div>
+    </section>
+
     <section id="tab-league" class="panel">
       <div class="league-layout">
         <aside class="league-side">
@@ -107,11 +149,14 @@
           <p class="hint">Each class gets its own colour and header in the driver list. Drivers join a class by their iRacing car class (the "iRacing classes" field) or by picking it in the roster below. A logo's background is recoloured to the class colour.</p>
           <div id="class-list" class="class-list"></div>
           <button id="btn-add-class" class="btn subtle">+ Add class</button>
+          <h3 class="section-title">Teams</h3>
+          <p class="hint">Team logos show next to the team name in the grid walk. Teams are taken from the roster's Team column.</p>
+          <div id="team-list" class="team-list"></div>
           <h3 class="section-title">Drivers</h3>
           <p class="hint">Nicknames, teams and notes show next to drivers in the overlay. Drivers are matched by iRacing customer ID, or by car number when there is no ID.</p>
           <div class="roster-scroll">
           <table class="grid roster">
-            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num">#</th><th>Nickname</th><th>Team</th><th>Notes</th><th class="c-class">Class</th><th></th></tr></thead>
+            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num">#</th><th>Nickname</th><th>Team</th><th>Notes</th><th class="c-class">Class</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
             <tbody id="roster-rows"></tbody>
           </table>
           </div>
@@ -122,6 +167,7 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="common.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
