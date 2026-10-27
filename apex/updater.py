@@ -4,20 +4,25 @@ On start (and every few hours) the app asks GitHub for the newest release of
 ``update_repo``. If it's newer than the running version, the control panel
 shows a pop-up offering to install it.
 
-Installing downloads the release's source archive, checks it is an Apex
-Commentator tree, and copies it over the install, leaving ``config.json`` and
-``data/`` (leagues, logos, photos) alone. The app then restarts itself.
+How an update is installed depends on how the app was installed:
 
-A git checkout is never overwritten: it is told to ``git pull`` instead, so a
-developer's working tree is never clobbered.
+* **Windows app** (the packaged ``.exe``): download the release's
+  ``ApexCommentator-Setup-<version>.exe`` asset and run it silently. The app
+  closes, the installer replaces it and reopens it. User data lives in
+  ``%APPDATA%`` and is never touched.
+* **From source**: download the release's source archive, check it is an Apex
+  Commentator tree, and copy it over the install, leaving ``config.json`` and
+  ``data/`` alone. The app then restarts itself. A git checkout is never
+  overwritten: it is told to ``git pull`` instead.
 
-Releases are published by pushing a version tag (``v0.2.0``): the
-``release`` GitHub Actions workflow turns it into a release. If a repository
-has tags but no releases, the newest version tag is used instead.
+Releases are published by the ``release`` GitHub Actions workflow when a new
+version lands on main (or a version tag is pushed). If a repository has tags
+but no releases, the newest version tag is used instead.
 """
 
 import io
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -33,6 +38,8 @@ from pathlib import Path
 API = "https://api.github.com"
 CHECK_EVERY_S = 6 * 3600
 MAX_ARCHIVE_BYTES = 50 * 1024 * 1024
+MAX_INSTALLER_BYTES = 300 * 1024 * 1024
+INSTALLER_RE = re.compile(r"^ApexCommentator-Setup-.*\.exe$", re.IGNORECASE)
 # Never overwritten by an update: the user's settings and league data.
 KEEP = {"config.json", "data", ".git"}
 VERSION_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
@@ -49,7 +56,8 @@ def parse_version(text):
 
 
 class Updater:
-    def __init__(self, current, repo, root, state_file, token="", enabled=True, opener=None):
+    def __init__(self, current, repo, root, state_file, token="", enabled=True, opener=None,
+                 installer_mode=False, launcher=None):
         self.current = current
         self.repo = repo.strip().strip("/")
         self.root = Path(root)
@@ -63,6 +71,9 @@ class Updater:
         self.error = None
         self.installing = False
         self.installed = None     # version installed and awaiting restart
+        # Packaged app: update by running the release's installer.
+        self.installer_mode = installer_mode
+        self._launch = launcher or _launch_detached
 
     # -- GitHub ----------------------------------------------------------------
 
@@ -88,6 +99,11 @@ class Updater:
                     "url": rel.get("html_url") or f"https://github.com/{self.repo}/releases",
                     "zip_url": rel.get("zipball_url") or f"{API}/repos/{self.repo}/zipball/{rel['tag_name']}",
                     "published_at": rel.get("published_at"),
+                    "installer": next((
+                        {"name": a["name"], "url": a["browser_download_url"], "size": a.get("size", 0)}
+                        for a in rel.get("assets") or []
+                        if INSTALLER_RE.match(a.get("name", "")) and a.get("browser_download_url")
+                    ), None),
                 }
         except urllib.error.HTTPError as e:
             if e.code != 404:
@@ -104,6 +120,7 @@ class Updater:
             "url": f"https://github.com/{self.repo}/releases/tag/{tag}",
             "zip_url": f"{API}/repos/{self.repo}/zipball/{tag}",
             "published_at": None,
+            "installer": None,
         }
 
     def check(self):
@@ -155,13 +172,19 @@ class Updater:
             "latest": latest and {k: latest[k] for k in ("version", "tag", "notes", "url", "published_at")},
             "available": available,
             "skipped": available and self._skipped() == latest["version"],
-            "can_install": available and not self.is_git_checkout(),
-            "git_checkout": self.is_git_checkout(),
+            "can_install": available and self._can_install(latest),
+            "mode": "installer" if self.installer_mode else "files",
+            "git_checkout": not self.installer_mode and self.is_git_checkout(),
             "installing": self.installing,
             "installed": self.installed,
             "checked_at": self.checked_at,
             "error": self.error,
         }
+
+    def _can_install(self, latest):
+        if self.installer_mode:
+            return bool(latest.get("installer"))
+        return not self.is_git_checkout()
 
     def is_git_checkout(self):
         return (self.root / ".git").exists()
@@ -175,12 +198,18 @@ class Updater:
             raise UpdateError("You're already on the newest version.")
         if status["git_checkout"]:
             raise UpdateError("This is a git checkout: update it with `git pull` instead.")
+        if not status["can_install"]:
+            raise UpdateError("This release has no Windows installer: download it from the release page.")
         with self._lock:
             if self.installing:
                 raise UpdateError("An update is already being installed.")
             self.installing = True
         try:
             latest = self.latest
+            if self.installer_mode:
+                self._run_installer(latest)
+                self.installed = latest["version"]
+                return latest["version"]
             with self._get(latest["zip_url"], accept="application/octet-stream") as resp:
                 data = resp.read(MAX_ARCHIVE_BYTES + 1)
             if len(data) > MAX_ARCHIVE_BYTES:
@@ -223,6 +252,21 @@ class Updater:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, dest)
 
+    def _run_installer(self, latest):
+        """Download the release's installer and start it; it replaces and reopens the app."""
+        asset = latest["installer"]
+        with self._get(asset["url"], accept="application/octet-stream") as resp:
+            data = resp.read(MAX_INSTALLER_BYTES + 1)
+        if len(data) > MAX_INSTALLER_BYTES:
+            raise UpdateError("The installer is unexpectedly large.")
+        if not data.startswith(b"MZ") or (asset.get("size") and len(data) != asset["size"]):
+            raise UpdateError("The installer download is incomplete or damaged.")
+        folder = Path(tempfile.mkdtemp(prefix="apex-update-"))
+        path = folder / asset["name"]
+        path.write_bytes(data)
+        # The installer waits for this app to exit, updates it, then reopens it.
+        self._launch([str(path), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/RELAUNCH"])
+
     def _install_requirements(self):
         req = self.root / "requirements.txt"
         if req.is_file():
@@ -231,10 +275,20 @@ class Updater:
                            check=False, timeout=600)
 
 
-# Set after an update is installed; __main__ shuts down and relaunches.
+def _launch_detached(args):
+    flags = 0
+    if os.name == "nt":
+        flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+    subprocess.Popen(args, creationflags=flags, close_fds=True)
+
+
+# Set after an update is installed; __main__ shuts down, then relaunches
+# itself unless an installer is going to do that.
 restart_requested = threading.Event()
+restart_options = {"relaunch": True}
 
 
-def request_restart(delay=1.0):
+def request_restart(delay=1.0, relaunch=True):
     """Ask the app to restart shortly (giving the HTTP response time to go out)."""
+    restart_options["relaunch"] = relaunch
     threading.Timer(delay, restart_requested.set).start()

@@ -17,14 +17,13 @@ import mimetypes
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .core import CommandError
 from .league import LOGO_TYPES, MAX_IMAGE_BYTES, LeagueError, logo_library, profile_from_session
+from .paths import WEB_DIR
 from .updater import UpdateError, request_restart
 
-WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 MAX_BODY = 2 * 1024 * 1024
 # Explicit types: the Windows registry sometimes maps .js to text/plain.
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml"}
@@ -180,7 +179,8 @@ class Handler(BaseHTTPRequestHandler):
                 version = updater.install()
             except UpdateError as e:
                 return self._error(str(e))
-            request_restart()
+            # An installer reopens the app itself; a file update needs a relaunch.
+            request_restart(relaunch=not updater.installer_mode)
             return self._send_json({"ok": True, "version": version, "restarting": True})
         return self._error("Not found", HTTPStatus.NOT_FOUND)
 
@@ -215,8 +215,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def _static(self, path):
         rel = "index.html" if path == "/" else path.lstrip("/")
-        target = (WEB_DIR / rel).resolve()
-        if WEB_DIR not in target.parents or not target.is_file():
+        web = WEB_DIR.resolve()
+        target = (web / rel).resolve()
+        if web not in target.parents or not target.is_file():
             return self._error("Not found", HTTPStatus.NOT_FOUND)
         data = target.read_bytes()
         self.send_response(HTTPStatus.OK)

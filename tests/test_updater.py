@@ -41,7 +41,7 @@ class FakeGitHub:
             return io.BytesIO(json.dumps(self.release).encode())
         if "/tags" in url:
             return io.BytesIO(json.dumps([{"name": t} for t in self.tags]).encode())
-        if "zipball" in url:
+        if "zipball" in url or url.endswith(".exe"):
             return io.BytesIO(self.zip_bytes)
         raise AssertionError(url)
 
@@ -149,6 +149,45 @@ class UpdaterTests(unittest.TestCase):
         u.check()
         with self.assertRaises(UpdateError):
             u.install()
+
+    def installer_updater(self, release, payload):
+        launched = []
+        u = Updater("0.1.0", REPO, self.root, self.root / "data" / "update.json",
+                    opener=FakeGitHub(release=release, zip_bytes=payload),
+                    installer_mode=True, launcher=launched.append)
+        return u, launched
+
+    def test_windows_app_updates_with_the_release_installer(self):
+        exe = b"MZ" + b"\0" * 100
+        release = dict(RELEASE, assets=[
+            {"name": "ApexCommentator-0.2.0-windows-portable.zip", "browser_download_url": "https://x/p.zip", "size": 9},
+            {"name": "ApexCommentator-Setup-0.2.0.exe", "browser_download_url": "https://x/ApexCommentator-Setup-0.2.0.exe",
+             "size": len(exe)},
+        ])
+        u, launched = self.installer_updater(release, exe)
+        s = u.check()
+        self.assertEqual((s["mode"], s["can_install"], s["git_checkout"]), ("installer", True, False))
+        self.assertEqual(u.install(), "0.2.0")
+        (cmd,) = launched
+        self.assertTrue(cmd[0].endswith("ApexCommentator-Setup-0.2.0.exe"))
+        self.assertEqual(Path(cmd[0]).read_bytes(), exe)
+        self.assertEqual(cmd[1:], ["/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/RELAUNCH"])
+        # The installer handles the app's own files: nothing copied into it.
+        self.assertIn('"0.1.0"', (self.root / "apex" / "__init__.py").read_text())
+
+    def test_windows_app_refuses_bad_or_missing_installers(self):
+        u, launched = self.installer_updater(RELEASE, b"")
+        self.assertFalse(u.check()["can_install"])  # release has no installer asset
+        with self.assertRaises(UpdateError):
+            u.install()
+        bad = dict(RELEASE, assets=[{"name": "ApexCommentator-Setup-0.2.0.exe",
+                                     "browser_download_url": "https://x/ApexCommentator-Setup-0.2.0.exe", "size": 500}])
+        for payload in (b"<html>not an exe</html>", b"MZ" + b"\0" * 10):  # wrong type / truncated
+            u, launched = self.installer_updater(bad, payload)
+            u.check()
+            with self.assertRaises(UpdateError):
+                u.install()
+            self.assertEqual(launched, [])
 
     def test_disabled(self):
         u = Updater("0.1.0", REPO, self.root, self.root / "u.json", enabled=False, opener=FakeGitHub(fail=AssertionError()))
