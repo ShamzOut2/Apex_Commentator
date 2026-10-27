@@ -274,16 +274,12 @@ to run `git pull` instead. To turn update checks off, set
 1. Bump `__version__` in `apex/__init__.py` (e.g. `0.2.0`).
 2. Add a `## v0.2.0` section to `CHANGELOG.md`: it becomes the release notes
    shown in the pop-up.
-3. Commit, then tag and push the tag:
+3. Get it onto `main` (merge the pull request).
 
-   ```
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
-
-The **Release** GitHub Actions workflow checks that the tag matches the app
-version, runs the tests, and publishes the GitHub release. Every running
-copy of the app then offers the update.
+The **Release** GitHub Actions workflow sees the new version on `main`, runs
+the tests, tags the commit `v0.2.0` and publishes the GitHub release. Every
+running copy of the app then offers the update. Pushing a `v0.2.0` tag
+yourself works too. A version that's already released is skipped.
 
 ## Configuration
 

@@ -1,9 +1,16 @@
-# Publishes a GitHub release whenever a version tag (v1.2.3) is pushed.
+# Publishes a GitHub release for the app version in apex/__init__.py.
 # Installed apps check the latest release and offer it as an update.
+#
+# Runs when:
+#  - a commit that changes apex/__init__.py lands on main (a version bump), or
+#  - a version tag (v1.2.3) is pushed.
+# A version that already has a release is skipped, so re-runs are harmless.
 name: Release
 
 on:
   push:
+    branches: [main]
+    paths: [apex/__init__.py]
     tags: ["v*.*.*"]
 
 permissions:
@@ -15,34 +22,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the tag matches the app version
+      - name: Work out the version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' apex/__init__.py)
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+          tag="v$version"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "$tag" ]; then
             echo "::error::Tag $GITHUB_REF_NAME doesn't match apex/__init__.py version $version"
             exit 1
           fi
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "Release $tag already exists: nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-python@v5
+        if: steps.version.outputs.skip != 'true'
         with:
           python-version: "3.12"
 
       - name: Run tests
+        if: steps.version.outputs.skip != 'true'
         run: python -m unittest discover -s tests -t .
 
       - name: Publish release
+        if: steps.version.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          notes_file=release-notes.md
-          # Use the changelog section for this version if there is one.
-          awk -v v="${GITHUB_REF_NAME#v}" '
+          # Use the changelog section for this version as the notes, if there is one.
+          awk -v v="${TAG#v}" '
             $0 ~ "^## \\[?v?"v"\\]?" {found=1; next}
             found && /^## / {exit}
             found {print}
-          ' CHANGELOG.md > "$notes_file" || true
-          if [ -s "$notes_file" ]; then
-            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$notes_file"
+          ' CHANGELOG.md > release-notes.md || true
+          if [ -s release-notes.md ]; then
+            notes=(--notes-file release-notes.md)
           else
-            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+            notes=(--generate-notes)
           fi
+          # Creates the tag on this commit if it doesn't exist yet.
+          gh release create "$TAG" --title "$TAG" --target "$GITHUB_SHA" "${notes[@]}"
