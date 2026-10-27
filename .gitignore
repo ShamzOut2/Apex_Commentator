@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+config.json
+data/leagues/*
+!data/leagues/.gitkeep

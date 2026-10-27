@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apex Commentator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span id="status-dot" class="dot"></span>Apex</div>
+    <div id="session-line" class="session-line">Waiting for iRacing…</div>
+    <div class="topbar-right">
+      <button id="update-badge" class="badge update" hidden title="A new version is available">Update available</button>
+      <span id="league-badge" class="badge muted" title="Active league">No league</span>
+      <span id="replay-badge" class="badge">—</span>
+      <button id="btn-live" class="btn primary" title="Back to live (L)">Go live</button>
+    </div>
+  </header>
+
+  <section class="controls" aria-label="Spectate controls">
+    <div class="group">
+      <span class="label">Camera</span>
+      <select id="camera-group" title="Camera group"></select>
+      <div id="camera-quick" class="chips"></div>
+    </div>
+    <div class="group">
+      <span class="label">Spectate</span>
+      <button class="btn" data-cmd="step_car" data-direction="-1" title="Car ahead (↑)">▲ Ahead</button>
+      <button class="btn" data-cmd="step_car" data-direction="1" title="Car behind (↓)">▼ Behind</button>
+      <button class="btn" data-cmd="watch_special" data-mode="leader">Leader</button>
+      <button class="btn" data-cmd="watch_special" data-mode="exciting" title="iRacing picks the most exciting car">Exciting</button>
+      <button class="btn" data-cmd="watch_special" data-mode="incident" title="iRacing incident camera">Incident cam</button>
+    </div>
+    <div class="group">
+      <span class="label">Replay</span>
+      <button class="btn" data-cmd="replay_seconds" data-seconds="10" title="Instant replay 10 s (R)">↺ 10s</button>
+      <button class="btn" data-cmd="replay_seconds" data-seconds="30">↺ 30s</button>
+      <button class="btn" data-cmd="replay_incident" data-direction="-1" title="Previous iRacing incident marker">◀ Inc</button>
+      <button class="btn" data-cmd="replay_incident" data-direction="1" title="Next iRacing incident marker">Inc ▶</button>
+      <button class="btn" data-cmd="replay_speed" data-speed="0" title="Pause">❚❚</button>
+      <button class="btn" data-cmd="replay_speed" data-speed="1" title="Play">▶</button>
+    </div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="drivers">Drivers <span id="driver-count" class="count"></span></button>
+    <button class="tab" data-tab="events">Events <span id="event-count" class="count"></span></button>
+    <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
+    <button class="tab" data-tab="league">League builder</button>
+  </nav>
+
+  <main>
+    <section id="tab-drivers" class="panel active">
+      <div class="toolbar">
+        <label class="toggle"><input type="checkbox" id="group-classes" checked> Group by class</label>
+      </div>
+      <table class="grid drivers">
+        <thead>
+          <tr>
+            <th class="c-pos">P</th><th class="c-num">#</th><th>Driver</th><th class="c-num">Lap</th>
+            <th class="c-time">Gap</th><th class="c-time col-wide">Int</th><th class="c-time col-wide">Last</th><th class="c-time col-wide">Best</th>
+            <th class="c-num" title="Incident points">Inc</th><th class="c-status"></th><th class="c-actions"></th>
+          </tr>
+        </thead>
+        <tbody id="driver-rows"></tbody>
+      </table>
+      <p id="drivers-empty" class="empty">No drivers yet. Start iRacing and join or spectate a session.</p>
+    </section>
+
+    <section id="tab-events" class="panel">
+      <div class="toolbar">
+        <div class="chips" id="event-filter">
+          <button class="chip active" data-filter="all">All</button>
+          <button class="chip" data-filter="overtake">Overtakes</button>
+          <button class="chip" data-filter="incident">Incidents</button>
+        </div>
+        <button class="btn subtle" data-cmd="clear_events">Clear</button>
+      </div>
+      <ul id="event-list" class="events"></ul>
+      <p id="events-empty" class="empty">Overtakes and incidents appear here as they happen.</p>
+    </section>
+
+    <section id="tab-gridwalk" class="panel">
+      <div class="gw-layout">
+        <div class="gw-side">
+          <div class="gw-controls">
+            <button class="btn primary" data-gw="start" title="Start from the front of the grid">▶ Start from P1</button>
+            <button class="btn" data-gw="toggle" id="gw-toggle">❚❚ Pause</button>
+            <button class="btn" data-gw="prev" title="Previous pair">◀ Prev</button>
+            <button class="btn" data-gw="next" title="Next pair">Next ▶</button>
+            <button class="btn subtle" data-gw="hide" title="Take the graphic off screen">Hide</button>
+          </div>
+          <div class="gw-settings">
+            <label>Seconds per pair <input id="gw-interval" type="number" min="2" max="120" step="1"></label>
+            <label>Style
+              <select id="gw-style">
+                <option value="track">Grid on track</option>
+                <option value="grid">Grid map</option>
+                <option value="h2h">Head to head</option>
+              </select>
+            </label>
+            <label class="toggle"><input type="checkbox" id="gw-loop"> Loop</label>
+            <label class="toggle" title="Add drivers from the active league who are not in this session, at the back">
+              <input type="checkbox" id="gw-absent"> League drivers not in session</label>
+          </div>
+          <p class="hint">On stream: add a <b>Browser Source</b> in OBS (1920×1080) with
+            <code id="gw-url"></code> <button class="btn subtle icon" id="gw-copy" title="Copy URL">Copy</button>.
+            Grid map and Head to head have a transparent background.</p>
+          <div class="gw-preview"><iframe id="gw-frame" title="Grid walk preview" src="gridwalk.html?preview=1"></iframe></div>
+        </div>
+        <div class="gw-order">
+          <div class="toolbar">
+            <span id="gw-source" class="hint"></span>
+            <button class="btn subtle" id="gw-reset-order" hidden>Reset order</button>
+          </div>
+          <table class="grid gw-table">
+            <thead><tr><th class="c-pos">Grid</th><th class="c-num">#</th><th>Driver</th><th>Team</th><th class="c-status"></th><th class="c-actions"></th></tr></thead>
+            <tbody id="gw-rows"></tbody>
+          </table>
+          <p id="gw-empty" class="empty">The grid appears once drivers are in the session.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-league" class="panel">
+      <div class="league-layout">
+        <aside class="league-side">
+          <h3>Load a league</h3>
+          <form id="fetch-form" class="row">
+            <input id="fetch-id" inputmode="numeric" placeholder="League ID" aria-label="League ID">
+            <button class="btn primary" type="submit">Fetch</button>
+          </form>
+          <p id="api-hint" class="hint"></p>
+          <form id="session-form" class="row">
+            <input id="session-name" placeholder="Name (from current session)" aria-label="League name">
+            <button class="btn" type="submit">Build</button>
+          </form>
+          <button id="btn-new-league" class="btn subtle">+ Blank league</button>
+          <h3>Saved leagues</h3>
+          <ul id="league-list" class="league-list"></ul>
+        </aside>
+        <div class="league-editor" id="league-editor" hidden>
+          <div class="row">
+            <input id="edit-name" class="grow" placeholder="League name" aria-label="League name">
+            <input id="edit-league-id" class="narrow" placeholder="League ID" aria-label="iRacing League ID">
+            <button id="btn-save-league" class="btn primary">Save</button>
+            <button id="btn-activate-league" class="btn">Use in overlay</button>
+          </div>
+          <h3 class="section-title">Classes</h3>
+          <p class="hint">Each class gets its own colour and header in the driver list. Drivers join a class by their iRacing car class (the "iRacing classes" field) or by picking it in the roster below. A logo's background is recoloured to the class colour.</p>
+          <div id="class-list" class="class-list"></div>
+          <button id="btn-add-class" class="btn subtle">+ Add class</button>
+          <h3 class="section-title">Teams</h3>
+          <p class="hint">Team logos show next to the team name in the grid walk. Teams are taken from the roster's Team column.</p>
+          <div id="team-list" class="team-list"></div>
+          <h3 class="section-title">Drivers</h3>
+          <p class="hint">Nicknames, teams and notes show next to drivers in the overlay. Drivers are matched by iRacing customer ID, or by car number when there is no ID.</p>
+          <div class="roster-scroll">
+          <table class="grid roster">
+            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num">#</th><th>Nickname</th><th>Team</th><th>Notes</th><th class="c-class">Class</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
+            <tbody id="roster-rows"></tbody>
+          </table>
+          </div>
+          <button id="btn-add-driver" class="btn subtle">+ Add driver</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="update-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="update-title">
+      <h2 id="update-title">Update available</h2>
+      <p class="update-versions"><span id="update-current"></span> → <b id="update-latest"></b></p>
+      <div id="update-notes" class="update-notes"></div>
+      <p id="update-hint" class="hint"></p>
+      <div class="modal-actions">
+        <button class="btn subtle" id="update-skip">Skip this version</button>
+        <button class="btn" id="update-later">Later</button>
+        <button class="btn primary" id="update-install">Update now</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="common.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
