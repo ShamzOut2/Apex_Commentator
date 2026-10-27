@@ -7,6 +7,7 @@ import threading
 import time
 
 from .events import EventDetector
+from .league import logo_url
 from .sources import (
     CS_AT_EXCITING,
     CS_AT_INCIDENT,
@@ -252,7 +253,7 @@ class App:
         if cls is not None:
             key = f"league:{cls['id']}"
             if key not in classes:
-                logo = f"/api/logos/{active_league['id']}/{cls['logo']}" if cls.get("logo") else None
+                logo = logo_url(active_league["id"], cls.get("logo"))
                 order = active_league["classes"].index(cls)
                 classes[key] = {
                     "key": key, "name": cls["name"], "color": cls["color"], "logo": logo,

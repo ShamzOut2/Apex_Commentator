@@ -131,9 +131,19 @@ with positions, gaps and intervals within the class.
 
 ![driver list grouped by class](docs/classes.png)
 
-**Logo backgrounds.** Upload a PNG, JPG, WebP or SVG (up to 2 MB) per class.
-The overlay replaces the logo's background with the class colour, so the
-logo blends into the header, and it updates live as you change the colour:
+**Built-in logos.** The league's tier logos ship with the app as layered
+SVGs in `web/logos/`: PRO, SEMI-PRO, PRO-AM, AM, GOLD, SILVER and BRONZE.
+Pick one from a class's **Logo** list. A class named after one of them
+("Pro", "Semi Pro", "Gold"…) picks it up automatically. The badge is drawn
+in exactly the class colour. The lettering stays white unless white would be
+hard to read on that colour (under 3:1 contrast), when it turns dark: Gold
+and Silver, for example.
+
+**Logo backgrounds.** You can also upload your own PNG, JPG, WebP or SVG (up
+to 2 MB) per class. For SVGs with marked layers, the overlay recolours those
+layers exactly (see *Adding logos* below). For any other image it replaces
+the logo's background with the class colour, so the logo blends into the
+header, and the result updates live as you change the colour:
 
 - **Auto-detect** reads the background from the logo's border: transparent,
   or its most common colour (white, black…). The detected colour is shown
@@ -151,6 +161,19 @@ logo blends into the header, and it updates live as you change the colour:
 By default only the background connected to the logo's edge is replaced,
 with anti-aliased edges blended into the new colour. Your original file is kept
 untouched, in `data/leagues/logos/<league>/`.
+
+**Adding logos.** `tools/logo_to_svg.py` turns a dark-badge, light-lettering
+logo (like the built-in ones) into a layered SVG. Straight badge edges are
+fitted as exact lines, and the lettering is traced with Potrace.
+
+```
+pip install pillow potracer          # only needed for the converter
+python tools/logo_to_svg.py my-logo.png --out-dir web/logos
+```
+
+Drop the result in `web/logos/` to add it to the library, or upload it to a
+class. In a hand-made SVG, mark the part that should take the class colour
+with `data-apex-fill="class"`, and the lettering with `data-apex-fill="ink"`.
 
 ### iRacing API credentials
 
@@ -198,6 +221,9 @@ apex/
   league.py    iRacing Data API client and league profiles
   server.py    stdlib HTTP server + Server-Sent Events
 web/           the overlay UI (plain HTML/CSS/JS, no build step)
+  logos/       built-in layered class logos
+tools/
+  logo_to_svg.py  converts badge logos to layered SVG (dev only)
 tests/
 ```
 

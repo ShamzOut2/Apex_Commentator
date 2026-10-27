@@ -7,6 +7,7 @@
 * ``/api/leagues...``            league builder
 * ``POST /api/leagues/<id>/classes/<class>/logo``  upload a class logo (raw image body)
 * ``GET  /api/logos/<id>/<file>``  serve a class logo
+* ``GET  /api/logo-library``     the built-in class logos (``web/logos/``)
 """
 
 import json
@@ -18,7 +19,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from .core import CommandError
-from .league import LOGO_TYPES, MAX_LOGO_BYTES, LeagueError, profile_from_session
+from .league import LOGO_TYPES, MAX_LOGO_BYTES, LeagueError, logo_library, profile_from_session
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 MAX_BODY = 2 * 1024 * 1024
@@ -76,6 +77,8 @@ class Handler(BaseHTTPRequestHandler):
                 "replay_auto_return_s": cfg["replay_auto_return_s"],
                 "api_configured": bool(self.app.leagues.client and self.app.leagues.client.configured),
             })
+        if path == "/api/logo-library":
+            return self._send_json({"logos": logo_library()})
         if path.startswith("/api/logos/"):
             return self._logo(path)
         if path == "/api/leagues":

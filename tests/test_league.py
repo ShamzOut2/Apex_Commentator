@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from pathlib import Path
 
 from apex.league import (
     LeagueError, LeagueStore, mask_secret, merge_profiles, normalise_profile, profile_from_api,
@@ -145,6 +146,31 @@ class StoreTests(unittest.TestCase):
         p["classes"] = []
         self.store.save(p)
         self.assertIsNone(self.store.logo_file("4242", name2))
+
+    def test_logo_library(self):
+        from apex.league import logo_library, logo_url
+        lib = {l["title"]: l for l in logo_library()}
+        self.assertTrue({"PRO", "SEMI-PRO", "PRO-AM", "AM", "GOLD", "SILVER", "BRONZE"} <= set(lib))
+        self.assertEqual(lib["PRO"]["id"], "lib:pro.svg")
+        p = normalise_profile({"name": "L", "classes": [
+            {"name": "Pro", "logo": "lib:pro.svg"},
+            {"name": "X", "logo": "lib:missing.svg"},
+            {"name": "Y", "logo": "lib:../web/index.html"},
+        ]})
+        self.assertEqual([c["logo"] for c in p["classes"]], ["lib:pro.svg", None, None])
+        self.assertEqual(logo_url("my-league", "lib:pro.svg"), "/logos/pro.svg")
+        self.assertEqual(logo_url("my-league", "pro-1a2b3c4d.png"), "/api/logos/my-league/pro-1a2b3c4d.png")
+        # Library logos are not deleted as "unused uploads".
+        self.store.save(dict(p, id="lib-test"))
+        self.assertTrue((Path(__file__).resolve().parent.parent / "web" / "logos" / "pro.svg").is_file())
+
+    def test_library_svgs_are_layered(self):
+        from apex.league import LOGO_LIBRARY_DIR
+        for path in LOGO_LIBRARY_DIR.glob("*.svg"):
+            text = path.read_text(encoding="utf-8")
+            self.assertIn('data-apex-fill="class"', text, path.name)
+            self.assertIn('data-apex-fill="ink"', text, path.name)
+            self.assertNotIn("<script", text.lower(), path.name)
 
     def test_bad_league_id(self):
         with self.assertRaises(LeagueError):

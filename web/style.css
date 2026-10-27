@@ -137,9 +137,8 @@ main { flex: 1; overflow: auto; }
   display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px 0 0;
   border-radius: var(--radius); font-weight: 700; letter-spacing: .02em; overflow: hidden;
 }
-.class-head .class-name:first-child { padding-left: 12px; }
+.class-head .class-name { padding-left: 12px; }
 .class-logo { height: 34px; max-width: 120px; object-fit: contain; display: block; }
-.class-logo.pending { width: 34px; }
 .class-detail { margin-left: auto; font-weight: 500; font-size: 12px; opacity: .8; }
 .toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; cursor: pointer; }
 
@@ -187,6 +186,7 @@ main { flex: 1; overflow: auto; }
 .class-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .class-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; background: var(--panel-2); }
 .class-preview { margin-bottom: 8px; }
+.class-card.layered .raster-only { display: none !important; }
 .class-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 6px; }
 .class-fields label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .class-fields label.grow { flex: 1; min-width: 200px; }

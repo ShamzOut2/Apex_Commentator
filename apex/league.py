@@ -22,10 +22,15 @@ A league profile is a small JSON file in ``data/leagues/``::
     }
 
 A driver's class is their ``class_id`` when set, otherwise the first class
-whose ``match`` list contains their iRacing car class name. Class logos are
-stored in ``data/leagues/logos/<league>/``; the overlay recolours each logo's
-background to the class colour (``logo_bg``: ``auto`` detects the background,
-a ``#rrggbb`` value names it, ``keep`` leaves the logo untouched).
+whose ``match`` list contains their iRacing car class name. A class logo is
+either uploaded (stored in ``data/leagues/logos/<league>/``) or picked from
+the built-in library in ``web/logos/`` (``"logo": "lib:pro.svg"``).
+
+The overlay matches each logo's background to the class colour. Layered SVGs
+(see ``tools/logo_to_svg.py``) have their badge layer set to the colour
+exactly; other images have their background detected and recoloured
+(``logo_bg``: ``auto`` detects it, a ``#rrggbb`` value names it, ``keep``
+leaves the logo untouched).
 
 Commentator edits (nicknames, teams, notes, classes) live in the profile, so
 they survive re-fetching: a refresh only adds new members and updates names
@@ -49,6 +54,9 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+LOGO_LIBRARY_DIR = Path(__file__).resolve().parent.parent / "web" / "logos"
+UPLOADED_LOGO = re.compile(r"[a-z0-9-]+\.(png|jpg|webp|svg)")
+LIBRARY_LOGO = re.compile(r"lib:([a-z0-9-]+\.svg)")
 TOKEN_URL = "https://oauth.iracing.com/oauth2/token"
 DATA_URL = "https://members-ng.iracing.com/data"
 EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id")
@@ -230,7 +238,9 @@ def _classes_from_session(drivers):
         color = d.get("class_color")
         if not (isinstance(color, str) and HEX_COLOR.match(color)) or color.lower() in ("#000000", "#ffffff"):
             color = CLASS_PALETTE[len(classes) % len(CLASS_PALETTE)]
-        classes.append({"id": _slug(name), "name": name, "color": color, "match": [name]})
+        library = {_slug(l["title"]).replace("-", ""): l["id"] for l in logo_library()}
+        classes.append({"id": _slug(name), "name": name, "color": color, "match": [name],
+                        "logo": library.get(_slug(name).replace("-", ""))})
     return classes
 
 
@@ -254,6 +264,37 @@ def profile_from_session(drivers, name):
     }
 
 
+def logo_library():
+    """The built-in class logos: ``[{"id": "lib:pro.svg", "title": "PRO", "url": ...}]``."""
+    out = []
+    for path in sorted(LOGO_LIBRARY_DIR.glob("*.svg")):
+        head = path.read_text(encoding="utf-8", errors="replace")[:600]
+        m = re.search(r"<title>([^<]*)</title>", head)
+        out.append({
+            "id": f"lib:{path.name}",
+            "title": m.group(1).strip() if m else path.stem.upper(),
+            "url": f"/logos/{path.name}",
+        })
+    return out
+
+
+def _valid_logo_ref(logo):
+    lib = LIBRARY_LOGO.fullmatch(logo)
+    if lib:
+        return (LOGO_LIBRARY_DIR / lib.group(1)).is_file()
+    return bool(UPLOADED_LOGO.fullmatch(logo))
+
+
+def logo_url(profile_id, logo):
+    """Where the overlay loads a class logo from."""
+    if not logo:
+        return None
+    lib = LIBRARY_LOGO.fullmatch(logo)
+    if lib:
+        return f"/logos/{lib.group(1)}"
+    return f"/api/logos/{_slug(profile_id)}/{logo}"
+
+
 def normalise_classes(classes):
     out = []
     ids = set()
@@ -275,7 +316,7 @@ def normalise_classes(classes):
         if isinstance(match, str):
             match = match.split(",")
         logo = c.get("logo") or None
-        if logo is not None and not re.fullmatch(r"[a-z0-9-]+\.(png|jpg|webp|svg)", str(logo)):
+        if logo is not None and not _valid_logo_ref(str(logo)):
             logo = None
         logo_bg = str(c.get("logo_bg") or "auto").strip().lower()
         if logo_bg not in ("auto", "keep") and not HEX_COLOR.match(logo_bg):
@@ -455,7 +496,7 @@ class LeagueStore:
 
     def logo_file(self, profile_id, filename):
         """Path of a stored logo, or None. Guards against path tricks."""
-        if not re.fullmatch(r"[a-z0-9-]+\.(png|jpg|webp|svg)", filename or ""):
+        if not UPLOADED_LOGO.fullmatch(filename or ""):
             return None
         path = self._logo_dir(profile_id) / filename
         return path if path.is_file() else None

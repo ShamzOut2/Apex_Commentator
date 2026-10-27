@@ -69,13 +69,15 @@ function rgbToHex([r, g, b]) {
   return "#" + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
 }
 
-// Black or white, whichever reads better on the class colour.
+// White stays as long as it keeps 3:1 contrast on the class colour (the
+// large-text minimum); lighter colours get near-black instead.
 function inkFor(hex) {
   const [r, g, b] = hexToRgb(hex).map((v) => {
     v /= 255;
     return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? "#111" : "#fff";
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return 1.05 / (luminance + 0.05) >= 3 ? "#fff" : "#111";
 }
 
 const ALPHA_CLEAR = 40;   // alpha below this counts as transparent background
@@ -173,7 +175,27 @@ function fillTransparent(px, target) {
   }
 }
 
+// Layered SVGs (made by tools/logo_to_svg.py, or hand-made) mark their
+// parts: data-apex-fill="class" takes the class colour exactly, and
+// data-apex-fill="ink" stays white unless the class colour is too light for
+// it. Returns null for any other image so it goes through pixel recolouring.
+async function recolourLayeredSvg(src, color, keep) {
+  if (!/\.svg$/i.test(src)) return null;
+  const text = await (await fetch(src)).text();
+  const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+  const layers = doc.querySelectorAll('[data-apex-fill="class"]');
+  if (doc.querySelector("parsererror") || !layers.length) return null;
+  if (keep) return { url: src, detected: "layered" };
+  layers.forEach((el) => el.setAttribute("fill", color));
+  const ink = inkFor(color) === "#fff" ? "#ffffff" : "#111111";
+  doc.querySelectorAll('[data-apex-fill="ink"]').forEach((el) => el.setAttribute("fill", ink));
+  const blob = new Blob([new XMLSerializer().serializeToString(doc)], { type: "image/svg+xml" });
+  return { url: URL.createObjectURL(blob), detected: "layered" };
+}
+
 async function processLogo(src, color, mode, tolerance, fill) {
+  const layered = await recolourLayeredSvg(src, color, mode === "keep");
+  if (layered) return layered;
   const img = new Image();
   img.src = src;
   await img.decode();
@@ -231,8 +253,8 @@ function classLogo(cls, onReady) {
 function classHeaderHtml(cls, detail, onReady) {
   const logo = classLogo(cls, onReady);
   return `<div class="class-head" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">
-    ${logo ? `<img class="class-logo" src="${esc(logo.url)}" alt="">` : cls.logo ? '<span class="class-logo pending"></span>' : ""}
-    <span class="class-name">${esc(cls.name)}</span>${detail ? `<span class="class-detail">${esc(detail)}</span>` : ""}
+    ${logo ? `<img class="class-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}" title="${esc(cls.name)}">`
+      : `<span class="class-name">${esc(cls.name)}</span>`}${detail ? `<span class="class-detail">${esc(detail)}</span>` : ""}
   </div>`;
 }
 
@@ -248,6 +270,8 @@ const ui = {
   editing: null,         // league profile being edited
   activeLeague: null,
   groupByClass: true,
+  library: [],           // built-in class logos
+  libraryLoaded: false,
 };
 
 try {
@@ -574,6 +598,10 @@ document.addEventListener("keydown", (e) => {
 
 async function loadLeagues() {
   try {
+    if (!ui.libraryLoaded) {
+      ui.library = (await api("/api/logo-library")).logos;
+      ui.libraryLoaded = true;
+    }
     const [{ leagues, active }, cfg] = await Promise.all([api("/api/leagues"), api("/api/config")]);
     ui.activeLeague = active;
     $("#api-hint").textContent = cfg.api_configured
@@ -620,11 +648,25 @@ function renderRoster() {
 const CLASS_PALETTE = ["#e8463c", "#2f80ed", "#27ae60", "#f2c94c", "#9b51e0", "#f2994a", "#56ccf2", "#eb5ea8"];
 
 // The class as the overlay would show it, for the editor preview.
+function logoSrc(logo) {
+  if (!logo) return null;
+  if (logo.startsWith("lib:")) return `/logos/${encodeURIComponent(logo.slice(4))}`;
+  return ui.editing.id ? `/api/logos/${encodeURIComponent(ui.editing.id)}/${encodeURIComponent(logo)}` : null;
+}
+
+// A library logo whose title matches the class name, e.g. class "Pro" -> PRO.
+function libraryLogoFor(name) {
+  const norm = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const key = norm(name);
+  const hit = key && ui.library.find((l) => norm(l.title) === key);
+  return hit ? hit.id : null;
+}
+
 function previewClass(c) {
   return {
     name: c.name || "Unnamed class",
     color: c.color,
-    logo: c.logo && ui.editing.id ? `/api/logos/${encodeURIComponent(ui.editing.id)}/${encodeURIComponent(c.logo)}` : null,
+    logo: logoSrc(c.logo),
     logo_bg: c.logo_bg || "auto",
     logo_tolerance: c.logo_tolerance ?? 18,
     logo_fill: c.logo_fill || "edges",
@@ -645,19 +687,23 @@ function renderClasses() {
       </div>
       <div class="class-fields">
         <span class="field-label">Logo</span>
-        <label class="btn">${c.logo ? "Replace" : "Upload"}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-upload="${i}" hidden></label>
+        <select data-cfield="library" aria-label="Logo from library">
+          <option value="">${ui.library.length ? "Library…" : "No library logos"}</option>
+          ${ui.library.map((l) => `<option value="${esc(l.id)}" ${c.logo === l.id ? "selected" : ""}>${esc(l.title)}</option>`).join("")}
+        </select>
+        <label class="btn">${c.logo && !c.logo.startsWith("lib:") ? "Replace" : "Upload"}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-upload="${i}" hidden></label>
         ${c.logo ? `<button class="btn subtle" data-clear-logo="${i}">Remove</button>` : ""}
         <label ${c.logo ? "" : "hidden"}>Background
           <select data-cfield="bgmode">
-            <option value="auto" ${mode === "auto" ? "selected" : ""}>Auto-detect</option>
-            <option value="pick" ${mode === "pick" ? "selected" : ""}>Pick logo background</option>
+            <option value="auto" ${mode === "auto" ? "selected" : ""}>Match class colour</option>
+            <option value="pick" class="raster-only" ${mode === "pick" ? "selected" : ""}>Pick logo background</option>
             <option value="keep" ${mode === "keep" ? "selected" : ""}>Keep logo as is</option>
           </select>
         </label>
-        <input type="color" data-cfield="bgcolor" value="${mode === "pick" ? esc(c.logo_bg) : "#ffffff"}" title="Logo background colour to replace" ${c.logo && mode === "pick" ? "" : "hidden"}>
-        <label ${c.logo && mode !== "keep" ? "" : "hidden"} title="How different a pixel can be from the background and still be recoloured">Tolerance
+        <input type="color" class="raster-only" data-cfield="bgcolor" value="${mode === "pick" ? esc(c.logo_bg) : "#ffffff"}" title="Logo background colour to replace" ${c.logo && mode === "pick" ? "" : "hidden"}>
+        <label class="raster-only" ${c.logo && mode !== "keep" ? "" : "hidden"} title="How different a pixel can be from the background and still be recoloured">Tolerance
           <input type="range" min="0" max="60" data-cfield="logo_tolerance" value="${c.logo_tolerance ?? 18}"></label>
-        <label ${c.logo && mode !== "keep" ? "" : "hidden"} title="Also recolour background-coloured areas enclosed by the logo, like the inside of an O">
+        <label class="raster-only" ${c.logo && mode !== "keep" ? "" : "hidden"} title="Also recolour background-coloured areas enclosed by the logo, like the inside of an O">
           <input type="checkbox" data-cfield="logo_fill" ${c.logo_fill === "all" ? "checked" : ""}> Enclosed areas too</label>
         <span class="detected hint"></span>
       </div>
@@ -678,8 +724,11 @@ function renderClassPreview(i) {
     classHeaderHtml(cls, count ? `${count} assigned` : "", () => renderClassPreview(i));
   const hit = cls.logo && logoCache.get([cls.logo, cls.color, cls.logo_bg, cls.logo_tolerance, cls.logo_fill].join("|"));
   const detected = card.querySelector(".detected");
+  card.classList.toggle("layered", !!(hit && hit.detected === "layered"));
   if (hit && hit.failed) detected.textContent = "Couldn't read this logo";
-  else if (hit && hit.detected) {
+  else if (hit && hit.detected === "layered") {
+    detected.textContent = c.logo_bg === "keep" ? "Layered SVG, shown as drawn" : "Layered SVG: badge is set to the class colour";
+  } else if (hit && hit.detected) {
     detected.innerHTML = hit.detected === "transparent"
       ? "Detected: transparent background"
       : `Detected background <span class="swatch" style="background:${esc(hit.detected)}"></span> ${esc(hit.detected)}`;
@@ -696,6 +745,26 @@ $("#class-list").addEventListener("input", (e) => {
   const i = +card.dataset.class;
   const c = ui.editing.classes[i];
   const v = e.target.value;
+  if (field === "library") {
+    c.logo = v || null;
+    c.autoLogo = false;
+    return renderClasses();
+  }
+  if (field === "name" && (!c.logo || c.autoLogo)) {
+    // Follow the name to a matching library logo until a logo is chosen by hand.
+    const lib = libraryLogoFor(v);
+    if (lib !== c.logo && (lib || c.autoLogo)) {
+      c.logo = lib;
+      c.autoLogo = !!lib;
+      c.name = v;
+      renderRoster();
+      renderClasses();
+      const input = document.querySelector(`.class-card[data-class="${i}"] [data-cfield="name"]`);
+      input.focus();
+      input.setSelectionRange(v.length, v.length);
+      return;
+    }
+  }
   if (field === "match") c.match = v.split(",").map((m) => m.trim()).filter(Boolean);
   else if (field === "logo_tolerance") c.logo_tolerance = +v;
   else if (field === "logo_fill") c.logo_fill = e.target.checked ? "all" : "edges";
