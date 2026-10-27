@@ -25,9 +25,30 @@ OBS dock.
 
 ![layout: control bar, driver table with Watch / Replay / events per driver](docs/overview.png)
 
-## Quick start
+## Install (Windows)
 
-Requires **Python 3.9+** on the PC running iRacing.
+1. Download **`ApexCommentator-Setup-<version>.exe`** from the
+   [latest release](https://github.com/ShamzOut2/Apex_Commentator/releases/latest).
+2. Run it. It installs for your Windows user, with no admin rights needed. The
+   installer isn't code-signed yet, so Windows SmartScreen may warn you:
+   choose *More info → Run anyway*.
+3. Start **Apex Commentator** from the Start menu or the desktop icon. Join or
+   spectate a session in iRacing and it connects automatically. It
+   reconnects if iRacing restarts.
+
+No iRacing handy? Use the **Apex Commentator (demo mode)** shortcut for a
+simulated race.
+
+The control panel opens in its own window. This uses the Microsoft Edge
+WebView2 runtime that comes with Windows 10 and 11. Without it, the app opens
+in your browser instead. Your settings and leagues are stored in
+`%APPDATA%\Apex Commentator` (`config.json` and `data\`), and a log is kept in
+`apex.log` there. A portable zip is attached to each release too, if you
+don't want to install.
+
+## Run from source
+
+Requires **Python 3.9+**.
 
 ```bat
 git clone https://github.com/ShamzOut2/Apex_Commentator
@@ -35,15 +56,13 @@ cd Apex_Commentator
 start.bat
 ```
 
-`start.bat` installs the one dependency (`pyirsdk`) and opens
-<http://localhost:8180>. Join or spectate a session in iRacing and the
-overlay connects automatically. It reconnects if iRacing restarts.
+`start.bat` installs the dependencies (`pyirsdk`, plus `pywebview` for the
+app window) and starts the app. From source, `config.json` and `data/` live
+in the project folder.
 
-**No iRacing handy?** Run `start-mock.bat` (or `python -m apex --mock`) for a
-simulated race. It works on any OS with no dependencies.
-`--mock-speed 5` speeds it up.
-
-Other options: `python -m apex --help` (`--port`, `--host`, `--no-browser`,
+`start-mock.bat` (or `python -m apex --mock`) runs a simulated race. It
+works on any OS, and `--mock-speed 5` speeds it up. Other options:
+`python -m apex --help` (`--port`, `--host`, `--no-window` to use the browser,
 `--config`).
 
 ### Using it from another PC or in OBS
@@ -256,8 +275,9 @@ On start-up, and every few hours after, the app checks this repository's
 GitHub releases. When a newer version is out, the control panel pops up
 with its release notes:
 
-- **Update now** downloads the release and installs it over your copy, then
-  the app restarts itself. Open pages, including OBS sources, reload on the
+- **Update now** installs the release and restarts the app. The Windows app
+  runs the new installer silently, then reopens. A copy run from source
+  downloads the new code and copies it over your copy. Open pages, including OBS sources, reload on the
   new version. Your `config.json` and everything in `data/` (leagues, logos,
   photos) are kept.
 - **Later** hides the pop-up until the app is next opened. The *Update to
@@ -271,15 +291,32 @@ to run `git pull` instead. To turn update checks off, set
 
 ### Publishing a new version
 
-1. Bump `__version__` in `apex/__init__.py` (e.g. `0.2.0`).
-2. Add a `## v0.2.0` section to `CHANGELOG.md`: it becomes the release notes
+1. Bump `__version__` in `apex/__init__.py` (e.g. `0.3.0`).
+2. Add a `## v0.3.0` section to `CHANGELOG.md`: it becomes the release notes
    shown in the pop-up.
 3. Get it onto `main` (merge the pull request).
 
-The **Release** GitHub Actions workflow sees the new version on `main`, runs
-the tests, tags the commit `v0.2.0` and publishes the GitHub release. Every
-running copy of the app then offers the update. Pushing a `v0.2.0` tag
+The **Release** GitHub Actions workflow sees the new version on `main` and
+builds the Windows app on a Windows runner. It smoke-tests the app, builds the
+installer, installs it and smoke-tests the installed copy. Then it publishes
+the GitHub release with the installer and a portable zip attached. Every
+running copy of the app then offers the update. Pushing a `v0.3.0` tag
 yourself works too. A version that's already released is skipped.
+
+The same Windows build runs on every pull request and branch push (**Build
+Windows app**), and keeps the installer as a downloadable artifact.
+
+### Building the Windows app yourself
+
+```bat
+pip install -r requirements.txt -r requirements-desktop.txt pyinstaller
+pyinstaller packaging\apex.spec --noconfirm
+"%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" /DAppVersion=0.3.0 packaging\installer.iss
+```
+
+This gives `dist\ApexCommentator\ApexCommentator.exe` and
+`dist\ApexCommentator-Setup-0.3.0.exe`. `ApexCommentator.exe --smoke-test`
+checks a build starts and serves its pages.
 
 ## Configuration
 
@@ -312,11 +349,15 @@ apex/
   league.py    iRacing Data API client and league profiles
   server.py    stdlib HTTP server + Server-Sent Events
   updater.py   update checks and in-app updates from GitHub releases
+  desktop.py   app window, single instance, message boxes, log file
+  paths.py     program files vs. user data, for source and packaged app
 web/           the overlay UI (plain HTML/CSS/JS, no build step)
   index.html   control panel (app.js)
   gridwalk.html  grid walk broadcast graphic for OBS (gridwalk.js)
   common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos
+packaging/     PyInstaller recipe (apex.spec) and Inno Setup installer script
+assets/        app icon
 tools/
   logo_to_svg.py  converts badge logos to layered SVG (dev only)
 tests/

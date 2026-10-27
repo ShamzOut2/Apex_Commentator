@@ -4,6 +4,22 @@ Release notes for each version. When a version tag is pushed, its section
 here becomes the GitHub release notes, which the app shows in its update
 pop-up.
 
+## v0.2.0
+
+Apex Commentator is now a proper Windows program.
+
+- **Windows installer**: download `ApexCommentator-Setup-0.2.0.exe` from the
+  release and run it. No Python needed. It adds Start menu shortcuts (plus a
+  *demo mode* one that runs a simulated race) and an optional desktop icon,
+  and it can be uninstalled from Windows Settings.
+- **Own window**: the control panel opens in its own app window instead of a
+  browser tab. The grid walk page for OBS works as before.
+- **Your data in one place**: settings, leagues, logos and photos live in
+  `%APPDATA%\Apex Commentator`, so updates and reinstalls never touch them.
+- **Updates**: the installed app updates itself from the release's installer.
+  Click *Update now*, and it closes, updates and reopens.
+- A portable zip of the app is attached to each release too.
+
 ## v0.1.0
 
 First release of Apex Commentator.

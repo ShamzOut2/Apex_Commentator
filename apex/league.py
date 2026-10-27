@@ -54,7 +54,9 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-LOGO_LIBRARY_DIR = Path(__file__).resolve().parent.parent / "web" / "logos"
+from .paths import WEB_DIR
+
+LOGO_LIBRARY_DIR = WEB_DIR / "logos"
 UPLOADED_LOGO = re.compile(r"[a-z0-9-]+\.(png|jpg|webp|svg)")
 LIBRARY_LOGO = re.compile(r"lib:([a-z0-9-]+\.svg)")
 TOKEN_URL = "https://oauth.iracing.com/oauth2/token"

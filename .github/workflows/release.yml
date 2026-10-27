@@ -1,5 +1,6 @@
-# Publishes a GitHub release for the app version in apex/__init__.py.
-# Installed apps check the latest release and offer it as an update.
+# Publishes a GitHub release for the app version in apex/__init__.py, with the
+# Windows installer attached. Installed apps check the latest release and
+# offer it as an update.
 #
 # Runs when:
 #  - a commit that changes apex/__init__.py lands on main (a version bump), or
@@ -17,8 +18,11 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  version:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      skip: ${{ steps.version.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,26 +37,32 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME doesn't match apex/__init__.py version $version"
             exit 1
           fi
-          if gh release view "$tag" > /dev/null 2>&1; then
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo "Release $tag already exists: nothing to do."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-python@v5
-        if: steps.version.outputs.skip != 'true'
-        with:
-          python-version: "3.12"
+  build:
+    needs: version
+    if: needs.version.outputs.skip != 'true'
+    uses: ./.github/workflows/build.yml
 
-      - name: Run tests
-        if: steps.version.outputs.skip != 'true'
-        run: python -m unittest discover -s tests -t .
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-app
+          path: release-files
 
       - name: Publish release
-        if: steps.version.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
+          TAG: ${{ needs.version.outputs.tag }}
         run: |
           # Use the changelog section for this version as the notes, if there is one.
           awk -v v="${TAG#v}" '
@@ -66,4 +76,4 @@ jobs:
             notes=(--generate-notes)
           fi
           # Creates the tag on this commit if it doesn't exist yet.
-          gh release create "$TAG" --title "$TAG" --target "$GITHUB_SHA" "${notes[@]}"
+          gh release create "$TAG" release-files/* --title "$TAG" --target "$GITHUB_SHA" "${notes[@]}"

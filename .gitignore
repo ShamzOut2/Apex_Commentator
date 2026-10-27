@@ -5,3 +5,6 @@ venv/
 config.json
 data/leagues/*
 !data/leagues/.gitkeep
+build/
+dist/
+*.spec.bak

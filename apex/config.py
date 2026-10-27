@@ -10,7 +10,7 @@ import json
 import os
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+from .paths import USER_DIR as ROOT  # config.json and data/ live here
 
 DEFAULTS = {
     # Web server. Use "0.0.0.0" to open the overlay from another PC on your LAN.
