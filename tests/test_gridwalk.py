@@ -1,6 +1,6 @@
 import unittest
 
-from apex.gridwalk import GridWalk, grid_order, parse_design
+from apex.gridwalk import GridWalk, grid_order, parse_design, qualifying_times
 
 
 class FakeClock:
@@ -39,6 +39,15 @@ class GridOrderTests(unittest.TestCase):
         self.assertEqual((order[:2], source), ([2, 1], "current positions"))
         order, source = grid_order(DRIVERS, {})
         self.assertEqual((order, source), ([3, 5, 1, 2, 4], "car number"))
+
+    def test_qualifying_times(self):
+        info = {"QualifyResultsInfo": {"Results": [
+            {"CarIdx": 1, "FastestTime": 88.5}, {"CarIdx": 2, "FastestTime": -1}, {"CarIdx": 3},
+        ]}}
+        self.assertEqual(qualifying_times(info), {1: 88.5})
+        info = {"SessionInfo": {"Sessions": [{"SessionType": "Open Qualify", "ResultsPositions": [{"CarIdx": 4, "FastestTime": 90.1}]}]}}
+        self.assertEqual(qualifying_times(info), {4: 90.1})
+        self.assertEqual(qualifying_times({}), {})
 
     def test_parse_design(self):
         self.assertEqual(parse_design("12,ff0000,00FF00,0000ff"),

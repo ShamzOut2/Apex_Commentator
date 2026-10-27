@@ -20,7 +20,7 @@ such as the control panel preview and the OBS broadcast page, stays in step.
 import re
 import time
 
-STYLES = ("grid", "h2h")
+STYLES = ("track", "grid", "h2h")
 MIN_INTERVAL_S = 2.0
 MAX_INTERVAL_S = 120.0
 HEX = re.compile(r"^[0-9a-fA-F]{6}$")
@@ -48,6 +48,21 @@ def _sorted_results(results, drivers):
         if idx in drivers and idx not in ordered:
             ordered.append(idx)
     return ordered
+
+
+def qualifying_times(info):
+    """Best qualifying lap per car_idx, from the same sources as the grid."""
+    results = (info.get("QualifyResultsInfo") or {}).get("Results")
+    if not results:
+        sessions = (info.get("SessionInfo") or {}).get("Sessions") or []
+        results = next((s["ResultsPositions"] for s in reversed(sessions)
+                        if "qual" in str(s.get("SessionType", "")).lower() and s.get("ResultsPositions")), [])
+    times = {}
+    for r in results or []:
+        t = r.get("FastestTime")
+        if isinstance(t, (int, float)) and t > 0:
+            times[r.get("CarIdx")] = float(t)
+    return times
 
 
 def grid_order(drivers, info, official_positions=None):
@@ -78,10 +93,10 @@ def grid_order(drivers, info, official_positions=None):
 
 
 class GridWalk:
-    def __init__(self, interval=8.0, style="grid", clock=time.monotonic):
+    def __init__(self, interval=8.0, style="track", clock=time.monotonic):
         self.clock = clock
         self.interval = float(interval)
-        self.style = style if style in STYLES else "grid"
+        self.style = style if style in STYLES else "track"
         self.loop = False
         self.include_absent = False
         self.visible = False

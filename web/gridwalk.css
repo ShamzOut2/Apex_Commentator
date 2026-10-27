@@ -142,3 +142,42 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 .h2h .vs b { font-size: 60px; line-height: 1; }
 @keyframes pop { from { transform: translate(-50%, -50%) scale(.3); opacity: 0; } }
 .h2h .card.right .stripe { left: auto; right: 0; }
+
+/* --- style: grid on track ------------------------------------------------ */
+/* Full-frame scene, so it has its own background even in OBS. */
+.track { background: radial-gradient(ellipse at 70% 10%, #6d7177, #4c4f54 55%, #34373b); overflow: hidden; }
+.track-road { position: absolute; inset: 0; }
+.track-title {
+  position: absolute; left: 0; right: 0; top: 0; height: 66px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20, 22, 26, .78); font-size: 34px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+}
+.track-title b { position: absolute; right: 40px; font-size: 22px; color: var(--muted); letter-spacing: .12em; }
+.track-title .progress { border-radius: 0; }
+.track-car { position: absolute; width: 660px; height: 300px; display: flex; align-items: flex-end; justify-content: center;
+  animation: drive-in .8s cubic-bezier(.2,.8,.2,1) both; filter: drop-shadow(0 14px 18px rgba(0,0,0,.35)); }
+.track-car.second { animation-delay: .15s; }
+.track-car svg { width: 100%; height: 100%; }
+.track-car img { max-width: 100%; max-height: 100%; object-fit: contain; }
+@keyframes drive-in { from { opacity: 0; transform: translate(-180px, -26px); } }
+
+.track-label { position: absolute; animation: label-in .6s .25s cubic-bezier(.2,.8,.2,1) both; }
+.track-label.front { right: 60px; top: 104px; text-align: left; }
+.track-label.rear { left: 60px; bottom: 34px; }
+@keyframes label-in { from { opacity: 0; transform: translateY(16px); } }
+.track-name { display: flex; align-items: center; gap: 20px; font-size: 60px; font-weight: 900; font-style: italic;
+  text-transform: uppercase; line-height: 1; text-shadow: 0 3px 10px rgba(0,0,0,.45); }
+.track-num { min-width: 96px; height: 70px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 44px; font-style: italic; font-weight: 800; text-shadow: none; }
+.track-nick { font-size: 30px; font-weight: 700; color: var(--accent); margin: 8px 0 0 116px; font-style: italic; }
+.track-team { font-size: 30px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; margin: 8px 0 0 116px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.45); }
+.track-status { display: inline-block; margin: 10px 0 0 116px; font-size: 18px; font-weight: 800; letter-spacing: .08em;
+  padding: 4px 10px; border-radius: 6px; background: #2b2e33; color: #e3e6ea; }
+.track-class .class-head { height: 52px; border-radius: 8px; }
+.track-class .class-logo { height: 52px; }
+.track-class .class-name { font-size: 24px; font-style: normal; }
+.track-logo { position: absolute; max-height: 90px; max-width: 280px; object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)); animation: label-in .6s .35s both; }
+.track-logo.front { right: 70px; top: 300px; }
+.track-logo.rear { left: 70px; bottom: 190px; }

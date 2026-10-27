@@ -127,6 +127,13 @@ class CoreTests(unittest.TestCase):
         self.assertEqual([e["car_idx"] for e in entries], [i + 1 for i in self.source.qual_order])
         self.assertTrue(all(e["car_design"] and e["helmet_design"] for e in entries))
         self.assertEqual(entries[0]["team"], self.source.drivers[entries[0]["car_idx"]]["TeamName"])
+        # Qualifying gaps are to each class's pole, which shows a gap of zero.
+        seen = set()
+        for e in entries:
+            self.assertEqual(e["qual_time"], self.source.qual_time[e["car_idx"] - 1])
+            self.assertEqual(e["qual_gap"] == 0, e["class_key"] not in seen)
+            self.assertGreaterEqual(e["qual_gap"], 0)
+            seen.add(e["class_key"])
         self.app.command("gridwalk_start", {})
         self.app.command("gridwalk_next", {})
         g = self.app.build_snapshot()["gridwalk"]

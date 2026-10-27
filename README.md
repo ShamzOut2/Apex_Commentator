@@ -19,8 +19,9 @@ OBS dock.
   saved with their exact session time. One click replays a driver's latest
   moment, or any moment from the event feed, and **Go live** takes you back.
 - **Grid walk**: an on-stream graphic that walks the starting grid two drivers
-  at a time, with livery, helmet, name, team and team logo. It's drawn on a
-  starting grid or as a head-to-head, and advances on a timer you set.
+  at a time, with livery, helmet, name, team and team logo. It's shown as cars
+  standing on the grid, on a grid map or as a head-to-head, and advances on a
+  timer you set.
 
 ![layout: control bar, driver table with Watch / Replay / events per driver](docs/overview.png)
 
@@ -98,7 +99,7 @@ Things to know:
 
 ## Grid walk
 
-![grid walk on a drawn starting grid](docs/gridwalk-grid.png)
+![grid walk: cars standing in their grid boxes](docs/gridwalk-track.png)
 
 The **Grid walk** tab runs a broadcast graphic that goes through the whole
 field, front to back, two drivers at a time:
@@ -113,25 +114,36 @@ field, front to back, two drivers at a time:
   the back.
 - **Each driver** shows grid position (and class position in multiclass
   races), car number in the class colour, class logo, name, nickname, team,
-  team logo, car livery and helmet.
+  team logo, car livery and helmet. *Grid on track* also paints each slot's
+  qualifying time on the tarmac: the lap time for the class pole, and the gap
+  to it for everyone else.
 - **Photos**: upload a car livery photo and a helmet photo per driver in the
   league builder (**Photos** column), and team logos in the **Teams**
-  section. A driver without photos gets a car and helmet drawn in their actual
-  iRacing paint colours (from the sim's design strings), so nobody shows up
-  blank.
+  section. For *Grid on track*, the ideal car image is a **transparent PNG
+  render** of the car in 3/4 view, nose pointing right, so it stands in the
+  grid box like a TV grid walk. A driver without photos gets a car and helmet
+  drawn in their actual iRacing paint colours (from the sim's design
+  strings), so nobody shows up blank.
 - **Controls**: *Start from P1*, *Pause/Resume*, *Prev/Next* pair, *Show*
   on any driver to jump to their pair, and *Hide* to take it off screen.
   *Seconds per pair* sets the timer, and *Loop* restarts from the front.
   Without Loop, the graphic leaves the screen after the last pair.
-- **Style**: *Starting grid* draws the whole grid with the current pair lit
-  up, and the two cards in staggered grid boxes. *Head to head* puts the
-  pair side by side.
+- **Style**:
+  - *Grid on track* (default): the pair stands in painted, staggered grid
+    boxes on an angled stretch of track, with slot numbers and qualifying
+    gaps on the tarmac. Name, number and team go in opposite corners with
+    the team logos. It's a full-frame scene with its own background.
+  - *Grid map* draws the whole grid with the current pair lit up, and the
+    two driver cards in their boxes.
+  - *Head to head* puts the pair side by side.
 
-![grid walk head to head](docs/gridwalk-h2h.png)
+| Grid map | Head to head |
+| --- | --- |
+| ![grid map](docs/gridwalk-grid.png) | ![head to head](docs/gridwalk-h2h.png) |
 
 **On stream**: in OBS add a **Browser Source** of 1920×1080 pointing at
-`http://localhost:8180/gridwalk.html`. Its background is transparent, so it
-sits over your game feed. The walk runs on the server, so the OBS source, the
+`http://localhost:8180/gridwalk.html`. The *Grid map* and *Head to head*
+styles have a transparent background, so they sit over your game feed. The walk runs on the server, so the OBS source, the
 preview in the tab, and any other copy all stay in step. Add `?preview=1` to
 the URL to view it on a backdrop in a normal browser.
 
@@ -253,7 +265,7 @@ defaults:
 | `slowdown_ratio` | `0.35` | Speed below this fraction of recent pace counts as a slowdown |
 | `event_cooldown_s` | `8` | Minimum gap between incidents logged for the same car |
 | `gridwalk_interval_s` | `8` | Grid walk: seconds each pair stays on screen |
-| `gridwalk_style` | `"grid"` | Grid walk style: `"grid"` or `"h2h"` |
+| `gridwalk_style` | `"track"` | Grid walk style: `"track"`, `"grid"` or `"h2h"` |
 
 ## Development
 

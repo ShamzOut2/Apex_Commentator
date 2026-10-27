@@ -231,8 +231,9 @@ class MockSource:
         n = self.num_cars
         # Every third car is a slower GT4 so the mock race is multiclass.
         self.base_lap = [88.0 + self.rng.uniform(0, 4) + (5.0 if self._is_gt4(i) else 0.0) for i in range(n)]
-        # Qualifying order: quickest base pace first, with a little luck.
-        self.qual_order = sorted(range(n), key=lambda i: self.base_lap[i] + self.rng.uniform(0, 1.5))
+        # Qualifying: base pace plus a little luck; the grid follows the lap times.
+        self.qual_time = [round(self.base_lap[i] - 1.2 + self.rng.uniform(0, 1.5), 3) for i in range(n)]
+        self.qual_order = sorted(range(n), key=lambda i: self.qual_time[i])
         # Staggered grid in qualifying order.
         self.progress = [0.0] * n
         for rank, i in enumerate(self.qual_order):
@@ -405,7 +406,7 @@ class MockSource:
                 }]},
                 "DriverInfo": {"DriverCarIdx": 1, "Drivers": [dict(d) for d in self.drivers]},
                 "QualifyResultsInfo": {"Results": [
-                    {"Position": pos, "ClassPosition": pos, "CarIdx": i + 1, "FastestTime": round(self.base_lap[i] - 1.2, 3)}
+                    {"Position": pos, "ClassPosition": pos, "CarIdx": i + 1, "FastestTime": self.qual_time[i]}
                     for pos, i in enumerate(self.qual_order)
                 ]},
                 "CameraInfo": {"Groups": [

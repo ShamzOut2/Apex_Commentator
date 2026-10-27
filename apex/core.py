@@ -7,7 +7,7 @@ import threading
 import time
 
 from .events import EventDetector
-from .gridwalk import GridWalk, grid_order, parse_design
+from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
 from .league import driver_key, logo_url
 from .sources import (
     CS_AT_EXCITING,
@@ -68,9 +68,10 @@ class App:
         self._frame = None
         self._return_timer = None
         self._last_push = 0.0
-        self.gridwalk = GridWalk(cfg.get("gridwalk_interval_s", 8), cfg.get("gridwalk_style", "grid"))
+        self.gridwalk = GridWalk(cfg.get("gridwalk_interval_s", 8), cfg.get("gridwalk_style", "track"))
         self._grid_order = []      # car_idx in starting order
         self._grid_source = ""
+        self._qual_times = {}      # car_idx -> best qualifying lap
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
 
     # -- lifecycle ----------------------------------------------------------
@@ -163,6 +164,7 @@ class App:
         self._drivers = drivers
         official = {i: p for i, p in enumerate(frame.position) if i in drivers} if frame else None
         self._grid_order, self._grid_source = grid_order(drivers, info, official)
+        self._qual_times = qualifying_times(info)
 
     def _session(self, frame):
         return self._session_meta.get("sessions", {}).get(frame.session_num, {})
@@ -328,11 +330,19 @@ class App:
         self._grid_keys = list(entries)
         order = self.gridwalk.apply_order(self._grid_keys)
         in_class = {}
+        # Gaps are to the class pole time, as in multiclass qualifying.
+        class_pole = {}
+        for e in entries.values():
+            if e["qual_time"]:
+                k = e["class_key"]
+                class_pole[k] = min(class_pole.get(k, e["qual_time"]), e["qual_time"])
         out = []
         for pos, key in enumerate(order, start=1):
             e = entries[key]
             in_class[e["class_key"]] = in_class.get(e["class_key"], 0) + 1
-            out.append(dict(e, key=key, grid_pos=pos, class_pos=in_class[e["class_key"]]))
+            pole = class_pole.get(e["class_key"])
+            gap = round(e["qual_time"] - pole, 3) if e["qual_time"] and pole else None
+            out.append(dict(e, key=key, grid_pos=pos, class_pos=in_class[e["class_key"]], qual_gap=gap))
         return {**self.gridwalk.state(), "source": "manual" if self.gridwalk.manual_order else self._grid_source,
                 "entries": out}
 
@@ -355,6 +365,7 @@ class App:
             "class_key": self._class_key(classes, active_league, league or None, d),
             "in_session": in_session,
             "in_world": in_world,
+            "qual_time": self._qual_times.get(car_idx),
         }
 
     def _league_summary(self):

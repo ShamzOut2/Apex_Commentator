@@ -94,7 +94,8 @@
             <label>Seconds per pair <input id="gw-interval" type="number" min="2" max="120" step="1"></label>
             <label>Style
               <select id="gw-style">
-                <option value="grid">Starting grid</option>
+                <option value="track">Grid on track</option>
+                <option value="grid">Grid map</option>
                 <option value="h2h">Head to head</option>
               </select>
             </label>
@@ -104,7 +105,7 @@
           </div>
           <p class="hint">On stream: add a <b>Browser Source</b> in OBS (1920×1080) with
             <code id="gw-url"></code> <button class="btn subtle icon" id="gw-copy" title="Copy URL">Copy</button>.
-            Its background is transparent.</p>
+            Grid map and Head to head have a transparent background.</p>
           <div class="gw-preview"><iframe id="gw-frame" title="Grid walk preview" src="gridwalk.html?preview=1"></iframe></div>
         </div>
         <div class="gw-order">
