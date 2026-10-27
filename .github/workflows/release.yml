@@ -1,0 +1,48 @@
+# Publishes a GitHub release whenever a version tag (v1.2.3) is pushed.
+# Installed apps check the latest release and offer it as an update.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the app version
+        run: |
+          version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' apex/__init__.py)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match apex/__init__.py version $version"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -t .
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes_file=release-notes.md
+          # Use the changelog section for this version if there is one.
+          awk -v v="${GITHUB_REF_NAME#v}" '
+            $0 ~ "^## \\[?v?"v"\\]?" {found=1; next}
+            found && /^## / {exit}
+            found {print}
+          ' CHANGELOG.md > "$notes_file" || true
+          if [ -s "$notes_file" ]; then
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$notes_file"
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          fi

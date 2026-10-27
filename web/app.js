@@ -62,6 +62,10 @@ function connectStream() {
   const es = new EventSource("/api/stream");
   es.onmessage = (msg) => {
     ui.snap = JSON.parse(msg.data);
+    // After an update the server restarts on the new version: load its UI.
+    if (ui.version && ui.snap.version && ui.snap.version !== ui.version) return location.reload();
+    ui.version = ui.version || ui.snap.version;
+    $(".brand").title = `Apex Commentator v${ui.snap.version}`;
     render();
   };
   es.onerror = () => {
@@ -875,4 +879,105 @@ $("#btn-activate-league").addEventListener("click", async () => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// updates
+// ---------------------------------------------------------------------------
+
+const update = { status: null, dismissed: false };
+try {
+  update.dismissed = sessionStorage.getItem("apex.updateLater") !== null;
+} catch (e) { /* storage unavailable */ }
+
+function showUpdate(status, force = false) {
+  update.status = status;
+  const available = status && status.available && !status.installed;
+  $("#update-badge").hidden = !available;
+  if (!available) return;
+  $("#update-badge").textContent = `Update to v${status.latest.version}`;
+  // Pop up once per session, unless this version was skipped.
+  if (!force && (update.dismissed || status.skipped)) return;
+  $("#update-current").textContent = `v${status.current}`;
+  $("#update-latest").textContent = `v${status.latest.version}`;
+  $("#update-notes").innerHTML = notesHtml(status.latest.notes || "");
+  $("#update-hint").innerHTML = status.git_checkout
+    ? "This copy is a git checkout: run <code>git pull</code> to update, then restart."
+    : `Your settings and leagues are kept. The app restarts by itself. <a href="${esc(status.latest.url)}" target="_blank" rel="noopener">Release page</a>`;
+  $("#update-install").hidden = !status.can_install;
+  $("#update-install").disabled = false;
+  $("#update-install").textContent = "Update now";
+  $("#update-modal").hidden = false;
+}
+
+// Just enough markdown for release notes: headings, bullets, **bold**, `code`.
+function notesHtml(md) {
+  const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
+  const out = [];
+  let list = false;
+  for (const raw of md.trim().split(/\r?\n/)) {
+    const line = raw.trim();
+    const bullet = line.match(/^[-*]\s+(.*)/);
+    if (list && !bullet) {
+      out.push("</ul>");
+      list = false;
+    }
+    if (bullet) {
+      if (!list) out.push("<ul>");
+      list = true;
+      out.push(`<li>${inline(bullet[1])}</li>`);
+    } else if (/^#{1,6}\s/.test(line)) out.push(`<h4>${inline(line.replace(/^#+\s*/, ""))}</h4>`);
+    else if (line) out.push(`<p>${inline(line)}</p>`);
+  }
+  if (list) out.push("</ul>");
+  return out.join("");
+}
+
+function closeUpdate() {
+  $("#update-modal").hidden = true;
+}
+
+async function checkForUpdate(attempt = 0) {
+  try {
+    const status = await api("/api/update");
+    if (!status.enabled) return;
+    // The server checks GitHub in the background at start: wait for it.
+    if (!status.checked_at && attempt < 10) return setTimeout(() => checkForUpdate(attempt + 1), 3000);
+    showUpdate(status);
+  } catch (e) { /* server not reachable yet: the stream reconnect handles it */ }
+}
+
+$("#update-badge").addEventListener("click", () => showUpdate(update.status, true));
+$("#update-later").addEventListener("click", () => {
+  update.dismissed = true;
+  try {
+    sessionStorage.setItem("apex.updateLater", "1");
+  } catch (e) { /* storage unavailable */ }
+  closeUpdate();
+});
+$("#update-skip").addEventListener("click", async () => {
+  await api("/api/update/skip", { method: "POST", body: { version: update.status.latest.version } }).catch(() => {});
+  closeUpdate();
+  toast(`You won't be asked about v${update.status.latest.version} again`);
+});
+$("#update-install").addEventListener("click", async () => {
+  const btn = $("#update-install");
+  btn.disabled = true;
+  btn.textContent = "Installing…";
+  try {
+    const r = await api("/api/update/install", { method: "POST", body: {} });
+    btn.textContent = "Restarting…";
+    ui.expectVersion = r.version;
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "Update now";
+    toast(err.message, true);
+  }
+});
+$("#update-modal").addEventListener("click", (e) => {
+  if (e.target.id === "update-modal") closeUpdate();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("#update-modal").hidden) closeUpdate();
+});
+
 connectStream();
+checkForUpdate();

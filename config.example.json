@@ -17,5 +17,8 @@
   "iracing_password": "",
   "iracing_client_id": "",
   "iracing_client_secret": "",
-  "leagues_dir": "data/leagues"
+  "leagues_dir": "data/leagues",
+  "update_check": true,
+  "update_repo": "ShamzOut2/Apex_Commentator",
+  "github_token": ""
 }

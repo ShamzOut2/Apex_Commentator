@@ -39,6 +39,10 @@ DEFAULTS = {
     "iracing_client_id": "",
     "iracing_client_secret": "",
     "leagues_dir": "data/leagues",
+    # Updates: check GitHub for new releases and offer them in the app.
+    "update_check": True,
+    "update_repo": "ShamzOut2/Apex_Commentator",
+    "github_token": "",           # only needed if the repository is private
 }
 
 ENV_KEYS = {
@@ -46,6 +50,7 @@ ENV_KEYS = {
     "iracing_password": "IRACING_PASSWORD",
     "iracing_client_id": "IRACING_CLIENT_ID",
     "iracing_client_secret": "IRACING_CLIENT_SECRET",
+    "github_token": "APEX_GITHUB_TOKEN",
 }
 
 

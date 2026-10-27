@@ -215,7 +215,11 @@ requestAnimationFrame(tickProgress);
 
 stage.classList.add("hidden");
 const stream = new EventSource("/api/stream");
+let version = null;
 stream.onmessage = (msg) => {
   snap = JSON.parse(msg.data);
+  // After an app update, reload so OBS picks up the new graphics.
+  if (version && snap.version && snap.version !== version) return location.reload();
+  version = version || snap.version;
   render();
 };

@@ -1,15 +1,17 @@
 """Run the overlay: ``python -m apex`` (add ``--mock`` to try it without iRacing)."""
 
 import argparse
+import subprocess
 import sys
-import time
 import webbrowser
+from pathlib import Path
 
 from . import __version__
-from .config import load_config
+from .config import ROOT, load_config
 from .core import App
 from .league import IRacingDataClient, LeagueStore
 from .server import make_server, serve_in_thread
+from .updater import Updater, restart_requested
 
 
 def main(argv=None):
@@ -45,6 +47,11 @@ def main(argv=None):
         cfg["iracing_client_id"], cfg["iracing_client_secret"],
     )
     app = App(source, cfg, LeagueStore(cfg["leagues_dir"], client))
+    app.updater = Updater(
+        __version__, cfg["update_repo"], ROOT, Path(cfg["leagues_dir"]).parent / "update.json",
+        token=cfg["github_token"], enabled=cfg["update_check"],
+    )
+    app.updater.start()
     app.start()
     server = make_server(app, cfg["host"], cfg["port"])
     serve_in_thread(server)
@@ -56,13 +63,19 @@ def main(argv=None):
     if not args.no_browser:
         webbrowser.open(url)
     try:
-        while True:
-            time.sleep(1)
+        while not restart_requested.wait(1):
+            pass
     except KeyboardInterrupt:
         pass
     finally:
         app.stop()
         server.shutdown()
+        server.server_close()
+    if restart_requested.is_set():
+        # Relaunch the updated code in this console, on the same port.
+        print("Restarting with the update…")
+        relaunch = [a for a in sys.argv[1:] if a != "--no-browser"] + ["--no-browser"]
+        return subprocess.call([sys.executable, "-m", "apex", *relaunch])
     return 0
 
 

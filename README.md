@@ -250,6 +250,41 @@ set IRACING_CLIENT_SECRET=...
 Credentials are masked as iRacing requires before they are sent, and only go
 to `oauth.iracing.com` and `members-ng.iracing.com`.
 
+## Updates
+
+On start-up, and every few hours after, the app checks this repository's
+GitHub releases. When a newer version is out, the control panel pops up
+with its release notes:
+
+- **Update now** downloads the release and installs it over your copy, then
+  the app restarts itself. Open pages, including OBS sources, reload on the
+  new version. Your `config.json` and everything in `data/` (leagues, logos,
+  photos) are kept.
+- **Later** hides the pop-up until the app is next opened. The *Update to
+  vX* button in the top bar reopens it.
+- **Skip this version** stops the pop-up for that version, but the next one
+  will still pop up.
+
+If your copy is a **git clone**, the app won't overwrite it. It tells you
+to run `git pull` instead. To turn update checks off, set
+`"update_check": false`.
+
+### Publishing a new version
+
+1. Bump `__version__` in `apex/__init__.py` (e.g. `0.2.0`).
+2. Add a `## v0.2.0` section to `CHANGELOG.md`: it becomes the release notes
+   shown in the pop-up.
+3. Commit, then tag and push the tag:
+
+   ```
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+The **Release** GitHub Actions workflow checks that the tag matches the app
+version, runs the tests, and publishes the GitHub release. Every running
+copy of the app then offers the update.
+
 ## Configuration
 
 All keys are optional. See `config.example.json` for the full list and
@@ -266,6 +301,9 @@ defaults:
 | `event_cooldown_s` | `8` | Minimum gap between incidents logged for the same car |
 | `gridwalk_interval_s` | `8` | Grid walk: seconds each pair stays on screen |
 | `gridwalk_style` | `"track"` | Grid walk style: `"track"`, `"grid"` or `"h2h"` |
+| `update_check` | `true` | Check GitHub for new versions and offer them in the app |
+| `update_repo` | `"ShamzOut2/Apex_Commentator"` | Where releases are published |
+| `github_token` | `""` | Only needed if that repository is private (or set `APEX_GITHUB_TOKEN`) |
 
 ## Development
 
@@ -277,6 +315,7 @@ apex/
   gridwalk.py  grid order and grid walk state
   league.py    iRacing Data API client and league profiles
   server.py    stdlib HTTP server + Server-Sent Events
+  updater.py   update checks and in-app updates from GitHub releases
 web/           the overlay UI (plain HTML/CSS/JS, no build step)
   index.html   control panel (app.js)
   gridwalk.html  grid walk broadcast graphic for OBS (gridwalk.js)

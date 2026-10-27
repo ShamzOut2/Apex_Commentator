@@ -11,6 +11,7 @@
     <div class="brand"><span id="status-dot" class="dot"></span>Apex</div>
     <div id="session-line" class="session-line">Waiting for iRacing…</div>
     <div class="topbar-right">
+      <button id="update-badge" class="badge update" hidden title="A new version is available">Update available</button>
       <span id="league-badge" class="badge muted" title="Active league">No league</span>
       <span id="replay-badge" class="badge">—</span>
       <button id="btn-live" class="btn primary" title="Back to live (L)">Go live</button>
@@ -166,6 +167,20 @@
       </div>
     </section>
   </main>
+
+  <div id="update-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="update-title">
+      <h2 id="update-title">Update available</h2>
+      <p class="update-versions"><span id="update-current"></span> → <b id="update-latest"></b></p>
+      <div id="update-notes" class="update-notes"></div>
+      <p id="update-hint" class="hint"></p>
+      <div class="modal-actions">
+        <button class="btn subtle" id="update-skip">Skip this version</button>
+        <button class="btn" id="update-later">Later</button>
+        <button class="btn primary" id="update-install">Update now</button>
+      </div>
+    </div>
+  </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="common.js"></script>

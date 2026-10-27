@@ -6,6 +6,7 @@ import re
 import threading
 import time
 
+from . import __version__
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
 from .league import driver_key, logo_url
@@ -180,6 +181,7 @@ class App:
             if frame is None:
                 return {
                     "connected": False, "source": self.source.name, "league": self._league_summary(),
+                    "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                 }
             is_race = self._is_race(frame)
@@ -227,6 +229,7 @@ class App:
             session = self._session(frame)
             snap = {
                 "connected": True,
+                "version": __version__,
                 "source": self.source.name,
                 "session": {
                     "num": frame.session_num,

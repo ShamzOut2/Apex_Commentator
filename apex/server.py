@@ -9,6 +9,7 @@
 * ``POST /api/leagues/<id>/images?target=...``     upload a class/team/car/helmet image
 * ``GET  /api/logos/<id>/<file>``  serve a class logo
 * ``GET  /api/logo-library``     the built-in class logos (``web/logos/``)
+* ``GET  /api/update``           update status; ``POST /api/update/{check,skip,install}``
 """
 
 import json
@@ -21,6 +22,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from .core import CommandError
 from .league import LOGO_TYPES, MAX_IMAGE_BYTES, LeagueError, logo_library, profile_from_session
+from .updater import UpdateError, request_restart
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 MAX_BODY = 2 * 1024 * 1024
@@ -78,6 +80,9 @@ class Handler(BaseHTTPRequestHandler):
                 "replay_auto_return_s": cfg["replay_auto_return_s"],
                 "api_configured": bool(self.app.leagues.client and self.app.leagues.client.configured),
             })
+        if path == "/api/update":
+            updater = getattr(self.app, "updater", None)
+            return self._send_json(updater.status() if updater else {"enabled": False})
         if path == "/api/logo-library":
             return self._send_json({"logos": logo_library()})
         if path.startswith("/api/logos/"):
@@ -103,6 +108,8 @@ class Handler(BaseHTTPRequestHandler):
             body = self._body()
         except ValueError as e:
             return self._error(f"Bad request: {e}")
+        if path.startswith("/api/update/"):
+            return self._update_action(path.rsplit("/", 1)[1], body)
         try:
             if path == "/api/cmd":
                 params = body.get("params") or {}
@@ -158,6 +165,24 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
+
+    def _update_action(self, action, body):
+        updater = getattr(self.app, "updater", None)
+        if updater is None or not updater.enabled:
+            return self._error("Update checks are turned off")
+        if action == "check":
+            return self._send_json({"ok": True, **updater.check()})
+        if action == "skip":
+            updater.skip(str(body.get("version") or ""))
+            return self._send_json({"ok": True})
+        if action == "install":
+            try:
+                version = updater.install()
+            except UpdateError as e:
+                return self._error(str(e))
+            request_restart()
+            return self._send_json({"ok": True, "version": version, "restarting": True})
+        return self._error("Not found", HTTPStatus.NOT_FOUND)
 
     def _upload_image(self, league_id, target):
         length = int(self.headers.get("Content-Length") or 0)
