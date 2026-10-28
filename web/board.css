@@ -6,13 +6,19 @@
   animation: board-in .45s ease both;
 }
 @keyframes board-in { from { opacity: 0; } }
-.board.vertical-banner.right { flex-direction: row-reverse; }
-.board.horizontal-banner { flex-direction: column; }
-.board.horizontal-banner.bottom { flex-direction: column-reverse; }
-.banner { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+.center { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+.edge { flex: 0 0 auto; display: flex; gap: 24px; align-items: center; justify-content: center; }
+.edge.across { flex-direction: column; }
+.edge.down { flex-direction: column; width: 300px; }
+.banner { display: flex; align-items: center; justify-content: center; min-height: 0; }
 .banner img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.horizontal-banner .banner { height: 130px; }
-.vertical-banner .banner { width: 300px; }
+.edge.across .banner { height: 130px; width: 100%; }
+.edge.down .banner { flex: 1; width: 100%; }
+.sponsors { display: flex; align-items: center; justify-content: center; gap: 48px; flex-wrap: wrap; }
+.sponsors img { object-fit: contain; }
+.edge.across .sponsors img { height: 80px; max-width: 260px; }
+.edge.down .sponsors { flex-direction: column; gap: 32px; }
+.edge.down .sponsors img { max-height: 110px; max-width: 260px; }
 .main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 18px; }
 
 .bhead { display: flex; align-items: center; gap: 22px; padding-bottom: 14px; border-bottom: 3px solid var(--accent-c, var(--accent)); }
@@ -43,6 +49,7 @@
 .team-cell { display: inline-flex; align-items: center; max-width: 100%; vertical-align: middle; }
 .team-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
 .team-stripe { flex: none; width: 6px; height: 1.3em; border-radius: 3px; margin-right: 12px; }
+.board.teams .btable .logo { height: 1.5em; width: 2.6em; vertical-align: middle; margin-right: 14px; }
 .btable td.team-drivers { font-size: calc(var(--row-font, 22px) * .78); }
 .btable .rd { text-align: center; color: var(--muted); }
 .btable .rd.dropped { text-decoration: line-through; opacity: .5; }

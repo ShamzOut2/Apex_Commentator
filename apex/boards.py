@@ -61,6 +61,21 @@ def _banner(league, settings):
     return {"url": logo_url(league["id"], pick["file"]), "place": place, "orientation": pick["orientation"]}
 
 
+def sponsors(league, ids):
+    """The league's sponsor logos picked by ``ids`` ("" = all, "none" = none): [{id, name, url}]."""
+    wanted = None if not ids else set(ids.split(","))
+    return [{"id": s["id"], "name": s["name"], "url": logo_url(league["id"], s["file"])}
+            for s in league.get("sponsors", []) if wanted is None or s["id"] in wanted]
+
+
+def _sponsor_strip(league, settings):
+    """Sponsor logos on this board, or None."""
+    if settings["sponsors"] == "none":
+        return None
+    logos = sponsors(league, settings["sponsor_ids"])
+    return {"place": settings["sponsors"], "logos": logos} if logos else None
+
+
 def build(league, board, settings, live_results=None):
     """The board on screen, ready to draw, or None."""
     if not league or not board.get("kind"):
@@ -69,7 +84,7 @@ def build(league, board, settings, live_results=None):
     params = board.get("params") or {}
     cfg = settings[f"board_{kind}"]
     out = {"kind": kind, "group": params.get("group") or "", "round": params.get("round") or "", "league": league["name"], "title": TITLES[kind], "subtitle": "",
-           "banner": _banner(league, cfg), "settings": cfg, "accent": None, "group_logo": None,
+           "banner": _banner(league, cfg), "sponsors": _sponsor_strip(league, cfg), "settings": cfg, "accent": None, "group_logo": None,
            "league_logo": logo_url(league["id"], league.get("logo")) if cfg["league_logo"] and league.get("logo") else None}
     group = params.get("group") or championship.OVERALL
     if kind in ("championship", "makes", "results"):

@@ -291,6 +291,13 @@
             <label class="btn subtle">+ Horizontal banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="horizontal" hidden></label>
             <label class="btn subtle">+ Vertical banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="vertical" hidden></label>
           </div>
+          <h3 class="section-title">Sponsors</h3>
+          <p class="hint">Sponsor logos. Each board can show them along an edge (Boards tab), and the Sponsors overlay shows them
+            over the race (Overlays tab). Transparent PNG or SVG logos look best.</p>
+          <div id="sponsor-list" class="sponsor-list"></div>
+          <div class="row">
+            <label class="btn subtle">+ Add sponsor logos<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-sponsor-upload multiple hidden></label>
+          </div>
           <h3 class="section-title">Drivers</h3>
           <p class="hint">Nicknames, teams and notes show next to drivers in the overlay. Drivers are matched by iRacing customer ID, or by car number when there is no ID.</p>
           <div class="roster-scroll">
@@ -350,6 +357,14 @@
               <a class="btn" href="/laps.html?screen=1" target="_blank" rel="noopener">Open ↗</a></p>
             <div class="preview-frame"><iframe src="/laps.html?preview=1" title="Lap tracker preview" loading="lazy"></iframe></div>
             <div id="ov-laps" class="ov-form" data-overlay="laps"></div>
+          </div>
+          <div class="overlay-card">
+            <h3>Sponsors</h3>
+            <p class="hint">The active league's sponsor logos (add them in the League builder), in a corner or along an edge:
+              all together, or one at a time. Tick which sponsors to show.</p>
+            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-sponsors"></code> <button class="btn subtle" data-copy="url-sponsors">Copy</button></p>
+            <div class="preview-frame"><iframe src="/sponsors.html?preview=1" title="Sponsors preview" loading="lazy"></iframe></div>
+            <div id="ov-sponsors" class="ov-form" data-overlay="sponsors"></div>
           </div>
         </div>
       </div>

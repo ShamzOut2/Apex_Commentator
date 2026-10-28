@@ -1323,7 +1323,37 @@ const OVERLAY_FIELDS = {
     ["show_invalid", "Track invalid laps too", "bool"],
     ["practice", "Also in practice", "bool"],
   ],
+  sponsors: [
+    ["visible", "On screen", "bool"],
+    ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+      ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+    ["layout", "Show", "select", [["rotate", "One at a time"], ["row", "All together"]]],
+    ["interval_s", "Seconds per logo (one at a time)", "number", { min: 1, max: 120, step: 1 }],
+    ["size", "Logo height (px)", "number", { min: 30, max: 300, step: 5 }],
+    ["background", "Dark panel behind", "bool"],
+    ["title", "Caption above (e.g. Partners)", "text"],
+    ["sponsor_ids", "Sponsors", "sponsors"],
+  ],
 };
+
+// Tick boxes for which of the league's sponsors to show ("" = all, "none" = none).
+function sponsorPicker(sponsors, value) {
+  if (!sponsors.length) return '<p class="hint">No sponsor logos in the active league yet (League builder).</p>';
+  const ids = value === "" ? null : new Set(value.split(","));
+  return `<div class="ov-field wide sponsor-pick"><span>Sponsors</span><div>${sponsors.map((sp, i) => `<label class="check">
+    <input type="checkbox" data-key="sponsor_ids" data-kind="sponsors" value="${esc(sp.id)}" ${!ids || ids.has(sp.id) ? "checked" : ""}>
+    <img src="${esc(sp.url)}" alt="">${esc(sp.name || `Sponsor ${i + 1}`)}</label>`).join("")}</div></div>`;
+}
+
+// A settings field's new value.
+function fieldValue(el) {
+  if (el.dataset.kind === "sponsors") {
+    const boxes = [...el.closest(".sponsor-pick").querySelectorAll("input")];
+    const on = boxes.filter((b) => b.checked).map((b) => b.value);
+    return on.length === boxes.length ? "" : on.length ? on.join(",") : "none";
+  }
+  return el.dataset.kind === "bool" ? el.checked : el.dataset.kind === "number" ? +el.value : el.value;
+}
 
 let overlayFormKey = "";
 
@@ -1332,7 +1362,7 @@ function renderOverlaySettings(s) {
   if (!ov) return;
   $("#tile-overlays").textContent = ov.laps.active ? "Lap tracker live (qualifying)" : `${ov.standings.length} in the standings`;
   // Don't redraw under the cursor; redraw when settings or classes change.
-  const key = JSON.stringify([ov.settings, (s.classes || []).map((c) => [c.key, c.name])]);
+  const key = JSON.stringify([ov.settings, (s.classes || []).map((c) => [c.key, c.name]), (s.league && s.league.sponsors) || []]);
   if (key === overlayFormKey || document.activeElement.closest(".ov-form")) return;
   overlayFormKey = key;
   for (const [overlay, fields] of Object.entries(OVERLAY_FIELDS)) {
@@ -1344,6 +1374,8 @@ function renderOverlaySettings(s) {
       if (kind === "number") {
         return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
       }
+      if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
+      if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v);
       const options = kind === "class"
         ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
         : opts;
@@ -1357,7 +1389,7 @@ function renderOverlaySettings(s) {
 document.querySelectorAll(".ov-form").forEach((form) => form.addEventListener("change", (e) => {
   const el = e.target;
   if (!el.dataset.key) return;
-  const value = el.dataset.kind === "bool" ? el.checked : el.dataset.kind === "number" ? +el.value : el.value;
+  const value = fieldValue(el);
   overlayFormKey = "";
   el.blur();
   cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
@@ -1370,7 +1402,9 @@ document.querySelectorAll(".ov-form").forEach((form) => form.addEventListener("c
 // Every board: the league logo in its header, and a banner where (and which).
 const BOARD_LOOK = [["league_logo", "League logo in the header", "bool"],
   ["banner", "Banner", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"],
-    ["right", "Down the right"]]], ["banner_id", "Which banner", "banner"]];
+    ["right", "Down the right"]]], ["banner_id", "Which banner", "banner"],
+  ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
+    ["left", "Down the left"], ["right", "Down the right"]]], ["sponsor_ids", "Which sponsors", "sponsors"]];
 
 const BOARD_FIELDS = {
   board_championship: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
@@ -1434,7 +1468,7 @@ function renderBoards(s) {
         <div>${[{ key: "overall", name: "Overall", color: null }, ...groups.filter((g) => g.key !== "overall")]
           .map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>`;
   }
-  const skey = JSON.stringify([s.overlays && s.overlays.settings, (s.league && s.league.banners) || []]);
+  const skey = JSON.stringify([s.overlays && s.overlays.settings, (s.league && s.league.banners) || [], (s.league && s.league.sponsors) || []]);
   if (skey !== boardSettingsKey && !document.activeElement.closest("#board-settings")) {
     boardSettingsKey = skey;
     renderBoardSettings(s);
@@ -1452,6 +1486,7 @@ function renderBoardSettings(s) {
       const attrs = `data-key="${k}" data-kind="${kind === "banner" ? "select" : kind}"`;
       if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
       if (kind === "number") return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" value="${v}"></label>`;
+      if (kind === "sponsors") return settings[section].sponsors === "none" ? "" : sponsorPicker((s.league && s.league.sponsors) || [], v);
       const choices = kind === "banner"
         ? [["", "The first of the right shape"], ...banners.map((b, i) => [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
         : opts;
@@ -1485,12 +1520,13 @@ $("#board-settings").addEventListener("change", (e) => {
   const el = e.target;
   const form = el.closest(".ov-form");
   if (!el.dataset.key || !form) return;
-  const value = el.dataset.kind === "bool" ? el.checked : el.dataset.kind === "number" ? +el.value : el.value;
+  const value = fieldValue(el);
   boardSettingsKey = "";
   el.blur();
   cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
 });
 $("#url-board").textContent = `${location.origin}/board.html`;
+$("#url-sponsors").textContent = `${location.origin}/sponsors.html`;
 
 for (const page of ["standings", "laps"]) {
   $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;
@@ -1550,6 +1586,7 @@ function openEditor(profile) {
   renderTeams();
   renderRoster();
   renderBanners();
+  renderSponsors();
   renderLeagueImages();
   champ.dirty = false;
   champ.standings = null;
@@ -1691,6 +1728,39 @@ $("#league-editor").addEventListener("change", async (e) => {
     renderBanners();
   }
 });
+function renderSponsors() {
+  const list = (ui.editing && ui.editing.sponsors) || [];
+  $("#sponsor-list").innerHTML = list.length ? list.map((sp, i) => `<div class="sponsor-card">
+      <div class="sponsor-img"><img src="${esc(logoSrc(sp.file))}" alt=""></div>
+      <input data-sponsor="${i}" value="${esc(sp.name || "")}" placeholder="Sponsor name" aria-label="Sponsor name">
+      <button class="btn icon danger" data-sponsor-remove="${i}" title="Remove">✕</button>
+    </div>`).join("") : '<p class="hint">No sponsors yet.</p>';
+}
+
+$("#league-editor").addEventListener("change", async (e) => {
+  const up = e.target.closest("[data-sponsor-upload]");
+  if (up && up.files.length) {
+    try {
+      // One at a time: each upload saves the league and adds one sponsor.
+      for (const file of up.files) await uploadImage(`sponsor:${file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " ")}`, file);
+      toast(up.files.length > 1 ? `${up.files.length} sponsors added` : "Sponsor added");
+    } catch (err) {
+      toast(err.message, true);
+    }
+    up.value = "";
+    return;
+  }
+  const field = e.target.closest("[data-sponsor]");
+  if (field) ui.editing.sponsors[+field.dataset.sponsor].name = field.value;
+});
+$("#sponsor-list").addEventListener("click", (e) => {
+  const rm = e.target.closest("[data-sponsor-remove]");
+  if (!rm) return;
+  ui.editing.sponsors.splice(+rm.dataset.sponsorRemove, 1);
+  renderSponsors();
+  toast("Removed: save the league to keep the change");
+});
+
 $("#banner-list").addEventListener("click", (e) => {
   const rm = e.target.closest("[data-banner-remove]");
   if (!rm) return;

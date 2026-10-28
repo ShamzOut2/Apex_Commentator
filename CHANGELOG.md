@@ -29,6 +29,14 @@ pop-up.
   scored, points per round, wins, penalties, and the gap to the leader and to
   the team ahead (all optional). The Boards tab always shows the Teams
   button and explains when there's nothing to show yet.
+- **Sponsors**:
+  - Upload sponsor logos in the League builder.
+  - Each board can show them along any edge, choosing which ones, the same
+    way as banners.
+  - A new Sponsors overlay (`/sponsors.html`) shows them over the race. You
+    choose the corner or edge, all together or one at a time, size, caption,
+    panel and which sponsors.
+- **Team logos** are larger on the teams' championship board.
 - **Class and overall championships ("both")**: each standings table says
   what it adds up (class positions or overall positions, with the points
   table). Teams now count their drivers' overall points by default; a new

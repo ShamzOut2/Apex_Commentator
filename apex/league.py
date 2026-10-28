@@ -97,6 +97,20 @@ def normalise_banners(banners):
     return out
 
 
+def normalise_sponsors(sponsors):
+    """Sponsor logos, for the boards and the sponsors overlay: [{id, file, name}]."""
+    out = []
+    for s in sponsors or []:
+        if not isinstance(s, dict) or not UPLOADED_LOGO.fullmatch(str(s.get("file") or "")):
+            continue
+        out.append({
+            "id": re.sub(r"[^a-z0-9]", "", str(s.get("id") or ""))[:12] or uuid.uuid4().hex[:8],
+            "file": s["file"],
+            "name": str(s.get("name") or "").strip()[:60],
+        })
+    return out
+
+
 def strip_class_prefix(name):
     """'(P) Dave Price' -> 'Dave Price'; other names unchanged."""
     name = str(name or "")
@@ -306,6 +320,7 @@ def merge_profiles(existing, fresh):
     result["teams"] = existing.get("teams", [])
     result["strip_class_prefix"] = existing.get("strip_class_prefix", False)
     result["banners"] = existing.get("banners", [])
+    result["sponsors"] = existing.get("sponsors", [])
     result["logo"] = existing.get("logo")
     result["calendar_image"] = existing.get("calendar_image")
     if existing.get("championship"):
@@ -503,6 +518,7 @@ def normalise_profile(profile):
         "championship": championship.normalise(profile.get("championship")),
         "strip_class_prefix": strip,
         "banners": normalise_banners(profile.get("banners")),
+        "sponsors": normalise_sponsors(profile.get("sponsors")),
         # The league's own logo (board headers) and its own calendar graphic.
         "logo": _uploaded(profile.get("logo")),
         "calendar_image": _uploaded(profile.get("calendar_image")),
@@ -602,7 +618,7 @@ class LeagueStore:
         used = {c.get("logo") for c in profile.get("classes", [])}
         used |= {t.get("logo") for t in profile.get("teams", [])}
         used |= {d.get(k) for d in profile.get("drivers", []) for k in DRIVER_IMAGES}
-        used |= {b.get("file") for b in profile.get("banners", [])}
+        used |= {b.get("file") for b in profile.get("banners", []) + profile.get("sponsors", [])}
         used |= {profile.get("logo"), profile.get("calendar_image")}
         for f in folder.iterdir():
             if f.name not in used:
@@ -616,7 +632,9 @@ class LeagueStore:
         """Store an uploaded image and point the profile at it.
 
         ``target`` is ``class:<class id>``, ``team:<team name>``,
-        ``car:<driver key>`` or ``helmet:<driver key>`` (see ``driver_key``).
+        ``car:<driver key>`` or ``helmet:<driver key>`` (see ``driver_key``);
+        ``league:logo`` or ``league:calendar_image``; or a new
+        ``banner:<horizontal|vertical>`` or ``sponsor:<name>``.
         """
         profile = self.get(profile_id)
         if profile is None:
@@ -646,6 +664,10 @@ class LeagueStore:
             owner = {"id": uuid.uuid4().hex[:8], "file": None, "orientation": key, "name": ""}
             profile.setdefault("banners", []).append(owner)
             field, prefix = "file", f"banner-{key}"
+        elif kind == "sponsor":
+            owner = {"id": uuid.uuid4().hex[:8], "file": None, "name": key.strip()[:60]}
+            profile.setdefault("sponsors", []).append(owner)
+            field, prefix = "file", "sponsor"
         elif kind in ("car", "helmet"):
             owner = next((d for d in profile.get("drivers", []) if driver_key(d) == key), None)
             if owner is None:

@@ -106,7 +106,8 @@ function render(snap) {
   else if (!b.rows.length) body = '<div class="empty-board">Nothing to show yet: no results in this championship.</div>';
   else {
     // Long lists go into two columns rather than shrinking past readable.
-    const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0);
+    const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
+      - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? 110 : 0);
     const cols = columns(b);
     const split = b.rows.length > 20 ? 2 : 1;
     const per = Math.ceil(b.rows.length / split);
@@ -115,18 +116,34 @@ function render(snap) {
     for (let i = 0; i < split; i++) parts.push(b.rows.slice(i * per, (i + 1) * per));
     body = `<div class="bbody" style="--row-h:${rowH}px;--row-font:${Math.round(rowH * 0.52)}px">${parts.map((p) => tableHtml(cols, p)).join("")}</div>`;
   }
-  const banner = b.banner ? `<div class="banner"><img src="${esc(b.banner.url)}" alt=""></div>` : "";
+  // Banner and sponsor logos go round the edges: top / bottom across, left / right down the side.
+  const edge = (place) => {
+    const parts = [];
+    if (b.banner && b.banner.place === place) parts.push(`<div class="banner ${b.banner.orientation}"><img src="${esc(b.banner.url)}" alt=""></div>`);
+    if (b.sponsors && b.sponsors.place === place) {
+      parts.push(`<div class="sponsors">${b.sponsors.logos.map((l) => `<img src="${esc(l.url)}" alt="${esc(l.name)}">`).join("")}</div>`);
+    }
+    if (!parts.length) return "";
+    // The banner sits on the outside, sponsors next to the table.
+    if (place === "bottom" || place === "right") parts.reverse();
+    return `<div class="edge ${place === "top" || place === "bottom" ? "across" : "down"} ${place}">${parts.join("")}</div>`;
+  };
   const sub = b.subtitle
     ? `<span class="sub"><span class="chip" style="${b.accent ? `background:${esc(b.accent)};color:${inkFor(b.accent)}` : "background:rgba(255,255,255,.12)"}">${esc(b.subtitle)}</span></span>` : "";
   const key = [b.kind, b.title, b.subtitle].join("|");
   const steady = key === boardKey;
   boardKey = key;
-  const html = `<div class="board ${b.banner ? `${b.banner.orientation}-banner ${b.banner.place}` : ""}" style="${b.accent ? `--accent-c:${esc(b.accent)}` : ""}">
-    ${banner}
-    <div class="main">
-      <div class="bhead">${b.league_logo ? `<img class="league-logo" src="${esc(b.league_logo)}" alt="">` : ""}<span class="t1">${esc(b.title)}</span>${sub}<span class="league">${esc(b.league)}</span></div>
-      ${body}
-    </div></div>`;
+  const html = `<div class="board ${b.kind}" style="${b.accent ? `--accent-c:${esc(b.accent)}` : ""}">
+    ${edge("left")}
+    <div class="center">
+      ${edge("top")}
+      <div class="main">
+        <div class="bhead">${b.league_logo ? `<img class="league-logo" src="${esc(b.league_logo)}" alt="">` : ""}<span class="t1">${esc(b.title)}</span>${sub}<span class="league">${esc(b.league)}</span></div>
+        ${body}
+      </div>
+      ${edge("bottom")}
+    </div>
+    ${edge("right")}</div>`;
   if (html !== shown) {
     shown = html;
     // Same board with new numbers: swap them in without fading again.

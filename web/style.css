@@ -410,6 +410,7 @@ kbd {
 .ov-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 14px; }
 .ov-field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
 .ov-field.check { flex-direction: row; align-items: center; gap: 6px; color: var(--text); font-size: 13px; }
+.ov-form .wide { grid-column: 1 / -1; }
 
 /* --- championship ------------------------------------------------------------ */
 .home.wide { max-width: 1400px; }
@@ -469,6 +470,14 @@ kbd {
 .banner-card.horizontal .banner-img { width: 220px; height: 64px; }
 .banner-card.vertical .banner-img { width: 64px; height: 140px; }
 .banner-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.sponsor-list { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.sponsor-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); padding: 8px; display: flex; gap: 8px; align-items: center; }
+.sponsor-card input { width: 160px; }
+.sponsor-img { width: 120px; height: 56px; background: #0003 repeating-conic-gradient(#ffffff10 0 25%, transparent 0 50%) 0 0 / 16px 16px; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+.sponsor-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.sponsor-pick > div { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; }
+.sponsor-pick label { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; }
+.sponsor-pick img { height: 20px; max-width: 60px; object-fit: contain; }
 .banner-fields { display: flex; flex-direction: column; gap: 6px; }
 .banner-fields input { width: 160px; }
 .round-head .track-input { width: 240px; }

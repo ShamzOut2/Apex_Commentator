@@ -281,6 +281,10 @@ are kept in `data/overlays.json`.
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
+- **Sponsors** (`/sponsors.html`): the active league's sponsor logos (added
+  in the League builder) over the race. Choose a corner or the middle of an
+  edge, all together or one at a time (and how long each shows), the size,
+  a caption such as "Partners", a dark panel behind, and which sponsors.
 - **Lap tracker** (`/laps.html`): only in qualifying (practice too, if you
   tick it).
   - The car on camera gets the big tracker. Up to 12 small ones show other
@@ -332,7 +336,9 @@ it. The buttons are built from the active league:
 - **Championship standings**: Overall, and one button per class (e.g. PRO,
   SEMI-PRO, AM): that championship's drivers with their points, the gap to
   the leader and, if switched on, the gap to the driver ahead.
-- **Teams' championship**.
+- **Teams' championship**: each team's logo and colour, the drivers who
+  scored for it, points per round, wins, penalties, and the gaps to the
+  leader and to the team ahead.
 - **Manufacturers**: by the cars' makes, Overall and per class.
 - **Season calendar**: every round with track, layout, date, time and
   length, which rounds are done (with their winners) and which is next. Or
@@ -344,6 +350,7 @@ Under *What each board shows*, every board can be set up separately:
 - the league logo in its header;
 - a league banner across the top or bottom or down either side, and which
   banner;
+- the league's sponsor logos along any edge, and which sponsors;
 - the board's own columns: car numbers, team names and logos, car badges,
   gaps, wins, penalty points, points from the last few rounds, laps, places
   gained, fastest lap (purple), DNF/DSQ, points scored, and how many rows.
@@ -677,6 +684,7 @@ web/           the overlay UI (plain HTML/CSS/JS, no build step)
   index.html   control panel (app.js)
   gridwalk.html  grid walk broadcast graphic for OBS (gridwalk.js)
   standings.html, laps.html  standings tower and qualifying lap tracker for OBS
+  sponsors.html  sponsor logos for OBS
   common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos
 packaging/     PyInstaller recipe (apex.spec) and Inno Setup installer script

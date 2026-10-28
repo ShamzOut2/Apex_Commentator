@@ -797,7 +797,8 @@ class App:
         if not active:
             return None
         return {"id": active["id"], "name": active["name"], "teams": len(active.get("teams", [])),
-                "banners": [{k: b[k] for k in ("id", "name", "orientation")} for b in active.get("banners", [])]}
+                "banners": [{k: b[k] for k in ("id", "name", "orientation")} for b in active.get("banners", [])],
+                "sponsors": boards.sponsors(active, "")}
 
     def publish(self):
         snap = self.build_snapshot()

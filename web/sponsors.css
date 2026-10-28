@@ -1,0 +1,24 @@
+.sp { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 10px; animation: sp-in .4s ease both; }
+@keyframes sp-in { from { opacity: 0; } }
+.sp.panel { background: rgba(11, 13, 18, .82); border-radius: 12px; padding: 14px 22px; box-shadow: 0 6px 24px rgba(0, 0, 0, .35); }
+.sp.hidden-preview { opacity: .45; }
+.sp-title { font-size: 16px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff; opacity: .8; }
+.sp-logos { display: flex; align-items: center; gap: 36px; }
+.sp-logos img { height: var(--sp-h); max-width: calc(var(--sp-h) * 3.2); object-fit: contain; }
+.sp.vertical .sp-logos { flex-direction: column; gap: 28px; }
+.sp.vertical .sp-logos img { height: auto; max-height: var(--sp-h); width: calc(var(--sp-h) * 2.4); }
+
+/* One at a time: the logos stack in one spot and fade between each other. */
+.sp.rotate .sp-logos { display: grid; }
+.sp.rotate .sp-logos img { grid-area: 1 / 1; justify-self: center; opacity: 0; transition: opacity .6s ease; width: calc(var(--sp-h) * 3.2); }
+.sp.rotate .sp-logos img.on { opacity: 1; }
+
+.sp.top-left { top: 40px; left: 40px; }
+.sp.top { top: 40px; left: 50%; transform: translateX(-50%); }
+.sp.top-right { top: 40px; right: 40px; }
+.sp.left { left: 40px; top: 50%; transform: translateY(-50%); }
+.sp.right { right: 40px; top: 50%; transform: translateY(-50%); }
+.sp.bottom-left { bottom: 40px; left: 40px; }
+.sp.bottom { bottom: 40px; left: 50%; transform: translateX(-50%); }
+.sp.bottom-right { bottom: 40px; right: 40px; }
+.sp-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; opacity: .6; font-size: 28px; }

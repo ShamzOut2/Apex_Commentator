@@ -120,6 +120,24 @@ class BoardTests(unittest.TestCase):
         self.assertEqual((b["round_names"], b["rows"][0]["rounds"]), (["R1"], [16]))
         self.assertTrue(boards.options(league())["has_teams"])
 
+    def test_sponsors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LeagueStore(tmp)
+            p = store.save({"name": "S"})
+            png = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+            p = store.save_image(p["id"], "sponsor:Acme Oil", png)
+            p = store.save_image(p["id"], "sponsor:Brake Co", png + b"1")
+            self.assertEqual([s["name"] for s in p["sponsors"]], ["Acme Oil", "Brake Co"])
+            self.assertTrue(store.logo_file(p["id"], p["sponsors"][1]["file"]))
+            first = p["sponsors"][0]["id"]
+            self.assertEqual([s["name"] for s in boards.sponsors(p, first)], ["Acme Oil"])
+            self.assertEqual(boards.sponsors(p, "none"), [])
+        lg = league(sponsors=[{"id": "a1", "file": "sponsor-1.png", "name": "Acme"}, {"id": "b2", "file": "sponsor-2.png"}])
+        settings = overlay_settings({"board_championship": {"sponsors": "bottom", "sponsor_ids": "b2"}})
+        b = boards.build(lg, {"kind": "championship", "params": {}}, settings)
+        self.assertEqual(b["sponsors"], {"place": "bottom", "logos": [{"id": "b2", "name": "", "url": "/api/logos/lg/sponsor-2.png"}]})
+        self.assertIsNone(boards.build(lg, {"kind": "teams", "params": {}}, settings)["sponsors"])  # off by default
+
     def test_options_and_banner(self):
         opts = boards.options(league())
         self.assertEqual([g["name"] for g in opts["groups"]], ["Overall", "PRO", "AM"])

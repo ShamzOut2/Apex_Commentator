@@ -5,6 +5,7 @@ They're changed from the app's Overlays tab and kept in
 """
 
 import json
+import re
 import threading
 from pathlib import Path
 
@@ -33,32 +34,45 @@ DEFAULTS = {
         "reveal": False,
         "header_info": "auto",    # "auto" (laps or time, whichever the session is limited by), "laps", "time", "none"
     },
+    # Sponsor logos on their own (sponsors.html), over the race.
+    "sponsors": {
+        "visible": False,
+        "place": "bottom-right",  # a corner, an edge ("top", "bottom": centred), or "left" / "right" (centred)
+        "layout": "rotate",       # "rotate": one logo at a time; "row": all of them together
+        "interval_s": 8.0,        # "rotate": seconds per logo
+        "size": 90,               # logo height in px (1920x1080)
+        "background": True,       # a dark panel behind the logos
+        "title": "",              # a small caption above them, e.g. "Partners"
+        "sponsor_ids": "",        # which sponsors, comma separated ("" = all, "none" = none)
+    },
     # Full-screen boards (board.html), one section each. Every board has:
     # banner ("none", "top", "bottom", "left", "right"), banner_id (which of
-    # the league's banners, "" = the first of the right shape) and
-    # league_logo (the league's logo in the header).
+    # the league's banners, "" = the first of the right shape),
+    # league_logo (the league's logo in the header), sponsors (where the
+    # sponsor logos go, the same places as a banner) and sponsor_ids (which,
+    # as for the sponsors overlay).
     "board_championship": {
-        "banner": "none", "banner_id": "", "league_logo": True,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "",
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_gap": True, "show_ahead": False,  # gap to the leader; gap to the driver ahead
         "show_wins": False, "show_penalty": False,
     },
     "board_teams": {
-        "banner": "none", "banner_id": "", "league_logo": True,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "",
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
         "show_drivers": True,  # the drivers who scored for the team, under its name
         "show_gap": True, "show_ahead": False, "show_wins": False, "show_penalty": False,
     },
-    "board_makes": {"banner": "none", "banner_id": "", "league_logo": True, "rows": 12, "show_logo": True,
+    "board_makes": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "rows": 12, "show_logo": True,
                     "show_gap": True, "show_wins": True},
-    "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True,
+    "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "",
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
                        "show_winners": True},
     "board_results": {
-        "banner": "none", "banner_id": "", "league_logo": True,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "",
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True, "show_status": True,
     },
@@ -79,8 +93,10 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
-CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "style": ("cards", "image"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
+LIMITS = {"size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
+PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
+CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
+           "place": PLACES, "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 
 def normalise(settings):
@@ -100,7 +116,9 @@ def _value(key, value, default):
             value = type(default)(value)
             lo, hi = LIMITS.get(key, (value, value))
             return min(max(value, lo), hi)
-        value = str(value)
+        value = str(value)[:200]
+        if key == "sponsor_ids":
+            return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
         return value if key not in CHOICES or value in CHOICES[key] else default
     except (TypeError, ValueError):
         return default
