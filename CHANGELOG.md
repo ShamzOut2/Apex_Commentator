@@ -25,7 +25,7 @@ pop-up.
     overlays use it.
   - The timing screen and roster keep the full name, so class changes still
     show.
-- **Classes from name tags**: `(P)`, `(SP)`, `(PA)`, `(AM)` and the like put
+- **Classes from name tags**: `(P)`, `(SP)`, `(PA)`, `(AM)`, `(G)`, `(S)`, `(B)` and the like put
   drivers in the matching league class, by its name, its *iRacing classes*
   entries or its initials. Numbers and stripes on the overlays take the class
   colour, and the lap tracker's driver-number badge does too.

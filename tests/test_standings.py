@@ -134,6 +134,14 @@ class ClassFromTagTests(unittest.TestCase):
         self.assertEqual([pick(t) for t in ("P", "SP", "PA", "AM", "G", "PRO-AM", "X")],
                          ["pro", "sp", "pa", "am", "gold", "pa", None])
 
+    def test_all_seven_tiers(self):
+        from apex.league import class_for_tag
+        tiers = [{"id": n.lower(), "name": n, "match": []}
+                 for n in ("PRO", "SEMI-PRO", "PRO-AM", "AM", "GOLD", "SILVER", "BRONZE")]
+        pick = lambda t: (class_for_tag(tiers, t) or {}).get("id")
+        self.assertEqual([pick(t) for t in ("P", "SP", "PA", "AM", "G", "S", "B")],
+                         ["pro", "semi-pro", "pro-am", "am", "gold", "silver", "bronze"])
+
     def test_tag_beats_car_class_but_not_an_own_pick(self):
         store = LeagueStore(tempfile.mkdtemp())
         profile = {"classes": self.CLASSES}

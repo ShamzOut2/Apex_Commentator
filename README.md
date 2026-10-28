@@ -422,8 +422,8 @@ driver names, like `(P) Dave Price` or `(PA) Mat Gatter`. Tick this box
 **Classes from name tags**: a tag like `(P)` also puts the driver in the
 matching league class, so their number and stripe take that class's colour.
 The match is the class's name or an entry in its *iRacing classes* field
-(e.g. `P`), or else the initials of its name: `SP` is Semi-Pro, `PA` is
-Pro-Am, `P` is Pro, `G` is Gold. The tag in the driver's current iRacing name
+(e.g. `P`), or else the initials of its name: `P` is Pro, `SP` is Semi-Pro,
+`PA` is Pro-Am, `AM` is Am, `G` is Gold, `S` is Silver and `B` is Bronze. The tag in the driver's current iRacing name
 counts, so a class change shows as soon as the tag changes. A class picked
 for a driver in the roster still wins.
 
