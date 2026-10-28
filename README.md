@@ -93,7 +93,9 @@ shows something else. Camera hotkeys work in whichever window has focus.
 - **Standings**: Pos (overall), Cls (position in class, underlined in the class
   colour), **+/−** (places gained or lost since the start, within the class
   when a class is picked), car number, driver and team, lap, gap to the
-  leader, interval to the car ahead, last and best lap, pit stops, flag
+  leader (timed by the app at points every ~10 m of track, so it updates
+  several times a second and keeps step with the order; "+1 L" for lapped
+  cars), interval to the car ahead, last and best lap, pit stops, flag
   (yellow, blue, white, chequered), penalties (black flag, DQ, meatball,
   warning) and incident points. **Click any driver** to put the camera on
   them. The class chips show one class at a time, with gaps and places within

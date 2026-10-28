@@ -37,6 +37,14 @@ pop-up.
     choose the corner or edge, all together or one at a time, size, caption,
     panel and which sponsors.
 - **Team logos** are larger on the teams' championship board.
+- **Race gaps no longer stick or lag**:
+  - iRacing's own gap figure only refreshes now and then for other cars, so
+    it could freeze or fall out of step with the running order.
+  - Gaps are now timed by the app. Every ~10 m of track it notes when each car
+    passes, and a gap is the difference at the same point.
+  - They update several times a second, match the order on track, and stay
+    right when watching a replay.
+  - Lapped cars show "+1 L", and intervals never go negative.
 - **Spin detection**:
   - A slowdown is only logged as a **SPIN** when the car also rotates
     sharply within 0.2 s. For the car driven on your PC, that's its heading

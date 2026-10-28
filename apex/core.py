@@ -10,6 +10,7 @@ import time
 from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
+from .gaps import GapTimer
 from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
 from .settings import UserSettings
@@ -103,8 +104,9 @@ def _rank(standings, is_race):
             class_gap = t - leader["first"] if t is not None and leader["first"] is not None else None
         e["gap"] = round(gap, 3) if gap is not None and pos > 1 else None
         e["class_gap"] = round(class_gap, 3) if class_gap is not None and in_class[k] > 1 else None
-        e["interval"] = round(t - prev, 3) if t is not None and prev is not None else None
-        e["class_interval"] = round(t - leader["prev"], 3) if t is not None and leader["prev"] is not None else None
+        # Side by side, the car behind can be a hair ahead on time: never a negative interval.
+        e["interval"] = round(max(0.0, t - prev), 3) if t is not None and prev is not None else None
+        e["class_interval"] = round(max(0.0, t - leader["prev"]), 3) if t is not None and leader["prev"] is not None else None
         prev = t
         leader["prev"] = t
 
@@ -113,6 +115,18 @@ def _session_limit(text):
     """'30' -> 30 laps; '1200.0000 sec' -> 1200 s; 'unlimited' -> None."""
     m = re.match(r"\s*([\d.]+)", str(text or ""))
     return float(m.group(1)) if m else None
+
+
+def _laps_down(leader, r):
+    """Whole laps a car is behind a leader (0 on the lead lap)."""
+    down = leader["progress"] - r["progress"]
+    return int(down) if r["progress"] >= 0 and down >= 1 else 0
+
+
+def _progress(frame, idx):
+    """Laps + lap distance of a car, or -1 when it isn't on track."""
+    lap, pct = _at(frame.lap, idx, -1), _at(frame.pct, idx, -1.0)
+    return lap + pct if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1
 
 
 def _lap_time(value):
@@ -199,6 +213,7 @@ class App:
         self.photobooth = None     # set by __main__ (needs the user data folder)
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
         self.laps = LapTracker()
+        self.gaps = GapTimer()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
         self.settings = UserSettings()     # settings changed in the app (likewise)
         self.tracks = TrackCatalogue()     # likewise: the season calendar's track list
@@ -271,6 +286,7 @@ class App:
         self.detector.update(timeline_frame, self._drivers, self._track_m, self._is_race(timeline_frame))
         if self._is_race(timeline_frame):
             self._race.update(timeline_frame)
+            self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
         self.laps.green_s = self.overlays.get()["laps"]["green_s"]
         self.laps.update(timeline_frame, self._lap_class)
         self._logged_until[num] = t
@@ -292,6 +308,7 @@ class App:
     def _load_session_info(self, info, frame):
         weekend = info.get("WeekendInfo") or {}
         self._track_m = parse_track_length(weekend.get("TrackLength"))
+        self.gaps.set_track(self._track_m)
         self.tracks.remember(weekend.get("TrackID"), weekend.get("TrackDisplayName", ""), weekend.get("TrackConfigName", ""))
         sessions = (info.get("SessionInfo") or {}).get("Sessions") or []
         self._session_meta = {
@@ -401,7 +418,8 @@ class App:
                     "on_pit": bool(_at(frame.on_pit, idx, False)),
                     "surface": SURFACES.get(surface, "unknown"),
                     "in_world": surface != TRK_NOT_IN_WORLD,
-                    "gap": round(_at(frame.f2_time, idx, 0.0), 3) if is_race else None,
+                    "gap": round(_at(frame.f2_time, idx, 0.0), 3) if is_race else None,  # live timing replaces it (_live_gaps)
+                    "laps_down": 0,
                     "last_lap": _lap_time(_at(frame.last_lap, idx)),
                     "best_lap": _lap_time(_at(frame.best_lap, idx)),
                     "event_count": counts.get(idx, 0),
@@ -412,6 +430,8 @@ class App:
                 })
                 rows.append(row)
             self._assign_positions(rows, racing)
+            if racing:
+                self._live_gaps(rows)
             in_class = {}
             for r in rows:
                 del r["progress"]
@@ -560,6 +580,7 @@ class App:
             "make": r["make"], "make_logo": r["make_logo"],
             "lap": r["lap"], "last_lap": r["last_lap"], "best_lap": r["best_lap"], "pit_stops": r["pit_stops"],
             "laps_completed": r["laps_completed"],
+            "laps_down": r.get("laps_down", 0), "class_laps_down": r.get("class_laps_down", 0),
         }
 
     def _session_progress(self, frame, session, rows, mode="auto"):
@@ -674,6 +695,24 @@ class App:
             gained = is_race and r["pos"] and r["start_pos"]
             r["pos_change"] = r["start_pos"] - r["pos"] if gained else None
             r["class_pos_change"] = r["class_start_pos"] - r["class_pos"] if gained and r["class_pos"] else None
+
+    def _live_gaps(self, rows):
+        """Gaps to the leader from the timing points (see gaps.py), in place of
+        iRacing's, which lag; iRacing's stays where there's no timing yet."""
+        ranked = [r for r in rows if r["pos"] is not None]
+        if not ranked:
+            return
+        leader = ranked[0]
+        class_leader = {}
+        for r in ranked:
+            cl = class_leader.setdefault(r["class_key"], r)
+            r["laps_down"] = _laps_down(leader, r)
+            r["class_laps_down"] = _laps_down(cl, r)
+            if r is leader:
+                continue
+            gap = self.gaps.gap(r["car_idx"], leader["car_idx"], r["progress"])
+            if gap is not None:
+                r["gap"] = round(gap, 3)
 
     @staticmethod
     def _assign_positions(rows, racing):

@@ -32,6 +32,8 @@ const COLUMNS = [
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
     if (!race && e.best == null) return '<span class="dim">No time</span>';
     if (first) return `<span class="lead">${race ? "Leader" : fmtLap(e.best)}</span>`;
+    const down = race && (classMode ? e.class_laps_down : e.laps_down);
+    if (down) return `+${down} L`;
     return gap != null ? `+${race ? gap.toFixed(1) : gap.toFixed(3)}` : "";
   }],
   ["show_interval", "80px", "Int", (e, race, classMode) => {
@@ -178,7 +180,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   if (race) {
     cells.push(
       `<td class="r muted">${e.laps_completed ?? ""}</td>`,
-      `<td class="r ${first ? "lead" : ""}">${first ? "Leader" : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`,
+      `<td class="r ${first ? "lead" : ""}">${first ? "Leader" : (classMode ? e.class_laps_down : e.laps_down) ? `+${classMode ? e.class_laps_down : e.laps_down} L` : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`,
       `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(1)}` : ""}</td>`,
       compact ? "" : `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
       `<td class="r">${fmtLap(e.best_lap)}</td>`,

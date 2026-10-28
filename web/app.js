@@ -255,9 +255,10 @@ function standingsView(s) {
     let gap = null, int = null;
     if (race && r.gap != null && leaderGap != null) {
       gap = r.gap - leaderGap;
-      if (prev && prev.gap != null) int = r.gap - prev.gap;
+      if (prev && prev.gap != null) int = Math.max(0, r.gap - prev.gap);
     }
-    const v = { r, gap, int, fastestLap: isFinite(fastest) && r.best_lap === fastest, fastest };
+    const down = race ? (ui.classFilter === "all" ? r.laps_down : r.class_laps_down) || 0 : 0;
+    const v = { r, gap, int, down, fastestLap: isFinite(fastest) && r.best_lap === fastest, fastest };
     prev = r;
     return v;
   });
@@ -314,6 +315,7 @@ function renderStandings(s) {
   const battles = findBattles(s, view);
   const classByKey = new Map((s.classes || []).map((c) => [c.key, c]));
   const inClass = ui.classFilter !== "all";
+  const firstRow = view.length ? view[0].r : null;
   const ordered = view.map((v) => {
     const r = v.r;
     const cls = classByKey.get(r.class_key) || {};
@@ -322,7 +324,7 @@ function renderStandings(s) {
     const team = (lg && lg.team) || r.team;
     let gap = "", int = "";
     if (race) {
-      gap = v.gap == null ? "" : v.gap <= 0 ? "Leader" : fmtDelta(v.gap);
+      gap = v.gap == null ? "" : v.r === firstRow ? "Leader" : v.down ? `+${v.down} L` : fmtDelta(v.gap);
       int = v.int == null ? "" : fmtDelta(v.int);
     } else if (r.best_lap && isFinite(v.fastest)) {
       gap = v.fastestLap ? "Fastest" : fmtDelta(r.best_lap - v.fastest);
