@@ -4,6 +4,30 @@ Release notes for each version. When a version tag is pushed, its section
 here becomes the GitHub release notes, which the app shows in its update
 pop-up.
 
+## v0.4.0
+
+- **Full-screen displays**: the standings and the qualifying lap tracker each
+  have a full-screen version (`?screen=1`, linked from the Overlays tab).
+  - Standings board: every driver, with laps, gaps, intervals, last and best
+    laps, and pit stops.
+  - Qualifying live timing: sector boxes, the running lap clock, best lap and
+    gap.
+- **Championship scoring "Both"**: each result scores in its class's
+  championship (class positions) and in an Overall championship (overall
+  positions), kept apart. The overall championship can have its own points
+  table.
+- **Finished / DNF / DNS fixed**: imported results no longer mark everyone as
+  finished.
+  - The app watches the race: a car finished if it took the chequered flag.
+  - A car that started but didn't take the flag is a DNF.
+  - A car that never joined once the race went green is a DNS.
+- **Race distance to score**: a driver must complete a share of their class
+  winner's laps (75% by default). Anyone short is a DNF with no points.
+- Live championship standings no longer count a race twice once it has been
+  imported.
+- `--mock-laps N` ends the simulated race after N laps; simulated cars can
+  retire.
+
 ## v0.3.0
 
 - **Championship** tab: season points for each league.

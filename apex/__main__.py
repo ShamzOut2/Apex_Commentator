@@ -29,6 +29,8 @@ def parse_args(argv):
     parser.add_argument("--mock", action="store_true", help="simulate a race instead of connecting to iRacing")
     parser.add_argument("--mock-session", choices=("race", "qualify"), default="race",
                         help="with --mock: simulate a race (default) or a qualifying session")
+    parser.add_argument("--mock-laps", type=int, default=0,
+                        help="with --mock: the race ends after this many laps (default: never)")
     parser.add_argument("--mock-speed", type=float, default=1.0, help="mock time multiplier (e.g. 5 for a busier demo)")
     parser.add_argument("--config", help="path to config.json")
     parser.add_argument("--host", help="interface to listen on (default 127.0.0.1)")
@@ -39,10 +41,10 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-def build_app(cfg, mock, mock_speed=1.0, mock_session="race"):
+def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0):
     if mock:
         from .sources import MockSource
-        source = MockSource(time_scale=mock_speed, session=mock_session)
+        source = MockSource(time_scale=mock_speed, session=mock_session, race_laps=mock_laps, retirements=True)
     else:
         from .sources import IRacingSource  # ImportError when pyirsdk is missing
         source = IRacingSource()
@@ -117,7 +119,7 @@ def main(argv=None):
         return 0
 
     try:
-        app = build_app(cfg, args.mock, args.mock_speed, args.mock_session)
+        app = build_app(cfg, args.mock, args.mock_speed, args.mock_session, args.mock_laps)
     except ImportError:
         desktop.alert("pyirsdk is not installed. Run: pip install -r requirements.txt\n"
                       "(or start with --mock to try the app without iRacing)", error=True)

@@ -181,7 +181,9 @@ class Handler(BaseHTTPRequestHandler):
             if rd is None:
                 return self._error("Save the round first")
             results, added = app.session_results(profile, add_missing=True)
-            rd["results"] = results
+            # Too little of the race covered: a DNF (and no points).
+            rd["results"] = championship.apply_distance_rule(results, championship.normalise_rules(profile["championship"].get("rules")))
+            rd["session"] = app.session_key() or ""
             if not rd["track"]:
                 rd["track"] = app._session_meta.get("track", "")
             league = app.leagues.save(profile)

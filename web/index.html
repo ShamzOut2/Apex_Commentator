@@ -275,14 +275,17 @@
     <section id="tab-overlays" class="panel">
       <div class="home">
         <h2>Overlays</h2>
-        <p class="hint">Add each one to OBS as a Browser Source at 1920×1080 (the background is transparent). Changes here
-          show on stream straight away.</p>
+        <p class="hint">Each has two versions. The <b>overlay</b> goes over the race in OBS (Browser Source at 1920×1080,
+          transparent background). The <b>full screen</b> version is a complete screen of its own, with a background and every
+          driver, to cut to on stream or show on a monitor (Open, then F11). Changes here show straight away.</p>
         <div class="overlay-cards">
           <div class="overlay-card">
             <h3>Standings</h3>
             <p class="hint">Race: running order and gap to the leader. Qualifying and practice: fastest clean lap, and the
               tower stays empty until someone sets one.</p>
-            <p class="obs-url"><code id="url-standings"></code> <button class="btn subtle" data-copy="url-standings">Copy</button></p>
+            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-standings"></code> <button class="btn subtle" data-copy="url-standings">Copy</button></p>
+            <p class="obs-url"><span class="obs-kind">Full screen</span><code id="url-standings-screen"></code> <button class="btn subtle" data-copy="url-standings-screen">Copy</button>
+              <a class="btn" href="/standings.html?screen=1" target="_blank" rel="noopener">Open ↗</a></p>
             <div class="preview-frame"><iframe src="/standings.html?preview=1" title="Standings preview" loading="lazy"></iframe></div>
             <div id="ov-standings" class="ov-form" data-overlay="standings"></div>
           </div>
@@ -290,7 +293,9 @@
             <h3>Lap tracker <span class="count">qualifying</span></h3>
             <p class="hint">One big tracker for the car on camera and small ones for the others on a timed lap. Sector bars
               go purple (fastest), green (within the margin) or yellow; a finished lap stays up for a few seconds.</p>
-            <p class="obs-url"><code id="url-laps"></code> <button class="btn subtle" data-copy="url-laps">Copy</button></p>
+            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-laps"></code> <button class="btn subtle" data-copy="url-laps">Copy</button></p>
+            <p class="obs-url"><span class="obs-kind">Full screen</span><code id="url-laps-screen"></code> <button class="btn subtle" data-copy="url-laps-screen">Copy</button>
+              <a class="btn" href="/laps.html?screen=1" target="_blank" rel="noopener">Open ↗</a></p>
             <div class="preview-frame"><iframe src="/laps.html?preview=1" title="Lap tracker preview" loading="lazy"></iframe></div>
             <div id="ov-laps" class="ov-form" data-overlay="laps"></div>
           </div>
@@ -322,9 +327,11 @@
 
         <div class="champ-view" data-view="rounds" hidden>
           <p class="hint">Add the season's rounds. After a race, open its round and press <b>Import from session</b>
-            (while still in the session, or a replay of it) to fill in the results, then correct anything by hand:
-            positions, laps led, fastest laps, DNF/DSQ, or extra points (+ or −). During a race the live standings count it
-            as the round marked <b>live</b> (by default the first round without results).</p>
+            (while still in the session) to fill in the results. Who <b>finished</b> (took the chequered flag), retired
+            (<b>DNF</b>) or never started (<b>DNS</b>) is worked out from watching the race. Anyone who covered less than the
+            minimum share of the race (Points &amp; rules) is a DNF and scores nothing. Correct anything by hand: positions,
+            laps led, fastest laps, status, or extra points (+ or −). During a race the live standings count it as the
+            round marked <b>live</b> (by default the first round without results).</p>
           <div id="champ-rounds"></div>
           <button id="btn-add-round" class="btn subtle">+ Add round</button>
         </div>

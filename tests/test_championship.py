@@ -67,6 +67,50 @@ class ScoringTests(unittest.TestCase):
         # a is disqualified: b wins; c is classified (18/20 laps); d isn't.
         self.assertEqual([rows[d]["points"] for d in "abcd"], [0, 10, 8, 0])
 
+    def test_race_distance_is_per_class(self):
+        rules = {"points": [10, 8], "classified_pct": 75}
+        p = profile(rules, [{"id": "r1", "results": [
+            res("a", 1, "pro", laps=20), res("b", 2, "pro", laps=14),
+            res("c", 3, "am", laps=16), res("d", 4, "am", laps=12),
+        ]}])
+        rows, _ = table(p)
+        # b did 14/20 (70%): DNF, no points. d did 12/16 (75%): classified.
+        self.assertEqual([rows[d]["points"] for d in "abcd"], [10, 0, 10, 8])
+        result = rows["b"]["rounds"][0]["result"]
+        self.assertEqual((result["status"], result["short"]), ("dnf", True))
+        results = [ch.normalise_result(res("b", 2, "pro", laps=14)), ch.normalise_result(res("a", 1, "pro", laps=20))]
+        self.assertEqual([r["status"] for r in ch.apply_distance_rule(results, ch.normalise_rules(rules))],
+                         ["dnf", "finished"])
+
+    def test_provisional_round_skips_distance_rule(self):
+        p = profile({"points": [10, 8], "classified_pct": 75}, [])
+        live = {"id": "r1", "name": "R1", "track": "", "date": "", "multiplier": 1, "no_drop": False, "provisional": True,
+                "results": [ch.normalise_result(res("a", 1, laps=2)), ch.normalise_result(res("b", 2, laps=1))]}
+        rows = {r["driver"]: r for g in ch.projection(p, live) for r in g["drivers"]}
+        self.assertEqual(rows["b"]["points"], 8)
+
+    def test_both_scores_class_and_overall_separately(self):
+        classes = [{"id": "pro", "name": "Pro", "color": "#ff0000"}, {"id": "am", "name": "Am", "color": "#0000ff"}]
+        rules = {"points": [10, 5], "overall_points": [20, 15, 10, 5], "scoring": "both"}
+        p = profile(rules, [{"id": "r1", "results": [
+            res("a", 1, "pro"), res("b", 2, "am"), res("c", 3, "pro"), res("d", 4, "am")]}], classes=classes)
+        st = ch.standings(p)
+        self.assertEqual([g["name"] for g in st["groups"]], ["Overall", "Pro", "Am"])
+        pts = {g["name"]: {r["driver"]: r["points"] for r in g["drivers"]} for g in st["groups"]}
+        self.assertEqual(pts["Overall"], {"a": 20, "b": 15, "c": 10, "d": 5})
+        self.assertEqual(pts["Pro"], {"a": 10, "c": 5})
+        self.assertEqual(pts["Am"], {"b": 10, "d": 5})
+
+    def test_live_round_skips_an_imported_race(self):
+        champ = ch.normalise({"rounds": [{"id": "r1", "session": "123:2", "results": [res("a", 1)]}, {"id": "r2"}]})
+        self.assertIsNone(ch.live_round_for(champ, "123:2"))
+        self.assertEqual(ch.live_round_for(champ, "999:2")["id"], "r2")
+
+    def test_old_saves_without_new_rules_still_score(self):
+        p = {"name": "Old", "drivers": [], "classes": [], "championship": {
+            "rules": {"points": [5]}, "rounds": [{"id": "r1", "results": [res("a", 1)]}], "penalties": []}}
+        self.assertEqual(ch.standings(p)["groups"][0]["drivers"][0]["points"], 5)
+
     def test_dnf_doesnt_score_when_off(self):
         p = profile({"points": [10, 8], "dnf_scores": False},
                     [{"id": "r1", "results": [res("a", 1), res("b", 2, status="dnf")]}])
@@ -153,6 +197,32 @@ class SessionTests(unittest.TestCase):
             self.assertEqual(added, 0)
             self.assertEqual([r["position"] for r in results], list(range(1, len(drivers) + 1)))
             self.assertTrue(all(r["class_id"] for r in results))
+
+    def test_finished_dnf_and_dns_from_a_watched_race(self):
+        from apex.config import DEFAULTS
+        from apex.core import App
+        from apex.sources import MockSource
+        with tempfile.TemporaryDirectory() as tmp:
+            t = [0.0]
+            src = MockSource(seed=5, clock=lambda: t[0], race_laps=3, no_shows=1)
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            for k in range(4000):
+                t[0] += 0.1
+                if k == 1500:
+                    src.out[4] = True  # car 5 retires on lap 2
+                app.tick()
+                if src.checkered and all(src.done[i] or src.out[i] for i in range(src.num_cars)):
+                    break
+            league = profile_from_session(app.build_snapshot()["drivers"], "S")
+            results, _ = app.session_results(league)
+            status = {r["name"]: r["status"] for r in results}
+            names = [d["UserName"] for d in src.drivers[1:]]
+            self.assertEqual(status[names[4]], "dnf")
+            self.assertEqual(status[names[-1]], "dns")
+            self.assertEqual(sum(1 for s in status.values() if s == "finished"), src.num_cars - 2)
+            winner = results[0]
+            self.assertEqual((winner["status"], winner["laps"]), ("finished", 3))
+            self.assertGreater(winner["laps_led"], 0)
 
     def test_saved_with_league(self):
         with tempfile.TemporaryDirectory() as tmp:

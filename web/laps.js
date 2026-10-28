@@ -7,6 +7,9 @@
 
 const stage = $("#stage");
 const box = $("#trackers");
+// ?screen=1: full-screen live timing for every driver, to show on its own.
+const SCREEN = new URLSearchParams(location.search).has("screen");
+if (SCREEN) document.body.classList.add("screen");
 fitStage(stage);
 
 const DEFAULT_CLASS = { key: "", name: "", color: "#8b93a3", logo: null };
@@ -90,6 +93,7 @@ function update(entry, item, cfg, classes, nsec) {
 function render() {
   const ov = snap && snap.overlays;
   if (!ov) return;
+  if (SCREEN) return renderScreen(ov);
   const cfg = ov.settings.laps;
   const laps = ov.laps;
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
@@ -125,10 +129,77 @@ function render() {
   if (order.some((e, i) => current[i] !== e.el)) for (const e of order) box.appendChild(e.el);
 }
 
+// -- full-screen live timing ---------------------------------------------------
+
+let screenShown = "";
+let screenAt = 0;
+const screenClocks = new Map();  // car_idx -> running lap (elapsed at screenAt)
+
+function screenRowHtml(item, cfg, cls, nsec, camIdx) {
+  const lap = item.lap;
+  const sectors = lap ? lap.sectors : Array.from({ length: nsec }, () => ({ time: null, colour: null, done: 0 }));
+  let lapCell = "";
+  if (!lap) lapCell = `<span class="state">${item.on_pit ? "IN PITS" : item.in_world ? "OUT LAP" : "—"}</span>`;
+  else if (lap.state === "finished") {
+    const d = lap.delta != null && lap.valid ? `<span class="${lap.delta <= 0 ? "faster" : "slower"}"> ${lap.delta > 0 ? "+" : "−"}${Math.abs(lap.delta).toFixed(3)}</span>` : "";
+    lapCell = `<span class="lapclock ${lap.valid ? "" : "invalid"}">${fmtLap(lap.lap_time)}</span>${d}`;
+  } else lapCell = `<span class="lapclock ${lap.valid ? "" : "invalid"}" data-clock="${item.car_idx}"></span>`;
+  const team = item.team ? `${cfg.show_logo && item.team_logo ? `<img src="${esc(item.team_logo)}" alt="">` : ""}${esc(item.team)}` : "";
+  return `<tr class="${item.car_idx === camIdx ? "cam" : ""}">
+    <td class="stripe" style="background:${esc(cls.color)}"></td>
+    <td class="p r">${item.pos ?? ""}</td>
+    <td class="c"><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(item.number)}</span></td>
+    <td>${esc(formatName(item, cfg.name_format))}</td>
+    <td class="team">${team}</td>
+    ${sectors.map((sc) => `<td class="sec"><div class="${sc.colour || ""}">${sc.colour ? "" : `<i style="width:${Math.round(sc.done * 100)}%"></i>`}<span>${sc.time != null ? fmtSector(sc.time) : ""}</span></div></td>`).join("")}
+    <td class="r">${lapCell}</td>
+    <td class="r lead">${fmtLap(item.best)}</td>
+    <td class="r">${item.pos > 1 && item.gap != null ? `+${item.gap.toFixed(3)}` : ""}</td>
+  </tr>`;
+}
+
+function renderScreen(ov) {
+  const cfg = ov.settings.laps;
+  const laps = ov.laps;
+  const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
+  const nsec = laps.sectors;
+  const camIdx = snap.camera && snap.camera.car_idx;
+  const rows = laps.all || [];
+  const rowH = Math.max(26, Math.min(44, Math.floor(900 / Math.max(rows.length, 1))));
+  const session = snap.session || {};
+  const sub = [snap.league && snap.league.name, [session.track, session.track_config].filter(Boolean).join(" – ")].filter(Boolean).join(" · ");
+  const widths = ["6px", "70px", "70px", "auto", "auto", ...Array(nsec).fill("120px"), "190px", "130px", "120px"];
+  const body = !snap.connected ? '<div class="screen-empty">Waiting for iRacing…</div>'
+    : !laps.active ? '<div class="screen-empty">Live lap timing shows during qualifying.</div>'
+      : `<div class="screen-body"><div class="screen-col"><table class="screen-table">
+        <colgroup>${widths.map((w) => `<col style="width:${w}">`).join("")}</colgroup>
+        <thead><tr><th class="stripe"></th><th class="r">Pos</th><th class="c">#</th><th>Driver</th><th>Team</th>
+          ${Array.from({ length: nsec }, (_, i) => `<th class="c">S${i + 1}</th>`).join("")}<th class="r">Lap</th><th class="r">Best</th><th class="r">Gap</th></tr></thead>
+        <tbody>${rows.map((it) => screenRowHtml(it, cfg, classes.get(it.class_key) || DEFAULT_CLASS, nsec, camIdx)).join("")}</tbody>
+      </table></div></div>`;
+  const html = `<div class="screen-page" style="--row-h:${rowH}px;--row-font:${Math.round(rowH * 0.52)}px">
+    <div class="screen-head"><span class="t1">${laps.active ? "QUALIFYING" : "LIVE TIMING"}</span><span class="t2">${esc(sub)}</span>
+      <span class="t3">${snap.connected ? fmtClock(session.time) : ""}</span></div>${body}</div>`;
+  screenAt = performance.now();
+  screenClocks.clear();
+  for (const it of rows) if (it.lap && it.lap.state === "running") screenClocks.set(String(it.car_idx), it.lap.elapsed);
+  if (html !== screenShown) {
+    screenShown = html;
+    stage.innerHTML = html;
+  }
+}
+
 // The lap clock runs here between snapshots.
 function tick() {
   const now = performance.now();
   const speed = snap && snap.replay ? snap.replay.speed ?? 1 : 1;
+  if (SCREEN) {
+    for (const el of stage.querySelectorAll("[data-clock]")) {
+      const elapsed = screenClocks.get(el.dataset.clock);
+      el.textContent = elapsed == null ? "" : fmtLap(elapsed + ((now - screenAt) / 1000) * speed).replace(/(\.\d)\d\d$/, "$1");
+    }
+    return requestAnimationFrame(tick);
+  }
   for (const entry of shown.values()) {
     const lap = entry.item && entry.item.lap;
     const lt = entry.el.querySelector(".lt");
