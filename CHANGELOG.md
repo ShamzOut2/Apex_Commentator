@@ -19,6 +19,8 @@ pop-up.
   - laps completed, pit stops and the PIT badge.
 - The full-screen standings board shows laps or time left too, and counts
   laps completed.
+- **By-class standings** have the same small gap between the header and each
+  class, on the tower (each class its own panel) and the full-screen board.
 - **League builder: "Remove driver class in name"** for leagues that tag
   names like `(P) Dave Price`.
   - The name without the tag goes in each driver's Nickname, and the

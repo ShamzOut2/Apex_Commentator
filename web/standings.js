@@ -124,10 +124,13 @@ function render() {
   // the header shows from the start and drivers join as they cross the line.
   const visible = snap.connected && cfg.visible && (entries.length > 0 || cfg.reveal);
   const width = 430 + cols.reduce((n, c) => n + parseInt(c[1], 10) + 8, 0) - (cols.length ? 60 : 0);
-  const html = `<div class="tower-head ${body ? "" : "alone"}">
+  // The header (with the column labels) is one panel; the drivers follow it,
+  // joined on (overall) or as a separate panel per class, evenly spaced.
+  const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head">
       <div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
       ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}
-    </div>${body ? headRowHtml(cfg, cols) : ""}${body}`;
+    </div>${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
+  tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("hidden", !visible);
   tower.style.width = `${width}px`;
   tower.style.setProperty("--grid", grid);
@@ -139,7 +142,7 @@ function render() {
 
 // -- full-screen board --------------------------------------------------------
 
-const ROW_BUDGET = 900;  // px of the 1080 stage for table rows
+const ROW_BUDGET = 850;  // px of the 1080 stage left for table rows under the header and column labels
 
 function sessionTitle(snap, ov) {
   const session = snap.session || {};
@@ -233,10 +236,15 @@ function renderScreen(snap, ov) {
   const perCol = 26;
   const ncols = Math.min(3, Math.max(1, Math.ceil(lines.length / perCol)));
   const rowsPerCol = Math.ceil(lines.length / ncols);
-  const rowH = Math.max(26, Math.min(44, Math.floor(ROW_BUDGET / Math.max(rowsPerCol, 1))));
   const compact = ncols > 1;
   const cols = [];
   for (let c = 0; c < ncols; c++) cols.push(lines.slice(c * rowsPerCol, (c + 1) * rowsPerCol));
+  // Class header rows are a fixed 54px (their gap included, see overlay.css):
+  // driver rows share what's left.
+  const fill = (col) => col.reduce((n, l) => n + (l.head ? 0 : 1), 0);
+  const heads = (col) => col.length - fill(col);
+  const tallest = cols.reduce((a, col) => (fill(col) + heads(col) * 2 > fill(a) + heads(a) * 2 ? col : a), cols[0] || []);
+  const rowH = Math.max(26, Math.min(44, Math.floor((ROW_BUDGET - heads(tallest) * 54) / Math.max(fill(tallest), 1))));
   const body = !snap.connected ? '<div class="screen-empty">Waiting for iRacing…</div>'
     : !entries.length ? `<div class="screen-empty">${race ? "Waiting for the race" : "No lap times yet"}</div>`
       : `<div class="screen-body">${cols.map((col) => `<div class="screen-col"><table class="screen-table">${screenHead(race, compact)}<tbody>${col.map((l) => l.head

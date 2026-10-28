@@ -3,17 +3,22 @@
   transition: opacity .4s ease, transform .4s ease;
 }
 .tower.hidden { opacity: 0; transform: translateX(-30px); }
+.head-box { border-radius: 10px 10px 0 0; overflow: hidden; background: var(--panel); }
+.head-box.alone { border-radius: 10px; }
 .tower-head {
-  background: var(--panel); border-left: 6px solid var(--accent); border-radius: 10px 10px 0 0;
+  background: var(--panel); border-left: 6px solid var(--accent);
   padding: 10px 14px; display: flex; flex-direction: column; gap: 2px;
 }
-.tower-head.alone { border-radius: 10px; }
 .tower-head .h1 { display: flex; align-items: baseline; gap: 10px; }
 .tower-head .t1 { font-size: 22px; font-weight: 900; letter-spacing: .06em; }
 .tower-head .t3 { margin-left: auto; font-size: 20px; font-weight: 900; letter-spacing: .04em; color: var(--accent); }
 .tower-head .t2 { font-size: 14px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .block { background: var(--panel); }
 .block:last-child { border-radius: 0 0 10px 10px; overflow: hidden; }
+/* By class: the header and each class are separate panels, the same gap apart. */
+.tower.by-class { --class-gap: 8px; }
+.tower.by-class .head-box { border-radius: 10px; }
+.tower.by-class .block { margin-top: var(--class-gap); border-radius: 10px; overflow: hidden; }
 .srow {
   display: grid; grid-template-columns: var(--grid); align-items: center; gap: 8px;
   height: 38px; padding-right: 12px; border-top: 1px solid var(--line); font-size: 18px;
