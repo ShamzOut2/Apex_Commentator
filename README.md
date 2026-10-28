@@ -261,6 +261,24 @@ are kept in `data/overlays.json`.
   - *Overall* lists everyone (with class position in multiclass).
   - *By class* gives each class its own block with its header and logo, or
     shows just one class.
+  - **Header**: the session, with laps or time left. *Automatic* follows how
+    the session is limited ("LAP 5 / 20", then "FINAL LAP" and
+    "FINISHED"; or "12:34 LEFT"). You can also pick laps, time or nothing.
+  - **Fill in as drivers complete a lap**: at the start of any session, only
+    the header shows. Each driver appears as they cross the line to start
+    their next lap, so in a race the tower builds up in order at the end of
+    lap 1. In qualifying, a driver with a lap done but no clean time yet is
+    listed at the bottom.
+  - **Columns** (each on or off):
+    - gap to the leader (or to pole);
+    - interval to the car ahead;
+    - places gained or lost since the start;
+    - class position in the overall view;
+    - best lap and last lap;
+    - laps completed and pit stops;
+    - a PIT badge on pit road.
+
+    Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
 - **Lap tracker** (`/laps.html`): only in qualifying (practice too, if you

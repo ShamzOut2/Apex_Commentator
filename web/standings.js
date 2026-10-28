@@ -93,10 +93,12 @@ function render() {
   const ov = snap && snap.overlays;
   if (!ov) return;
   if (SCREEN) return renderScreen(snap, ov);
-  const cfg = ov.settings.standings;
+  const entries = ov.standings;
+  // No logo column when no team has a logo.
+  const cfg = { ...ov.settings.standings };
+  cfg.show_logo = cfg.show_logo && entries.some((e) => e.team_logo);
   const race = ov.session_kind === "race";
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
-  const entries = ov.standings;
   const multiclass = new Set(entries.map((e) => e.class_key)).size > 1;
   const classMode = cfg.mode === "class";
   const camIdx = snap.camera && snap.camera.car_idx;
@@ -175,7 +177,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   ];
   if (race) {
     cells.push(
-      `<td class="r muted">${e.lap ?? ""}</td>`,
+      `<td class="r muted">${e.laps_completed ?? ""}</td>`,
       `<td class="r ${first ? "lead" : ""}">${first ? "Leader" : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`,
       `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(1)}` : ""}</td>`,
       compact ? "" : `<td class="r muted">${fmtLap(e.last_lap)}</td>`,

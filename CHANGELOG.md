@@ -4,6 +4,22 @@ Release notes for each version. When a version tag is pushed, its section
 here becomes the GitHub release notes, which the app shows in its update
 pop-up.
 
+## Unreleased
+
+- **Standings header** shows laps or time left: "LAP 5 / 20", "FINAL LAP",
+  "FINISHED" or "12:34 LEFT". Automatic follows how the session is limited,
+  or you can choose.
+- **Fill in as drivers complete a lap**: an option to start each session with
+  only the header. Drivers appear as they cross the line, so the race tower
+  builds up in order at the end of lap 1.
+- **Standings columns to choose from**:
+  - gap and interval;
+  - places gained/lost and class position;
+  - best and last lap;
+  - laps completed, pit stops and the PIT badge.
+- The full-screen standings board shows laps or time left too, and counts
+  laps completed.
+
 ## v0.4.1
 
 - **Lap tracker readable on real tracks**: iRacing often splits a lap into
