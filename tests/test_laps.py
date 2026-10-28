@@ -5,7 +5,7 @@ from pathlib import Path
 
 from apex.config import DEFAULTS
 from apex.core import App
-from apex.laps import LapTracker, colour, sector_starts
+from apex.laps import LapTracker, colour, group_sectors, sector_starts
 from apex.league import LeagueStore
 from apex.overlays import OverlaySettings, normalise
 from apex.sources import TRK_OFF_TRACK, TRK_ON_TRACK, MockSource
@@ -50,6 +50,13 @@ class LapTrackerTests(unittest.TestCase):
                                               {"SectorNum": 1, "SectorStartPct": 0.4}]}}
         self.assertEqual(sector_starts(info), (0.0, 0.4))
         self.assertEqual(sector_starts({}), (0.0, 1 / 3, 2 / 3))
+
+    def test_group_sectors(self):
+        track = (0.0, 0.1, 0.22, 0.35, 0.47, 0.6, 0.71, 0.84)
+        self.assertEqual(group_sectors(track, 3), (0.0, 0.35, 0.71))
+        self.assertEqual(group_sectors(track, 2), (0.0, 0.47))
+        self.assertEqual(group_sectors(track, 0), track)
+        self.assertEqual(group_sectors((0.0, 0.5), 3), (0.0, 0.5))
 
     def test_colours(self):
         self.assertEqual(colour(30.0, None, 0.2), "purple")
@@ -157,6 +164,15 @@ class QualifyingOverlayTests(unittest.TestCase):
         self.assertEqual(laps["camera"]["car_idx"], self.source.cam_car_idx)
         self.assertTrue(laps["trackers"])
         self.assertNotIn(self.source.cam_car_idx, [t["car_idx"] for t in laps["trackers"]])
+
+    def test_many_track_sectors_are_shown_as_three(self):
+        source = MockSource(seed=3, session="qualify", clock=lambda: self.t, sectors=9)
+        app = App(source, dict(DEFAULTS), LeagueStore(self.tmp.name))
+        app.tick()
+        self.assertEqual(len(app._track_sectors), 9)
+        self.assertEqual(app.build_snapshot()["overlays"]["laps"]["sectors"], 3)
+        app.command("overlay_settings", {"overlay": "laps", "values": {"sectors": 0}})
+        self.assertEqual(app.build_snapshot()["overlays"]["laps"]["sectors"], 9)
 
     def test_settings_command_works_offline(self):
         self.app.command("overlay_settings", {"overlay": "laps", "values": {"count": 6}})

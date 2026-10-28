@@ -7,6 +7,11 @@
 
 const stage = $("#stage");
 const box = $("#trackers");
+box.innerHTML = '<div class="big-slot"></div><div class="small-slot"></div>';
+const bigSlot = box.querySelector(".big-slot");
+const smallSlot = box.querySelector(".small-slot");
+const SMALL_MIN_W = 300;   // narrower than this and a tracker gets hard to read
+const SMALL_MAX_W = 360;
 // ?screen=1: full-screen live timing for every driver, to show on its own.
 const SCREEN = new URLSearchParams(location.search).has("screen");
 if (SCREEN) document.body.classList.add("screen");
@@ -59,7 +64,7 @@ function update(entry, item, cfg, classes, nsec) {
   while (sectorsEl.children.length < sectors.length) {
     const s = document.createElement("div");
     s.className = "sector";
-    s.innerHTML = '<div class="bar"><i></i></div><span class="st tnum"></span>';
+    s.innerHTML = '<i></i><span class="st tnum"></span>';
     sectorsEl.appendChild(s);
   }
   while (sectorsEl.children.length > sectors.length) sectorsEl.lastChild.remove();
@@ -67,12 +72,15 @@ function update(entry, item, cfg, classes, nsec) {
     const node = sectorsEl.children[i];
     const bar = node.querySelector("i");
     bar.className = s.colour || "";
+    node.dataset.c = s.colour || "";
     // A new lap empties the bars at once instead of sliding back.
     const width = `${Math.round(s.done * 1000) / 10}%`;
     if (s.done < parseFloat(bar.style.width || "0") - 1) bar.style.transition = "none";
     bar.style.width = width;
     if (bar.style.transition === "none") requestAnimationFrame(() => (bar.style.transition = ""));
-    node.querySelector(".st").textContent = fmtSector(s.time);
+    const st = node.querySelector(".st");
+    st.textContent = fmtSector(s.time);
+    node.classList.toggle("tight", !!s.time && st.scrollWidth > node.clientWidth - 6);
   });
   const lt = el.querySelector(".lt");
   const dl = el.querySelector(".dl");
@@ -102,9 +110,12 @@ function render() {
     if (laps.camera) want.set(laps.camera.car_idx, ["big", laps.camera]);
     for (const t of laps.trackers.slice(0, cfg.count)) want.set(t.car_idx, ["small", t]);
   }
+  // As many small trackers to a row as fit at a readable width; the rest
+  // wrap onto a row above.
   const smallCount = [...want.values()].filter(([k]) => k === "small").length;
-  const room = 1840 - (want.size > smallCount ? 624 : 0);
-  box.style.setProperty("--small-w", `${Math.min(300, Math.floor((room - 12 * Math.max(0, smallCount - 1)) / Math.max(1, smallCount)))}px`);
+  const room = 1840 - (want.size > smallCount ? 620 + 24 : 0);
+  const perRow = Math.max(1, Math.min(smallCount, Math.floor((room + 12) / (SMALL_MIN_W + 12))));
+  box.style.setProperty("--small-w", `${Math.min(SMALL_MAX_W, Math.floor((room - 12 * (perRow - 1)) / perRow))}px`);
   for (const [idx, entry] of shown) {
     const w = want.get(idx);
     if (!w || w[0] !== entry.kind) {
@@ -118,15 +129,15 @@ function render() {
     if (!entry) {
       entry = { el: build(kind), kind, top: "" };
       shown.set(idx, entry);
-      box.appendChild(entry.el);
+      (kind === "big" ? bigSlot : smallSlot).appendChild(entry.el);
     }
     update(entry, item, cfg, classes, laps.sectors);
   }
   // Keep the small ones in the server's order (moving a node replays its
   // entrance animation, so only when the order changed).
   const order = laps.trackers.slice(0, cfg.count).map((t) => shown.get(t.car_idx)).filter((e) => e && e.kind === "small");
-  const current = [...box.children].filter((el) => el.classList.contains("small") && !el.classList.contains("gone"));
-  if (order.some((e, i) => current[i] !== e.el)) for (const e of order) box.appendChild(e.el);
+  const current = [...smallSlot.children].filter((el) => !el.classList.contains("gone"));
+  if (order.some((e, i) => current[i] !== e.el)) for (const e of order) smallSlot.appendChild(e.el);
 }
 
 // -- full-screen live timing ---------------------------------------------------
@@ -168,7 +179,8 @@ function renderScreen(ov) {
   const rowH = Math.max(26, Math.min(44, Math.floor(900 / Math.max(rows.length, 1))));
   const session = snap.session || {};
   const sub = [snap.league && snap.league.name, [session.track, session.track_config].filter(Boolean).join(" – ")].filter(Boolean).join(" · ");
-  const widths = ["6px", "70px", "70px", "auto", "auto", ...Array(nsec).fill("120px"), "190px", "130px", "120px"];
+  const secW = Math.max(64, Math.min(120, Math.floor(720 / Math.max(nsec, 1))));
+  const widths = ["6px", "70px", "70px", "auto", "auto", ...Array(nsec).fill(`${secW}px`), "190px", "130px", "120px"];
   const body = !snap.connected ? '<div class="screen-empty">Waiting for iRacing…</div>'
     : !laps.active ? '<div class="screen-empty">Live lap timing shows during qualifying.</div>'
       : `<div class="screen-body"><div class="screen-col"><table class="screen-table">

@@ -1217,6 +1217,7 @@ const OVERLAY_FIELDS = {
     ["visible", "On screen", "bool"],
     ["count", "Small trackers", "number", { min: 0, max: 12 }],
     ["name_format", "Names", "select", NAME_FORMATS],
+    ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
     ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"]]],
     ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
     ["hide_s", "Hide finished lap after (s)", "number", { min: 0, max: 60, step: 0.5 }],
@@ -1253,7 +1254,7 @@ function renderOverlaySettings(s) {
         : opts;
       if (kind === "class" && values.mode !== "class") return "";
       return `<label class="ov-field">${label}<select ${attrs}>${options.map(([ov2, l]) =>
-        `<option value="${esc(ov2)}" ${ov2 === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+        `<option value="${esc(ov2)}" ${String(ov2) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
     }).join("");
   }
 }

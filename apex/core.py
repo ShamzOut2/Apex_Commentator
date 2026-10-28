@@ -10,7 +10,7 @@ import time
 from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
-from .laps import LapTracker, sector_starts
+from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
 from .settings import UserSettings
 from .league import driver_key, logo_url
@@ -189,6 +189,7 @@ class App:
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
         self.settings = UserSettings()     # settings changed in the app (likewise)
         self._class_of = {}        # car_idx -> class key, from the last snapshot
+        self._track_sectors = self.laps.starts  # the track's own split points
         self._race = RaceProgress()
 
     # -- lifecycle ----------------------------------------------------------
@@ -259,6 +260,10 @@ class App:
         self._logged_until[num] = t
         self.detection = "live" if frame.is_live else "replay"
 
+    def _apply_sectors(self):
+        """Time the lap in the sectors the overlay shows (a no-op when unchanged)."""
+        self.laps.set_sectors(group_sectors(self._track_sectors, self.overlays.get()["laps"]["sectors"]))
+
     def _lap_class(self, car_idx):
         key = self._class_of.get(car_idx)
         if key is None:
@@ -312,7 +317,8 @@ class App:
         official = {i: p for i, p in enumerate(frame.position) if i in drivers} if frame else None
         self._grid_order, self._grid_source = grid_order(drivers, info, official)
         self._qual_times = qualifying_times(info)
-        self.laps.set_sectors(sector_starts(info))
+        self._track_sectors = sector_starts(info)
+        self._apply_sectors()
 
     def session_key(self):
         """Identifies the session on screen (iRacing's subsession and session number)."""
@@ -957,7 +963,9 @@ class App:
 
     def cmd_overlay_settings(self, overlay, values):
         try:
-            return {"settings": self.overlays.update(overlay, values)}
+            settings = self.overlays.update(overlay, values)
+            self._apply_sectors()
+            return {"settings": settings}
         except ValueError as e:
             raise CommandError(str(e)) from e
 
