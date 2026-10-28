@@ -40,19 +40,33 @@ async function cmd(action, params = {}, okMsg) {
 
 const ui = {
   snap: null,
-  expanded: new Set(),   // car_idx with their event list open
-  filter: "all",
-  groupsKey: "",
+  logFilter: "all",
+  classFilter: "all",
+  selectedEvent: null,   // race log line picked for a replay
   editing: null,         // league profile being edited
   activeLeague: null,
-  groupByClass: true,
   library: [],           // built-in class logos
   libraryLoaded: false,
 };
 
-try {
-  ui.groupByClass = localStorage.getItem("apex.groupByClass") !== "0";
-} catch (e) { /* storage unavailable: keep default */ }
+// Per-PC preferences for the timing screen.
+const SETTINGS_KEY = "apex.timing";
+const settings = Object.assign(
+  { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null },
+  (() => {
+    try {
+      return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
+    } catch (e) {
+      return {};
+    }
+  })(),
+);
+
+function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (e) { /* storage unavailable */ }
+}
 
 // ---------------------------------------------------------------------------
 // live data stream
@@ -86,14 +100,18 @@ function render() {
   lb.textContent = league ? league.name : "No league";
   lb.classList.toggle("muted", !league);
   renderGridwalk(s);
+  renderHome(s);
+  renderOverlaySettings(s);
+  renderChampLive(s);
 
   if (!s.connected) {
     $("#session-line").textContent = s.source === "iracing" ? "Waiting for iRacing…" : "Not connected";
     $("#replay-badge").textContent = "—";
     $("#replay-badge").className = "badge";
-    $("#driver-rows").innerHTML = "";
+    $("#standings-rows").innerHTML = "";
     rowEls.clear();
-    $("#drivers-empty").hidden = false;
+    $("#standings-empty").hidden = false;
+    $("#log-status").textContent = "";
     return;
   }
 
@@ -111,71 +129,92 @@ function render() {
     rb.textContent = `REPLAY ${fmtClock(s.replay.session_time)}`;
     rb.className = "badge replay";
   }
+  $("#btn-live").classList.toggle("on-air", !!s.replay.live);
 
-  renderCameraGroups(s.camera);
-  renderDrivers(s);
-  renderEvents(s);
+  renderCamButtons(s.camera);
+  renderPhotobooth(s);
+  renderStandings(s);
+  renderLog(s);
 }
 
-function renderCameraGroups(cam) {
-  const key = cam.groups.map((g) => `${g.num}:${g.name}`).join("|");
-  const sel = $("#camera-group");
-  if (key !== ui.groupsKey) {
-    ui.groupsKey = key;
-    sel.innerHTML = cam.groups.map((g) => `<option value="${g.num}">${esc(g.name)}</option>`).join("");
-    // Quick buttons for the groups commentators reach for most.
-    const favourites = ["TV1", "TV2", "TV3", "Chase", "Cockpit", "Blimp", "Chopper"];
-    $("#camera-quick").innerHTML = cam.groups
-      .filter((g) => favourites.includes(g.name))
-      .map((g) => `<button class="chip" data-group="${g.num}">${esc(g.name)}</button>`)
-      .join("");
+// -- pages ----------------------------------------------------------------------
+
+const PAGE_KEY = "apex.page";
+
+function showPage(name) {
+  if (!document.getElementById(`tab-${name}`)) name = "home";
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("active", p.id === `tab-${name}`));
+  // The timing screen fills the window; the other pages scroll.
+  $("#main").classList.toggle("fixed", name === "timing");
+  if (name === "league") loadLeagues();
+  if (name === "teams" || name === "championship") renderLeaguePickers();
+  try {
+    localStorage.setItem(PAGE_KEY, name);
+  } catch (e) { /* storage unavailable */ }
+}
+
+function renderHome(s) {
+  $("#home-version").textContent = s.version ? `v${s.version}` : "";
+  const ses = s.session;
+  $("#home-session").textContent = s.connected
+    ? `${[ses.track, ses.track_config].filter(Boolean).join(" – ")} · ${ses.type || ses.name} · ${ses.state}` +
+      (s.source === "mock" ? " (demo mode)" : "")
+    : (s.source === "iracing" ? "Waiting for iRacing: join or spectate a session." : "Not connected.");
+  const drivers = (s.drivers || []).length;
+  const battles = s.connected ? findBattles(s, s.drivers || []).size : 0;
+  $("#tile-timing").textContent = s.connected
+    ? `${drivers} drivers · ${(s.events || []).length} logged${battles ? ` · ${battles} in battles` : ""}`
+    : "Offline";
+  const league = s.league;
+  $("#tile-teams").textContent = league ? `${league.teams} teams in ${league.name}` : "No league active";
+  const g = s.gridwalk || {};
+  $("#tile-gridwalk").textContent = g.visible ? (g.running ? "● On air" : "❚❚ On air, paused") : `${(g.entries || []).length} on the grid`;
+  $("#tile-league").textContent = s.league ? `Active: ${s.league.name}` : "No league active";
+}
+
+// -- camera bar -----------------------------------------------------------------
+
+let camKey = "";
+const RESERVED_KEYS = new Set(["l", "r", "arrowup", "arrowdown"]);
+
+// Camera group name -> key. Until set by hand, 1-9 go to the first nine cameras.
+function hotkeys(groups) {
+  if (settings.hotkeys) return settings.hotkeys;
+  const map = {};
+  groups.slice(0, 9).forEach((g, i) => { map[g.name] = String(i + 1); });
+  return map;
+}
+
+function keyLabel(k) {
+  return { arrowup: "↑", arrowdown: "↓", " ": "Space" }[k] || (k.length === 1 ? k.toUpperCase() : k);
+}
+
+function renderCamButtons(cam) {
+  const keys = hotkeys(cam.groups);
+  const key = JSON.stringify([cam.groups, keys]);
+  if (key !== camKey) {
+    camKey = key;
+    $("#cam-buttons").innerHTML = cam.groups.map((g) => `<button class="btn cam" data-group="${g.num}">
+        ${esc(g.name)}${keys[g.name] ? `<kbd>${esc(keyLabel(keys[g.name]))}</kbd>` : ""}</button>`).join("");
   }
-  if (document.activeElement !== sel) sel.value = String(cam.group);
-  document.querySelectorAll("#camera-quick .chip").forEach((c) => c.classList.toggle("active", +c.dataset.group === cam.group));
+  document.querySelectorAll("#cam-buttons .cam").forEach((b) => b.classList.toggle("active", +b.dataset.group === cam.group));
 }
 
-function eventText(ev, withDriver = true) {
-  const who = withDriver ? `<span class="num">${esc(ev.car_number)}</span> ${esc(ev.driver)}` : "";
-  const pts = ev.incidents ? ` <b>${ev.incidents}x</b>` : "";
-  switch (ev.type) {
-    case "overtake":
-      return `${who} passes <span class="num">${esc(ev.other_car_number)}</span> ${esc(ev.other_driver)}` +
-        (ev.position ? ` for <b>P${ev.position}</b>` : "");
-    case "offtrack":
-      return `${who} off track${pts}`;
-    case "slowdown":
-      return `${who} slows ${ev.from_kph}→${ev.speed_kph} km/h${pts}`;
-    default:
-      return `${who} incident${pts}`;
-  }
-}
+// -- standings ------------------------------------------------------------------
 
-function kindLabel(ev) {
-  const labels = { overtake: "PASS", offtrack: "OFF", slowdown: "SLOW", incident: "INC" };
-  const cls = ev.incidents ? "kind has-points" : `kind ${ev.type}`;
-  return `<span class="${cls}">${labels[ev.type] || ev.type}</span>`;
-}
-
-function eventItem(ev, withDriver = true) {
-  return `<li>
-    <span class="when">L${ev.lap} · ${fmtClock(ev.session_time)}</span>
-    <span class="what">${kindLabel(ev)}${eventText(ev, withDriver)}</span>
-    <button class="btn icon" data-act="watch" data-car="${ev.car_idx}" title="Watch live">👁</button>
-    <button class="btn primary icon" data-act="replay-event" data-event="${ev.id}" title="Replay this moment">↺ Replay</button>
-  </li>`;
-}
-
-// Rows are reconciled cell by cell rather than rebuilt, so buttons under the
-// mouse are not replaced mid-click by the 4 Hz updates.
+// Rows are reconciled cell by cell rather than rebuilt, so a row under the
+// mouse is not replaced mid-click by the 4 Hz updates.
 const rowEls = new Map();   // key -> <tr>
 
-function patchRow(key, className, cells) {
+function patchRow(key, className, cells, attrs = {}) {
   let tr = rowEls.get(key);
   if (!tr) {
     tr = document.createElement("tr");
     rowEls.set(key, tr);
   }
   if (tr.className !== className) tr.className = className;
+  for (const [k, v] of Object.entries(attrs)) if (tr.getAttribute(k) !== v) tr.setAttribute(k, v);
   while (tr.children.length > cells.length) tr.lastChild.remove();
   cells.forEach(([html, cls = "", colspan], i) => {
     let td = tr.children[i];
@@ -190,79 +229,120 @@ function patchRow(key, className, cells) {
   return tr;
 }
 
-function renderDrivers(s) {
-  const rows = s.drivers;
-  $("#driver-count").textContent = rows.length ? `(${rows.length})` : "";
-  $("#drivers-empty").hidden = rows.length > 0;
-  const isRace = (s.session.type || "").toLowerCase() === "race";
-  const classes = s.classes || [];
-  const classByKey = new Map(classes.map((c) => [c.key, c]));
-  const grouped = ui.groupByClass && (classes.length > 1 || classes.some((c) => c.key.startsWith("league:")));
-  $("#group-classes").checked = ui.groupByClass;
+function isRace(s) {
+  return (s.session.type || "").toLowerCase() === "race";
+}
 
-  // In grouped mode positions, gaps and intervals are within the class.
-  const groups = grouped
-    ? classes.map((c) => ({ cls: c, rows: rows.filter((r) => r.class_key === c.key) }))
-    : [{ cls: null, rows }];
-  const ordered = [];
-  for (const { cls, rows: groupRows } of groups) {
-    if (!groupRows.length) continue;
-    if (cls) {
-      const detail = `${groupRows.length} car${groupRows.length === 1 ? "" : "s"}`;
-      ordered.push(patchRow(`h${cls.key}`, "class-row", [[classHeaderHtml(cls, detail, () => ui.snap && renderDrivers(ui.snap)), "", 11]]));
+// Rows in the current view (all classes, or one), with gaps worked out for it.
+function standingsView(s) {
+  const rows = (s.drivers || []).filter((r) => ui.classFilter === "all" || r.class_key === ui.classFilter);
+  const race = isRace(s);
+  const fastest = Math.min(...rows.map((r) => r.best_lap || Infinity));
+  const leaderGap = rows.length ? rows[0].gap : null;
+  let prev = null;
+  return rows.map((r) => {
+    let gap = null, int = null;
+    if (race && r.gap != null && leaderGap != null) {
+      gap = r.gap - leaderGap;
+      if (prev && prev.gap != null) int = r.gap - prev.gap;
     }
-    const fastest = Math.min(...groupRows.map((r) => r.best_lap || Infinity));
-    const bestLapCar = groupRows.find((r) => r.best_lap && r.best_lap === fastest);
-    const leaderGap = groupRows[0].gap;
-    let prevGap = null;
-    groupRows.forEach((r, i) => {
-      let gap = "", int = "";
-      if (isRace) {
-        const g = r.gap != null && leaderGap != null ? r.gap - leaderGap : null;
-        if (i === 0) gap = "Leader";
-        else if (g != null && g > 0) gap = fmtDelta(g);
-        if (i > 0 && prevGap != null && r.gap != null) int = fmtDelta(r.gap - prevGap);
-        prevGap = r.gap;
-      } else if (r.best_lap && isFinite(fastest)) {
-        gap = r.best_lap === fastest ? "Fastest" : fmtDelta(r.best_lap - fastest);
-      }
-      const status = !r.in_world ? '<span class="tag out">OUT</span>'
-        : r.on_pit ? '<span class="tag pit">PIT</span>'
-        : r.surface === "off_track" ? '<span class="tag off">OFF</span>' : "";
-      const lg = r.league;
-      const team = (lg && lg.team) || r.team;
-      const watching = s.camera.car_idx === r.car_idx;
-      const open = ui.expanded.has(r.car_idx);
-      const color = (classByKey.get(r.class_key) || {}).color || r.class_color || "var(--muted)";
-      const pos = grouped ? r.class_pos : r.pos;
-      ordered.push(patchRow(`d${r.car_idx}`, `${watching ? "watching" : ""} ${r.in_world ? "" : "gone"}`, [
-        [String(pos ?? ""), "pos"],
-        [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
-        [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
-          `${team ? `<span class="sub">${esc(team)}</span>` : ""}${lg && lg.notes ? `<span class="notes">${esc(lg.notes)}</span>` : ""}`],
-        [String(r.lap ?? "")],
-        [gap, "c-time"],
-        [int, "c-time col-wide"],
-        [fmtLap(r.last_lap), "c-time col-wide"],
-        [fmtLap(r.best_lap), `c-time col-wide ${bestLapCar === r ? "best" : ""}`],
-        [r.incidents == null ? "" : r.incidents + "x"],
-        [status],
-        [`<div class="actions">
-          <button class="btn ${watching ? "primary" : ""}" data-act="watch" data-car="${r.car_idx}" title="Spectate this driver">👁 Watch</button>
-          <button class="btn" data-act="replay-driver" data-car="${r.car_idx}" ${r.last_event_id ? "" : "disabled"} title="Replay this driver's latest incident/overtake">↺</button>
-          <button class="btn ev-count" data-act="toggle" data-car="${r.car_idx}" ${r.event_count ? "" : "disabled"} title="Show this driver's events">${open ? "▴" : "▾"}${r.event_count || ""}</button>
-        </div>`],
-      ]));
-      if (open) {
-        const evs = s.events.filter((e) => e.car_idx === r.car_idx || e.other_car_idx === r.car_idx)
-          .sort((a, b) => b.session_num - a.session_num || b.session_time - a.session_time);
-        ordered.push(patchRow(`e${r.car_idx}`, "driver-events", [[
-          `<ul class="events">${evs.length ? evs.map((e) => eventItem(e)).join("") : "<li>No events stored</li>"}</ul>`, "", 11,
-        ]]));
-      }
-    });
-  }
-  const body = $("#driver-rows");
+    const v = { r, gap, int, fastestLap: isFinite(fastest) && r.best_lap === fastest, fastest };
+    prev = r;
+    return v;
+  });
+}
+
+// car_idx of everyone within the battle gap of the car ahead (and that car).
+function findBattles(s, rows) {
+  const out = new Set();
+  if (!isRace(s) || s.session.state !== "Racing") return out;
+  const view = rows === s.drivers ? standingsView(s) : rows;
+  view.forEach((v, i) => {
+    const ahead = view[i - 1];
+    const fighting = (x) => x.r.in_world && !x.r.on_pit;
+    if (ahead && v.int != null && v.int >= 0 && v.int <= settings.battleGap && fighting(v) && fighting(ahead)) {
+      out.add(v.r.car_idx);
+      out.add(ahead.r.car_idx);
+    }
+  });
+  return out;
+}
+
+const FLAG_LABELS = {
+  green: "Green", yellow: "Yellow", blue: "Blue", white: "White", checkered: "Chequered",
+  black: "Black", meatball: "Meatball", warning: "Warning", dq: "DQ",
+};
+
+function changeCell(n) {
+  if (n == null) return "";
+  if (n === 0) return '<span class="chg same">–</span>';
+  return n > 0 ? `<span class="chg up">▲${n}</span>` : `<span class="chg down">▼${-n}</span>`;
+}
+
+let classChipsKey = "";
+
+function renderClassFilter(s) {
+  const classes = s.classes || [];
+  const key = JSON.stringify(classes.map((c) => [c.key, c.name, c.color]));
+  if (key === classChipsKey) return;
+  classChipsKey = key;
+  if (ui.classFilter !== "all" && !classes.some((c) => c.key === ui.classFilter)) ui.classFilter = "all";
+  $("#class-filter").innerHTML = classes.length > 1
+    ? [`<button class="chip ${ui.classFilter === "all" ? "active" : ""}" data-class="all">All classes</button>`,
+      ...classes.map((c) => `<button class="chip ${ui.classFilter === c.key ? "active" : ""}" data-class="${esc(c.key)}">
+        <span class="swatch" style="background:${esc(c.color)}"></span>${esc(c.name)}</button>`)].join("")
+    : "";
+}
+
+function renderStandings(s) {
+  renderClassFilter(s);
+  document.documentElement.style.setProperty("--battle", settings.battleColor);
+  const view = standingsView(s);
+  $("#standings-empty").hidden = view.length > 0;
+  const race = isRace(s);
+  const battles = findBattles(s, view);
+  const classByKey = new Map((s.classes || []).map((c) => [c.key, c]));
+  const inClass = ui.classFilter !== "all";
+  const ordered = view.map((v) => {
+    const r = v.r;
+    const cls = classByKey.get(r.class_key) || {};
+    const color = cls.color || r.class_color || "var(--muted)";
+    const lg = r.league;
+    const team = (lg && lg.team) || r.team;
+    let gap = "", int = "";
+    if (race) {
+      gap = v.gap == null ? "" : v.gap <= 0 ? "Leader" : fmtDelta(v.gap);
+      int = v.int == null ? "" : fmtDelta(v.int);
+    } else if (r.best_lap && isFinite(v.fastest)) {
+      gap = v.fastestLap ? "Fastest" : fmtDelta(r.best_lap - v.fastest);
+    }
+    const status = !r.in_world ? '<span class="tag out">OUT</span>'
+      : r.on_pit ? '<span class="tag pit">PIT</span>'
+      : r.surface === "off_track" ? '<span class="tag off">OFF</span>' : "";
+    const watching = s.camera.car_idx === r.car_idx;
+    // Penalties have their own column; the flag column is for racing flags.
+    const flag = r.flag && !["green", "black", "dq", "meatball", "warning"].includes(r.flag)
+      ? `<span class="flag flag-${r.flag}">${FLAG_LABELS[r.flag] || r.flag}</span>` : "";
+    const className = [watching && "watching", !r.in_world && "gone", battles.has(r.car_idx) && "battle"].filter(Boolean).join(" ");
+    return patchRow(`d${r.car_idx}`, className, [
+      [String(r.pos ?? ""), "pos"],
+      [r.class_pos ? `<span class="cls-pos" style="border-color:${esc(color)}">${r.class_pos}</span>` : ""],
+      [changeCell(inClass ? r.class_pos_change : r.pos_change), "c-chg"],
+      [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
+      [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
+        `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}`, "driver-cell"],
+      [String(r.lap ?? "")],
+      [gap, "c-time"],
+      [int, "c-time"],
+      [fmtLap(r.last_lap), "c-time col-wide"],
+      [fmtLap(r.best_lap), `c-time col-wide ${v.fastestLap ? "best" : ""}`],
+      [r.pit_stops ? String(r.pit_stops) : "", "col-wide"],
+      [flag],
+      [(r.penalties || []).map((p) => `<span class="pen">⚑ ${esc(p)}</span>`).join(" ")],
+      [r.incidents == null ? "" : r.incidents + "x"],
+    ], { "data-car": String(r.car_idx), title: `Click to watch ${r.name}` });
+  });
+  const body = $("#standings-rows");
   const keep = new Set(ordered);
   for (const [key, tr] of rowEls) {
     if (!keep.has(tr)) {
@@ -270,25 +350,92 @@ function renderDrivers(s) {
       rowEls.delete(key);
     }
   }
-  // Only move rows that are out of place (positions change rarely).
   ordered.forEach((tr, i) => {
     if (body.children[i] !== tr) body.insertBefore(tr, body.children[i] || null);
   });
 }
 
-function renderEvents(s) {
-  const all = s.events;
-  $("#event-count").textContent = all.length ? `(${all.length})` : "";
-  const shown = all
-    .filter((e) => ui.filter === "all" || (ui.filter === "overtake" ? e.type === "overtake" : e.type !== "overtake"))
-    .sort((a, b) => b.session_num - a.session_num || b.session_time - a.session_time || b.id - a.id);
-  $("#events-empty").hidden = shown.length > 0;
-  const html = shown.map((e) => eventItem(e)).join("");
-  const list = $("#event-list");
-  if (list._html !== html) {
-    list.innerHTML = html;
-    list._html = html;
+// -- race log -------------------------------------------------------------------
+
+const LOG_LABELS = {
+  overtake: "PASS", offtrack: "OFF", slowdown: "SPIN", incident: "INC", pit_in: "PIT", pit_out: "PIT",
+  position: "LOST", penalty: "PEN", fastest_lap: "FAST",
+};
+const LOG_GROUPS = {
+  incident: ["offtrack", "slowdown", "incident"], pit: ["pit_in", "pit_out"],
+};
+const PREROLL_CHOICES = [5, 10, 15, 20, 25, 30];
+
+function car(num, name) {
+  return `<span class="num">${esc(num)}</span> ${esc(name)}`;
+}
+
+function eventText(ev) {
+  const who = car(ev.car_number, ev.driver);
+  const pts = ev.incidents ? ` <b>${ev.incidents}x</b>` : "";
+  switch (ev.type) {
+    case "overtake":
+      return `${who} passes ${car(ev.other_car_number, ev.other_driver)}${ev.position ? ` for <b>P${ev.position}</b>` : ""}`;
+    case "offtrack":
+      return `${who} off track${pts}`;
+    case "slowdown":
+      return `${who} slows ${ev.from_kph}→${ev.speed_kph} km/h${pts}`;
+    case "pit_in":
+      return `${who} pits${ev.position ? ` from P${ev.position}` : ""}`;
+    case "pit_out": {
+      const lost = ev.position && ev.from_position ? ev.position - ev.from_position : 0;
+      return `${who} rejoins <b>P${ev.position ?? "?"}</b>${lost > 0 ? ` (lost ${lost})` : ""} · ${ev.duration}s in the pits`;
+    }
+    case "position":
+      return `${who} loses <b>${ev.position - ev.from_position}</b> place${ev.position - ev.from_position === 1 ? "" : "s"} after going off (P${ev.from_position} → P${ev.position})`;
+    case "penalty":
+      return `${who}: <b>${esc(ev.penalty)}</b>`;
+    case "fastest_lap":
+      return `${who} fastest lap${ev.car_class ? ` in ${esc(ev.car_class)}` : ""}: <b>${fmtLap(ev.lap_time)}</b>`;
+    default:
+      return `${who} incident${pts}`;
   }
+}
+
+function logStatus(s) {
+  return {
+    live: "● Logging live",
+    replay: "● Logging the replay being played",
+    paused: "❚❚ Logging paused: you're watching something already logged. It resumes past that point (Go live).",
+    waiting: "Waiting for the session to start…",
+  }[s.detection] || "";
+}
+
+let logKey = "";
+
+function renderLog(s) {
+  const all = s.events || [];
+  $("#log-status").textContent = logStatus(s);
+  $("#log-status").className = `log-status ${s.detection || ""}`;
+  const types = LOG_GROUPS[ui.logFilter] || (ui.logFilter === "all" ? null : [ui.logFilter]);
+  const shown = all.filter((e) => !types || types.includes(e.type))
+    .sort((a, b) => b.session_num - a.session_num || b.session_time - a.session_time || b.id - a.id);
+  $("#log-empty").hidden = shown.length > 0;
+  const key = JSON.stringify([shown, ui.selectedEvent, settings.logPreroll]);
+  if (key === logKey) return;
+  logKey = key;
+  $("#race-log").innerHTML = shown.map((ev) => {
+    const selected = ev.id === ui.selectedEvent;
+    const cls = ev.incidents ? "kind has-points" : `kind ${ev.type}`;
+    return `<li class="${selected ? "selected" : ""}" data-event="${ev.id}">
+      <div class="log-line">
+        <span class="when">L${ev.lap} · ${fmtClock(ev.session_time)}</span>
+        <span class="${cls}">${LOG_LABELS[ev.type] || ev.type}</span>
+        <span class="what">${eventText(ev)}</span>
+      </div>
+      ${selected ? `<div class="log-actions">
+        <span class="label">Replay from</span>
+        ${PREROLL_CHOICES.map((p) => `<button class="chip ${p === settings.logPreroll ? "active" : ""}" data-preroll="${p}"
+            title="Replay from ${p} seconds before">−${p}s</button>`).join("")}
+        <button class="btn icon" data-watch="${ev.car_idx}" title="Watch ${esc(ev.driver)} live">👁</button>
+      </div>` : ""}
+    </li>`;
+  }).join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -335,6 +482,7 @@ function renderGridwalk(s) {
       <td>${status}</td>
       <td><div class="actions">
         <button class="btn" data-gw-goto="${i}" title="Show this driver's pair now">Show</button>
+        <button class="btn icon" data-pb-car="${e.car_idx ?? ""}" ${e.in_world ? "" : "disabled"} title="${e.in_world ? "Take this car's photo in iRacing" : "Only cars loaded onto the track can be photographed"}">📷</button>
         <button class="btn icon" data-gw-move="${esc(e.key)}" data-dir="-1" ${i ? "" : "disabled"} title="Move up the grid">↑</button>
         <button class="btn icon" data-gw-move="${esc(e.key)}" data-dir="1" ${i < entries.length - 1 ? "" : "disabled"} title="Move down the grid">↓</button>
       </div></td>
@@ -354,6 +502,7 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
     return cmd(action, {});
   }
   if (btn.dataset.gwGoto != null) return cmd("gridwalk_goto", { index: +btn.dataset.gwGoto });
+  if (btn.dataset.pbCar) return startPhotobooth(+btn.dataset.pbCar);
   if (btn.dataset.gwMove) return cmd("gridwalk_move", { key: btn.dataset.gwMove, direction: +btn.dataset.dir });
   if (btn.id === "gw-reset-order") return cmd("gridwalk_reset_order", {}, "Grid order reset");
   if (btn.id === "gw-copy") {
@@ -368,86 +517,740 @@ $("#gw-absent").addEventListener("change", (e) => cmd("gridwalk_settings", { inc
 $("#gw-url").textContent = `${location.origin}/gridwalk.html`;
 
 // ---------------------------------------------------------------------------
+// photo booth
+// ---------------------------------------------------------------------------
+
+const PB_CAMERA_KEY = "apex.photoboothCamera";
+let pbGroupsKey = "";
+let pbResultsKey = "";
+
+function renderPhotobooth(s) {
+  const pb = s.photobooth;
+  if (!pb) return;
+  // Camera choice: the groups iRacing offers, remembering the last pick.
+  const groups = s.camera.groups || [];
+  const key = groups.map((g) => g.num + g.name).join("|");
+  const sel = $("#pb-camera");
+  if (key !== pbGroupsKey) {
+    pbGroupsKey = key;
+    let saved = null;
+    try {
+      saved = localStorage.getItem(PB_CAMERA_KEY);
+    } catch (e) { /* storage unavailable */ }
+    // A camera looking at the car from the front-side suits the grid walk best.
+    const preferred = ["Rear Chase", "Chase", "TV1"].map((n) => groups.find((g) => g.name === n)).find(Boolean);
+    sel.innerHTML = groups.map((g) => `<option value="${g.num}">${esc(g.name)}</option>`).join("");
+    const pick = groups.find((g) => g.name === saved) || preferred;
+    if (pick) sel.value = String(pick.num);
+  }
+  const busy = ["downloading", "capturing", "processing"].includes(pb.state);
+  $("#pb-start").disabled = busy;
+  $("#pb-cancel").hidden = !busy;
+  $("#pb-cutout").disabled = busy || !pb.cutout_available;
+  if (!pb.cutout_available) $("#pb-cutout").checked = false;
+  const dl = pb.model_download || {};
+  const pct = dl.total ? Math.round((dl.done / dl.total) * 100) : 0;
+  const n = pb.total;
+  const status = {
+    idle: pb.model_ready || !pb.cutout_available ? "" : "The cut-out model downloads the first time you use it (about 170 MB).",
+    downloading: `Downloading the cut-out model (first time only): ${pct}%…`,
+    capturing: `Photographing ${pb.current || ""} (${pb.captured + 1}/${n})… leave iRacing's camera alone.`,
+    processing: `${pb.use_cutout ? "Cutting out" : "Saving"} ${pb.current || ""} (${pb.processed + 1}/${n})…`,
+    done: `Done: ${pb.results.filter((r) => r.state === "saved").length} of ${n} photos saved to the league.`,
+    cancelled: `Cancelled: ${pb.results.filter((r) => r.state === "saved").length} photos saved.`,
+    error: pb.error || "Something went wrong.",
+  }[pb.state] || "";
+  const el = $("#pb-status");
+  el.textContent = status;
+  el.classList.toggle("error-text", pb.state === "error");
+  const resultsKey = JSON.stringify(pb.results);
+  if (resultsKey === pbResultsKey) return;
+  pbResultsKey = resultsKey;
+  $("#pb-results").innerHTML = pb.results.map((r) => `<figure class="pb-shot ${r.state}" title="${esc(r.error || r.state)}">
+      <div class="pb-img">${r.image ? `<img src="${esc(r.image)}" alt="">` : `<span>${esc(r.state === "failed" ? "✕" : "…")}</span>`}</div>
+      <figcaption><span class="num">${esc(r.number)}</span> ${esc(r.name)}</figcaption>
+    </figure>`).join("");
+}
+
+function startPhotobooth(carIdx) {
+  const params = { group: +$("#pb-camera").value || undefined, cutout: $("#pb-cutout").checked };
+  if (carIdx != null) params.car_idx = carIdx;
+  return cmd("photobooth_start", params, (r) => `Photographing ${r.cars} car${r.cars === 1 ? "" : "s"}…`);
+}
+
+$("#pb-start").addEventListener("click", () => startPhotobooth(null));
+$("#pb-cancel").addEventListener("click", () => cmd("photobooth_cancel", {}, "Cancelling…"));
+$("#pb-camera").addEventListener("change", (e) => {
+  try {
+    localStorage.setItem(PB_CAMERA_KEY, e.target.selectedOptions[0].textContent);
+  } catch (err) { /* storage unavailable */ }
+});
+
+// ---------------------------------------------------------------------------
 // interactions
 // ---------------------------------------------------------------------------
 
-function selectedGroup() {
-  return +$("#camera-group").value || undefined;
+function replayEvent(id, preroll) {
+  return cmd("replay_event", { event_id: id, preroll }, (r) => `Replaying ${r.replaying} from ${preroll}s before`);
 }
 
 document.addEventListener("click", (e) => {
-  const tab = e.target.closest(".tab");
-  if (tab) {
-    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === tab));
-    document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("active", p.id === `tab-${tab.dataset.tab}`));
-    if (tab.dataset.tab === "league") loadLeagues();
-    return;
-  }
+  const tab = e.target.closest(".tab, [data-goto]");
+  if (tab) return showPage(tab.dataset.tab || tab.dataset.goto);
 
-  const filter = e.target.closest("#event-filter .chip");
+  const filter = e.target.closest("#log-filter .chip");
   if (filter) {
-    ui.filter = filter.dataset.filter;
-    document.querySelectorAll("#event-filter .chip").forEach((c) => c.classList.toggle("active", c === filter));
-    if (ui.snap && ui.snap.connected) renderEvents(ui.snap);
+    ui.logFilter = filter.dataset.filter;
+    document.querySelectorAll("#log-filter .chip").forEach((c) => c.classList.toggle("active", c === filter));
+    if (ui.snap && ui.snap.connected) renderLog(ui.snap);
     return;
   }
 
-  const quick = e.target.closest("#camera-quick .chip");
-  if (quick) return cmd("camera_group", { group: +quick.dataset.group });
+  const classChip = e.target.closest("#class-filter .chip");
+  if (classChip) {
+    ui.classFilter = classChip.dataset.class;
+    classChipsKey = "";
+    if (ui.snap && ui.snap.connected) renderStandings(ui.snap);
+    return;
+  }
+
+  const camBtn = e.target.closest("#cam-buttons .cam");
+  if (camBtn) return cmd("camera_group", { group: +camBtn.dataset.group });
+
+  // Race log: pick a line, then how far back the replay starts.
+  const preroll = e.target.closest("[data-preroll]");
+  if (preroll) {
+    settings.logPreroll = +preroll.dataset.preroll;
+    saveSettings();
+    return replayEvent(ui.selectedEvent, settings.logPreroll);
+  }
+  const watchBtn = e.target.closest("[data-watch]");
+  if (watchBtn) return cmd("watch", { car_idx: +watchBtn.dataset.watch });
+  const logLine = e.target.closest("#race-log li");
+  if (logLine) {
+    const id = +logLine.dataset.event;
+    ui.selectedEvent = ui.selectedEvent === id ? null : id;
+    if (ui.snap && ui.snap.connected) renderLog(ui.snap);
+    return;
+  }
+
+  // Standings: click a driver to put the camera on them.
+  const row = e.target.closest("#standings-rows tr[data-car]");
+  if (row) return cmd("watch", { car_idx: +row.dataset.car });
 
   const btn = e.target.closest("button[data-cmd]");
   if (btn) {
     const { cmd: action, ...rest } = btn.dataset;
     const params = {};
     for (const [k, v] of Object.entries(rest)) params[k] = isNaN(v) ? v : +v;
-    if (["step_car", "watch_special"].includes(action)) params.group = selectedGroup();
-    if (action === "clear_events" && !confirm("Clear all recorded events?")) return;
+    if (action === "clear_events" && !confirm("Clear the race log?")) return;
     return cmd(action, params);
   }
-
-  const act = e.target.closest("button[data-act]");
-  if (act) {
-    const car = +act.dataset.car;
-    switch (act.dataset.act) {
-      case "watch":
-        return cmd("watch", { car_idx: car, group: selectedGroup() });
-      case "replay-driver":
-        return cmd("replay_driver", { car_idx: car }, (r) => `Replaying ${r.replaying}`);
-      case "replay-event":
-        return cmd("replay_event", { event_id: +act.dataset.event }, (r) => `Replaying ${r.replaying}`);
-      case "toggle":
-        ui.expanded.has(car) ? ui.expanded.delete(car) : ui.expanded.add(car);
-        if (ui.snap) renderDrivers(ui.snap);
-        return;
-    }
-  }
 });
 
-$("#group-classes").addEventListener("change", (e) => {
-  ui.groupByClass = e.target.checked;
-  try {
-    localStorage.setItem("apex.groupByClass", ui.groupByClass ? "1" : "0");
-  } catch (err) { /* storage unavailable */ }
-  if (ui.snap && ui.snap.connected) renderDrivers(ui.snap);
-});
+// -- media bar ---------------------------------------------------------------------
 
+function showRewind() {
+  $("#rewind-secs").textContent = `${settings.rewind}s`;
+}
+
+function changeRewind(by) {
+  settings.rewind = Math.min(120, Math.max(5, settings.rewind + by));
+  saveSettings();
+  showRewind();
+}
+
+function rewind() {
+  return cmd("replay_seconds", { seconds: settings.rewind });
+}
+
+$("#rewind-less").addEventListener("click", () => changeRewind(-5));
+$("#rewind-more").addEventListener("click", () => changeRewind(5));
+$("#btn-rewind").addEventListener("click", rewind);
 $("#btn-live").addEventListener("click", () => cmd("live", {}, "Back to live"));
-$("#camera-group").addEventListener("change", (e) => cmd("camera_group", { group: +e.target.value }));
+showRewind();
+
+// -- battle settings -----------------------------------------------------------------
+
+$("#battle-gap").value = settings.battleGap;
+$("#battle-color").value = settings.battleColor;
+$("#battle-gap").addEventListener("change", (e) => {
+  const v = parseFloat(e.target.value);
+  if (v > 0) settings.battleGap = Math.round(v * 100) / 100;
+  e.target.value = settings.battleGap;
+  saveSettings();
+});
+$("#battle-color").addEventListener("input", (e) => {
+  settings.battleColor = e.target.value;
+  document.documentElement.style.setProperty("--battle", settings.battleColor);
+  saveSettings();
+});
+
+// -- camera hotkeys --------------------------------------------------------------------
+
+let hotkeyTarget = null;   // camera group name waiting for a key
+
+function renderHotkeyList() {
+  const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
+  const keys = hotkeys(groups);
+  $("#hotkey-list").innerHTML = groups.length ? groups.map((g) => `<button class="btn hk ${hotkeyTarget === g.name ? "primary" : ""}"
+      data-hk="${esc(g.name)}">${esc(g.name)} <kbd>${keys[g.name] ? esc(keyLabel(keys[g.name])) : "–"}</kbd></button>`).join("")
+    : '<p class="hint">Cameras appear once iRacing is connected.</p>';
+  $("#hotkey-prompt").textContent = hotkeyTarget ? `Press a key for ${hotkeyTarget}…` : "";
+}
+
+$("#btn-hotkeys").addEventListener("click", () => {
+  hotkeyTarget = null;
+  renderHotkeyList();
+  $("#hotkey-modal").hidden = false;
+});
+$("#hotkey-list").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-hk]");
+  if (!b) return;
+  hotkeyTarget = b.dataset.hk;
+  renderHotkeyList();
+});
+$("#hotkey-done").addEventListener("click", () => {
+  hotkeyTarget = null;
+  $("#hotkey-modal").hidden = true;
+  camKey = "";
+  if (ui.snap && ui.snap.connected) renderCamButtons(ui.snap.camera);
+});
+$("#hotkey-reset").addEventListener("click", () => {
+  settings.hotkeys = null;
+  saveSettings();
+  renderHotkeyList();
+});
+
+function captureHotkey(e) {
+  const key = e.key.toLowerCase();
+  if (key === "escape") {
+    hotkeyTarget = null;
+  } else {
+    const groups = ui.snap.camera.groups;
+    const map = { ...hotkeys(groups) };
+    if (key === "backspace" || key === "delete") {
+      delete map[hotkeyTarget];
+    } else if (RESERVED_KEYS.has(key)) {
+      $("#hotkey-prompt").textContent = `${keyLabel(key)} is taken. Pick another key for ${hotkeyTarget}.`;
+      return;
+    } else {
+      // A key belongs to one camera.
+      for (const [name, k] of Object.entries(map)) if (k === key) delete map[name];
+      map[hotkeyTarget] = key;
+    }
+    settings.hotkeys = map;
+    saveSettings();
+    hotkeyTarget = null;
+  }
+  renderHotkeyList();
+}
 
 document.addEventListener("keydown", (e) => {
+  if (!$("#hotkey-modal").hidden && hotkeyTarget) {
+    e.preventDefault();
+    return captureHotkey(e);
+  }
   if (e.target.closest("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!$("#hotkey-modal").hidden || !$("#update-modal").hidden) return;
+  const key = e.key.toLowerCase();
+  const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
+  const camName = Object.entries(hotkeys(groups)).find(([, k]) => k === key);
+  const cam = camName && groups.find((g) => g.name === camName[0]);
   const keys = {
     l: () => cmd("live", {}, "Back to live"),
-    r: () => cmd("replay_seconds", { seconds: 10 }),
-    ArrowUp: () => cmd("step_car", { direction: -1, group: selectedGroup() }),
-    ArrowDown: () => cmd("step_car", { direction: 1, group: selectedGroup() }),
+    r: rewind,
+    arrowup: () => cmd("step_car", { direction: -1 }),
+    arrowdown: () => cmd("step_car", { direction: 1 }),
   };
-  const fn = keys[e.key] || keys[e.key.toLowerCase()];
+  const fn = cam ? () => cmd("camera_group", { group: cam.num }) : keys[key];
   if (fn) {
     e.preventDefault();
     fn();
   }
 });
+
+// ---------------------------------------------------------------------------
+// championship: rules, rounds and results, penalties and standings for the
+// League builder's league (ui.editing.championship). Standings are worked out
+// by the app from the saved league; the live table comes with each snapshot.
+// ---------------------------------------------------------------------------
+
+const champ = { view: "standings", standings: null, bonuses: [], defaults: null, dirty: false, open: new Set() };
+const STATUS_NAMES = [["finished", "Finished"], ["dnf", "DNF"], ["dsq", "DSQ"], ["dns", "DNS"]];
+
+function champData() {
+  const p = ui.editing;
+  if (!p.championship) p.championship = JSON.parse(JSON.stringify(champ.defaults || { rules: {}, rounds: [], penalties: [], live_round: "" }));
+  return p.championship;
+}
+
+async function loadChampStandings() {
+  if (!ui.editing || !ui.editing.id) return;
+  const id = ui.editing.id;
+  try {
+    const r = await api(`/api/leagues/${encodeURIComponent(id)}/championship`);
+    if (!ui.editing || ui.editing.id !== id) return;
+    champ.bonuses = r.bonuses;
+    champ.defaults = r.championship;
+    if (!ui.editing.championship) ui.editing.championship = r.championship;
+    champ.standings = r.standings;
+    renderChampionship();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+function markChampDirty() {
+  champ.dirty = true;
+  $("#champ-dirty").hidden = false;
+}
+
+function newId() {
+  return Math.random().toString(36).slice(2, 12);
+}
+
+function parseLapTime(text) {
+  const m = String(text || "").trim().match(/^(?:(\d+):)?(\d+(?:\.\d+)?)$/);
+  return m ? (+(m[1] || 0)) * 60 + +m[2] : null;
+}
+
+function rosterOptions(selected, fallbackName) {
+  const drivers = ui.editing.drivers || [];
+  const keys = new Set(drivers.map(driverKey));
+  const extra = selected && !keys.has(selected) ? `<option value="${esc(selected)}" selected>${esc(fallbackName || selected)}</option>` : "";
+  return `<option value="">Pick a driver…</option>${extra}` + drivers.map((d) => {
+    const k = driverKey(d);
+    return `<option value="${esc(k)}" ${k === selected ? "selected" : ""}>${d.car_number ? `#${esc(d.car_number)} ` : ""}${esc(d.name || "Unnamed")}</option>`;
+  }).join("");
+}
+
+function champClassName(id) {
+  const cls = (ui.editing.classes || []).find((c) => c.id === id);
+  return cls ? cls.name : String(id || "").replace(/^iracing:/, "") || "Overall";
+}
+
+function renderChampionship() {
+  const has = !!ui.editing;
+  $("#champ-empty").hidden = has;
+  document.querySelectorAll(".champ-view").forEach((v) => (v.hidden = !has || v.dataset.view !== champ.view));
+  document.querySelectorAll("[data-champ-view]").forEach((b) => b.classList.toggle("active", b.dataset.champView === champ.view));
+  $("#champ-dirty").hidden = !champ.dirty;
+  if (!has) return;
+  champData();
+  if (champ.view === "standings") renderChampStandings();
+  if (champ.view === "rounds") renderChampRounds();
+  if (champ.view === "penalties") renderChampPenalties();
+  if (champ.view === "rules") renderChampRules();
+  if (ui.snap) renderChampLive(ui.snap);
+}
+
+// -- standings ----------------------------------------------------------------
+
+function fmtPts(v) {
+  return v == null ? "" : Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+function renderChampStandings() {
+  const st = champ.standings;
+  const box = $("#champ-standings");
+  if (!st) {
+    box.innerHTML = '<p class="hint">Loading…</p>';
+    return;
+  }
+  const rounds = st.rounds.filter((r) => r.scored);
+  if (!st.groups.length) {
+    box.innerHTML = '<p class="hint">No results yet. Add rounds and their results under <b>Rounds &amp; results</b>.</p>';
+    return;
+  }
+  const head = rounds.map((r, i) => `<th class="c-rd" title="${esc([r.name, r.track, r.date].filter(Boolean).join(" · "))}${r.multiplier !== 1 ? ` (×${r.multiplier})` : ""}">R${i + 1}</th>`).join("");
+  const anyLicence = st.groups.some((g) => g.drivers.some((d) => d.licence_points));
+  const anyPen = st.groups.some((g) => g.drivers.some((d) => d.penalty_points));
+  box.innerHTML = st.groups.map((g) => `<div class="champ-group">
+      ${g.key || st.groups.length > 1 ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}</div>` : ""}
+      <div class="table-scroll"><table class="grid champ-table standings-table">
+        <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Team</th>${head}${anyPen ? '<th class="c-num" title="Penalty points taken off">Pen</th>' : ""}${anyLicence ? '<th class="c-num" title="Licence points">Lic</th>' : ""}<th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
+        <tbody>${g.drivers.map((d) => `<tr>
+          <td class="c-num"><b>${d.pos}</b></td>
+          <td>${d.car_number ? `<span class="sub">#${esc(d.car_number)}</span> ` : ""}${esc(d.name)}</td>
+          <td class="sub">${esc(d.team)}</td>
+          ${rounds.map((r) => {
+            const s = d.rounds.find((x) => x.round === r.id);
+            const res = s && s.result;
+            const title = res ? `${res.rank ? `P${res.rank}` : res.status.toUpperCase()}${Object.keys(res.bonus).length ? ` · bonus: ${Object.entries(res.bonus).map(([k, v]) => `${k.replace(/_/g, " ")} ${v}`).join(", ")}` : ""}` : "Didn't take part";
+            return `<td class="c-rd ${s && s.dropped ? "dropped" : ""} ${res && res.rank === 1 ? "win" : ""}" title="${esc(title)}${s && s.dropped ? " (dropped)" : ""}">${!res ? "–" : res.status === "dsq" ? "DSQ" : res.status === "dns" ? "DNS" : fmtPts(s.points)}</td>`;
+          }).join("")}
+          ${anyPen ? `<td class="c-num bad">${d.penalty_points ? `−${fmtPts(d.penalty_points)}` : ""}</td>` : ""}
+          ${anyLicence ? `<td class="c-num">${d.licence_points || ""}</td>` : ""}
+          <td class="c-num"><b>${fmtPts(d.points)}</b></td>
+          <td class="c-num sub">${d.behind ? `−${fmtPts(d.behind)}` : ""}</td>
+        </tr>`).join("")}</tbody>
+      </table></div>
+    </div>`).join("") + (st.teams.length ? `<div class="champ-group">
+      <div class="champ-group-head">Teams</div>
+      <table class="grid champ-table"><thead><tr><th class="c-num">Pos</th><th>Team</th><th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
+      <tbody>${st.teams.map((t) => `<tr><td class="c-num"><b>${t.pos}</b></td><td>${esc(t.team)}</td><td class="c-num"><b>${fmtPts(t.points)}</b></td><td class="c-num sub">${t.behind ? `−${fmtPts(t.behind)}` : ""}</td></tr>`).join("")}</tbody></table>
+    </div>` : "");
+}
+
+let champLiveKey = "";
+
+function renderChampLive(s) {
+  const box = $("#champ-live");
+  const c = s.championship;
+  const show = c && c.live && ui.editing && s.league && s.league.id === ui.editing.id && champ.view === "standings";
+  $("#tile-championship").textContent = c && c.live ? `Live: ${c.round}` : s.league ? `${s.league.name}` : "No league active";
+  if (!show) {
+    box.hidden = true;
+    champLiveKey = "";
+    return;
+  }
+  const key = JSON.stringify(c);
+  if (key === champLiveKey) return;
+  champLiveKey = key;
+  box.hidden = false;
+  box.innerHTML = `<h3>Live: ${esc(c.round)} <span class="hint">if the race finished now (from the race order, before stewards)</span></h3>` +
+    c.groups.map((g) => `<div class="champ-group">
+      ${c.groups.length > 1 || g.key ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}</div>` : ""}
+      <table class="grid champ-table"><thead><tr><th class="c-num">Pos</th><th></th><th>Driver</th><th class="c-num">In race</th><th class="c-num">Race pts</th><th class="c-num">Before</th><th class="c-num">Live</th><th class="c-num">Gap</th></tr></thead>
+      <tbody>${g.drivers.map((d) => {
+        const move = d.pos_before ? d.pos_before - d.pos : null;
+        return `<tr>
+          <td class="c-num"><b>${d.pos}</b></td>
+          <td class="c-num ${move > 0 ? "good" : move < 0 ? "bad" : "sub"}">${move ? (move > 0 ? `▲${move}` : `▼${-move}`) : d.pos_before ? "–" : "new"}</td>
+          <td>${d.car_number ? `<span class="sub">#${esc(d.car_number)}</span> ` : ""}${esc(d.name)}</td>
+          <td class="c-num sub">${d.race_rank ? `P${d.race_rank}` : ""}</td>
+          <td class="c-num good">${d.race_points ? `+${fmtPts(d.race_points)}` : ""}</td>
+          <td class="c-num sub">${fmtPts(d.points_before)}</td>
+          <td class="c-num"><b>${fmtPts(d.points)}</b></td>
+          <td class="c-num sub">${d.behind ? `−${fmtPts(d.behind)}` : ""}</td>
+        </tr>`;
+      }).join("")}</tbody></table></div>`).join("");
+}
+
+// -- rounds and results ---------------------------------------------------------
+
+function roundPoints(roundId) {
+  const out = {};
+  for (const g of (champ.standings && champ.standings.groups) || []) {
+    for (const d of g.drivers) {
+      const s = d.rounds.find((x) => x.round === roundId);
+      if (s && s.result) out[d.driver] = s.points;
+    }
+  }
+  return out;
+}
+
+function renderChampRounds() {
+  const c = champData();
+  const classes = ui.editing.classes || [];
+  $("#champ-rounds").innerHTML = c.rounds.length ? c.rounds.map((rd, i) => {
+    const open = champ.open.has(rd.id);
+    const isLive = c.live_round ? c.live_round === rd.id : c.rounds.find((r) => !(r.results || []).length) === rd;
+    const pts = roundPoints(rd.id);
+    const classIds = [...new Set([...classes.map((x) => x.id), ...(rd.results || []).map((r) => r.class_id).filter(Boolean)])];
+    const results = (rd.results || []).map((r, j) => [r, j]).sort((a, b) => (a[0].position || 999) - (b[0].position || 999));
+    return `<div class="round-card ${open ? "open" : ""}">
+      <div class="round-head">
+        <span class="round-num">R${i + 1}</span>
+        <input data-round="${i}" data-rkey="name" value="${esc(rd.name)}" placeholder="Round name" aria-label="Round name">
+        <input data-round="${i}" data-rkey="track" value="${esc(rd.track || "")}" placeholder="Track" aria-label="Track">
+        <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
+        <label class="field" title="Points multiplier, e.g. 2 for double points">×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
+        <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
+        <label class="field" title="The race in progress counts as this round in the live standings"><input type="radio" name="live-round" data-live-round="${esc(rd.id)}" ${isLive ? "checked" : ""}> Live</label>
+        <span class="grow"></span>
+        <span class="sub">${(rd.results || []).length ? `${rd.results.length} results` : "No results"}</span>
+        <button class="btn" data-round-toggle="${esc(rd.id)}">${open ? "Close" : "Results"}</button>
+        <button class="btn" data-round-import="${i}" title="Fill this round with the results of the race session you're in">⤓ Import from session</button>
+        <button class="btn icon danger" data-round-delete="${i}" title="Delete round">✕</button>
+      </div>
+      ${open ? `<div class="table-scroll"><table class="grid champ-table results-table">
+        <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored (after saving)">Pts</th><th></th></tr></thead>
+        <tbody>${results.map(([r, j]) => `<tr>
+          <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"></td>
+          <td><select data-round="${i}" data-res="${j}" data-key="driver">${rosterOptions(r.driver, r.name)}</select></td>
+          <td><select data-round="${i}" data-res="${j}" data-key="class_id"><option value="">—</option>${classIds.map((id) => `<option value="${esc(id)}" ${id === r.class_id ? "selected" : ""}>${esc(champClassName(id))}</option>`).join("")}</select></td>
+          <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="start_position" value="${r.start_position ?? ""}"></td>
+          <td><input type="number" class="c-num" min="0" data-round="${i}" data-res="${j}" data-key="laps" value="${r.laps ?? 0}"></td>
+          <td><input type="number" class="c-num" min="0" data-round="${i}" data-res="${j}" data-key="laps_led" value="${r.laps_led ?? 0}"></td>
+          <td><input class="lap-input" data-round="${i}" data-res="${j}" data-key="fastest_lap" value="${r.fastest_lap ? fmtLap(r.fastest_lap) : ""}" placeholder="1:28.123"></td>
+          <td><input type="number" class="c-num" min="0" data-round="${i}" data-res="${j}" data-key="incidents" value="${r.incidents ?? 0}"></td>
+          <td><select data-round="${i}" data-res="${j}" data-key="status">${STATUS_NAMES.map(([v, l]) => `<option value="${v}" ${v === r.status ? "selected" : ""}>${l}</option>`).join("")}</select></td>
+          <td><input type="number" class="c-num" step="0.5" data-round="${i}" data-res="${j}" data-key="adjust" value="${r.adjust || 0}"></td>
+          <td class="c-num"><b>${pts[r.driver] != null ? fmtPts(pts[r.driver]) : ""}</b></td>
+          <td><button class="btn icon danger" data-res-delete="${j}" data-round="${i}" title="Remove">✕</button></td>
+        </tr>`).join("")}</tbody></table></div>
+        <button class="btn subtle" data-res-add="${i}">+ Add result</button>` : ""}
+    </div>`;
+  }).join("") : '<p class="hint">No rounds yet.</p>';
+}
+
+// -- penalties -------------------------------------------------------------------
+
+function renderChampPenalties() {
+  const c = champData();
+  const names = {};
+  for (const rd of c.rounds) for (const r of rd.results || []) names[r.driver] = r.name;
+  $("#champ-penalties").innerHTML = c.penalties.length ? c.penalties.map((p, i) => `<tr>
+      <td><select data-pen="${i}" data-key="driver">${rosterOptions(p.driver, names[p.driver])}</select></td>
+      <td><select data-pen="${i}" data-key="round_id"><option value="">—</option>${c.rounds.map((rd, k) =>
+        `<option value="${esc(rd.id)}" ${rd.id === p.round_id ? "selected" : ""}>R${k + 1} ${esc(rd.name)}</option>`).join("")}</select></td>
+      <td><input type="number" class="c-num" min="0" step="0.5" data-pen="${i}" data-key="points" value="${p.points || 0}"></td>
+      <td><input type="number" class="c-num" min="0" data-pen="${i}" data-key="licence" value="${p.licence || 0}"></td>
+      <td><input class="grow" data-pen="${i}" data-key="reason" value="${esc(p.reason || "")}" placeholder="e.g. Avoidable contact, T1 lap 1"></td>
+      <td><button class="btn icon danger" data-pen-delete="${i}" title="Remove">✕</button></td>
+    </tr>`).join("") : '<tr><td colspan="6" class="hint">No penalties.</td></tr>';
+}
+
+// -- rules -------------------------------------------------------------------------
+
+function renderChampRules() {
+  const r = champData().rules;
+  const b = r.bonuses || {};
+  $("#champ-rules").innerHTML = `
+    <label class="ov-field wide">Points for each finishing position (1st, 2nd, 3rd…)
+      <input data-rule="points" value="${esc((r.points || []).join(", "))}"></label>
+    <label class="ov-field wide">Qualifying points (pole, 2nd, 3rd…; leave empty for none). Uses the starting grid.
+      <input data-rule="qualifying_points" value="${esc((r.qualifying_points || []).join(", "))}"></label>
+    <label class="ov-field">Championships
+      <select data-rule="scoring"><option value="class" ${r.scoring !== "overall" ? "selected" : ""}>One per class (class positions)</option>
+        <option value="overall" ${r.scoring === "overall" ? "selected" : ""}>One for everyone (overall positions)</option></select></label>
+    <label class="ov-field">Drop rounds (each driver's worst N don't count)
+      <input type="number" min="0" max="50" data-rule="drop_rounds" value="${r.drop_rounds || 0}"></label>
+    <label class="ov-field">Fastest-lap bonus only in the top N (0 = anyone)
+      <input type="number" min="0" data-rule="fastest_lap_top" value="${r.fastest_lap_top || 0}"></label>
+    <label class="ov-field">Classified: completed at least this % of the winner's laps (0 = off)
+      <input type="number" min="0" max="100" data-rule="classified_pct" value="${r.classified_pct || 0}"></label>
+    <label class="ov-field">Team championship: best N drivers per team each round (0 = all)
+      <input type="number" min="0" max="20" data-rule="team_best" value="${r.team_best || 0}"></label>
+    <label class="ov-field check"><input type="checkbox" data-rule="dnf_scores" ${r.dnf_scores !== false ? "checked" : ""}> DNFs score the points for where they're classified</label>
+    <h3 class="section-title wide">Bonus points <span class="hint">(0 = not used; negative numbers take points off)</span></h3>
+    ${champ.bonuses.map(([k, label]) => `<label class="ov-field">${esc(label)}
+      <input type="number" step="0.5" data-bonus="${k}" value="${b[k] || 0}"></label>`).join("")}`;
+}
+
+// -- editing -------------------------------------------------------------------------
+
+function champChange(e, final) {
+  const el = e.target;
+  const c = champData();
+  const d = el.dataset;
+  let rerender = false;
+  if (d.rule) {
+    const r = c.rules;
+    if (d.rule === "points" || d.rule === "qualifying_points") {
+      if (!final) return;
+      r[d.rule] = el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
+      rerender = true;
+    } else if (el.type === "checkbox") r[d.rule] = el.checked;
+    else r[d.rule] = el.type === "number" ? +el.value : el.value;
+  } else if (d.bonus) {
+    c.rules.bonuses = c.rules.bonuses || {};
+    c.rules.bonuses[d.bonus] = +el.value || 0;
+  } else if (d.liveRound) {
+    c.live_round = d.liveRound;
+  } else if (d.pen != null) {
+    c.penalties[+d.pen][d.key] = el.type === "number" ? +el.value : el.value;
+  } else if (d.res != null) {
+    const r = c.rounds[+d.round].results[+d.res];
+    if (d.key === "fastest_lap") {
+      if (!final) return;
+      r.fastest_lap = parseLapTime(el.value);
+      rerender = true;
+    } else if (d.key === "driver") {
+      r.driver = el.value;
+      const dr = (ui.editing.drivers || []).find((x) => driverKey(x) === el.value);
+      r.name = dr ? dr.name : r.name;
+    } else if (el.type === "number") {
+      r[d.key] = el.value === "" ? null : +el.value;
+      rerender = final && d.key === "position";
+    } else r[d.key] = el.value;
+  } else if (d.round != null && d.rkey) {
+    const rd = c.rounds[+d.round];
+    rd[d.rkey] = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
+  } else return;
+  markChampDirty();
+  if (rerender) renderChampionship();
+}
+
+$("#tab-championship").addEventListener("input", (e) => champChange(e, false));
+$("#tab-championship").addEventListener("change", (e) => {
+  if (e.target.classList.contains("league-picker")) return;
+  champChange(e, true);
+});
+
+$("#tab-championship").addEventListener("click", async (e) => {
+  const b = e.target.closest("button");
+  if (!b || !ui.editing) return;
+  const d = b.dataset;
+  const c = champData();
+  if (d.champView) {
+    champ.view = d.champView;
+    champLiveKey = "";
+    return renderChampionship();
+  }
+  if (d.roundToggle) {
+    champ.open.has(d.roundToggle) ? champ.open.delete(d.roundToggle) : champ.open.add(d.roundToggle);
+    return renderChampionship();
+  }
+  if (d.roundDelete != null) {
+    const rd = c.rounds[+d.roundDelete];
+    if (!confirm(`Delete ${rd.name} and its results?`)) return;
+    c.rounds.splice(+d.roundDelete, 1);
+    c.penalties = c.penalties.filter((p) => p.round_id !== rd.id);
+    if (c.live_round === rd.id) c.live_round = "";
+  } else if (d.resAdd != null) {
+    const rd = c.rounds[+d.resAdd];
+    rd.results = rd.results || [];
+    const next = Math.max(0, ...rd.results.map((r) => r.position || 0)) + 1;
+    rd.results.push({ driver: "", name: "", class_id: "", position: next, start_position: null, laps: 0, laps_led: 0,
+      fastest_lap: null, incidents: 0, status: "finished", adjust: 0 });
+  } else if (d.resDelete != null) {
+    c.rounds[+d.round].results.splice(+d.resDelete, 1);
+  } else if (d.penDelete != null) {
+    c.penalties.splice(+d.penDelete, 1);
+  } else if (d.roundImport != null) {
+    return importRound(c.rounds[+d.roundImport]);
+  } else return;
+  markChampDirty();
+  renderChampionship();
+});
+
+$("#btn-add-round").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  const c = champData();
+  c.rounds.push({ id: newId(), name: `Round ${c.rounds.length + 1}`, track: "", date: "", multiplier: 1, no_drop: false, results: [] });
+  markChampDirty();
+  renderChampionship();
+});
+
+$("#btn-add-penalty").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  const c = champData();
+  c.penalties.push({ id: newId(), driver: "", round_id: c.rounds.length ? c.rounds[c.rounds.length - 1].id : "", points: 0, licence: 0, reason: "" });
+  markChampDirty();
+  renderChampionship();
+});
+
+async function saveChampionship() {
+  // Unfinished rows (no driver picked) would be dropped on save: say so.
+  const c = champData();
+  const blank = c.rounds.some((rd) => (rd.results || []).some((r) => !r.driver)) || c.penalties.some((p) => !p.driver);
+  if (blank && !confirm("Results or penalties without a driver will be removed when saving. Save anyway?")) return false;
+  await saveEditor();
+  toast("Championship saved");
+  return true;
+}
+
+$("#btn-save-champ").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  saveChampionship().catch((err) => toast(err.message, true));
+});
+
+async function importRound(rd) {
+  if ((rd.results || []).length && !confirm(`Replace the results of ${rd.name} with the current session's?`)) return;
+  try {
+    const saved = await saveEditor();
+    const r = await api(`/api/leagues/${encodeURIComponent(saved.id)}/championship/import`, { method: "POST", body: { round_id: rd.id } });
+    champ.open.add(rd.id);
+    openEditor(r.league);
+    toast(`Imported ${r.count} results${r.added ? `, ${r.added} new drivers added to the roster` : ""}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// overlay settings (kept by the app, so every OBS source follows them)
+// ---------------------------------------------------------------------------
+
+const NAME_FORMATS = [["full", "Full name"], ["initial_last", "A. Driver"], ["last_initial", "Driver A."],
+  ["last", "Last name"], ["first", "First name"], ["abbrev", "DRI (3 letters)"], ["nickname", "Nickname"]];
+
+// [key, label, kind, options]
+const OVERLAY_FIELDS = {
+  standings: [
+    ["visible", "On screen", "bool"],
+    ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
+    ["class_key", "Class", "class"],
+    ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
+    ["name_format", "Names", "select", NAME_FORMATS],
+    ["show_gap", "Gaps / times", "bool"],
+    ["show_number", "Car numbers", "bool"],
+    ["show_team", "Team names", "bool"],
+    ["show_logo", "Team logos", "bool"],
+  ],
+  laps: [
+    ["visible", "On screen", "bool"],
+    ["count", "Small trackers", "number", { min: 0, max: 12 }],
+    ["name_format", "Names", "select", NAME_FORMATS],
+    ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"]]],
+    ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
+    ["hide_s", "Hide finished lap after (s)", "number", { min: 0, max: 60, step: 0.5 }],
+    ["show_number", "Car numbers", "bool"],
+    ["show_driver_number", "Driver numbers", "bool"],
+    ["show_team", "Team names", "bool"],
+    ["show_logo", "Team logos", "bool"],
+    ["show_invalid", "Track invalid laps too", "bool"],
+    ["practice", "Also in practice", "bool"],
+  ],
+};
+
+let overlayFormKey = "";
+
+function renderOverlaySettings(s) {
+  const ov = s.overlays;
+  if (!ov) return;
+  $("#tile-overlays").textContent = ov.laps.active ? "Lap tracker live (qualifying)" : `${ov.standings.length} in the standings`;
+  // Don't redraw under the cursor; redraw when settings or classes change.
+  const key = JSON.stringify([ov.settings, (s.classes || []).map((c) => [c.key, c.name])]);
+  if (key === overlayFormKey || document.activeElement.closest(".ov-form")) return;
+  overlayFormKey = key;
+  for (const [overlay, fields] of Object.entries(OVERLAY_FIELDS)) {
+    const values = ov.settings[overlay];
+    $(`#ov-${overlay}`).innerHTML = fields.map(([k, label, kind, opts]) => {
+      const v = values[k];
+      const attrs = `data-key="${k}" data-kind="${kind}"`;
+      if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
+      if (kind === "number") {
+        return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
+      }
+      const options = kind === "class"
+        ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
+        : opts;
+      if (kind === "class" && values.mode !== "class") return "";
+      return `<label class="ov-field">${label}<select ${attrs}>${options.map(([ov2, l]) =>
+        `<option value="${esc(ov2)}" ${ov2 === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+    }).join("");
+  }
+}
+
+document.querySelectorAll(".ov-form").forEach((form) => form.addEventListener("change", (e) => {
+  const el = e.target;
+  if (!el.dataset.key) return;
+  const value = el.dataset.kind === "bool" ? el.checked : el.dataset.kind === "number" ? +el.value : el.value;
+  overlayFormKey = "";
+  el.blur();
+  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
+}));
+
+for (const page of ["standings", "laps"]) $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;
+document.addEventListener("click", (e) => {
+  const copy = e.target.closest("[data-copy]");
+  if (!copy) return;
+  const text = document.getElementById(copy.dataset.copy).textContent;
+  navigator.clipboard.writeText(text).then(() => toast("Copied"), () => toast(text));
+});
+
+$("#home-obs-url").textContent = `${location.origin}/gridwalk.html`;
+showPage((() => {
+  try {
+    return localStorage.getItem(PAGE_KEY) || "home";
+  } catch (e) {
+    return "home";
+  }
+})());
 
 // ---------------------------------------------------------------------------
 // league builder
@@ -485,10 +1288,14 @@ function openEditor(profile) {
   renderClasses();
   renderTeams();
   renderRoster();
+  champ.dirty = false;
+  champ.standings = null;
+  renderChampionship();
+  loadChampStandings();
   document.querySelectorAll("#league-list li").forEach((li) => li.classList.toggle("selected", li.dataset.league === profile.id));
 }
 
-const ROSTER_FIELDS = [["name", ""], ["cust_id", "c-id"], ["car_number", "c-num"], ["nickname", ""], ["team", ""], ["notes", ""]];
+const ROSTER_FIELDS = [["name", ""], ["cust_id", "c-id"], ["car_number", "c-num"], ["driver_number", "c-num"], ["nickname", ""], ["team", ""], ["notes", ""]];
 
 function renderRoster() {
   const drivers = ui.editing.drivers || [];
@@ -534,7 +1341,9 @@ async function uploadImage(target, file) {
   return data.league;
 }
 
-// -- teams --------------------------------------------------------------------
+// -- team builder ---------------------------------------------------------------
+// Edits the same league as the League builder (ui.editing); a driver's team is
+// their roster Team field.
 
 function editorTeams() {
   const teams = (ui.editing.teams = ui.editing.teams || []);
@@ -543,40 +1352,162 @@ function editorTeams() {
     const name = String(d.team || "").trim();
     if (name && !known.has(name.toLowerCase())) {
       known.add(name.toLowerCase());
-      teams.push({ name, logo: null });
+      teams.push({ name, short: "", color: "", logo: null });
     }
   }
   return teams;
 }
 
-function renderTeams() {
-  const teams = editorTeams();
-  $("#team-list").innerHTML = teams.length ? teams.map((t, i) => `<div class="team-row">
-      <span class="team-logo">${t.logo ? `<img src="${esc(logoSrc(t.logo))}" alt="">` : ""}</span>
-      <span class="team-name">${esc(t.name)}</span>
-      <label class="btn">${t.logo ? "Replace logo" : "Upload logo"}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-team="${i}" hidden></label>
-      ${t.logo ? `<button class="btn subtle" data-clear-team="${i}">Remove</button>` : ""}
-    </div>`).join("") : '<p class="hint">No teams yet: fill in the Team column below.</p>';
-}
+const sameTeam = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 
-$("#team-list").addEventListener("change", async (e) => {
-  const input = e.target.closest("[data-team]");
-  if (!input || !input.files.length) return;
-  const team = editorTeams()[+input.dataset.team];
+// The league pickers on the Teams and Championship pages. They all edit the
+// League builder's league (ui.editing); with none open, the active one opens.
+async function renderLeaguePickers() {
   try {
-    await uploadImage(`team:${team.name}`, input.files[0]);
-    toast(`Logo added to ${team.name}`);
+    const { leagues } = await api("/api/leagues");
+    const current = ui.editing && ui.editing.id;
+    const html = `<option value="">${leagues.length ? "Pick a league…" : "No saved leagues yet"}</option>` +
+      leagues.map((l) => `<option value="${esc(l.id)}" ${l.id === current ? "selected" : ""}>${esc(l.name)}${l.active ? " (active)" : ""}</option>`).join("");
+    for (const sel of document.querySelectorAll(".league-picker")) sel.innerHTML = html;
+    if (!current) {
+      const active = leagues.find((l) => l.active);
+      if (active) return openLeague(active.id);
+    }
   } catch (err) {
     toast(err.message, true);
   }
+  renderTeams();
+  renderChampionship();
+}
+
+async function openLeague(id) {
+  const league = await api(`/api/leagues/${encodeURIComponent(id)}`);
+  openEditor(league);
+  for (const sel of document.querySelectorAll(".league-picker")) sel.value = league.id;
+}
+
+function renderTeams() {
+  const cards = $("#team-cards");
+  if (!ui.editing) {
+    cards.innerHTML = '<p class="hint">Pick a league above, or build one in the League builder first.</p>';
+    $("#team-free").innerHTML = "";
+    return;
+  }
+  const teams = editorTeams();
+  const drivers = ui.editing.drivers || [];
+  const label = (d) => `${d.car_number ? `#${esc(d.car_number)} ` : ""}${esc(d.name || "Unnamed")}`;
+  cards.innerHTML = teams.length ? teams.map((t, i) => {
+    const members = drivers.map((d, j) => [d, j]).filter(([d]) => sameTeam(d.team, t.name));
+    const others = drivers.map((d, j) => [d, j]).filter(([d]) => !sameTeam(d.team, t.name));
+    return `<div class="team-card" style="--team:${esc(t.color || "#3a4150")}">
+      <div class="team-card-head">
+        <label class="team-logo big" title="${t.logo ? "Replace logo" : "Upload logo"}">
+          ${t.logo ? `<img src="${esc(logoSrc(t.logo))}" alt="">` : "+ Logo"}
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-team-logo="${i}" hidden>
+        </label>
+        <div class="team-fields">
+          <input data-team="${i}" data-key="name" value="${esc(t.name)}" placeholder="Team name" aria-label="Team name">
+          <div class="row">
+            <input data-team="${i}" data-key="short" class="narrow" maxlength="8" value="${esc(t.short || "")}" placeholder="Short" aria-label="Short name">
+            <input type="color" data-team="${i}" data-key="color" value="${esc(t.color || "#3a4150")}" aria-label="Team colour" title="Team colour">
+            ${t.color ? `<button class="btn subtle" data-team-nocolor="${i}" title="Use the class colour instead">No colour</button>` : ""}
+            ${t.logo ? `<button class="btn subtle" data-team-nologo="${i}">Remove logo</button>` : ""}
+            <button class="btn icon danger" data-team-delete="${i}" title="Delete team">✕</button>
+          </div>
+        </div>
+      </div>
+      <div class="chips team-members">${members.map(([d, j]) => `<span class="chip">${label(d)}
+        <button class="clear" data-team-unassign="${j}" title="Take out of the team">✕</button></span>`).join("") || '<span class="hint">No drivers yet</span>'}</div>
+      <select data-team-add="${i}" aria-label="Add a driver to ${esc(t.name)}">
+        <option value="">+ Add driver…</option>
+        ${others.map(([d, j]) => `<option value="${j}">${label(d)}${d.team ? ` (${esc(d.team)})` : ""}</option>`).join("")}
+      </select>
+    </div>`;
+  }).join("") : '<p class="hint">No teams yet: add one, or fill in the Team column in the League builder roster.</p>';
+  const free = drivers.map((d, j) => [d, j]).filter(([d]) => !String(d.team || "").trim());
+  $("#team-free").innerHTML = free.length ? free.map(([d]) => `<span class="chip">${label(d)}</span>`).join("")
+    : '<span class="hint">Everyone is in a team.</span>';
+}
+
+document.querySelectorAll(".league-picker").forEach((sel) => sel.addEventListener("change", (e) => {
+  if (!e.target.value) return;
+  if (champ.dirty && !confirm("Leave without saving the championship changes?")) {
+    e.target.value = ui.editing ? ui.editing.id : "";
+    return;
+  }
+  openLeague(e.target.value).catch((err) => toast(err.message, true));
+}));
+
+$("#btn-add-team").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  const teams = editorTeams();
+  let n = teams.length + 1;
+  while (teams.some((t) => sameTeam(t.name, `Team ${n}`))) n++;
+  teams.push({ name: `Team ${n}`, short: "", color: "", logo: null });
+  renderTeams();
 });
 
-$("#team-list").addEventListener("click", (e) => {
-  const clear = e.target.closest("[data-clear-team]");
-  if (clear) {
-    editorTeams()[+clear.dataset.clearTeam].logo = null;
-    renderTeams();
+$("#btn-save-teams").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  saveEditor().then(() => toast("Teams saved")).catch((err) => toast(err.message, true));
+});
+
+$("#team-cards").addEventListener("change", async (e) => {
+  const teams = editorTeams();
+  const el = e.target;
+  if (el.dataset.teamLogo != null) {
+    const team = teams[+el.dataset.teamLogo];
+    if (!el.files.length) return;
+    try {
+      await uploadImage(`team:${team.name}`, el.files[0]);
+      toast(`Logo added to ${team.name}`);
+    } catch (err) {
+      toast(err.message, true);
+    }
+    return;
   }
+  if (el.dataset.teamAdd != null) {
+    if (el.value !== "") ui.editing.drivers[+el.value].team = teams[+el.dataset.teamAdd].name;
+    renderTeams();
+    renderRoster();
+    return;
+  }
+  if (el.dataset.team == null) return;
+  const team = teams[+el.dataset.team];
+  const key = el.dataset.key;
+  if (key === "name") {
+    const name = el.value.trim();
+    if (!name || teams.some((t) => t !== team && sameTeam(t.name, name))) {
+      toast(name ? `There's already a team called ${name}` : "A team needs a name", true);
+      el.value = team.name;
+      return;
+    }
+    // Renaming moves the team's drivers with it.
+    for (const d of ui.editing.drivers || []) if (sameTeam(d.team, team.name)) d.team = name;
+    team.name = name;
+    renderRoster();
+  } else {
+    team[key] = el.value.trim();
+  }
+  renderTeams();
+});
+
+$("#team-cards").addEventListener("click", (e) => {
+  const teams = editorTeams();
+  const b = e.target.closest("button");
+  if (!b) return;
+  const d = b.dataset;
+  if (d.teamUnassign != null) ui.editing.drivers[+d.teamUnassign].team = "";
+  else if (d.teamNocolor != null) teams[+d.teamNocolor].color = "";
+  else if (d.teamNologo != null) teams[+d.teamNologo].logo = null;
+  else if (d.teamDelete != null) {
+    const team = teams[+d.teamDelete];
+    if (!confirm(`Delete ${team.name}? Its drivers stay in the league without a team.`)) return;
+    for (const dr of ui.editing.drivers || []) if (sameTeam(dr.team, team.name)) dr.team = "";
+    teams.splice(+d.teamDelete, 1);
+  } else return;
+  renderTeams();
+  renderRoster();
 });
 
 // -- classes ------------------------------------------------------------------
@@ -791,8 +1722,19 @@ $("#roster-rows").addEventListener("click", (e) => {
     renderRoster();
   }
 });
+$("#btn-import-session").addEventListener("click", async () => {
+  try {
+    const saved = await saveEditor();
+    const r = await api(`/api/leagues/${encodeURIComponent(saved.id)}/import-session`, { method: "POST", body: {} });
+    openEditor(r.league);
+    toast(r.added ? `Added ${r.added} driver${r.added === 1 ? "" : "s"} from the session` : "Everyone in the session is already in this league");
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
 $("#btn-add-driver").addEventListener("click", () => {
-  ui.editing.drivers.push({ name: "", cust_id: "", car_number: "", nickname: "", team: "", notes: "", class_id: "" });
+  ui.editing.drivers.push({ name: "", cust_id: "", car_number: "", driver_number: "", nickname: "", team: "", notes: "", class_id: "" });
   renderRoster();
   $("#roster-rows tr:last-child input").focus();
 });

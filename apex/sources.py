@@ -35,11 +35,23 @@ FLAG_YELLOW = 0x0008
 FLAG_YELLOW_WAVING = 0x0100
 FLAG_CAUTION = 0x4000
 FLAG_CAUTION_WAVING = 0x8000
+# Per-car flags (CarIdxSessionFlags)
+FLAG_CHECKERED = 0x0001
+FLAG_WHITE = 0x0002
+FLAG_GREEN = 0x0004
+FLAG_BLUE = 0x0020
+FLAG_BLACK = 0x010000
+FLAG_DISQUALIFY = 0x020000
+FLAG_FURLED = 0x080000   # rolled black flag: a warning
+FLAG_REPAIR = 0x100000   # meatball: must pit for repairs
 CAUTION_FLAGS = FLAG_YELLOW | FLAG_YELLOW_WAVING | FLAG_CAUTION | FLAG_CAUTION_WAVING
 
 RPY_SRCH_TO_END = 1
 RPY_SRCH_PREV_INCIDENT = 8
 RPY_SRCH_NEXT_INCIDENT = 9
+
+CAM_UI_HIDDEN = 0x0008
+VIDEO_SCREENSHOT = 0
 
 CS_AT_INCIDENT = -3
 CS_AT_LEADER = -2
@@ -56,6 +68,7 @@ class Frame:
     session_flags: int = 0
     cam_car_idx: int = -1
     cam_group: int = 0
+    cam_state: int = 0
     replay_frames_from_end: int = 0
     replay_session_time: float = 0.0
     replay_session_num: int = 0
@@ -69,6 +82,13 @@ class Frame:
     f2_time: list = field(default_factory=list)
     last_lap: list = field(default_factory=list)
     best_lap: list = field(default_factory=list)
+    car_flags: list = field(default_factory=list)
+
+    def timeline(self):
+        """(session number, session time) of what's on screen: live, or the replay being watched."""
+        if self.is_live or self.replay_session_time <= 0:
+            return self.session_num, self.session_time
+        return self.replay_session_num, self.replay_session_time
 
     @property
     def is_live(self):
@@ -130,6 +150,7 @@ class IRacingSource:
                 session_flags=v("SessionFlags", 0),
                 cam_car_idx=v("CamCarIdx", -1),
                 cam_group=v("CamGroupNumber", 0),
+                cam_state=v("CamCameraState", 0),
                 replay_frames_from_end=v("ReplayFrameNumEnd", 0),
                 replay_session_time=v("ReplaySessionTime", 0.0),
                 replay_session_num=v("ReplaySessionNum", 0),
@@ -143,6 +164,7 @@ class IRacingSource:
                 f2_time=v("CarIdxF2Time", []),
                 last_lap=v("CarIdxLastLapTime", []),
                 best_lap=v("CarIdxBestLapTime", []),
+                car_flags=v("CarIdxSessionFlags", []),
             )
             ir.unfreeze_var_buffer_latest()
             return frame
@@ -154,7 +176,8 @@ class IRacingSource:
             update = self.ir.session_info_update
             if update != self._info_update:
                 info = {}
-                for key in ("WeekendInfo", "SessionInfo", "DriverInfo", "CameraInfo", "QualifyResultsInfo"):
+                for key in ("WeekendInfo", "SessionInfo", "DriverInfo", "CameraInfo", "QualifyResultsInfo",
+                            "SplitTimeInfo"):
                     try:
                         info[key] = self.ir[key] or {}
                     except Exception:
@@ -184,6 +207,15 @@ class IRacingSource:
         with self._lock:
             self.ir.replay_set_play_speed(speed, slow_motion)
 
+    def cam_set_state(self, state):
+        with self._lock:
+            self.ir.cam_set_state(state)
+
+    def screenshot(self):
+        """Ask iRacing to save a screenshot (needs Video and Screen Capture enabled)."""
+        with self._lock:
+            self.ir.video_capture(VIDEO_SCREENSHOT)
+
 
 # ---------------------------------------------------------------------------
 # Mock source
@@ -212,7 +244,11 @@ class MockSource:
     name = "mock"
     TRACK_LENGTH_KM = 4.2
 
-    def __init__(self, num_cars=18, seed=None, time_scale=1.0, clock=time.monotonic):
+    SECTOR_STARTS = (0.0, 0.32, 0.68)
+
+    def __init__(self, num_cars=18, seed=None, time_scale=1.0, clock=time.monotonic, session="race"):
+        # "race", or "qualify": cars leave the pits and do timed laps, no grid.
+        self.session_kind = session
         self.rng = random.Random(seed)
         self.clock = clock
         self.time_scale = time_scale
@@ -228,20 +264,26 @@ class MockSource:
         self.replay_time = None
         self.replay_speed = 1
         self.commands = []  # log of received commands (used by tests)
+        self.cam_state = 0
+        self.screenshots_dir = None  # where screenshot() writes, like iRacing's folder
         n = self.num_cars
         # Every third car is a slower GT4 so the mock race is multiclass.
         self.base_lap = [88.0 + self.rng.uniform(0, 4) + (5.0 if self._is_gt4(i) else 0.0) for i in range(n)]
         # Qualifying: base pace plus a little luck; the grid follows the lap times.
         self.qual_time = [round(self.base_lap[i] - 1.2 + self.rng.uniform(0, 1.5), 3) for i in range(n)]
         self.qual_order = sorted(range(n), key=lambda i: self.qual_time[i])
-        # Staggered grid in qualifying order.
+        # Staggered grid in qualifying order (a race), or spread out on an
+        # out lap from the pits (qualifying).
         self.progress = [0.0] * n
         for rank, i in enumerate(self.qual_order):
-            self.progress[i] = -(rank * 0.006)
+            self.progress[i] = -(rank * 0.006) if session == "race" else -0.95 + i * (0.9 / n)
         self.slow_until = [0.0] * n
         self.offtrack_until = [0.0] * n
         self.pit_until = [0.0] * n
         self.incidents = [0] * n
+        self.lap_noise = [[1.0] * len(self.SECTOR_STARTS) for _ in range(n)]
+        self.black_flag = [False] * n
+        self.served = [False] * n
         self.pending_incidents = []  # (apply_at, car_idx, points)
         self.last_lap = [-1.0] * n
         self.best_lap = [-1.0] * n
@@ -308,12 +350,17 @@ class MockSource:
         for i in range(self.num_cars):
             # Pace oscillates per car so cars trade places.
             pace = 1.0 + 0.02 * math.sin(t / 31.0 + self.phase[i])
+            # Each lap and sector is a little different, so there are PBs to beat.
+            sector = sum(1 for b in self.SECTOR_STARTS[1:] if self.progress[i] % 1.0 >= b)
+            pace *= self.lap_noise[i][sector]
             if t < self.slow_until[i]:
                 pace *= 0.15
             if t < self.pit_until[i]:
                 pace *= 0.35
             prev = self.progress[i]
             self.progress[i] += dt / self.base_lap[i] * pace
+            if self.session_kind == "qualify" and prev < 0 <= self.progress[i]:
+                self.lap_start[i] = t  # out lap done: the first flying lap starts
             if int(math.floor(self.progress[i])) > int(math.floor(prev)) and self.progress[i] >= 1:
                 lap_time = t - self.lap_start[i]
                 if self.lap_start[i] > 0:
@@ -321,7 +368,12 @@ class MockSource:
                     if self.best_lap[i] < 0 or lap_time < self.best_lap[i]:
                         self.best_lap[i] = lap_time
                 self.lap_start[i] = t
-                if rng.random() < 0.04 and t > 120:
+                self.lap_noise[i] = [rng.uniform(0.985, 1.015) for _ in self.SECTOR_STARTS]
+                if self.black_flag[i] and not self.served[i]:
+                    # Serve the drive-through.
+                    self.pit_until[i] = t + 18
+                    self.served[i] = True
+                elif rng.random() < 0.04 and t > 120:
                     self.pit_until[i] = t + 22
             # Random off-track moment: ~once every 7 minutes per car.
             if t > 15 and t > self.slow_until[i] + 10 and rng.random() < dt / 420.0:
@@ -334,6 +386,8 @@ class MockSource:
         for apply_at, i, points in self.pending_incidents:
             if t >= apply_at:
                 self.incidents[i] += points
+                if self.incidents[i] >= 8 and not self.black_flag[i]:
+                    self.black_flag[i] = True  # incident limit: drive-through
                 self.drivers[i + 1]["CurDriverIncidentCount"] = self.incidents[i]
                 self.info_update += 1
             else:
@@ -355,19 +409,27 @@ class MockSource:
             surface = [TRK_NOT_IN_WORLD] * n
             last_lap = [-1.0] * n
             best_lap = [-1.0] * n
-            order = sorted(range(self.num_cars), key=lambda i: -self.progress[i])
+            car_flags = [0] * n
             position = [0] * n
             f2 = [0.0] * n
-            leader = self.progress[order[0]]
-            for rank, i in enumerate(order, start=1):
-                position[i + 1] = rank
-                f2[i + 1] = max(0.0, (leader - self.progress[i]) * 90.0)
+            if self.session_kind == "race":
+                order = sorted(range(self.num_cars), key=lambda i: -self.progress[i])
+                leader = self.progress[order[0]]
+                for rank, i in enumerate(order, start=1):
+                    position[i + 1] = rank
+                    f2[i + 1] = max(0.0, (leader - self.progress[i]) * 90.0)
+            else:
+                # Qualifying: ranked by best lap; no time, no position.
+                timed = sorted((i for i in range(self.num_cars) if self.best_lap[i] > 0), key=lambda i: self.best_lap[i])
+                for rank, i in enumerate(timed, start=1):
+                    position[i + 1] = rank
             for i in range(self.num_cars):
                 p = self.progress[i]
                 idx = i + 1
                 lap[idx] = max(0, int(math.floor(p)) + 1) if p >= 0 else 0
                 pct[idx] = p % 1.0
-                on_pit[idx] = t < self.pit_until[i]
+                # Qualifying starts with an out lap from the pit lane.
+                on_pit[idx] = t < self.pit_until[i] or (self.session_kind == "qualify" and p < -0.9)
                 if on_pit[idx]:
                     surface[idx] = TRK_APPROACHING_PITS
                 elif t < self.offtrack_until[i]:
@@ -376,6 +438,12 @@ class MockSource:
                     surface[idx] = TRK_ON_TRACK
                 last_lap[idx] = self.last_lap[i]
                 best_lap[idx] = self.best_lap[i]
+                flags = FLAG_GREEN
+                if self.black_flag[i] and not self.served[i]:
+                    flags |= FLAG_BLACK
+                elif self.incidents[i] >= 6 and not self.black_flag[i]:
+                    flags |= FLAG_FURLED
+                car_flags[idx] = flags
             live = self.replay_time is None
             return Frame(
                 session_time=t,
@@ -384,13 +452,14 @@ class MockSource:
                 session_flags=0,
                 cam_car_idx=self.cam_car_idx,
                 cam_group=self.cam_group,
+                cam_state=self.cam_state,
                 replay_frames_from_end=0 if live else int((t - self.replay_time) * 60),
                 replay_session_time=t if live else self.replay_time,
                 replay_session_num=0,
                 replay_speed=self.replay_speed,
                 lap=lap, pct=pct, position=position, class_position=list(position),
                 on_pit=on_pit, surface=surface, f2_time=f2,
-                last_lap=last_lap, best_lap=best_lap,
+                last_lap=last_lap, best_lap=best_lap, car_flags=car_flags,
             )
 
     def session_info(self):
@@ -403,12 +472,18 @@ class MockSource:
                 "SessionInfo": {"Sessions": [{
                     "SessionNum": 0, "SessionType": "Race", "SessionName": "RACE",
                     "SessionLaps": "30", "SessionTime": "unlimited",
+                } if self.session_kind == "race" else {
+                    "SessionNum": 0, "SessionType": "Open Qualify", "SessionName": "QUALIFY",
+                    "SessionLaps": "unlimited", "SessionTime": "1200.0000 sec",
                 }]},
+                "SplitTimeInfo": {"Sectors": [
+                    {"SectorNum": n, "SectorStartPct": pct} for n, pct in enumerate(self.SECTOR_STARTS)
+                ]},
                 "DriverInfo": {"DriverCarIdx": 1, "Drivers": [dict(d) for d in self.drivers]},
                 "QualifyResultsInfo": {"Results": [
                     {"Position": pos, "ClassPosition": pos, "CarIdx": i + 1, "FastestTime": self.qual_time[i]}
                     for pos, i in enumerate(self.qual_order)
-                ]},
+                ] if self.session_kind == "race" else []},
                 "CameraInfo": {"Groups": [
                     {"GroupNum": 1, "GroupName": "Nose"},
                     {"GroupNum": 2, "GroupName": "Gearbox"},
@@ -472,3 +547,58 @@ class MockSource:
         with self._lock:
             self.commands.append(("replay_set_play_speed", speed, slow_motion))
             self.replay_speed = speed
+
+    def cam_set_state(self, state):
+        with self._lock:
+            self.commands.append(("cam_set_state", state))
+            self.cam_state = state
+
+    def screenshot(self):
+        """Write a picture of the car on camera, as iRacing's screenshot key would."""
+        with self._lock:
+            self.commands.append(("screenshot",))
+            if self.screenshots_dir is None:
+                return
+            driver = self.drivers[self.cam_car_idx] if 0 <= self.cam_car_idx < len(self.drivers) else None
+        from pathlib import Path
+        folder = Path(self.screenshots_dir)
+        folder.mkdir(parents=True, exist_ok=True)
+        name = f"mock_{time.strftime('%Y%m%d_%H%M%S')}_{len(self.commands)}.png"
+        (folder / name).write_bytes(mock_screenshot(driver))
+
+
+def mock_screenshot(driver):
+    """A stand-in for an iRacing screenshot: the camera car side-on, on track."""
+    import io
+    from PIL import Image, ImageDraw
+
+    colors = ["#c0392b", "#f4f6f7", "#111111"]
+    number = "?"
+    if driver:
+        parts = str(driver.get("CarDesignStr", "")).split(",")[1:4]
+        colors = [f"#{c}" for c in parts if len(c) == 6] or colors
+        number = str(driver.get("CarNumber", "?"))
+    colors += ["#f4f6f7", "#111111"]
+    img = Image.new("RGB", (1600, 900), "#9ec3e6")
+    d = ImageDraw.Draw(img)
+    d.rectangle([0, 200, 1600, 300], fill="#6d8f4e")
+    d.rectangle([0, 300, 1600, 900], fill="#4a4d52")
+    for x in range(0, 1600, 100):
+        d.rectangle([x, 300, x + 50, 318], fill="#d7263d")
+    # A neighbouring car at the left edge, then the camera car in the middle.
+    for x0, scale, body in ((-360, 0.75, "#1b76d1"), (380, 1.0, colors[0])):
+        def P(x, y):
+            return (x0 + x * scale, 330 + y * scale)
+        d.polygon([P(0, 260), P(30, 150), P(250, 120), P(380, 40), P(640, 40), P(760, 130), P(860, 170), P(880, 260)],
+                  fill=body, outline="#0b0b0b", width=6)
+        d.polygon([P(400, 60), P(620, 60), P(700, 125), P(330, 125)], fill="#1d2633")
+        d.rectangle([P(0, 200), P(880, 225)], fill=colors[1])
+        for wx in (170, 700):
+            cx, cy = P(wx, 265)
+            d.ellipse([cx - 62 * scale, cy - 62 * scale, cx + 62 * scale, cy + 62 * scale], fill="#121212")
+            d.ellipse([cx - 32 * scale, cy - 32 * scale, cx + 32 * scale, cy + 32 * scale], fill="#7d838c")
+    d.ellipse([780, 470, 880, 570], fill="#ffffff", outline="#111111", width=4)
+    d.text((812, 505), number, fill="#111111")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()

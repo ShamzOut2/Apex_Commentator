@@ -50,7 +50,7 @@ class ProfileTests(unittest.TestCase):
             normalise_profile({"name": "X", "league_id": "abc"})
         p = normalise_profile({"name": "My League!", "drivers": [{"name": " A ", "cust_id": "12"}, {"name": ""}]})
         self.assertEqual(p["id"], "my-league")
-        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": "", "class_id": "", "car_image": "", "helmet_image": ""}])
+        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": "", "class_id": "", "car_image": "", "helmet_image": "", "driver_number": ""}])
 
     def test_normalise_classes(self):
         p = normalise_profile({"name": "L", "classes": [
@@ -203,7 +203,27 @@ class StoreTests(unittest.TestCase):
         junk = normalise_profile({"name": "L", "drivers": [{"name": "A", "car_image": "../../x.png"}],
                                   "teams": [{"name": "T", "logo": "../x.png"}, {"name": "t"}, {"name": ""}]})
         self.assertEqual(junk["drivers"][0]["car_image"], "")
-        self.assertEqual(junk["teams"], [{"name": "T", "logo": None}])
+        self.assertEqual(junk["teams"], [{"name": "T", "short": "", "color": "", "logo": None}])
+
+    def test_import_session_merges_without_losing_edits(self):
+        p = self.store.fetch(4242)
+        p["drivers"][0]["nickname"] = "Ames"
+        p["drivers"][0]["car_number"] = ""
+        p["drivers"].append({"name": "Hand Added", "car_number": "55"})
+        self.store.save(p)
+        session = [
+            {"cust_id": 1, "name": "Amy First", "number": "7", "team": "Apex Racing"},   # known: fill blanks
+            {"cust_id": 77, "name": "Hand Added", "number": "55", "team": ""},          # matches the hand-added one
+            {"cust_id": 9, "name": "New Person", "number": "9", "team": "Newcomers"},  # new
+        ]
+        league, added = self.store.import_session("4242", session)
+        self.assertEqual(added, 1)
+        by_name = {d["name"]: d for d in league["drivers"]}
+        self.assertEqual((by_name["Amy First"]["nickname"], by_name["Amy First"]["car_number"],
+                          by_name["Amy First"]["team"]), ("Ames", "7", "Apex Racing"))
+        self.assertEqual(by_name["Hand Added"]["cust_id"], 77)
+        self.assertEqual(by_name["New Person"]["team"], "Newcomers")
+        self.assertEqual(self.store.import_session("4242", session)[1], 0)  # idempotent
 
     def test_bad_league_id(self):
         with self.assertRaises(LeagueError):

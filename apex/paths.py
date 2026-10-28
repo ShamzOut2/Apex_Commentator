@@ -23,3 +23,28 @@ else:
     USER_DIR = APP_DIR
 
 WEB_DIR = APP_DIR / "web"
+
+
+def documents_dir():
+    """The user's Documents folder (follows OneDrive/redirected folders on Windows)."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            import uuid
+
+            # FOLDERID_Documents
+            guid = uuid.UUID("{FDD39AD0-238F-46AF-ADB4-6C85480369C7}")
+            buf = ctypes.c_wchar_p()
+            fid = (ctypes.c_byte * 16).from_buffer_copy(guid.bytes_le)
+            if ctypes.windll.shell32.SHGetKnownFolderPath(fid, 0, None, ctypes.byref(buf)) == 0:
+                path = Path(buf.value)
+                ctypes.windll.ole32.CoTaskMemFree(buf)
+                return path
+        except (OSError, AttributeError, ValueError):
+            pass
+    return Path.home() / "Documents"
+
+
+def iracing_screenshots_dir():
+    """Where iRacing saves screenshots: Documents\\iRacing\\screenshots."""
+    return documents_dir() / "iRacing" / "screenshots"

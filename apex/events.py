@@ -16,6 +16,13 @@ it works for spectators and commentators, not just the driver in the car:
 * **Incident points** - when session info reports a higher incident count for
   a driver, the points are attached to that car's off track/slowdown from the
   last few seconds, or recorded as a stand-alone incident.
+* **Pit stops** (races) - pit in, and pit out with the stop time and the
+  places it cost.
+* **Places lost after an off** (races) - once the car has been back on track
+  for a few seconds, if it dropped places since going off.
+* **Penalties** - a car being shown the black flag, disqualification,
+  meatball (repairs) or a warning.
+* **Fastest laps** - a new fastest lap in the car's class.
 
 Each event stores the session number and session time, which is what the
 replay system uses to jump straight to it.
@@ -25,6 +32,10 @@ import itertools
 
 from .sources import (
     CAUTION_FLAGS,
+    FLAG_BLACK,
+    FLAG_DISQUALIFY,
+    FLAG_FURLED,
+    FLAG_REPAIR,
     STATE_RACING,
     TRK_NOT_IN_WORLD,
     TRK_OFF_TRACK,
@@ -34,6 +45,14 @@ from .sources import (
 INCIDENT_MATCH_WINDOW_S = 15.0
 PAIR_FORGET_S = 1.0
 MIN_BASELINE_SPEED = 15.0  # m/s; below this a car is not "at speed"
+RECOVERY_SETTLE_S = 5.0    # back on track this long before counting places lost
+TIME_JUMP_S = 2.0          # a bigger jump means a replay skip: start afresh
+PENALTY_FLAGS = (
+    (FLAG_DISQUALIFY, "Disqualified"),
+    (FLAG_BLACK, "Black flag"),
+    (FLAG_REPAIR, "Meatball (repairs)"),
+    (FLAG_FURLED, "Warning"),
+)
 
 
 def _at(seq, i, default=None):
@@ -64,6 +83,12 @@ class EventDetector:
         self._prev_surface = {}
         self._last_kind_time = {}
         self._session_num = None
+        self._pit = {}            # car -> {"on", "since", "pos"}
+        self._recover = {}        # car -> {"pos", "when", "back"} after going off
+        self._prev_flags = {}
+        self._car_best = {}
+        self._class_best = {}
+        self._laps_baselined = False
 
     def clear(self):
         self.events = []
@@ -116,9 +141,10 @@ class EventDetector:
             self._session_num = frame.session_num
         now = frame.session_time
         dt = None if self._prev_time is None else now - self._prev_time
-        if dt is not None and dt <= 0:
-            # Time stood still or went backwards (paused / session change).
-            if dt < 0:
+        if dt is not None and (dt <= 0 or dt > TIME_JUMP_S):
+            # Time stood still, went backwards or jumped (pause, session change,
+            # replay skip): start afresh rather than compare across the gap.
+            if dt != 0:
                 self.reset()
                 self._session_num = frame.session_num
             self._prev_time = now
@@ -127,7 +153,10 @@ class EventDetector:
         caution = bool(frame.session_flags & CAUTION_FLAGS)
         created = []
         created += self._detect_surface_and_speed(frame, drivers, track_length_m, dt, caution)
-        if is_race and frame.session_state == STATE_RACING and not caution:
+        racing = is_race and frame.session_state == STATE_RACING
+        created += self._detect_race_events(frame, drivers, is_race, racing)
+        created += self._detect_fastest_laps(frame, drivers)
+        if racing and not caution:
             created += self._detect_overtakes(frame, drivers)
         else:
             self._pairs.clear()
@@ -224,6 +253,89 @@ class EventDetector:
         stale = [k for k, s in self._pairs.items() if now - s["seen"] > PAIR_FORGET_S]
         for k in stale:
             del self._pairs[k]
+        return created
+
+    @staticmethod
+    def _positions(frame, drivers, racing):
+        """car_idx -> position: live order while racing, iRacing's otherwise."""
+        if not racing:
+            return {idx: _at(frame.position, idx, 0) for idx in drivers if _at(frame.position, idx, 0)}
+        progress = []
+        for idx in drivers:
+            lap, pct = _at(frame.lap, idx, -1), _at(frame.pct, idx, -1.0)
+            if lap is not None and lap >= 0 and pct is not None and pct >= 0:
+                progress.append((lap + pct, idx))
+        progress.sort(reverse=True)
+        return {idx: i + 1 for i, (_, idx) in enumerate(progress)}
+
+    def _detect_race_events(self, frame, drivers, is_race, racing):
+        created = []
+        now = frame.session_time
+        pos = self._positions(frame, drivers, racing)
+        for idx in drivers:
+            # Pit stops.
+            on_pit = bool(_at(frame.on_pit, idx, False))
+            pit = self._pit.get(idx)
+            if pit is None:
+                self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx)}
+            elif on_pit != pit["on"]:
+                if is_race and on_pit:
+                    created.append(self._emit("pit_in", idx, frame, drivers, position=pos.get(idx)))
+                elif is_race:
+                    created.append(self._emit(
+                        "pit_out", idx, frame, drivers, position=pos.get(idx), from_position=pit["pos"],
+                        duration=round(now - pit["since"], 1),
+                    ))
+                self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx)}
+
+            # Places lost after going off.
+            surface = _at(frame.surface, idx, TRK_NOT_IN_WORLD)
+            rec = self._recover.get(idx)
+            if racing and rec is None and surface == TRK_OFF_TRACK and idx in pos:
+                self._recover[idx] = {"pos": pos[idx], "when": now, "back": None}
+            elif rec is not None:
+                if surface == TRK_ON_TRACK:
+                    rec["back"] = rec["back"] or now
+                    if now - rec["back"] >= RECOVERY_SETTLE_S:
+                        after = pos.get(idx)
+                        if racing and after and after > rec["pos"]:
+                            created.append(self._emit(
+                                "position", idx, frame, drivers, when=rec["when"], position=after,
+                                from_position=rec["pos"], reason="off",
+                            ))
+                        del self._recover[idx]
+                else:
+                    rec["back"] = None
+                    if now - rec["when"] > 120:
+                        del self._recover[idx]
+
+            # Penalty flags, as they're shown.
+            flags = int(_at(frame.car_flags, idx, 0) or 0)
+            prev = self._prev_flags.get(idx)
+            self._prev_flags[idx] = flags
+            if prev is not None:
+                for bit, label in PENALTY_FLAGS:
+                    if flags & bit and not prev & bit:
+                        created.append(self._emit("penalty", idx, frame, drivers, penalty=label))
+        return created
+
+    def _detect_fastest_laps(self, frame, drivers):
+        created = []
+        for idx, d in drivers.items():
+            best = _at(frame.best_lap, idx, -1.0)
+            if not best or best <= 0:
+                continue
+            if idx in self._car_best and best >= self._car_best[idx] - 1e-4:
+                continue
+            self._car_best[idx] = best
+            cls = d.get("car_class") or ""
+            if cls in self._class_best and best >= self._class_best[cls] - 1e-4:
+                continue
+            self._class_best[cls] = best
+            # Laps already set when the app started aren't news.
+            if self._laps_baselined:
+                created.append(self._emit("fastest_lap", idx, frame, drivers, lap_time=round(best, 3), car_class=cls))
+        self._laps_baselined = True
         return created
 
     @staticmethod

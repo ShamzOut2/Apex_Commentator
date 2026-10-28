@@ -4,11 +4,14 @@ snapshot the overlay renders, and runs spectate / replay commands.
 
 import re
 import threading
+from dataclasses import replace
 import time
 
-from . import __version__
+from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
+from .laps import LapTracker, sector_starts
+from .overlays import OverlaySettings
 from .league import driver_key, logo_url
 from .sources import (
     CS_AT_EXCITING,
@@ -17,6 +20,15 @@ from .sources import (
     RPY_SRCH_NEXT_INCIDENT,
     RPY_SRCH_PREV_INCIDENT,
     RPY_SRCH_TO_END,
+    CAUTION_FLAGS,
+    FLAG_BLACK,
+    FLAG_BLUE,
+    FLAG_CHECKERED,
+    FLAG_DISQUALIFY,
+    FLAG_FURLED,
+    FLAG_GREEN,
+    FLAG_REPAIR,
+    FLAG_WHITE,
     STATE_RACING,
     TRK_NOT_IN_WORLD,
 )
@@ -27,6 +39,13 @@ SESSION_STATES = {
 }
 SURFACES = {-1: "not_in_world", 0: "off_track", 1: "pit_stall", 2: "approaching_pits", 3: "on_track"}
 DEFAULT_TRACK_M = 4000.0
+# Per-car flags, most important first: the first one shown is "the" flag.
+CAR_FLAGS = (
+    (FLAG_DISQUALIFY, "dq"), (FLAG_BLACK, "black"), (FLAG_REPAIR, "meatball"), (FLAG_FURLED, "warning"),
+    (FLAG_BLUE, "blue"), (CAUTION_FLAGS, "yellow"), (FLAG_CHECKERED, "checkered"), (FLAG_WHITE, "white"),
+    (FLAG_GREEN, "green"),
+)
+PENALTY_NAMES = {"dq": "DQ", "black": "Black flag", "meatball": "Meatball", "warning": "Warning"}
 
 
 class CommandError(Exception):
@@ -44,6 +63,42 @@ def parse_track_length(text):
 
 def _at(seq, i, default=None):
     return seq[i] if i < len(seq) else default
+
+
+def car_flags(bits):
+    """The flag shown to a car (most important first) and its penalties."""
+    bits = int(bits or 0)
+    names = [name for bit, name in CAR_FLAGS if bits & bit]
+    return {"flag": names[0] if names else None,
+            "penalties": [PENALTY_NAMES[n] for n in names if n in PENALTY_NAMES]}
+
+
+def _rank(standings, is_race):
+    """Positions, class positions, gaps and intervals for standings entries in order.
+
+    ``time`` is the gap to the leader in a race, the lap time otherwise.
+    """
+    first, ahead, in_class = None, {}, {}
+    prev = None
+    for pos, e in enumerate(standings, start=1):
+        k = e["class_key"]
+        in_class[k] = in_class.get(k, 0) + 1
+        e["pos"], e["class_pos"] = pos, in_class[k]
+        t = e.pop("time")
+        e["best"] = None if is_race else t
+        if first is None:
+            first = t
+        leader = ahead.setdefault(k, {"first": t, "prev": None})
+        if is_race:
+            gap, class_gap = t, (t - leader["first"]) if t is not None and leader["first"] is not None else None
+        else:
+            gap, class_gap = t - first, t - leader["first"]
+        e["gap"] = round(gap, 3) if gap is not None and pos > 1 else None
+        e["class_gap"] = round(class_gap, 3) if class_gap is not None and in_class[k] > 1 else None
+        e["interval"] = round(t - prev, 3) if t is not None and prev is not None else None
+        e["class_interval"] = round(t - leader["prev"], 3) if t is not None and leader["prev"] is not None else None
+        prev = t
+        leader["prev"] = t
 
 
 def _lap_time(value):
@@ -73,7 +128,13 @@ class App:
         self._grid_order = []      # car_idx in starting order
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
+        self._logged_until = {}    # session num -> race time logged so far
+        self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
+        self.photobooth = None     # set by __main__ (needs the user data folder)
+        self.laps = LapTracker()
+        self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
+        self._class_of = {}        # car_idx -> class key, from the last snapshot
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -116,10 +177,37 @@ class App:
                 self._info_update = update
                 self.detector.update_incidents(frame, self._drivers)
             self._frame = frame
-            # Detect on live data only: replay playback would create duplicates.
-            if frame.is_live:
-                self.detector.update(frame, self._drivers, self._track_m, self._is_race(frame))
+            self._detect(frame)
         return True
+
+    def _detect(self, frame):
+        """Log events from whatever iRacing is showing, live or a replay.
+
+        Only race time not logged yet is processed: rewinding during a live
+        race doesn't log moments twice, while a saved replay played forward
+        logs normally. Events are stamped with that timeline, which is what
+        replay seeking uses.
+        """
+        num, t = frame.timeline()
+        logged = self._logged_until.get(num, -1.0)
+        if t < logged - 1e-3:
+            self.detection = "paused"  # watching something already logged
+            return
+        if t <= logged + 1e-3:
+            return  # no new race time (sim paused): nothing changes
+        timeline_frame = replace(frame, session_num=num, session_time=t)
+        self.detector.update(timeline_frame, self._drivers, self._track_m, self._is_race(timeline_frame))
+        self.laps.green_s = self.overlays.get()["laps"]["green_s"]
+        self.laps.update(timeline_frame, self._lap_class)
+        self._logged_until[num] = t
+        self.detection = "live" if frame.is_live else "replay"
+
+    def _lap_class(self, car_idx):
+        key = self._class_of.get(car_idx)
+        if key is None:
+            d = self._drivers.get(car_idx)
+            key = f"iracing:{(d and d['car_class']) or 'Field'}"
+        return key
 
     # -- session info -------------------------------------------------------
 
@@ -166,6 +254,7 @@ class App:
         official = {i: p for i, p in enumerate(frame.position) if i in drivers} if frame else None
         self._grid_order, self._grid_source = grid_order(drivers, info, official)
         self._qual_times = qualifying_times(info)
+        self.laps.set_sectors(sector_starts(info))
 
     def _session(self, frame):
         return self._session_meta.get("sessions", {}).get(frame.session_num, {})
@@ -183,15 +272,20 @@ class App:
                     "connected": False, "source": self.source.name, "league": self._league_summary(),
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
+                    "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
+                                 "laps": {"active": False, "camera": None, "trackers": [], "sectors": len(self.laps.starts)}},
                 }
             is_race = self._is_race(frame)
             racing = is_race and frame.session_state == STATE_RACING
             events = self.detector.events
             counts = {}
             last_event = {}
+            pit_stops = {}
             for ev in events:
                 counts[ev["car_idx"]] = counts.get(ev["car_idx"], 0) + 1
                 last_event[ev["car_idx"]] = ev["id"]
+                if ev["type"] == "pit_out":
+                    pit_stops[ev["car_idx"]] = pit_stops.get(ev["car_idx"], 0) + 1
             classes = {}
             active_league = self.leagues.active()
             rows = []
@@ -201,7 +295,7 @@ class App:
                 surface = _at(frame.surface, idx, TRK_NOT_IN_WORLD)
                 row = dict(d)
                 league = self.leagues.lookup(d["cust_id"], d["number"])
-                row["league"] = {k: league.get(k, "") for k in ("nickname", "team", "notes")} if league else None
+                row["league"] = {k: league.get(k, "") for k in ("nickname", "team", "notes", "driver_number")} if league else None
                 row["class_key"] = self._class_key(classes, active_league, league, d)
                 row.update({
                     "lap": lap if lap is not None and lap >= 0 else None,
@@ -215,6 +309,8 @@ class App:
                     "last_lap": _lap_time(_at(frame.last_lap, idx)),
                     "best_lap": _lap_time(_at(frame.best_lap, idx)),
                     "event_count": counts.get(idx, 0),
+                    "pit_stops": pit_stops.get(idx, 0),
+                    **car_flags(_at(frame.car_flags, idx, 0) | (frame.session_flags & CAUTION_FLAGS)),
                     "last_event_id": last_event.get(idx),
                     "progress": (lap + pct) if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1,
                 })
@@ -226,6 +322,8 @@ class App:
                 if r["pos"] is not None:
                     in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
                     r["class_pos"] = in_class[r["class_key"]]
+            self._add_start_positions(rows, is_race)
+            self._class_of = {r["car_idx"]: r["class_key"] for r in rows}
             session = self._session(frame)
             snap = {
                 "connected": True,
@@ -249,12 +347,177 @@ class App:
                     "speed": frame.replay_speed,
                 },
                 "drivers": rows,
+                "detection": self.detection,
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
+                "photobooth": self.photobooth.status() if self.photobooth else None,
                 "classes": self._ordered_classes(classes),
-                "events": events[-100:],
+                "events": events[-200:],
                 "league": self._league_summary(),
+                "overlays": self._overlay_snapshot(rows, frame, session, active_league),
+                "championship": self._championship_snapshot(rows, frame, is_race, active_league),
             }
             return snap
+
+    # -- championship -------------------------------------------------------
+
+    def session_results(self, profile, rows=None, add_missing=False):
+        """The current session as championship results for ``profile``.
+
+        Uses iRacing's official results (laps, laps led, fastest lap, why a car
+        is out) where it has them, and the live order otherwise. With
+        ``add_missing``, drivers not in the roster are added to ``profile``.
+        Returns ``(results, added)``.
+        """
+        frame = self._frame
+        if rows is None:
+            rows = self.build_snapshot().get("drivers") or []
+        session = self._session(frame) if frame else {}
+        official = {r.get("CarIdx"): r for r in session.get("ResultsPositions") or [] if isinstance(r, dict)}
+        results, added = [], 0
+        for r in sorted(rows, key=lambda r: r["pos"] or 10_000):
+            entry = self.leagues.lookup(r["cust_id"], r["number"], profile)
+            if entry is None:
+                entry = next((d for d in profile.get("drivers", []) if d.get("cust_id") is None
+                              and d.get("name", "").strip().lower() == r["name"].strip().lower()), None)
+            if entry is None and add_missing:
+                entry = {"cust_id": r["cust_id"], "name": r["name"], "car_number": r["number"], "team": r["team"]}
+                profile.setdefault("drivers", []).append(entry)
+                added += 1
+            key = driver_key(entry) if entry else driver_key({"cust_id": r["cust_id"], "name": r["name"]})
+            cls = self.leagues.class_for(entry, r["car_class"], profile)
+            off = official.get(r["car_idx"], {})
+            laps = off.get("LapsComplete")
+            if not isinstance(laps, int) or laps < 0:
+                laps = max(0, (r["lap"] or 1) - 1)
+            fastest = off.get("FastestTime")
+            reason = str(off.get("ReasonOutStr") or "Running").strip().lower()
+            if r["pos"] is None and not off:
+                status = "dns"
+            else:
+                status = "finished" if reason == "running" else "dnf"
+            incidents = off.get("Incidents") if isinstance(off.get("Incidents"), int) else r["incidents"]
+            results.append(championship.normalise_result({
+                "driver": key, "name": r["name"],
+                "class_id": cls["id"] if cls else f"iracing:{r['car_class'] or 'Field'}",
+                "position": r["pos"], "start_position": r["start_pos"], "laps": laps,
+                "laps_led": off.get("LapsLed") or 0,
+                "fastest_lap": fastest if isinstance(fastest, (int, float)) and fastest > 0 else r["best_lap"],
+                "incidents": incidents or 0, "status": status,
+            }))
+        return results, added
+
+    def _championship_snapshot(self, rows, frame, is_race, active_league):
+        """Season standings for the active league; during a race, as if it finished now."""
+        if not active_league:
+            return None
+        champ = active_league.get("championship") or championship.normalise({})
+        racing = is_race and frame.session_state >= STATE_RACING and any(r["pos"] for r in rows)
+        if not racing and not any(rd["results"] for rd in champ["rounds"]):
+            return None
+        if racing:
+            rd = championship.live_round_for(champ) or {"id": "live", "name": "This race", "track": "", "date": "",
+                                                        "multiplier": 1.0, "no_drop": False}
+            results, _ = self.session_results(active_league, rows)
+            groups = championship.projection(active_league, dict(rd, results=results))
+            return {"live": True, "round": rd["name"], "groups": groups}
+        table = championship.standings(active_league)
+        groups = [{"key": g["key"], "name": g["name"], "color": g["color"], "drivers": [
+            {k: d[k] for k in ("driver", "name", "team", "car_number", "points", "pos", "behind")}
+            for d in g["drivers"]]} for g in table["groups"]]
+        return {"live": False, "round": None, "groups": groups}
+
+    # -- stream overlays ----------------------------------------------------
+
+    def _overlay_entry(self, r, active_league):
+        """Who a driver is, for the stream overlays: league details win."""
+        lg = r["league"] or {}
+        team_name = lg.get("team") or r["team"]
+        team = self.leagues.team(team_name, active_league) if active_league else None
+        pid = active_league["id"] if active_league else ""
+        return {
+            "car_idx": r["car_idx"], "name": r["name"], "nickname": lg.get("nickname", ""),
+            "abbrev": r["abbrev"], "number": r["number"], "driver_number": lg.get("driver_number", ""),
+            "team": team_name, "team_short": (team or {}).get("short", ""), "team_color": (team or {}).get("color", ""),
+            "team_logo": logo_url(pid, team.get("logo")) if team and pid else None,
+            "class_key": r["class_key"], "car": r["car"], "on_pit": r["on_pit"], "in_world": r["in_world"],
+        }
+
+    def _official_best(self, session):
+        """Fastest lap per car from the session results iRacing publishes."""
+        out = {}
+        for res in session.get("ResultsPositions") or []:
+            t = res.get("FastestTime")
+            if isinstance(res.get("CarIdx"), int) and isinstance(t, (int, float)) and t > 0:
+                out[res["CarIdx"]] = round(float(t), 3)
+        return out
+
+    def _overlay_snapshot(self, rows, frame, session, active_league):
+        settings = self.overlays.get()
+        kind = str(session.get("SessionType", "")).lower()
+        is_race = kind == "race"
+        entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
+        # Standings: race order in a race; otherwise fastest clean lap, and
+        # only drivers who have set one (blank at the start of qualifying).
+        standings = []
+        if is_race:
+            for r in rows:
+                if r["pos"] is not None:
+                    standings.append(dict(entries[r["car_idx"]], pos=r["pos"], class_pos=r["class_pos"],
+                                          time=r["gap"], pos_change=r["pos_change"]))
+        else:
+            official = self._official_best(session)
+            timed = []
+            for r in rows:
+                best = official.get(r["car_idx"]) or self.laps.best(r["car_idx"])
+                if best:
+                    timed.append((best, r))
+            timed.sort(key=lambda x: x[0])
+            for best, r in timed:
+                standings.append(dict(entries[r["car_idx"]], time=best, pos_change=None))
+        _rank(standings, is_race)
+        # The lap tracker: qualifying only (or practice, if asked).
+        lap_cfg = settings["laps"]
+        active = "qualify" in kind or (lap_cfg["practice"] and "practice" in kind)
+        now = frame.timeline()[1]
+        place = {e["car_idx"]: e for e in standings}
+        trackers = []
+        cam = None
+        if active:
+            for idx, e in entries.items():
+                st = self.laps.state(idx, now, lap_cfg["reference"], lap_cfg["hide_s"])
+                stand = place.get(idx, {})
+                item = dict(e, lap=st, pos=stand.get("pos"), class_pos=stand.get("class_pos"))
+                if idx == frame.cam_car_idx:
+                    cam = item
+                elif st and (st["valid"] or lap_cfg["show_invalid"] or st["state"] == "finished"):
+                    trackers.append(item)
+            # First to finish first: the order stays put as laps run.
+            # Just finished first, then the laps nearest the line: the order
+            # stays put as laps run.
+            trackers.sort(key=lambda x: (x["lap"]["state"] != "finished", -x["lap"]["elapsed"]))
+        return {
+            "settings": settings,
+            "session_kind": "race" if is_race else ("qualify" if "qualify" in kind else (kind or "practice")),
+            "standings": standings,
+            "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts)},
+        }
+
+    def _add_start_positions(self, rows, is_race):
+        """Grid position (overall and in class) and places gained since, in races."""
+        by_idx = {r["car_idx"]: r for r in rows}
+        in_class = {}
+        for start, idx in enumerate(self._grid_order, start=1):
+            r = by_idx.get(idx)
+            if r is None:
+                continue
+            in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
+            r["start_pos"], r["class_start_pos"] = start, in_class[r["class_key"]]
+        for r in rows:
+            r.setdefault("start_pos", None)
+            r.setdefault("class_start_pos", None)
+            gained = is_race and r["pos"] and r["start_pos"]
+            r["pos_change"] = r["start_pos"] - r["pos"] if gained else None
+            r["class_pos_change"] = r["class_start_pos"] - r["class_pos"] if gained and r["class_pos"] else None
 
     @staticmethod
     def _assign_positions(rows, racing):
@@ -373,7 +636,7 @@ class App:
 
     def _league_summary(self):
         active = self.leagues.active()
-        return {"id": active["id"], "name": active["name"]} if active else None
+        return {"id": active["id"], "name": active["name"], "teams": len(active.get("teams", []))} if active else None
 
     def publish(self):
         snap = self.build_snapshot()
@@ -417,7 +680,7 @@ class App:
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith("gridwalk_"):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -585,3 +848,34 @@ class App:
 
     def cmd_gridwalk_reset_order(self):
         self.gridwalk.reset_order()
+
+    # -- photo booth -------------------------------------------------------------
+
+    def cmd_photobooth_start(self, car_idx=None, group=None, cutout=True):
+        """Photograph one car (car_idx) or every loaded car, in grid order."""
+        from .photobooth import PhotoBoothError
+
+        if self.photobooth is None:
+            raise CommandError("The photo booth isn't available")
+        if car_idx not in (None, ""):
+            cars = [int(car_idx)]
+        else:
+            frame = self._frame
+            # Only cars loaded onto the track can be photographed.
+            cars = [i for i in self._grid_order
+                    if frame and _at(frame.surface, i, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD]
+        try:
+            self.photobooth.start(cars, self._group(group), use_cutout=bool(cutout))
+        except PhotoBoothError as e:
+            raise CommandError(str(e)) from e
+        return {"cars": len(cars)}
+
+    def cmd_overlay_settings(self, overlay, values):
+        try:
+            return {"settings": self.overlays.update(overlay, values)}
+        except ValueError as e:
+            raise CommandError(str(e)) from e
+
+    def cmd_photobooth_cancel(self):
+        if self.photobooth is not None:
+            self.photobooth.cancel()

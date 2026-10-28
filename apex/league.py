@@ -54,6 +54,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import championship
 from .paths import WEB_DIR
 
 LOGO_LIBRARY_DIR = WEB_DIR / "logos"
@@ -61,7 +62,7 @@ UPLOADED_LOGO = re.compile(r"[a-z0-9-]+\.(png|jpg|webp|svg)")
 LIBRARY_LOGO = re.compile(r"lib:([a-z0-9-]+\.svg)")
 TOKEN_URL = "https://oauth.iracing.com/oauth2/token"
 DATA_URL = "https://members-ng.iracing.com/data"
-EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "car_image", "helmet_image")
+EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "car_image", "helmet_image", "driver_number")
 DRIVER_IMAGES = ("car_image", "helmet_image")
 # Distinct defaults handed to new classes, in order.
 CLASS_PALETTE = ["#e8463c", "#2f80ed", "#27ae60", "#f2c94c", "#9b51e0", "#f2994a", "#56ccf2", "#eb5ea8"]
@@ -227,6 +228,8 @@ def merge_profiles(existing, fresh):
     result["drivers"] = merged
     result["classes"] = existing.get("classes", [])
     result["teams"] = existing.get("teams", [])
+    if existing.get("championship"):
+        result["championship"] = existing["championship"]
     return result
 
 
@@ -394,7 +397,13 @@ def normalise_profile(profile):
             continue
         seen_teams.add(team_name.lower())
         logo = t.get("logo") or None
-        teams.append({"name": team_name, "logo": logo if logo and _valid_logo_ref(str(logo)) else None})
+        color = str(t.get("color") or "").strip()
+        teams.append({
+            "name": team_name,
+            "short": str(t.get("short") or "").strip()[:8],
+            "color": color if HEX_COLOR.fullmatch(color) else "",
+            "logo": logo if logo and _valid_logo_ref(str(logo)) else None,
+        })
     pid = str(profile.get("id") or (league_id if league_id is not None else _slug(name)))
     return {
         "id": _slug(pid) if league_id is None else str(pid),
@@ -405,6 +414,7 @@ def normalise_profile(profile):
         "classes": classes,
         "teams": teams,
         "drivers": drivers,
+        "championship": championship.normalise(profile.get("championship")),
     }
 
 
@@ -589,9 +599,9 @@ class LeagueStore:
     def active(self):
         return self._active
 
-    def lookup(self, cust_id, car_number):
-        """Find the active league's entry for a session driver."""
-        profile = self._active
+    def lookup(self, cust_id, car_number, profile=None):
+        """Find a league's entry (the active league by default) for a session driver."""
+        profile = profile or self._active
         if not profile:
             return None
         by_number = None
@@ -622,12 +632,62 @@ class LeagueStore:
                     return c
         return None
 
-    def team_logo(self, team_name, profile=None):
-        """Logo reference for a team in a league (the active one by default)."""
+    def team(self, team_name, profile=None):
+        """A team in a league (the active one by default), or None."""
         profile = profile or self._active
         if not profile or not team_name:
             return None
         for t in profile.get("teams", []):
             if t["name"].lower() == team_name.strip().lower():
-                return t.get("logo")
+                return t
         return None
+
+    def team_logo(self, team_name, profile=None):
+        """Logo reference for a team in a league (the active one by default)."""
+        team = self.team(team_name, profile)
+        return team.get("logo") if team else None
+
+    def ensure_driver(self, profile_id, cust_id, name, car_number):
+        """Find (or add) a session driver in a league's roster; returns their driver key."""
+        with self._lock:
+            profile = self.get(profile_id)
+        if profile is None:
+            raise LeagueError("League not found.")
+        drivers = profile.setdefault("drivers", [])
+        for d in drivers:
+            if cust_id is not None and d.get("cust_id") == cust_id:
+                return driver_key(d)
+        for d in drivers:
+            if d.get("cust_id") is None and d.get("name", "").strip().lower() == name.strip().lower():
+                return driver_key(d)
+        entry = {"cust_id": cust_id, "name": name, "car_number": car_number}
+        drivers.append(entry)
+        self.save(profile)
+        return driver_key(entry)
+
+    def import_session(self, profile_id, session_drivers):
+        """Merge the session's drivers into a league: add new ones, fill blanks.
+
+        Commentator edits (nicknames, notes, classes, photos) are never touched.
+        Returns ``(profile, added)``.
+        """
+        profile = self.get(profile_id)
+        if profile is None:
+            raise LeagueError("Save the league first.")
+        drivers = profile.setdefault("drivers", [])
+        by_id = {d.get("cust_id"): d for d in drivers if d.get("cust_id") is not None}
+        by_name = {d.get("name", "").strip().lower(): d for d in drivers if d.get("cust_id") is None}
+        added = 0
+        for sd in session_drivers:
+            existing = by_id.get(sd.get("cust_id")) or by_name.get(sd.get("name", "").strip().lower())
+            if existing is None:
+                drivers.append({"cust_id": sd.get("cust_id"), "name": sd.get("name", ""),
+                                "car_number": sd.get("number", ""), "team": sd.get("team", "")})
+                added += 1
+                continue
+            if existing.get("cust_id") is None and sd.get("cust_id") is not None:
+                existing["cust_id"] = sd["cust_id"]
+            for field, value in (("car_number", sd.get("number", "")), ("team", sd.get("team", ""))):
+                if value and not existing.get(field):
+                    existing[field] = value
+        return self.save(profile), added

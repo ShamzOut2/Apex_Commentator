@@ -4,26 +4,35 @@ A lightweight iRacing overlay suite for commentators. It runs a small local web
 app next to iRacing. Open it in a browser on a second monitor, or add it as an
 OBS dock.
 
-- **Live driver list**: positions (live order while racing), gaps, intervals,
-  last/best laps, incident points, and pit and off-track status. The car you are
-  watching is highlighted.
-- **League builder**: pull a league roster from iRacing by **League ID**, then
-  add nicknames, teams and notes that show next to each driver in the overlay.
-  Define **classes** with your own names, colours and logos. The driver list
-  groups by class under coloured headers, and each logo's background is
-  recoloured to match its class.
-- **Spectate controls**: watch any driver in one click, step to the car
-  ahead or behind, jump to the leader, iRacing's incident/exciting cameras, and
-  quick camera-group buttons (TV1, Chase, Cockpit…).
-- **Replays**: overtakes and incidents are detected for every car and
-  saved with their exact session time. One click replays a driver's latest
-  moment, or any moment from the event feed, and **Go live** takes you back.
+- **Timing screen**: one screen for the race. Live standings with overall
+  and class position, places gained or lost, gap and interval, flags and
+  penalties. **Battles** (cars within 0.15 s) flash in a colour you choose.
+  Click a driver to put the camera on them. A **race log** records
+  overtakes, offs, spins, places lost, pit stops, penalties and fastest laps:
+  pick a line and replay it from 5 to 30 seconds before. Camera buttons with
+  your own hotkeys sit along the top, and replay controls and **LIVE** along
+  the bottom.
+- **League builder**: pull a league roster from iRacing by **League ID**, from
+  the current session, or add drivers by hand. Add nicknames, teams, team
+  logos, notes and car and helmet photos. Define **classes** with your own
+  names, colours and logos.
 - **Grid walk**: an on-stream graphic that walks the starting grid two drivers
   at a time, with livery, helmet, name, team and team logo. It's shown as cars
   standing on the grid, on a grid map or as a head-to-head, and advances on a
-  timer you set.
+  timer you set. The **photo booth** photographs every car in iRacing for it.
+- **Standings overlay**: a timing tower for stream, overall or by class. In
+  qualifying it starts empty and fills as drivers set clean laps.
+- **Qualifying lap tracker**: live sector bars (purple, green, yellow) and lap
+  clocks along the bottom of the stream. A big tracker shows the car on camera,
+  with the lap time and gap to the driver's best when the lap is done.
+- **Team builder**: teams with logos, short names and colours, and who drives
+  for whom. They show on every overlay.
+- **Championship**: each league's season with your points system, bonuses,
+  drop rounds, class and team championships and post-race penalties. Results
+  can be imported from the session, and live standings show the championship
+  as if the race finished now.
 
-![layout: control bar, driver table with Watch / Replay / events per driver](docs/overview.png)
+![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.png)
 
 ## Install (Windows)
 
@@ -63,7 +72,8 @@ in the project folder.
 `start-mock.bat` (or `python -m apex --mock`) runs a simulated race. It
 works on any OS, and `--mock-speed 5` speeds it up. Other options:
 `python -m apex --help` (`--port`, `--host`, `--no-window` to use the browser,
-`--config`).
+`--config`). `--mock-session qualify` simulates qualifying instead, for trying
+the lap tracker.
 
 ### Using it from another PC or in OBS
 
@@ -73,12 +83,39 @@ works on any OS, and `--mock-speed 5` speeds it up. Other options:
 - **OBS:** *Docks → Custom Browser Docks*, URL `http://localhost:8180`. The
   layout compacts itself for narrow docks.
 
-## Keyboard shortcuts
+## Timing screen
+
+- **Standings**: Pos (overall), Cls (position in class, underlined in the class
+  colour), **+/−** (places gained or lost since the start, within the class
+  when a class is picked), car number, driver and team, lap, gap to the
+  leader, interval to the car ahead, last and best lap, pit stops, flag
+  (yellow, blue, white, chequered), penalties (black flag, DQ, meatball,
+  warning) and incident points. **Click any driver** to put the camera on
+  them. The class chips show one class at a time, with gaps and places within
+  it.
+- **Battles**: a driver within the battle gap of the car ahead (0.15 s by
+  default) flashes along with that car, in the colour you pick. Both settings
+  sit above the standings.
+- **Race log**: everything that happens, newest first, filterable: overtakes,
+  off tracks, spins, incident points, places lost after an off, pit in/out
+  (with stop time and places lost), penalties and class fastest laps. **Click
+  a line**, then pick how far back to start the replay: −5 s, −10 s and so
+  on up to −30 s. The camera follows that driver. The line above the log shows
+  whether logging is running: it logs live races and saved replays you play,
+  and pauses while you rewind over something already logged.
+- **Cameras**: one button per iRacing camera, plus Ahead, Behind, Leader,
+  Exciting and Incident cam. *⌨ Hotkeys* sets a key for each camera; out of
+  the box, 1–9 are the first nine cameras.
+- **Replay bar**: rewind the car on camera by a set time (5 s steps), step
+  through iRacing's incident markers, pause, play, slow motion, and **LIVE**.
+
+### Keyboard shortcuts
 
 | Key | Action |
 | --- | --- |
+| `1`–`9` (or your own) | Camera hotkeys |
 | `L` | Back to live |
-| `R` | Instant replay (last 10 s) |
+| `R` | Rewind the car on camera (by the rewind setting) |
 | `↑` / `↓` | Watch the car ahead / behind |
 
 ## How replays work
@@ -166,6 +203,137 @@ styles have a transparent background, so they sit over your game feed. The walk 
 preview in the tab, and any other copy all stay in step. Add `?preview=1` to
 the URL to view it on a backdrop in a normal browser.
 
+### Photo booth: real car photos from iRacing
+
+The **Photo booth** in the Grid walk tab takes each driver's car photo
+inside iRacing itself, so it shows their real livery, whether that's a
+Trading Paints paint or an iRacing paint-shop design. For every car loaded
+into the session, it points the chosen camera at the car, hides iRacing's
+on-screen panels, takes iRacing's screenshot, then puts your camera and panels
+back. Each shot is then **cut out** with an AI background-removal model (the
+open IS-Net model, about 170 MB, downloaded the first time you use it), cropped
+to the car, and saved as that driver's car photo in the active league. The
+grid walk uses it straight away. 📷 on a driver's row retakes just that car.
+
+- **Turn on screenshots in iRacing first**: *Settings → Interface → Camera &
+  Screen Capture → Video and Screen Capture*, then restart iRacing. The app
+  looks in `Documents\iRacing\screenshots`. If yours are saved elsewhere,
+  set `"screenshots_dir"` in `config.json`.
+- **When**: it takes over the camera for about 2 seconds per car, so run it
+  before you go live. The cut-outs are made afterwards, in the background.
+- **Cars spread out make better photos**: the cut-out keeps the car in the
+  middle of the shot and drops cars that merely touch it. A car that
+  overlaps another in the frame can't be separated, so practice and
+  qualifying, when cars are apart, are a better time than the grid. Try
+  cameras such as *Chase*, *Rear Chase* or a TV camera, and retake any that
+  come out wrong.
+- Cars not loaded into the session can't be photographed. They keep their
+  uploaded or drawn car. Untick *Cut out background* to keep the track behind
+  the car. Raw shots are kept in `data\photobooth\raw`.
+
+## Stream overlays
+
+The **Overlays** tab has each overlay's address for OBS, a live preview and
+its settings. Add each one as a *Browser Source* at 1920×1080 (the background
+is transparent). Settings changed in the tab show on stream straight away and
+are kept in `data/overlays.json`.
+
+- **Standings** (`/standings.html`): in a race, the running order with the gap
+  to the leader. In qualifying and practice, it shows the fastest clean lap,
+  and drivers only appear once they have one, so it starts empty.
+  - *Overall* lists everyone (with class position in multiclass).
+  - *By class* gives each class its own block with its header and logo, or
+    shows just one class.
+  - Choose the name style, how many drivers, and whether to show car numbers,
+    team names and team logos.
+- **Lap tracker** (`/laps.html`): only in qualifying (practice too, if you
+  tick it).
+  - The car on camera gets the big tracker. Up to 12 small ones show other
+    cars on a timed lap, nearest the line first.
+  - Each sector bar fills as the car goes round and turns solid when the
+    sector is done:
+    - **purple**: faster than the reference;
+    - **green**: within 0.2 s of it (adjustable);
+    - **yellow**: slower.
+  - The reference is the driver's own best ("personal") or the fastest in
+    their class this session ("session").
+  - The driver's best lap is always shown. When a lap is done, its time
+    stays up with the gap to that best (green if faster, red if slower), then
+    the tracker goes after 5 s (adjustable).
+  - Laps aren't timed out of the pits. A lap is marked invalid if the car goes
+    off track or into the pits, and invalid laps never count as bests.
+  - Sector splits come from iRacing's sector points for the track. Lap times
+    use iRacing's own time when it reports one.
+
+![standings tower by class](docs/standings.png)
+
+![qualifying lap tracker: big tracker for the car on camera, small ones for the rest](docs/laps.png)
+
+## Team builder
+
+The **Teams** tab works on the same league as the League builder. For each
+team, set:
+- its name (renaming moves its drivers with it);
+- a short name, used where space is tight;
+- a colour (optional; the class colour is used otherwise);
+- its logo.
+
+Add drivers to a team from the drop-down, or take them out with ✕. The roster's
+*Team* column in the League builder is the same thing. **Save** saves the
+league. The roster also has a **Driver #** column, for leagues that give
+drivers their own number; the lap tracker can show it.
+
+## Championship
+
+The **Championship** tab keeps each league's season. It works on the same
+league as the League builder and Teams tabs. Press **Save** after changes; the
+standings update from what's saved.
+
+- **Points & rules**
+  - Points for each finishing position (e.g. `25, 18, 15, 12, 10, 8, 6, 4,
+    2, 1`).
+  - Optional points for qualifying positions, taken from the starting grid.
+  - **Championships**: one per class (scored on class positions; each class
+    is its own championship) or one for everyone.
+  - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
+    are dropped first. Drops only start once a driver has more rounds than N.
+  - The fastest-lap bonus can be limited to the top N finishers.
+  - **Classified**: a driver must complete a percentage of the winner's laps
+    to score.
+  - Whether DNFs score for where they're classified.
+  - **Team championship**: count every driver, or each team's best N per
+    round.
+  - **Bonus points**: pole, fastest lap, led a lap, each lap led, most laps
+    led, most places gained, clean race (no incidents), finished, started, and
+    race win. Use 0 for bonuses you don't award; negative values take points
+    off.
+- **Rounds & results**
+  - Add the season's rounds, with a points multiplier (2 for double points)
+    and *Can't drop* for rounds that always count.
+  - After a race, press **Import from session** while still in the session
+    (or watching its replay). This fills in finishing order, class, grid,
+    laps, laps led, fastest lap, incidents and DNFs from iRacing, and adds
+    drivers missing from the roster.
+  - Everything can be corrected by hand, including DSQ and extra points
+    (+ or −) for a round. The points column shows what each result scored.
+- **Penalties**
+  - *Points off* are taken from the driver's total (and their team's) and are
+    never dropped.
+  - *Licence points* are a running tally per driver, shown in the standings.
+- **Standings**
+  - One table per class with each round's points. Dropped rounds are struck
+    through, and hovering a cell shows its bonuses.
+  - Ties are broken by most wins, then most seconds, and so on.
+  - Below the drivers is the team championship.
+- **Live**
+  - During a race with the league active, the standings tab shows the
+    championship as if the race finished now: race points, points before,
+    live total, gap, and places gained or lost.
+  - The race counts as the round marked *Live* (by default, the first round
+    without results).
+  - The same data is in the app's live feed (`championship` in
+    `/api/state`), ready for a points-battle overlay.
+
 ## League builder
 
 Open the **League builder** tab.
@@ -199,10 +367,9 @@ A driver's class comes from:
    (e.g. `GT3`), or otherwise
 3. their iRacing car class as-is.
 
-In the **Drivers** tab, *Group by class* shows each class under its header,
-with positions, gaps and intervals within the class.
-
-![driver list grouped by class](docs/classes.png)
+On the **Timing** screen, each driver's class position is underlined and
+their car number edged in the class colour, and the class chips above the
+standings show one class at a time. Class logos head the grid walk cards.
 
 **Built-in logos.** The league's tier logos ship with the app as layered
 SVGs in `web/logos/`: PRO, SEMI-PRO, PRO-AM, AM, GOLD, SILVER and BRONZE.
@@ -346,6 +513,9 @@ apex/
   events.py    overtake / incident detection
   core.py      poll loop, snapshot, spectate & replay commands
   gridwalk.py  grid order and grid walk state
+  laps.py      lap and sector timing for the lap tracker and standings
+  overlays.py  stream overlay settings
+  championship.py  championship points, drop rounds, penalties and live projection
   league.py    iRacing Data API client and league profiles
   server.py    stdlib HTTP server + Server-Sent Events
   updater.py   update checks and in-app updates from GitHub releases
@@ -354,6 +524,7 @@ apex/
 web/           the overlay UI (plain HTML/CSS/JS, no build step)
   index.html   control panel (app.js)
   gridwalk.html  grid walk broadcast graphic for OBS (gridwalk.js)
+  standings.html, laps.html  standings tower and qualifying lap tracker for OBS
   common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos
 packaging/     PyInstaller recipe (apex.spec) and Inno Setup installer script

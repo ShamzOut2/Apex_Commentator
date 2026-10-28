@@ -4,6 +4,61 @@ Release notes for each version. When a version tag is pushed, its section
 here becomes the GitHub release notes, which the app shows in its update
 pop-up.
 
+## v0.3.0
+
+- **Championship** tab: season points for each league.
+  - **Rules**: points for finishing positions and, if you want them,
+    qualifying positions. Bonuses for pole, fastest lap (optionally top N
+    only), leading a lap, each lap led, most laps led, most places gained, a
+    clean race, finishing, starting and the win. Drop rounds, a minimum share
+    of laps to be classified, and whether DNFs score.
+  - **Championships**: one per class, or one overall, plus a team
+    championship (optionally each team's best N drivers per round).
+  - **Rounds**: double-points (or any multiplier) and can't-drop rounds.
+    *Import from session* fills a round from the race you're in (laps, laps
+    led, fastest laps, grid, incidents, DNFs). Every result can be corrected
+    by hand, and extra points can be given or taken.
+  - **Penalties**: points taken off after a race (never dropped) and licence
+    penalty points, with reasons.
+  - **Live standings** during a race: the championship as if the race
+    finished now, with places and points gained, ready for a points-battle
+    overlay.
+- **Standings overlay** for stream (`/standings.html`): a timing tower,
+  overall or by class, with team names, logos and colours. In qualifying it
+  stays empty until drivers set clean laps.
+- **Qualifying lap tracker** (`/laps.html`): a big tracker for the car on
+  camera, plus small ones (you choose how many) for other cars on a timed lap.
+  Sector bars turn purple, green or yellow against the driver's best or the
+  class best. The lap time and its gap to the driver's best show for 5 s after
+  the line. Name styles, car and driver numbers, and team names and logos are
+  all optional.
+- **Team builder** tab: teams with logos, short names and colours, and
+  driver assignments. The roster gains a *Driver #* column.
+- **Overlays** tab: OBS addresses, live previews and settings for the stream
+  overlays.
+- `--mock-session qualify` simulates a qualifying session.
+
+- **Main page and navigation**: Home, Timing, Grid walk, League builder and
+  Championship pages, with a Home page of tiles showing each one's status.
+- **Timing screen** replaces the driver list and events tab. It has
+  standings with class position, places gained/lost, gap, interval, flags and
+  penalties. Battles within 0.15 s (adjustable) flash in a colour of your
+  choice, and clicking a driver moves the camera to them. The race log lets
+  you pick a line and replay it from 5–30 s before. There are camera buttons
+  with configurable hotkeys, and a replay bar with rewind steps and LIVE.
+- **Race log**: now logs pit in/out (stop time, places lost), places lost
+  after an off, penalties (black flag, DQ, meatball, warning) and class
+  fastest laps, alongside overtakes and incidents.
+- **Logging fix**: logging no longer depends on iRacing reporting "live". It
+  logs saved replays as they play, and pauses only while you rewind over
+  something already logged. A status line shows whether it's running.
+- **League builder**: *Add drivers from session* merges the session's
+  drivers into a league without losing your edits.
+- **Photo booth**: photographs every loaded car inside iRacing (camera on
+  the car, iRacing's panels hidden, iRacing's own screenshot), cuts the car out
+  of its background with an AI model, and saves it as the driver's car photo
+  for the grid walk. It shows real liveries, Trading Paints included.
+
 ## v0.2.0
 
 Apex Commentator is now a proper Windows program.

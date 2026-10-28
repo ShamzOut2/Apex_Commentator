@@ -146,6 +146,26 @@ class CoreTests(unittest.TestCase):
         with self.assertRaises(CommandError):
             self.app.command("gridwalk_settings", {"style": "nope"})
 
+    def test_logging_follows_live_and_replay_without_duplicates(self):
+        app, source = self.app, self.source
+        source.step(0.1)
+        app.tick()
+        self.assertEqual(app.detection, "live")
+        logged = len(app.detector.events)
+        # Rewind 60s in the live race: what's on screen was already logged.
+        source.replay_search_session_time(0, int((source.session_time - 60) * 1000))
+        app.tick()
+        self.assertEqual(app.detection, "paused")
+        for _ in range(50):
+            source.step(0.1)
+            app.tick()
+        self.assertEqual(len(app.detector.events), logged)
+        self.assertEqual(app.detection, "paused")
+        source.replay_search(1)  # back to live
+        source.step(0.1)
+        app.tick()
+        self.assertEqual(app.detection, "live")
+
     def test_unknown_action_and_bad_car(self):
         with self.assertRaises(CommandError):
             self.app.command("self_destruct", {})

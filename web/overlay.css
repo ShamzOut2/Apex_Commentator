@@ -1,0 +1,27 @@
+/* Shared by the standings and lap tracker broadcast pages. */
+:root {
+  --ink: #f4f5f7;
+  --muted: #a9b0bc;
+  --panel: rgba(14, 16, 21, 0.9);
+  --panel-2: rgba(30, 34, 42, 0.92);
+  --line: rgba(255, 255, 255, 0.1);
+  --accent: #ff7a1a;
+  --purple: #b14cff;
+  --green: #2fd66b;
+  --yellow: #ffd23f;
+  --red: #ff4d4d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 70%); }
+.stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+.num {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 2.2em;
+  padding: 0 .3em; border-radius: 4px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.team-logo { object-fit: contain; }
+.tnum { font-variant-numeric: tabular-nums; }
+.class-head { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 34px; font-weight: 800; }
+.class-head .class-logo { height: 26px; }
+.class-head .class-detail { margin-left: auto; font-size: 15px; opacity: .85; }

@@ -10,12 +10,16 @@ import sys
 import time
 import urllib.request
 import webbrowser
+from pathlib import Path
 
 from . import __version__, desktop
 from .config import ROOT, load_config
+from .overlays import OverlaySettings
 from .core import App
+from .cutout import Cutout
 from .league import IRacingDataClient, LeagueStore
-from .paths import APP_DIR, FROZEN
+from .paths import APP_DIR, FROZEN, iracing_screenshots_dir
+from .photobooth import PhotoBooth
 from .server import make_server, serve_in_thread
 from .updater import Updater, restart_options, restart_requested
 
@@ -23,6 +27,8 @@ from .updater import Updater, restart_options, restart_requested
 def parse_args(argv):
     parser = argparse.ArgumentParser(prog="apex", description="Apex Commentator overlay suite for iRacing")
     parser.add_argument("--mock", action="store_true", help="simulate a race instead of connecting to iRacing")
+    parser.add_argument("--mock-session", choices=("race", "qualify"), default="race",
+                        help="with --mock: simulate a race (default) or a qualifying session")
     parser.add_argument("--mock-speed", type=float, default=1.0, help="mock time multiplier (e.g. 5 for a busier demo)")
     parser.add_argument("--config", help="path to config.json")
     parser.add_argument("--host", help="interface to listen on (default 127.0.0.1)")
@@ -33,10 +39,10 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-def build_app(cfg, mock, mock_speed=1.0):
+def build_app(cfg, mock, mock_speed=1.0, mock_session="race"):
     if mock:
         from .sources import MockSource
-        source = MockSource(time_scale=mock_speed)
+        source = MockSource(time_scale=mock_speed, session=mock_session)
     else:
         from .sources import IRacingSource  # ImportError when pyirsdk is missing
         source = IRacingSource()
@@ -45,6 +51,15 @@ def build_app(cfg, mock, mock_speed=1.0):
         cfg["iracing_client_id"], cfg["iracing_client_secret"],
     )
     app = App(source, cfg, LeagueStore(cfg["leagues_dir"], client))
+    app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
+    if mock:
+        # The mock "iRacing" writes its screenshots here.
+        source.screenshots_dir = ROOT / "data" / "mock-screenshots"
+        shots = source.screenshots_dir
+    else:
+        shots = Path(cfg["screenshots_dir"]) if cfg["screenshots_dir"] else iracing_screenshots_dir()
+    app.photobooth = PhotoBooth(app, shots, ROOT / "data" / "photobooth", Cutout(ROOT / "data" / "models"),
+                                settle_s=float(cfg["photobooth_settle_s"]))
     app.updater = Updater(
         __version__, cfg["update_repo"], APP_DIR, ROOT / "data" / "update.json",
         token=cfg["github_token"], enabled=cfg["update_check"], installer_mode=FROZEN,
@@ -63,12 +78,16 @@ def smoke_test(cfg):
     try:
         import irsdk  # noqa: F401  (bundled for live iRacing sessions)
         time.sleep(1.5)
-        for path, expect in (("/", b"Apex"), ("/gridwalk.html", b"gridwalk.js"), ("/logos/pro.svg", b"data-apex-fill"),
+        for path, expect in (("/", b"Apex"), ("/gridwalk.html", b"gridwalk.js"), ("/standings.html", b"standings.js"), ("/laps.html", b"laps.js"), ("/logos/pro.svg", b"data-apex-fill"),
                              ("/api/state", b'"connected": true')):
             with urllib.request.urlopen(base + path, timeout=10) as resp:
                 body = resp.read()
             if expect not in body:
                 raise AssertionError(f"{path} did not contain {expect!r}")
+        if FROZEN:
+            from .cutout import dependencies_available
+            if not dependencies_available():
+                raise AssertionError("photo booth cut-out libraries (onnxruntime, numpy, Pillow) aren't bundled")
         print(f"smoke test passed (v{__version__})")
         return 0
     except Exception as e:
@@ -98,7 +117,7 @@ def main(argv=None):
         return 0
 
     try:
-        app = build_app(cfg, args.mock, args.mock_speed)
+        app = build_app(cfg, args.mock, args.mock_speed, args.mock_session)
     except ImportError:
         desktop.alert("pyirsdk is not installed. Run: pip install -r requirements.txt\n"
                       "(or start with --mock to try the app without iRacing)", error=True)
