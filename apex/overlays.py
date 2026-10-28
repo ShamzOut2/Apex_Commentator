@@ -20,7 +20,19 @@ DEFAULTS = {
         "show_team": True,
         "show_logo": True,
         "show_number": True,
-        "show_gap": True,
+        "show_gap": True,         # race: gap to the leader; qualifying: gap to pole
+        "show_interval": False,   # to the car ahead
+        "show_pos_change": True,  # race: places gained / lost since the start
+        "show_class_pos": True,   # overall view of a multiclass field: class position
+        "show_best_lap": False,
+        "show_last_lap": False,
+        "show_laps": False,       # laps completed
+        "show_pits": False,       # pit stops made
+        "show_pit_status": True,  # "PIT" while on pit road
+        # Start of a session: only the header (session, laps / time left), and
+        # each driver appears once they've completed a lap.
+        "reveal": False,
+        "header_info": "auto",    # "auto" (laps or time, whichever the session is limited by), "laps", "time", "none"
     },
     "laps": {
         "visible": True,
@@ -40,7 +52,7 @@ DEFAULTS = {
 }
 
 LIMITS = {"rows": (1, 64), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
-CHOICES = {"mode": ("overall", "class"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
+CHOICES = {"mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 
 def normalise(settings):

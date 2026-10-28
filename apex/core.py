@@ -94,13 +94,21 @@ def _rank(standings, is_race):
         if is_race:
             gap, class_gap = t, (t - leader["first"]) if t is not None and leader["first"] is not None else None
         else:
-            gap, class_gap = t - first, t - leader["first"]
+            # Drivers without a lap time (shown once they've done a lap) have no gap.
+            gap = t - first if t is not None and first is not None else None
+            class_gap = t - leader["first"] if t is not None and leader["first"] is not None else None
         e["gap"] = round(gap, 3) if gap is not None and pos > 1 else None
         e["class_gap"] = round(class_gap, 3) if class_gap is not None and in_class[k] > 1 else None
         e["interval"] = round(t - prev, 3) if t is not None and prev is not None else None
         e["class_interval"] = round(t - leader["prev"], 3) if t is not None and leader["prev"] is not None else None
         prev = t
         leader["prev"] = t
+
+
+def _session_limit(text):
+    """'30' -> 30 laps; '1200.0000 sec' -> 1200 s; 'unlimited' -> None."""
+    m = re.match(r"\s*([\d.]+)", str(text or ""))
+    return float(m.group(1)) if m else None
 
 
 def _lap_time(value):
@@ -370,6 +378,7 @@ class App:
                 row["class_key"] = self._class_key(classes, active_league, league, d)
                 row.update({
                     "lap": lap if lap is not None and lap >= 0 else None,
+                    "laps_completed": _at(frame.laps_completed, idx, -1) if _at(frame.laps_completed, idx, -1) >= 0 else None,
                     "pct": round(pct, 4) if pct is not None and pct >= 0 else None,
                     "official_pos": _at(frame.position, idx, 0) or None,
                     "class_pos": _at(frame.class_position, idx, 0) or None,
@@ -518,6 +527,31 @@ class App:
             "class_key": r["class_key"], "car": r["car"], "on_pit": r["on_pit"], "in_world": r["in_world"],
             # For the full-screen versions.
             "lap": r["lap"], "last_lap": r["last_lap"], "best_lap": r["best_lap"], "pit_stops": r["pit_stops"],
+            "laps_completed": r["laps_completed"],
+        }
+
+    def _session_progress(self, frame, session, rows, mode="auto"):
+        """Laps or time left, for the standings header.
+
+        "auto" follows how the session is limited: by laps (lap x of y) or
+        by time (time remaining).
+        """
+        laps_total = _session_limit(session.get("SessionLaps"))
+        time_total = _session_limit(session.get("SessionTime"))
+        if mode == "auto":
+            mode = "laps" if laps_total else "time" if time_total else "none"
+        lead = max((r["laps_completed"] or 0 for r in rows if r["laps_completed"] is not None), default=0)
+        remain = frame.session_time_remain
+        time_remain = remain if remain is not None and 0 <= remain < 604000 else None
+        finished = frame.session_state >= STATE_CHECKERED
+        lap = min(lead + 1, int(laps_total)) if laps_total else lead + 1
+        return {
+            "mode": mode,
+            "finished": finished,
+            "lap": lap if frame.session_state >= STATE_RACING else 0,
+            "laps_total": int(laps_total) if laps_total else None,
+            "time_remain": round(time_remain, 1) if time_remain is not None else None,
+            "time_total": time_total,
         }
 
     def _official_best(self, session):
@@ -536,21 +570,26 @@ class App:
         entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
         # Standings: race order in a race; otherwise fastest clean lap, and
         # only drivers who have set one (blank at the start of qualifying).
+        # With "reveal", a driver only appears once they've completed a lap:
+        # the tower fills up as the field crosses the line.
+        reveal = settings["standings"]["reveal"]
         standings = []
         if is_race:
             for r in rows:
-                if r["pos"] is not None:
+                if r["pos"] is not None and (not reveal or (r["laps_completed"] or 0) >= 1):
                     standings.append(dict(entries[r["car_idx"]], pos=r["pos"], class_pos=r["class_pos"],
                                           time=r["gap"], pos_change=r["pos_change"]))
         else:
             official = self._official_best(session)
-            timed = []
+            timed, untimed = [], []
             for r in rows:
                 best = official.get(r["car_idx"]) or self.laps.best(r["car_idx"])
                 if best:
                     timed.append((best, r))
+                elif reveal and (r["laps_completed"] or 0) >= 1:
+                    untimed.append((None, r))  # a lap done, but no clean time yet
             timed.sort(key=lambda x: x[0])
-            for best, r in timed:
+            for best, r in timed + untimed:
                 standings.append(dict(entries[r["car_idx"]], time=best, pos_change=None))
         _rank(standings, is_race)
         # The lap tracker: qualifying only (or practice, if asked).
@@ -579,6 +618,7 @@ class App:
         return {
             "settings": settings,
             "session_kind": "race" if is_race else ("qualify" if "qualify" in kind else (kind or "practice")),
+            "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
             # "all": every driver, for the full-screen timing page (timed
             # drivers by lap time, then the rest).

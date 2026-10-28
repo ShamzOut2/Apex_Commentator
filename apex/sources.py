@@ -73,7 +73,10 @@ class Frame:
     replay_session_time: float = 0.0
     replay_session_num: int = 0
     replay_speed: int = 1
+    session_time_remain: float = -1.0   # huge or -1 when the session isn't timed
+    session_laps_remain: int = -1       # 32767 or -1 when it isn't lap-limited
     lap: list = field(default_factory=list)
+    laps_completed: list = field(default_factory=list)
     pct: list = field(default_factory=list)
     position: list = field(default_factory=list)
     class_position: list = field(default_factory=list)
@@ -155,7 +158,10 @@ class IRacingSource:
                 replay_session_time=v("ReplaySessionTime", 0.0),
                 replay_session_num=v("ReplaySessionNum", 0),
                 replay_speed=v("ReplayPlaySpeed", 1),
+                session_time_remain=v("SessionTimeRemain", -1.0),
+                session_laps_remain=v("SessionLapsRemainEx", -1),
                 lap=v("CarIdxLap", []),
+                laps_completed=v("CarIdxLapCompleted", []),
                 pct=v("CarIdxLapDistPct", []),
                 position=v("CarIdxPosition", []),
                 class_position=v("CarIdxClassPosition", []),
@@ -450,6 +456,7 @@ class MockSource:
             t = self.session_time
             n = self.num_cars + 1
             lap = [-1] * n
+            laps_completed = [-1] * n
             pct = [-1.0] * n
             on_pit = [False] * n
             surface = [TRK_NOT_IN_WORLD] * n
@@ -475,6 +482,7 @@ class MockSource:
                 if self.out[i]:
                     continue  # not in the world: lap -1, pct -1
                 lap[idx] = max(0, int(math.floor(p)) + 1) if p >= 0 else 0
+                laps_completed[idx] = self.mock_laps[i]
                 pct[idx] = p % 1.0
                 # Qualifying starts with an out lap from the pit lane.
                 on_pit[idx] = t < self.pit_until[i] or (self.session_kind == "qualify" and p < -0.9)
@@ -505,7 +513,9 @@ class MockSource:
                 replay_session_time=t if live else self.replay_time,
                 replay_session_num=0,
                 replay_speed=self.replay_speed,
-                lap=lap, pct=pct, position=position, class_position=list(position),
+                session_time_remain=max(0.0, 1200.0 - t) if self.session_kind == "qualify" else 604800.0,
+                session_laps_remain=max(0, self.race_laps - max(self.mock_laps)) if self.race_laps else 32767,
+                lap=lap, laps_completed=laps_completed, pct=pct, position=position, class_position=list(position),
                 on_pit=on_pit, surface=surface, f2_time=f2,
                 last_lap=last_lap, best_lap=best_lap, car_flags=car_flags,
             )
