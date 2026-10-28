@@ -101,6 +101,9 @@ def build(league, board, settings, live_results=None):
                 "rounds": [next(({"points": s["points"], "dropped": s["dropped"], "played": s["result"] is not None}
                                  for s in d["rounds"] if s["round"] == r["id"]), None) for r in last],
             })
+        # Points to the driver one place up.
+        for above, row in zip(rows, rows[1:]):
+            row["ahead"] = championship._round(above["points"] - row["points"])
         out["round_names"] = [f"R{rounds.index(r) + 1}" for r in last]
         out["rows"] = rows
     elif kind == "teams":

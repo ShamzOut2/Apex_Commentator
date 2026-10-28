@@ -329,7 +329,9 @@ The **Boards** tab puts a full-screen board on stream with one click. Add
 (transparent) until you put a board on screen, and **Take off screen** clears
 it. The buttons are built from the active league:
 
-- **Championship standings**: Overall, and one button per class.
+- **Championship standings**: Overall, and one button per class (e.g. PRO,
+  SEMI-PRO, AM): that championship's drivers with their points, the gap to
+  the leader and, if switched on, the gap to the driver ahead.
 - **Teams' championship**.
 - **Manufacturers**: by the cars' makes, Overall and per class.
 - **Season calendar**: every round with track, layout, date, time and

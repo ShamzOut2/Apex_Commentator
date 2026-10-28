@@ -88,6 +88,9 @@ class BoardTests(unittest.TestCase):
         self.assertEqual([r["name"] for r in b["rows"]], ["Driver 1", "Driver 2"])  # class tag gone
         self.assertEqual(b["rows"][0]["make"], "Porsche")
         self.assertEqual(b["rows"][0]["class_color"], "#ff0000")
+        # Driver 1 has 10, Driver 2 has 6 in PRO: 4 behind the leader and the car ahead.
+        self.assertEqual((b["rows"][1]["behind"], b["rows"][1]["ahead"]), (4, 4))
+        self.assertNotIn("ahead", b["rows"][0])
 
     def test_makes_board(self):
         rows = self.board("makes", "overall")["rows"]

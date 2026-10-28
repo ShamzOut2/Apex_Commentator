@@ -41,7 +41,8 @@ DEFAULTS = {
         "banner": "none", "banner_id": "", "league_logo": True,
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
-        "show_gap": True, "show_wins": False, "show_penalty": False,
+        "show_gap": True, "show_ahead": False,  # gap to the leader; gap to the driver ahead
+        "show_wins": False, "show_penalty": False,
     },
     "board_teams": {"banner": "none", "banner_id": "", "league_logo": True, "rows": 12, "show_logo": True,
                     "show_gap": True},

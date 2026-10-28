@@ -35,7 +35,8 @@ function columns(b) {
     add(s.show_wins, "Wins", "80px", "r muted", (r) => r.wins || "");
     add(s.show_penalty, "Pen", "80px", "r down", (r) => (r.penalty ? `−${fmtPts(r.penalty)}` : ""));
     add(true, "Pts", "100px", "r pts", (r) => fmtPts(r.points));
-    add(s.show_gap, "Gap", "100px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
+    add(s.show_gap, s.show_ahead ? "To leader" : "Gap", s.show_ahead ? "140px" : "100px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
+    add(s.show_ahead, "To ahead", "140px", "r muted", (r) => (r.ahead != null ? `−${fmtPts(r.ahead)}` : ""));
   } else if (b.kind === "teams") {
     add(true, "Pos", "70px", "p r", (r) => r.pos);
     add(true, "Team", "auto", "", (r) => `${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}${esc(r.team)}`);

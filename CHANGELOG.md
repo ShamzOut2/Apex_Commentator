@@ -10,7 +10,8 @@ pop-up.
   teams' and manufacturers' championships, the season calendar, and
   finishing orders (latest round, any round, or live). They're put on screen
   with buttons in the new Boards tab, and each board's columns, league logo
-  and banner are configurable. OBS page: `/board.html`.
+  and banner are configurable. Standings can show the points gap to the
+  leader and to the driver ahead. OBS page: `/board.html`.
 - **Car makes**:
   - 37 manufacturer badges, from the Apex Overlays project; see
     THIRD_PARTY_NOTICES.md.
