@@ -246,7 +246,8 @@ class MockSource:
 
     SECTOR_STARTS = (0.0, 0.32, 0.68)
 
-    def __init__(self, num_cars=18, seed=None, time_scale=1.0, clock=time.monotonic, session="race"):
+    def __init__(self, num_cars=18, seed=None, time_scale=1.0, clock=time.monotonic, session="race",
+                 race_laps=0, retirements=False, no_shows=0):
         # "race", or "qualify": cars leave the pits and do timed laps, no grid.
         self.session_kind = session
         self.rng = random.Random(seed)
@@ -287,6 +288,17 @@ class MockSource:
         self.pending_incidents = []  # (apply_at, car_idx, points)
         self.last_lap = [-1.0] * n
         self.best_lap = [-1.0] * n
+        self.subsession_id = self.rng.randint(10_000_000, 99_999_999)
+        # Races can end: the flag comes out when the leader completes
+        # ``race_laps`` (0 = never). With ``retirements``, now and then a car
+        # retires (leaves the world). ``out`` cars are not in the world.
+        self.race_laps = race_laps
+        self.retirements = retirements
+        self.checkered = False
+        self.out = [i >= n - no_shows for i in range(n)]  # the last ``no_shows`` never join
+        self.done = [False] * n
+        self.laps_led = [0] * n
+        self.mock_laps = [0] * n
         self.lap_start = [0.0] * n
         self.phase = [self.rng.uniform(0, math.tau) for _ in range(n)]
         self.drivers = self._build_drivers()
@@ -322,6 +334,17 @@ class MockSource:
             })
         return drivers
 
+    def _results(self):
+        """Race results the way iRacing publishes them (updated as laps complete)."""
+        order = sorted(range(self.num_cars), key=lambda i: (-self.mock_laps[i], -self.progress[i]))
+        return [{
+            "Position": pos, "ClassPosition": pos - 1, "CarIdx": i + 1, "LapsComplete": self.mock_laps[i],
+            "LapsLed": self.laps_led[i], "FastestTime": round(self.best_lap[i], 4) if self.best_lap[i] > 0 else -1,
+            "Incidents": self.incidents[i],
+            # iRacing keeps "Running" for a car that's parked but connected.
+            "ReasonOutStr": "Disconnected" if self.out[i] and self.mock_laps[i] else "Running",
+        } for pos, i in enumerate(order, start=1) if self.mock_laps[i] or not self.out[i]]
+
     def _design(self):
         """A random iRacing-style design string: pattern,colour1,colour2,colour3."""
         colors = self.rng.sample(MOCK_COLORS, 3)
@@ -348,6 +371,12 @@ class MockSource:
         self.session_time += dt
         t = self.session_time
         for i in range(self.num_cars):
+            if self.out[i]:
+                continue
+            if self.retirements and self.session_kind == "race" and not self.checkered and t > 60 \
+                    and rng.random() < dt / 2400.0:
+                self.out[i] = True  # retired: towed, parked and left
+                continue
             # Pace oscillates per car so cars trade places.
             pace = 1.0 + 0.02 * math.sin(t / 31.0 + self.phase[i])
             # Each lap and sector is a little different, so there are PBs to beat.
@@ -361,7 +390,20 @@ class MockSource:
             self.progress[i] += dt / self.base_lap[i] * pace
             if self.session_kind == "qualify" and prev < 0 <= self.progress[i]:
                 self.lap_start[i] = t  # out lap done: the first flying lap starts
+            crossed = int(math.floor(self.progress[i])) > int(math.floor(prev))
+            if self.race_laps and crossed and self.progress[i] >= self.race_laps:
+                self.checkered = True  # the leader has done the distance
+            just_done = self.checkered and crossed and not self.done[i]
+            if just_done:
+                self.done[i] = True  # took the flag
+            if self.done[i]:
+                pace *= 0.5  # cool-down lap
             if int(math.floor(self.progress[i])) > int(math.floor(prev)) and self.progress[i] >= 1:
+                if not self.done[i] or just_done:  # laps stop counting after the flag
+                    self.mock_laps[i] = int(math.floor(self.progress[i]))
+                    if self.progress[i] >= max(self.progress) - 1e-9 and self.session_kind == "race":
+                        self.laps_led[i] += 1
+                self.info_update += 1  # results changed
                 lap_time = t - self.lap_start[i]
                 if self.lap_start[i] > 0:
                     self.last_lap[i] = lap_time
@@ -426,6 +468,8 @@ class MockSource:
             for i in range(self.num_cars):
                 p = self.progress[i]
                 idx = i + 1
+                if self.out[i]:
+                    continue  # not in the world: lap -1, pct -1
                 lap[idx] = max(0, int(math.floor(p)) + 1) if p >= 0 else 0
                 pct[idx] = p % 1.0
                 # Qualifying starts with an out lap from the pit lane.
@@ -448,7 +492,7 @@ class MockSource:
             return Frame(
                 session_time=t,
                 session_num=0,
-                session_state=STATE_RACING,
+                session_state=STATE_CHECKERED if self.checkered else STATE_RACING,
                 session_flags=0,
                 cam_car_idx=self.cam_car_idx,
                 cam_group=self.cam_group,
@@ -468,10 +512,12 @@ class MockSource:
                 "WeekendInfo": {
                     "TrackDisplayName": "Mock Raceway", "TrackConfigName": "Grand Prix",
                     "TrackLength": f"{self.TRACK_LENGTH_KM:.2f} km", "EventType": "Race",
+                    "SubSessionID": self.subsession_id,
                 },
                 "SessionInfo": {"Sessions": [{
                     "SessionNum": 0, "SessionType": "Race", "SessionName": "RACE",
-                    "SessionLaps": "30", "SessionTime": "unlimited",
+                    "SessionLaps": str(self.race_laps or 30), "SessionTime": "unlimited",
+                    "ResultsPositions": self._results(),
                 } if self.session_kind == "race" else {
                     "SessionNum": 0, "SessionType": "Open Qualify", "SessionName": "QUALIFY",
                     "SessionLaps": "unlimited", "SessionTime": "1200.0000 sec",

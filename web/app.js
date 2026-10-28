@@ -101,6 +101,8 @@ function render() {
   lb.classList.toggle("muted", !league);
   renderGridwalk(s);
   renderHome(s);
+  renderPhotoboothFolder(s.photobooth);
+  renderUpdates(s.update);
   renderOverlaySettings(s);
   renderChampLive(s);
 
@@ -524,6 +526,28 @@ const PB_CAMERA_KEY = "apex.photoboothCamera";
 let pbGroupsKey = "";
 let pbResultsKey = "";
 
+function renderPhotoboothFolder(pb) {
+  if (!pb) return;
+  const input = $("#pb-folder");
+  if (document.activeElement !== input) input.value = pb.screenshots_custom ? pb.screenshots_dir : "";
+  input.placeholder = pb.screenshots_custom ? "iRacing's own folder" : pb.screenshots_dir;
+  $("#pb-folder-reset").hidden = !pb.screenshots_custom;
+}
+
+async function setPhotoboothFolder(folder) {
+  try {
+    const r = await api("/api/cmd", { method: "POST", body: { action: "photobooth_folder", params: { folder } } });
+    toast(`Screenshots folder: ${r.folder}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+$("#pb-folder-save").addEventListener("click", () => setPhotoboothFolder($("#pb-folder").value.trim()));
+$("#pb-folder").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") setPhotoboothFolder(e.target.value.trim());
+});
+$("#pb-folder-reset").addEventListener("click", () => setPhotoboothFolder(""));
+
 function renderPhotobooth(s) {
   const pb = s.photobooth;
   if (!pb) return;
@@ -877,8 +901,8 @@ function renderChampStandings() {
           ${rounds.map((r) => {
             const s = d.rounds.find((x) => x.round === r.id);
             const res = s && s.result;
-            const title = res ? `${res.rank ? `P${res.rank}` : res.status.toUpperCase()}${Object.keys(res.bonus).length ? ` · bonus: ${Object.entries(res.bonus).map(([k, v]) => `${k.replace(/_/g, " ")} ${v}`).join(", ")}` : ""}` : "Didn't take part";
-            return `<td class="c-rd ${s && s.dropped ? "dropped" : ""} ${res && res.rank === 1 ? "win" : ""}" title="${esc(title)}${s && s.dropped ? " (dropped)" : ""}">${!res ? "–" : res.status === "dsq" ? "DSQ" : res.status === "dns" ? "DNS" : fmtPts(s.points)}</td>`;
+            const title = res ? `${res.short ? "Too little of the race covered: DNF, no points. " : ""}${res.rank ? `P${res.rank}` : res.status.toUpperCase()}${Object.keys(res.bonus).length ? ` · bonus: ${Object.entries(res.bonus).map(([k, v]) => `${k.replace(/_/g, " ")} ${v}`).join(", ")}` : ""}` : "Didn't take part";
+            return `<td class="c-rd ${s && s.dropped ? "dropped" : ""} ${res && res.rank === 1 ? "win" : ""}" title="${esc(title)}${s && s.dropped ? " (dropped)" : ""}">${!res ? "–" : res.status === "dsq" ? "DSQ" : res.status === "dns" ? "DNS" : res.short ? "DNF" : fmtPts(s.points)}</td>`;
           }).join("")}
           ${anyPen ? `<td class="c-num bad">${d.penalty_points ? `−${fmtPts(d.penalty_points)}` : ""}</td>` : ""}
           ${anyLicence ? `<td class="c-num">${d.licence_points || ""}</td>` : ""}
@@ -930,12 +954,16 @@ function renderChampLive(s) {
 
 // -- rounds and results ---------------------------------------------------------
 
+// Points each driver scored in a round; with class and overall
+// championships, both ("overall / class").
 function roundPoints(roundId) {
   const out = {};
   for (const g of (champ.standings && champ.standings.groups) || []) {
     for (const d of g.drivers) {
       const s = d.rounds.find((x) => x.round === roundId);
-      if (s && s.result) out[d.driver] = s.points;
+      if (!s || !s.result) continue;
+      const text = s.result.short ? "DNF" : fmtPts(s.points);
+      out[d.driver] = out[d.driver] != null ? `${out[d.driver]} / ${text}` : text;
     }
   }
   return out;
@@ -966,7 +994,7 @@ function renderChampRounds() {
         <button class="btn icon danger" data-round-delete="${i}" title="Delete round">✕</button>
       </div>
       ${open ? `<div class="table-scroll"><table class="grid champ-table results-table">
-        <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored (after saving)">Pts</th><th></th></tr></thead>
+        <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored (after saving)">${c.rules.scoring === "both" ? "Pts overall / class" : "Pts"}</th><th></th></tr></thead>
         <tbody>${results.map(([r, j]) => `<tr>
           <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"></td>
           <td><select data-round="${i}" data-res="${j}" data-key="driver">${rosterOptions(r.driver, r.name)}</select></td>
@@ -978,7 +1006,7 @@ function renderChampRounds() {
           <td><input type="number" class="c-num" min="0" data-round="${i}" data-res="${j}" data-key="incidents" value="${r.incidents ?? 0}"></td>
           <td><select data-round="${i}" data-res="${j}" data-key="status">${STATUS_NAMES.map(([v, l]) => `<option value="${v}" ${v === r.status ? "selected" : ""}>${l}</option>`).join("")}</select></td>
           <td><input type="number" class="c-num" step="0.5" data-round="${i}" data-res="${j}" data-key="adjust" value="${r.adjust || 0}"></td>
-          <td class="c-num"><b>${pts[r.driver] != null ? fmtPts(pts[r.driver]) : ""}</b></td>
+          <td class="c-num"><b>${pts[r.driver] ?? ""}</b></td>
           <td><button class="btn icon danger" data-res-delete="${j}" data-round="${i}" title="Remove">✕</button></td>
         </tr>`).join("")}</tbody></table></div>
         <button class="btn subtle" data-res-add="${i}">+ Add result</button>` : ""}
@@ -1014,14 +1042,17 @@ function renderChampRules() {
     <label class="ov-field wide">Qualifying points (pole, 2nd, 3rd…; leave empty for none). Uses the starting grid.
       <input data-rule="qualifying_points" value="${esc((r.qualifying_points || []).join(", "))}"></label>
     <label class="ov-field">Championships
-      <select data-rule="scoring"><option value="class" ${r.scoring !== "overall" ? "selected" : ""}>One per class (class positions)</option>
-        <option value="overall" ${r.scoring === "overall" ? "selected" : ""}>One for everyone (overall positions)</option></select></label>
+      <select data-rule="scoring">${[["class", "Per class (class positions)"], ["overall", "Overall (overall positions)"],
+        ["both", "Both: class and overall, scored separately"]].map(([v, l]) =>
+        `<option value="${v}" ${(r.scoring || "class") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+    ${r.scoring === "both" ? `<label class="ov-field wide">Overall championship points (1st, 2nd, 3rd… overall; leave empty to use the same as above)
+      <input data-rule="overall_points" value="${esc((r.overall_points || []).join(", "))}"></label>` : ""}
     <label class="ov-field">Drop rounds (each driver's worst N don't count)
       <input type="number" min="0" max="50" data-rule="drop_rounds" value="${r.drop_rounds || 0}"></label>
     <label class="ov-field">Fastest-lap bonus only in the top N (0 = anyone)
       <input type="number" min="0" data-rule="fastest_lap_top" value="${r.fastest_lap_top || 0}"></label>
-    <label class="ov-field">Classified: completed at least this % of the winner's laps (0 = off)
-      <input type="number" min="0" max="100" data-rule="classified_pct" value="${r.classified_pct || 0}"></label>
+    <label class="ov-field">Must complete this % of the race (their class winner's laps) to score; anyone short is a DNF with no points (0 = off)
+      <input type="number" min="0" max="100" data-rule="classified_pct" value="${r.classified_pct ?? 75}"></label>
     <label class="ov-field">Team championship: best N drivers per team each round (0 = all)
       <input type="number" min="0" max="20" data-rule="team_best" value="${r.team_best || 0}"></label>
     <label class="ov-field check"><input type="checkbox" data-rule="dnf_scores" ${r.dnf_scores !== false ? "checked" : ""}> DNFs score the points for where they're classified</label>
@@ -1039,12 +1070,13 @@ function champChange(e, final) {
   let rerender = false;
   if (d.rule) {
     const r = c.rules;
-    if (d.rule === "points" || d.rule === "qualifying_points") {
+    if (d.rule === "points" || d.rule === "qualifying_points" || d.rule === "overall_points") {
       if (!final) return;
       r[d.rule] = el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
       rerender = true;
     } else if (el.type === "checkbox") r[d.rule] = el.checked;
     else r[d.rule] = el.type === "number" ? +el.value : el.value;
+    if (d.rule === "scoring" && final) rerender = true;
   } else if (d.bonus) {
     c.rules.bonuses = c.rules.bonuses || {};
     c.rules.bonuses[d.bonus] = +el.value || 0;
@@ -1235,7 +1267,10 @@ document.querySelectorAll(".ov-form").forEach((form) => form.addEventListener("c
   cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
 }));
 
-for (const page of ["standings", "laps"]) $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;
+for (const page of ["standings", "laps"]) {
+  $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;
+  $(`#url-${page}-screen`).textContent = `${location.origin}/${page}.html?screen=1`;
+}
 document.addEventListener("click", (e) => {
   const copy = e.target.closest("[data-copy]");
   if (!copy) return;
@@ -1830,6 +1865,87 @@ try {
   update.dismissed = sessionStorage.getItem("apex.updateLater") !== null;
 } catch (e) { /* storage unavailable */ }
 
+// The Updates panel on the Home page: always there, whatever the check found.
+function renderUpdatePanel(st) {
+  if (!st) return;
+  const status = $("#upd-status");
+  let text = "";
+  if (!st.enabled) text = `v${st.current} · update checks are turned off in config.json`;
+  else if (st.installed) text = `v${st.installed} installed, restarting…`;
+  else if (st.available) text = `v${st.current} → <b>v${esc(st.latest.version)}</b> is available`;
+  else if (st.checked_at && !st.error) text = `v${st.current} · up to date (checked ${new Date(st.checked_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`;
+  else if (!st.checked_at) text = `v${st.current} · checking…`;
+  else text = `v${st.current}`;
+  status.innerHTML = text;
+  $("#upd-error").hidden = !st.error;
+  $("#upd-error").textContent = st.error || "";
+  $("#upd-install").hidden = !(st.available && st.can_install && !st.installed);
+  $("#upd-install").disabled = !!st.installing;
+  $("#upd-check").disabled = !st.enabled;
+  const page = $("#upd-page");
+  page.hidden = !(st.latest && st.latest.url);
+  if (st.latest) page.href = st.latest.url;
+  $("#upd-token-clear").hidden = !st.has_token;
+  // Open the token box when the repository can't be seen without one.
+  if (st.error && !st.has_token && /private/.test(st.error)) $("#upd-token-box").open = true;
+}
+
+let updateKey = "";
+
+// The live feed says when a check finished or found something: fetch the
+// full status then (pop-up included).
+function renderUpdates(u) {
+  if (!u) return;
+  const key = JSON.stringify(u);
+  if (key === updateKey) return;
+  updateKey = key;
+  api("/api/update").then((st) => {
+    renderUpdatePanel(st);
+    showUpdate(st);
+  }).catch(() => {});
+}
+
+async function updateAction(path, body = {}) {
+  const st = await api(`/api/update/${path}`, { method: "POST", body });
+  renderUpdatePanel(st);
+  showUpdate(st);
+  return st;
+}
+
+$("#upd-check").addEventListener("click", async () => {
+  $("#upd-check").disabled = true;
+  try {
+    const st = await updateAction("check");
+    if (!st.error && !st.available) toast("You're on the newest version");
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    $("#upd-check").disabled = false;
+  }
+});
+$("#upd-install").addEventListener("click", () => {
+  showUpdate(update.status, true);
+});
+$("#upd-token-save").addEventListener("click", async () => {
+  const token = $("#upd-token").value.trim();
+  if (!token) return toast("Paste a token first", true);
+  try {
+    const st = await updateAction("token", { token });
+    $("#upd-token").value = "";
+    toast(st.error ? "Token saved, but the check failed: see Updates" : "Token saved");
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+$("#upd-token-clear").addEventListener("click", async () => {
+  try {
+    await updateAction("token", { token: "" });
+    toast("Token removed");
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
 function showUpdate(status, force = false) {
   update.status = status;
   const available = status && status.available && !status.installed;
@@ -1880,7 +1996,8 @@ function closeUpdate() {
 async function checkForUpdate(attempt = 0) {
   try {
     const status = await api("/api/update");
-    if (!status.enabled) return;
+    if (!status.enabled) return renderUpdatePanel(status);
+    renderUpdatePanel(status);
     // The server checks GitHub in the background at start: wait for it.
     if (!status.checked_at && attempt < 10) return setTimeout(() => checkForUpdate(attempt + 1), 3000);
     showUpdate(status);

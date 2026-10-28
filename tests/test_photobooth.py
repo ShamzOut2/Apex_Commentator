@@ -2,6 +2,7 @@ import io
 import tempfile
 import time
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from apex.config import DEFAULTS
@@ -112,6 +113,30 @@ class PhotoBoothTests(unittest.TestCase):
         self.assertEqual(status["state"], "error")
         self.assertIn("Video and Screen Capture", status["error"])
         self.assertEqual(self.source.commands[-1], ("cam_set_state", 0))  # still restored
+
+    def test_untrusted_folder_link_is_explained_before_starting(self):
+        err = OSError(22, "The path cannot be traversed because it contains an untrusted mount point")
+        err.winerror = 448
+
+        def refuse():
+            raise err
+        with unittest.mock.patch.object(Path, "is_dir", side_effect=lambda *a: refuse()):
+            with self.assertRaises(CommandError) as ctx:
+                self.app.command("photobooth_start", {})
+        self.assertIn("folder link", str(ctx.exception))
+        self.assertEqual(self.booth.state, "idle")
+
+    def test_screenshots_folder_can_be_changed_and_reset(self):
+        elsewhere = Path(self.tmp.name) / "elsewhere"
+        r = self.app.command("photobooth_folder", {"folder": str(elsewhere)})
+        self.assertEqual(r["folder"], str(elsewhere))
+        self.assertTrue(self.booth.status()["screenshots_custom"])
+        self.assertEqual(self.app.settings.get("screenshots_dir"), str(elsewhere))
+        with self.assertRaises(CommandError):
+            self.app.command("photobooth_folder", {"folder": "relative\\path"})
+        self.app.command("photobooth_folder", {"folder": ""})
+        self.assertEqual(self.booth.screenshots_dir, Path(self.tmp.name) / "shots")
+        self.assertIsNone(self.app.settings.get("screenshots_dir"))
 
     def test_needs_an_active_league_and_one_run_at_a_time(self):
         self.app.leagues.set_active(None)

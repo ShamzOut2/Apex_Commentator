@@ -68,6 +68,41 @@ class UpdaterTests(unittest.TestCase):
     def updater(self, gh):
         return Updater("0.1.0", REPO, self.root, self.root / "data" / "update.json", opener=gh)
 
+    def test_private_repository_is_explained(self):
+        u = self.updater(FakeGitHub(release=None, fail=urllib.error.HTTPError("u", 404, "Not Found", {}, None)))
+        s = u.check()
+        self.assertIn("private", s["error"])
+        self.assertFalse(s["has_token"])
+
+    def test_token_is_kept_and_sent(self):
+        from apex.settings import UserSettings
+        gh = FakeGitHub(release=RELEASE)
+        seen = []
+        orig = gh.__call__
+
+        def opener(req, timeout=None):
+            seen.append(req.get_header("Authorization"))
+            return orig(req, timeout)
+        settings = UserSettings(self.root / "data" / "settings.json")
+        u = Updater("0.1.0", REPO, self.root, self.root / "data" / "update.json", opener=opener, settings=settings)
+        s = u.set_token(" github_pat_abc ")
+        self.assertTrue(s["available"])
+        self.assertTrue(s["has_token"])
+        self.assertEqual(seen[-1], "Bearer github_pat_abc")
+        self.assertEqual(UserSettings(self.root / "data" / "settings.json").get("github_token"), "github_pat_abc")
+        self.assertFalse(u.set_token("")["has_token"])
+
+    def test_token_is_not_sent_on_to_the_download_host(self):
+        from apex.updater import _DropAuthOnRedirect
+        import urllib.request
+        req = urllib.request.Request("https://api.github.com/repos/x/releases/assets/1",
+                                     headers={"Authorization": "Bearer t", "Accept": "application/octet-stream"})
+        h = _DropAuthOnRedirect()
+        new = h.redirect_request(req, None, 302, "Found", {}, "https://objects.githubusercontent.com/file?sig=1")
+        self.assertIsNone(new.get_header("Authorization"))
+        same = h.redirect_request(req, None, 302, "Found", {}, "https://api.github.com/other")
+        self.assertEqual(same.get_header("Authorization"), "Bearer t")
+
     def test_parse_version(self):
         self.assertEqual(parse_version("v1.2.3"), (1, 2, 3))
         self.assertEqual(parse_version("0.10.0"), (0, 10, 0))

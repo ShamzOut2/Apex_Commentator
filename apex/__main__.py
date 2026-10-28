@@ -15,6 +15,7 @@ from pathlib import Path
 from . import __version__, desktop
 from .config import ROOT, load_config
 from .overlays import OverlaySettings
+from .settings import UserSettings
 from .core import App
 from .cutout import Cutout
 from .league import IRacingDataClient, LeagueStore
@@ -29,6 +30,8 @@ def parse_args(argv):
     parser.add_argument("--mock", action="store_true", help="simulate a race instead of connecting to iRacing")
     parser.add_argument("--mock-session", choices=("race", "qualify"), default="race",
                         help="with --mock: simulate a race (default) or a qualifying session")
+    parser.add_argument("--mock-laps", type=int, default=0,
+                        help="with --mock: the race ends after this many laps (default: never)")
     parser.add_argument("--mock-speed", type=float, default=1.0, help="mock time multiplier (e.g. 5 for a busier demo)")
     parser.add_argument("--config", help="path to config.json")
     parser.add_argument("--host", help="interface to listen on (default 127.0.0.1)")
@@ -39,10 +42,10 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-def build_app(cfg, mock, mock_speed=1.0, mock_session="race"):
+def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0):
     if mock:
         from .sources import MockSource
-        source = MockSource(time_scale=mock_speed, session=mock_session)
+        source = MockSource(time_scale=mock_speed, session=mock_session, race_laps=mock_laps, retirements=True)
     else:
         from .sources import IRacingSource  # ImportError when pyirsdk is missing
         source = IRacingSource()
@@ -52,6 +55,7 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race"):
     )
     app = App(source, cfg, LeagueStore(cfg["leagues_dir"], client))
     app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
+    app.settings = UserSettings(ROOT / "data" / "settings.json")
     if mock:
         # The mock "iRacing" writes its screenshots here.
         source.screenshots_dir = ROOT / "data" / "mock-screenshots"
@@ -60,9 +64,12 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race"):
         shots = Path(cfg["screenshots_dir"]) if cfg["screenshots_dir"] else iracing_screenshots_dir()
     app.photobooth = PhotoBooth(app, shots, ROOT / "data" / "photobooth", Cutout(ROOT / "data" / "models"),
                                 settle_s=float(cfg["photobooth_settle_s"]))
+    if app.settings.get("screenshots_dir") and not mock:
+        app.photobooth.set_folder(app.settings.get("screenshots_dir"))
     app.updater = Updater(
         __version__, cfg["update_repo"], APP_DIR, ROOT / "data" / "update.json",
-        token=cfg["github_token"], enabled=cfg["update_check"], installer_mode=FROZEN,
+        token=cfg["github_token"] or app.settings.get("github_token", ""), enabled=cfg["update_check"],
+        installer_mode=FROZEN, settings=app.settings,
     )
     return app
 
@@ -117,7 +124,7 @@ def main(argv=None):
         return 0
 
     try:
-        app = build_app(cfg, args.mock, args.mock_speed, args.mock_session)
+        app = build_app(cfg, args.mock, args.mock_speed, args.mock_session, args.mock_laps)
     except ImportError:
         desktop.alert("pyirsdk is not installed. Run: pip install -r requirements.txt\n"
                       "(or start with --mock to try the app without iRacing)", error=True)

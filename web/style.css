@@ -443,3 +443,16 @@ kbd {
 .results-table { margin-top: 8px; }
 .champ-rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 16px; }
 .champ-rules .wide { grid-column: 1 / -1; }
+.obs-kind { min-width: 80px; font-size: 12px; color: var(--muted); font-weight: 600; }
+
+/* --- updates (Home) ----------------------------------------------------------- */
+.updates-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); padding: 10px 14px; margin-top: 16px; }
+.updates-card h3 { margin: 0 6px 0 0; }
+.updates-card .row { align-items: center; gap: 8px; flex-wrap: wrap; }
+.upd-status { color: var(--muted); }
+.upd-status b { color: var(--accent); }
+.upd-error { color: var(--bad); margin: 8px 0 0; }
+.updates-card details { margin-top: 8px; }
+.updates-card summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.pb-folder { align-items: flex-end; gap: 8px; margin-top: 8px; }
+.pb-folder label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }

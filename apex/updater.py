@@ -18,6 +18,10 @@ How an update is installed depends on how the app was installed:
 Releases are published by the ``release`` GitHub Actions workflow when a new
 version lands on main (or a version tag is pushed). If a repository has tags
 but no releases, the newest version tag is used instead.
+
+A private repository needs a GitHub access token (read access to its
+contents), which can be pasted into the app (Home → Updates). Without one,
+GitHub answers "not found", and the app says so instead of staying quiet.
 """
 
 import io
@@ -31,6 +35,7 @@ import tempfile
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -49,6 +54,20 @@ class UpdateError(Exception):
     """A user-facing update problem."""
 
 
+class _DropAuthOnRedirect(urllib.request.HTTPRedirectHandler):
+    """GitHub sends downloads on to a storage host with a signed URL; sending
+    the GitHub token there too makes it refuse the request."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None and urllib.parse.urlsplit(newurl).hostname != urllib.parse.urlsplit(req.full_url).hostname:
+            new.remove_header("Authorization")
+        return new
+
+
+_default_open = urllib.request.build_opener(_DropAuthOnRedirect).open
+
+
 def parse_version(text):
     """'v1.2.3' / '1.2.3' -> (1, 2, 3), or None for anything else."""
     m = VERSION_RE.match(str(text or "").strip())
@@ -57,14 +76,15 @@ def parse_version(text):
 
 class Updater:
     def __init__(self, current, repo, root, state_file, token="", enabled=True, opener=None,
-                 installer_mode=False, launcher=None):
+                 installer_mode=False, launcher=None, settings=None):
         self.current = current
         self.repo = repo.strip().strip("/")
         self.root = Path(root)
         self.state_file = Path(state_file)
         self.token = token
         self.enabled = enabled and bool(self.repo)
-        self._open = opener or urllib.request.urlopen
+        self._open = opener or _default_open
+        self.settings = settings  # where a token pasted into the app is kept
         self._lock = threading.Lock()
         self.latest = None        # {"version", "tag", "notes", "url", "zip_url", "published_at"}
         self.checked_at = None
@@ -100,7 +120,8 @@ class Updater:
                     "zip_url": rel.get("zipball_url") or f"{API}/repos/{self.repo}/zipball/{rel['tag_name']}",
                     "published_at": rel.get("published_at"),
                     "installer": next((
-                        {"name": a["name"], "url": a["browser_download_url"], "size": a.get("size", 0)}
+                        # The API address works for private repositories too (with a token).
+                        {"name": a["name"], "url": a.get("url") or a["browser_download_url"], "size": a.get("size", 0)}
                         for a in rel.get("assets") or []
                         if INSTALLER_RE.match(a.get("name", "")) and a.get("browser_download_url")
                     ), None),
@@ -131,12 +152,37 @@ class Updater:
             latest = self._newest_release()
             with self._lock:
                 self.latest, self.error = latest, None
+        except urllib.error.HTTPError as e:
+            with self._lock:
+                self.error = self._http_problem(e)
         except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
             reason = getattr(e, "reason", None) or e
             with self._lock:
                 self.error = f"Couldn't check for updates: {reason}"
         self.checked_at = time.time()
         return self.status()
+
+    def _http_problem(self, e):
+        if e.code in (403, 429) and e.headers and e.headers.get("X-RateLimit-Remaining") == "0":
+            return "GitHub's limit on update checks was reached; it will check again later."
+        if e.code in (401, 403) and self.token:
+            return "GitHub turned down the access token: it may have expired or lack read access to the repository."
+        if e.code == 403:
+            return f"GitHub refused access to {self.repo}. If the repository is private, add a GitHub access token below."
+        if e.code == 404:
+            if self.token:
+                return (f"GitHub can't find {self.repo} with this access token. Check it has read access "
+                        "to the repository's contents.")
+            return (f"GitHub can't find {self.repo}. If the repository is private, add a GitHub access token "
+                    "below (or make the repository public).")
+        return f"Couldn't check for updates: GitHub answered {e.code} {e.reason}"
+
+    def set_token(self, token):
+        """Use (and keep) a GitHub access token; "" removes it. Checks again straight away."""
+        self.token = str(token or "").strip()
+        if self.settings is not None:
+            self.settings.set("github_token", self.token)
+        return self.check()
 
     def start(self):
         """Check now and then every few hours, in the background."""
@@ -179,6 +225,8 @@ class Updater:
             "installed": self.installed,
             "checked_at": self.checked_at,
             "error": self.error,
+            "repo": self.repo,
+            "has_token": bool(self.token),
         }
 
     def _can_install(self, latest):

@@ -48,3 +48,40 @@ def documents_dir():
 def iracing_screenshots_dir():
     """Where iRacing saves screenshots: Documents\\iRacing\\screenshots."""
     return documents_dir() / "iRacing" / "screenshots"
+
+
+def real_path(path):
+    """``path`` with any junctions or symlinks along it replaced by their targets.
+
+    Newer Windows 11 builds refuse to open a path *through* a junction it
+    doesn't trust ("WinError 448: untrusted mount point"). iRacing players
+    often move ``Documents\\iRacing`` to another drive with a junction, which
+    makes iRacing's screenshot folder unreadable that way. Reading where each
+    junction points (which doesn't go through it) gives the real folder.
+    """
+    path = Path(path)
+    if os.name != "nt" or not path.is_absolute():
+        return path
+    current = Path(path.anchor)
+    for part in path.parts[1:]:
+        step = current / part
+        for _ in range(16):  # links to links, within reason
+            try:
+                if not (os.path.isjunction(step) or step.is_symlink()):
+                    break
+                target = os.readlink(step)
+            except (OSError, ValueError):
+                break
+            for prefix in ("\\\\?\\UNC\\", "\\\\?\\", "\\??\\"):
+                if target.startswith(prefix):
+                    target = ("\\\\" if "UNC" in prefix else "") + target[len(prefix):]
+                    break
+            target = Path(target)
+            step = target if target.is_absolute() else step.parent / target
+        current = step
+    return current
+
+
+def is_untrusted_mount_error(error):
+    """Windows' "untrusted mount point" refusal (see ``real_path``)."""
+    return getattr(error, "winerror", None) == 448

@@ -4,8 +4,10 @@ A league profile can carry a ``championship``:
 
 * **rules**: points per finishing position (and optionally per qualifying
   position), any of the bonuses in ``BONUSES``, drop rounds, how far a
-  fastest-lap bonus reaches, when a driver counts as classified, and whether
-  points are scored per class (one championship per class) or overall.
+  fastest-lap bonus reaches, how much of the race a driver must cover to
+  score, and whether points are scored per class (one championship per
+  class), overall, or both (each result scores separately in its class's
+  championship and the overall one).
 * **rounds**: each round's results, imported from iRacing or typed in, with a
   points multiplier (double points finales) and a "can't be dropped" flag.
 * **penalties**: points taken off after a race, and licence penalty points,
@@ -34,15 +36,19 @@ BONUSES = (
 )
 BONUS_KEYS = tuple(k for k, _ in BONUSES)
 STATUSES = ("finished", "dnf", "dsq", "dns")
+SCORING = ("class", "overall", "both")
+OVERALL = "overall"  # the key of the overall championship
 
 DEFAULT_RULES = {
     "points": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
     "qualifying_points": [],
     "bonuses": {k: 0 for k in BONUS_KEYS},
-    "scoring": "class",         # "class": a championship per class; "overall": one for everyone
+    "scoring": "class",         # "class": a championship per class; "overall": one for everyone;
+                                # "both": a championship per class and one overall, scored separately
+    "overall_points": [],       # "both": points for overall positions ([] = same as "points")
     "drop_rounds": 0,           # each driver's worst N rounds don't count (once they've more than N)
     "fastest_lap_top": 0,       # fastest-lap bonus only if finishing in the top N (0 = anyone)
-    "classified_pct": 0,        # must complete this % of the winner's laps to score (0 = off)
+    "classified_pct": 75,       # must complete this % of the class winner's laps to score, else DNF (0 = off)
     "dnf_scores": True,         # a DNF still scores the points for where it was classified
     "team_best": 0,             # team championship: best N drivers per team per round (0 = all)
 }
@@ -95,10 +101,11 @@ def normalise_rules(rules):
         "points": parse_points(rules.get("points", DEFAULT_RULES["points"])),
         "qualifying_points": parse_points(rules.get("qualifying_points", [])),
         "bonuses": {k: _num(bonuses.get(k, 0), 0, lo=-100, hi=1000) for k in BONUS_KEYS},
-        "scoring": "overall" if rules.get("scoring") == "overall" else "class",
+        "scoring": rules.get("scoring") if rules.get("scoring") in SCORING else "class",
+        "overall_points": parse_points(rules.get("overall_points", [])),
         "drop_rounds": _num(rules.get("drop_rounds"), 0, lo=0, hi=50, cast=int),
         "fastest_lap_top": _num(rules.get("fastest_lap_top"), 0, lo=0, hi=200, cast=int),
-        "classified_pct": _num(rules.get("classified_pct"), 0, lo=0, hi=100),
+        "classified_pct": _num(rules.get("classified_pct", DEFAULT_RULES["classified_pct"]), 0, lo=0, hi=100),
         "dnf_scores": bool(rules.get("dnf_scores", True)),
         "team_best": _num(rules.get("team_best"), 0, lo=0, hi=20, cast=int),
     }
@@ -136,6 +143,8 @@ def normalise(champ):
             "date": str(rd.get("date") or "").strip()[:10],
             "multiplier": _num(rd.get("multiplier"), 1.0, lo=0, hi=10),
             "no_drop": bool(rd.get("no_drop")),
+            # The iRacing session the results were imported from.
+            "session": str(rd.get("session") or "")[:40],
             "results": [r for r in results if r["driver"]],
         })
     round_ids = {rd["id"] for rd in rounds}
@@ -165,27 +174,63 @@ def normalise(champ):
 # -- scoring ------------------------------------------------------------------
 
 
-def _group_key(result, rules):
-    return result["class_id"] if rules["scoring"] == "class" else ""
+def _group_keys(result, rules):
+    """The championships a result scores in: its class's, the overall one, or both."""
+    if rules["scoring"] == "overall":
+        return [OVERALL]
+    if rules["scoring"] == "both":
+        return [result["class_id"], OVERALL]
+    return [result["class_id"]]
 
 
-def score_round(rd, rules):
-    """Points for every result in a round: {driver: {"total", "position", "bonus", "group", ...}}."""
-    groups = {}
-    for r in rd["results"]:
-        groups.setdefault(_group_key(r, rules), []).append(r)
+def race_distance(results):
+    """Laps the winner of each class completed: what "the race distance" means for a car."""
     out = {}
-    for group, results in groups.items():
-        out.update(_score_group(group, results, rules, rd["multiplier"]))
+    for r in results:
+        if r["status"] not in ("dsq", "dns"):
+            out[r["class_id"]] = max(out.get(r["class_id"], 0), r["laps"])
     return out
 
 
-def _score_group(group, results, rules, multiplier):
+def short_of_distance(r, distance, rules):
+    """Too few laps to be classified: a DNF that scores nothing."""
+    pct = rules["classified_pct"]
+    return bool(pct) and r["laps"] < distance.get(r["class_id"], 0) * pct / 100.0 - 1e-9
+
+
+def apply_distance_rule(results, rules):
+    """Mark cars that didn't cover enough of the race as DNF (in place)."""
+    distance = race_distance(results)
+    for r in results:
+        if r["status"] == "finished" and short_of_distance(r, distance, rules):
+            r["status"] = "dnf"
+    return results
+
+
+def score_round(rd, rules):
+    """Points for every result in a round: {championship key: {driver: {"total", "position", "bonus", ...}}}.
+
+    A provisional round (the race in progress) skips the race-distance rule:
+    mid-race, nobody has covered the distance yet.
+    """
+    groups = {}
+    for r in rd["results"]:
+        for key in _group_keys(r, rules):
+            groups.setdefault(key, []).append(r)
+    distance = {} if rd.get("provisional") else race_distance(rd["results"])
+    return {key: _score_group(key, results, rules, rd["multiplier"], distance) for key, results in groups.items()}
+
+
+def _score_group(group, results, rules, multiplier, distance):
     bonus_cfg = rules["bonuses"]
+    points = rules["overall_points"] if group == OVERALL and rules["overall_points"] else rules["points"]
+    short = {r["driver"] for r in results if short_of_distance(r, distance, rules)}
+
+    def status(r):
+        return "dnf" if r["status"] == "finished" and r["driver"] in short else r["status"]
+
     # Finishing order within the group: by position; unplaced (DNS) last.
     order = sorted(results, key=lambda r: (r["status"] == "dns", r["position"] or 10_000))
-    max_laps = max((r["laps"] for r in results), default=0)
-    min_laps = max_laps * rules["classified_pct"] / 100.0 if rules["classified_pct"] else 0
     rank = {}
     place = 0
     for r in order:
@@ -196,29 +241,26 @@ def _score_group(group, results, rules, multiplier):
     starters = [r for r in results if r["start_position"] and r["status"] != "dns"]
     start_rank = {r["driver"]: i for i, r in enumerate(sorted(starters, key=lambda r: r["start_position"]), start=1)}
 
-    def classified(r):
-        return r["driver"] in rank and r["laps"] >= min_laps and (r["status"] == "finished" or rules["dnf_scores"])
-
     eligible_fl = [r for r in results if r["fastest_lap"] and r["status"] not in ("dsq", "dns")
                    and (not rules["fastest_lap_top"] or rank.get(r["driver"], 10_000) <= rules["fastest_lap_top"])]
     best_lap = min((r["fastest_lap"] for r in eligible_fl), default=None)
     most_led = max((r["laps_led"] for r in results if r["status"] != "dsq"), default=0)
     gains = {r["driver"]: start_rank[r["driver"]] - rank[r["driver"]]
-             for r in results if r["status"] == "finished" and r["driver"] in rank and r["driver"] in start_rank}
+             for r in results if status(r) == "finished" and r["driver"] in rank and r["driver"] in start_rank}
     most_gained = max(gains.values(), default=0)
 
     out = {}
     for r in results:
         d = r["driver"]
-        entry = {"group": group, "rank": rank.get(d), "status": r["status"], "position": 0, "qualifying": 0,
-                 "bonus": {}, "adjust": r["adjust"], "total": 0}
+        st = status(r)
+        entry = {"group": group, "rank": rank.get(d), "status": st, "short": d in short, "position": 0,
+                 "qualifying": 0, "bonus": {}, "adjust": r["adjust"], "total": r["adjust"]}
         out[d] = entry
-        if r["status"] == "dsq":
-            entry["total"] = r["adjust"]
+        # Disqualified, or short of the race distance: no points at all.
+        if st == "dsq" or d in short:
             continue
-        if classified(r):
-            pts = rules["points"]
-            entry["position"] = pts[rank[d] - 1] if rank[d] <= len(pts) else 0
+        if d in rank and (st == "finished" or rules["dnf_scores"]):
+            entry["position"] = points[rank[d] - 1] if rank[d] <= len(points) else 0
         q = rules["qualifying_points"]
         if start_rank.get(d) and start_rank[d] <= len(q):
             entry["qualifying"] = q[start_rank[d] - 1]
@@ -228,7 +270,7 @@ def _score_group(group, results, rules, multiplier):
             if bonus_cfg[key] and times:
                 bonus[key] = bonus_cfg[key] * times
 
-        if r["status"] != "dns":
+        if st != "dns":
             give("started")
             give("pole", start_rank.get(d) == 1)
         if best_lap is not None and r in eligible_fl and r["fastest_lap"] == best_lap:
@@ -237,7 +279,7 @@ def _score_group(group, results, rules, multiplier):
             give("led_lap")
             give("per_lap_led", r["laps_led"])
             give("most_laps_led", r["laps_led"] == most_led)
-        if r["status"] == "finished":
+        if st == "finished":
             give("finished")
             give("clean_race", r["incidents"] == 0)
             give("win", rank.get(d) == 1)
@@ -253,12 +295,12 @@ def _round(v):
 
 
 def standings(profile, live_round=None):
-    """Driver (per class or overall) and team standings for a league's season.
+    """Driver standings (one table per championship: each class, overall, or both) and team standings.
 
     ``live_round``: a provisional round (same shape as a stored round) that
     replaces the stored round with the same id, or is added if new.
     """
-    champ = profile.get("championship") or normalise({})
+    champ = normalise(profile.get("championship"))  # older saves may miss newer rules
     rules = champ["rules"]
     rounds = list(champ["rounds"])
     if live_round is not None:
@@ -270,12 +312,13 @@ def standings(profile, live_round=None):
     classes = {c["id"]: c for c in profile.get("classes", [])}
     per_round = {rd["id"]: score_round(rd, rules) for rd in scored}
 
-    # Which group each driver is in: the class of their latest result.
-    group_of = {}
+    # Which championships each driver is in: their latest result's class
+    # (a driver who changes class moves with it), and/or overall.
+    latest = {}
     names = {}
     for rd in scored:
         for r in rd["results"]:
-            group_of[r["driver"]] = _group_key(r, rules)
+            latest[r["driver"]] = _group_keys(r, rules)
             names[r["driver"]] = r["name"] or names.get(r["driver"], "")
     penalties = {}
     licence = {}
@@ -283,37 +326,15 @@ def standings(profile, live_round=None):
         penalties[p["driver"]] = penalties.get(p["driver"], 0) + p["points"]
         licence[p["driver"]] = licence.get(p["driver"], 0) + p["licence"]
     for d in list(penalties) + list(licence):
-        group_of.setdefault(d, _roster_group(roster.get(d), rules))
+        if d not in latest:
+            latest[d] = _group_keys({"class_id": (roster.get(d) or {}).get("class_id", "")}, rules)
 
     drop = rules["drop_rounds"]
-    rows = {}
-    for d, group in group_of.items():
-        scores = []
-        for rd in scored:
-            res = per_round[rd["id"]].get(d)
-            # Rounds a driver missed score 0 and are the first to drop.
-            scores.append({"round": rd["id"], "points": res["total"] if res else 0, "result": res,
-                           "droppable": not rd["no_drop"], "dropped": False, "live": rd is live_round})
-        droppable = sorted((s for s in scores if s["droppable"]), key=lambda s: (s["points"], s["result"] is not None))
-        # Early in a season there's nothing to drop yet: at least one round
-        # always counts.
-        for s in droppable[:min(drop, len(scores) - 1)]:
-            s["dropped"] = True
-        kept = sum(s["points"] for s in scores if not s["dropped"])
-        total = _round(kept - penalties.get(d, 0))
-        finishes = sorted(s["result"]["rank"] for s in scores if s["result"] and s["result"]["rank"])
-        rd_info = roster.get(d) or {}
-        rows[d] = {
-            "driver": d, "name": rd_info.get("name") or names.get(d) or d, "team": rd_info.get("team", ""),
-            "car_number": rd_info.get("car_number", ""), "group": group, "points": total,
-            "gross": _round(sum(s["points"] for s in scores)), "penalty_points": _round(penalties.get(d, 0)),
-            "licence_points": _round(licence.get(d, 0)), "rounds": scores, "wins": finishes.count(1),
-            "_countback": finishes,
-        }
-
     groups = {}
-    for row in rows.values():
-        groups.setdefault(row["group"], []).append(row)
+    for d, keys in latest.items():
+        for group in keys:
+            groups.setdefault(group, []).append(_driver_row(d, group, scored, per_round, live_round, drop,
+                                                            penalties, licence, roster, names))
     out_groups = []
     for key, members in groups.items():
         # Ties: most wins, then most seconds, and so on (countback).
@@ -324,9 +345,14 @@ def standings(profile, live_round=None):
             row["behind"] = _round(leader - row["points"])
             del row["_countback"]
         cls = classes.get(key)
-        out_groups.append({"key": key, "name": cls["name"] if cls else ("Overall" if not key else key),
-                           "color": cls["color"] if cls else None, "drivers": members,
-                           "order": list(classes).index(key) if cls else 999})
+        if key == OVERALL:
+            name, order = "Overall", -1
+        elif cls:
+            name, order = cls["name"], list(classes).index(key)
+        else:
+            name, order = (key.replace("iracing:", "") or "No class"), 999
+        out_groups.append({"key": key, "name": name, "color": cls["color"] if cls else None,
+                           "drivers": members, "order": order})
     out_groups.sort(key=lambda g: g["order"])
     return {
         "rounds": [{"id": rd["id"], "name": rd["name"], "track": rd["track"], "date": rd["date"],
@@ -334,6 +360,32 @@ def standings(profile, live_round=None):
                     "scored": bool(rd["results"])} for rd in rounds],
         "groups": out_groups,
         "teams": _team_standings(profile, scored, per_round, rules, penalties),
+    }
+
+
+def _driver_row(d, group, scored, per_round, live_round, drop, penalties, licence, roster, names):
+    scores = []
+    for rd in scored:
+        res = per_round[rd["id"]].get(group, {}).get(d)
+        # Rounds a driver missed score 0 and are the first to drop.
+        scores.append({"round": rd["id"], "points": res["total"] if res else 0, "result": res,
+                       "droppable": not rd["no_drop"], "dropped": False, "live": rd is live_round})
+    droppable = sorted((s for s in scores if s["droppable"]), key=lambda s: (s["points"], s["result"] is not None))
+    # Early in a season there's nothing to drop yet: at least one round
+    # always counts.
+    for s in droppable[:min(drop, len(scores) - 1)]:
+        s["dropped"] = True
+    kept = sum(s["points"] for s in scores if not s["dropped"])
+    finishes = sorted(s["result"]["rank"] for s in scores if s["result"] and s["result"]["rank"])
+    info = roster.get(d) or {}
+    return {
+        "driver": d, "name": info.get("name") or names.get(d) or d, "team": info.get("team", ""),
+        "car_number": info.get("car_number", ""), "group": group,
+        # Penalties come off every championship the driver is in.
+        "points": _round(kept - penalties.get(d, 0)),
+        "gross": _round(sum(s["points"] for s in scores)), "penalty_points": _round(penalties.get(d, 0)),
+        "licence_points": _round(licence.get(d, 0)), "rounds": scores, "wins": finishes.count(1),
+        "_countback": finishes,
     }
 
 
@@ -348,20 +400,19 @@ def _key(d):
     return f"name:{str(d.get('name', '')).strip().lower()}"
 
 
-def _roster_group(entry, rules):
-    return (entry or {}).get("class_id", "") if rules["scoring"] == "class" else ""
-
-
 def _team_standings(profile, scored, per_round, rules, penalties):
+    """Teams score their drivers' points: overall points when that's the only
+    championship, class points otherwise."""
     team_of = {_key(d): d.get("team", "").strip() for d in profile.get("drivers", []) if d.get("team", "").strip()}
     if not team_of:
         return []
     totals = {}
     for rd in scored:
         by_team = {}
-        for d, res in per_round[rd["id"]].items():
-            team = team_of.get(d)
-            if team:
+        for r in rd["results"]:
+            team = team_of.get(r["driver"])
+            res = per_round[rd["id"]].get(_group_keys(r, rules)[0], {}).get(r["driver"])
+            if team and res:
                 by_team.setdefault(team, []).append(res["total"])
         for team, pts in by_team.items():
             pts.sort(reverse=True)
@@ -380,12 +431,12 @@ def projection(profile, live_round):
     """Live "if it finished now": each driver's points and place before and after the race in progress."""
     before = standings(profile)
     after = standings(profile, live_round)
-    prior = {r["driver"]: r for g in before["groups"] for r in g["drivers"]}
+    prior = {(g["key"], r["driver"]): r for g in before["groups"] for r in g["drivers"]}
     groups = []
     for g in after["groups"]:
         rows = []
         for r in g["drivers"]:
-            p = prior.get(r["driver"])
+            p = prior.get((g["key"], r["driver"]))
             live = next((s for s in r["rounds"] if s["live"]), None)
             rows.append({
                 "driver": r["driver"], "name": r["name"], "team": r["team"], "car_number": r["car_number"],
@@ -399,9 +450,16 @@ def projection(profile, live_round):
     return groups
 
 
-def live_round_for(champ):
-    """The stored round the race in progress counts as."""
+def live_round_for(champ, session_key=None):
+    """The stored round the race in progress counts as, or None.
+
+    None also when that race has already been imported into a round: the
+    saved (and perhaps corrected) results then stand.
+    """
     rounds = champ["rounds"]
+    if session_key and any(rd["session"] == session_key for rd in rounds):
+        return None
     if champ["live_round"]:
-        return next(rd for rd in rounds if rd["id"] == champ["live_round"])
+        rd = next(rd for rd in rounds if rd["id"] == champ["live_round"])
+        return None if rd["results"] and rd["session"] else rd
     return next((rd for rd in rounds if not rd["results"]), None)

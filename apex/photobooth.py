@@ -23,13 +23,19 @@ from pathlib import Path
 
 from .cutout import CutoutError, crop_only, dependencies_available
 from .league import LeagueError, driver_key
+from .paths import is_untrusted_mount_error, real_path
 from .sources import CAM_UI_HIDDEN
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tga"}
 NO_SCREENSHOT_HELP = (
     "No screenshot appeared in {folder}. In iRacing, turn on Settings → Interface → "
     "Camera & Screen Capture → \"Video and Screen Capture\" (then restart iRacing), "
-    "or set \"screenshots_dir\" in config.json if iRacing saves them elsewhere."
+    "or set the screenshots folder below if iRacing saves them elsewhere."
+)
+UNTRUSTED_MOUNT_HELP = (
+    "Windows won't let the app open {folder}: it goes through a folder link (junction) that Windows "
+    "doesn't trust. Set the screenshots folder below to the folder the link points to (for example "
+    "D:\\iRacing\\screenshots)."
 )
 
 
@@ -40,7 +46,8 @@ class PhotoBoothError(Exception):
 class PhotoBooth:
     def __init__(self, app, screenshots_dir, store_dir, cutout, settle_s=1.6, shot_timeout_s=8.0, sleep=time.sleep):
         self.app = app
-        self.screenshots_dir = Path(screenshots_dir)
+        self.default_dir = Path(screenshots_dir)
+        self.custom_dir = None   # set from the app; wins over the default
         self.store_dir = Path(store_dir)
         self.cutout = cutout
         self.settle_s = settle_s
@@ -74,7 +81,21 @@ class PhotoBooth:
             "model_ready": self.cutout.model_ready() if self.cutout else False,
             "model_download": dict(self.cutout.download) if self.cutout else None,
             "screenshots_dir": str(self.screenshots_dir),
+            "screenshots_custom": self.custom_dir is not None,
+            "screenshots_default": str(self.default_dir),
         }
+
+    @property
+    def screenshots_dir(self):
+        """The folder iRacing saves screenshots to, junctions followed (see ``paths.real_path``)."""
+        return real_path(self.custom_dir or self.default_dir)
+
+    def set_folder(self, folder):
+        """Use another screenshots folder ("" = back to iRacing's default)."""
+        folder = str(folder or "").strip().strip('"')
+        if folder and not Path(folder).is_absolute():
+            raise PhotoBoothError("Give the full path of the folder, e.g. D:\\iRacing\\screenshots")
+        self.custom_dir = Path(folder) if folder else None
 
     @property
     def busy(self):
@@ -95,6 +116,7 @@ class PhotoBooth:
                 raise PhotoBoothError("No drivers to photograph.")
             if use_cutout and not dependencies_available():
                 raise PhotoBoothError("Background cut-out isn't available in this install.")
+            self._image_files()  # fails now, not after taking over the camera, if the folder can't be read
             self._reset()
             self.use_cutout = use_cutout
             self.results = [{"car_idx": d["car_idx"], "name": d["name"], "number": d["number"], "cust_id": d["cust_id"],
@@ -130,10 +152,16 @@ class PhotoBooth:
             self.app.publish()
 
     def _image_files(self):
-        if not self.screenshots_dir.is_dir():
-            return {}
-        return {p: p.stat().st_mtime for p in self.screenshots_dir.iterdir()
-                if p.is_file() and p.suffix.lower() in IMAGE_EXTS}
+        folder = self.screenshots_dir
+        try:
+            if not folder.is_dir():
+                return {}
+            return {p: p.stat().st_mtime for p in folder.iterdir()
+                    if p.is_file() and p.suffix.lower() in IMAGE_EXTS}
+        except OSError as e:
+            if is_untrusted_mount_error(e):
+                raise PhotoBoothError(UNTRUSTED_MOUNT_HELP.format(folder=folder)) from e
+            raise PhotoBoothError(f"Can't read the screenshots folder {folder}: {e.strerror or e}") from e
 
     def _wait_for_new_shot(self, before):
         """The file iRacing writes after the screenshot trigger, once fully written."""

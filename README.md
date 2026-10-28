@@ -73,7 +73,8 @@ in the project folder.
 works on any OS, and `--mock-speed 5` speeds it up. Other options:
 `python -m apex --help` (`--port`, `--host`, `--no-window` to use the browser,
 `--config`). `--mock-session qualify` simulates qualifying instead, for trying
-the lap tracker.
+the lap tracker. `--mock-laps 10` ends the simulated race after 10 laps, for
+trying championship imports.
 
 ### Using it from another PC or in OBS
 
@@ -218,7 +219,12 @@ grid walk uses it straight away. 📷 on a driver's row retakes just that car.
 - **Turn on screenshots in iRacing first**: *Settings → Interface → Camera &
   Screen Capture → Video and Screen Capture*, then restart iRacing. The app
   looks in `Documents\iRacing\screenshots`. If yours are saved elsewhere,
-  set `"screenshots_dir"` in `config.json`.
+  set the **Screenshots folder** under the photo booth.
+- **Moved your iRacing documents folder?** If `Documents\iRacing` is a
+  junction (a folder link) to another drive, newer Windows 11 builds refuse
+  to open it through the link ("WinError 448: untrusted mount point"). The
+  app follows the link to the real folder itself. If it still can't, set
+  the **Screenshots folder** to the real one (e.g. `D:\iRacing\screenshots`).
 - **When**: it takes over the camera for about 2 seconds per car, so run it
   before you go live. The cut-outs are made afterwards, in the background.
 - **Cars spread out make better photos**: the cut-out keeps the car in the
@@ -232,6 +238,17 @@ grid walk uses it straight away. 📷 on a driver's row retakes just that car.
   the car. Raw shots are kept in `data\photobooth\raw`.
 
 ## Stream overlays
+
+Each overlay also has a **full-screen** version (`/standings.html?screen=1`,
+`/laps.html?screen=1`): a complete screen with its own background, to cut to
+on stream or put on a monitor (open it, then F11).
+- **Standings board**: every driver. In a race it shows laps, gap,
+  interval, last and best lap and pit stops. In qualifying it shows best lap,
+  gap and interval. Big fields split into columns.
+- **Live timing**: every driver in qualifying, with sector boxes coloured as
+  they're set, the running lap clock, best lap and gap.
+
+![full-screen standings board](docs/standings-screen.png)
 
 The **Overlays** tab has each overlay's address for OBS, a live preview and
 its settings. Add each one as a *Browser Source* at 1920×1080 (the background
@@ -293,13 +310,21 @@ standings update from what's saved.
   - Points for each finishing position (e.g. `25, 18, 15, 12, 10, 8, 6, 4,
     2, 1`).
   - Optional points for qualifying positions, taken from the starting grid.
-  - **Championships**: one per class (scored on class positions; each class
-    is its own championship) or one for everyone.
+  - **Championships**:
+    - *Per class*: scored on class positions; each class is its own
+      championship.
+    - *Overall*: scored on overall positions; one championship for
+      everyone.
+    - *Both*: every result scores twice and the points are kept apart. Class
+      positions score in the class championship, and overall positions in
+      the Overall championship. The overall championship can have its own
+      points table.
   - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
   - The fastest-lap bonus can be limited to the top N finishers.
-  - **Classified**: a driver must complete a percentage of the winner's laps
-    to score.
+  - **Race distance to score** (75% by default): a driver must complete this
+    share of their class winner's laps. Anyone short is a DNF and scores no
+    points or bonuses. 0 turns it off.
   - Whether DNFs score for where they're classified.
   - **Team championship**: count every driver, or each team's best N per
     round.
@@ -310,10 +335,17 @@ standings update from what's saved.
 - **Rounds & results**
   - Add the season's rounds, with a points multiplier (2 for double points)
     and *Can't drop* for rounds that always count.
-  - After a race, press **Import from session** while still in the session
-    (or watching its replay). This fills in finishing order, class, grid,
-    laps, laps led, fastest lap, incidents and DNFs from iRacing, and adds
-    drivers missing from the roster.
+  - After a race, press **Import from session** while still in the session.
+    This fills in finishing order, class, grid, laps, laps led, fastest lap
+    and incidents from iRacing, and adds drivers missing from the roster.
+  - Each driver's status comes from the app watching the race:
+    - **Finished**: crossed the line after the chequered flag.
+    - **DNF**: started but didn't take the flag (retired, or parked in the
+      pits), or fell short of the race distance.
+    - **DNS**: never joined the track once the race went green.
+  - If the app wasn't running for the whole race, it falls back to iRacing's
+    results, which can't tell a car parked in the pits from a finisher.
+    Check those statuses by hand.
   - Everything can be corrected by hand, including DSQ and extra points
     (+ or −) for a round. The points column shows what each result scored.
 - **Penalties**
@@ -439,8 +471,13 @@ to `oauth.iracing.com` and `members-ng.iracing.com`.
 ## Updates
 
 On start-up, and every few hours after, the app checks this repository's
-GitHub releases. When a newer version is out, the control panel pops up
-with its release notes:
+GitHub releases. The **Updates** panel on the Home page shows:
+- your version and the newest one;
+- when it last checked, and anything that went wrong;
+- **Check now**, **Install update** and **Release page** buttons.
+
+When a newer version is out, the control panel also pops up with its release
+notes:
 
 - **Update now** installs the release and restarts the app. The Windows app
   runs the new installer silently, then reopens. A copy run from source
@@ -451,6 +488,17 @@ with its release notes:
   vX* button in the top bar reopens it.
 - **Skip this version** stops the pop-up for that version, but the next one
   will still pop up.
+
+**Private repository**: GitHub only shows a private repository's releases
+with an access token. Without one, the Updates panel says so.
+1. On GitHub, go to *Settings → Developer settings → Fine-grained tokens →
+   Generate*.
+2. Give it this repository only, with *Contents: Read-only*.
+3. Paste it into *Private repository? Add a GitHub access token* in the
+   Updates panel.
+
+The token is kept in `data/settings.json` on that PC and only sent to GitHub.
+Making the repository public works too, and needs no token.
 
 If your copy is a **git clone**, the app won't overwrite it. It tells you
 to run `git pull` instead. To turn update checks off, set
