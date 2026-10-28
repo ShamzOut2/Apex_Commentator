@@ -16,6 +16,41 @@ let shown = "";
 
 const DEFAULT_CLASS = { key: "", name: "", color: "#8b93a3", logo: null };
 
+// The new-fastest-lap flash (top middle) lives beside the tower / full screen, not inside them.
+const screenRoot = document.createElement("div");
+if (SCREEN) stage.appendChild(screenRoot);
+const flashBox = document.createElement("div");
+flashBox.className = "fl-flash";
+stage.appendChild(flashBox);
+let flashId = "";
+
+// The purple stopwatch by the fastest lap's holder: overall, or each class's in "by class".
+function fastestIcon(e, cfg, classMode) {
+  return cfg.show_fastest_icon && (classMode ? e.class_fastest : e.fastest) ? `<span class="fl-icon" title="Fastest lap">${STOPWATCH}</span>` : "";
+}
+
+function renderFlash(snap, ov) {
+  const f = snap.connected ? ov.fastest_flash : null;
+  const id = f ? f.id : "";
+  if (id === flashId) return;
+  flashId = id;
+  const old = flashBox.firstElementChild;
+  if (old) {
+    old.classList.add("out");
+    setTimeout(() => old.remove(), 450);
+  }
+  if (!f) return;
+  const cls = f.scope === "class" && (snap.classes || []).find((c) => c.key === f.class_key);
+  const pill = document.createElement("div");
+  pill.className = "fl-pill";
+  pill.innerHTML = `${STOPWATCH}<div class="fl-text">
+      <div class="fl-cap">Fastest lap${cls ? ` · ${esc(cls.name)}` : ""}</div>
+      <div class="fl-name">${esc(f.name)}</div>
+      <div class="fl-time tnum">${fmtLap(f.lap_time)}</div>
+    </div>`;
+  flashBox.appendChild(pill);
+}
+
 // Columns after the driver, as the commentator has chosen them:
 // [setting, width, label, value(e, race, classMode)].
 const COLUMNS = [
@@ -61,7 +96,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx) {
     <span class="stripe" style="background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : cls.color)}"></span>
     ${cfg.show_number ? `<span><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span></span>` : ""}
     ${cfg.show_logo ? `<span>${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
-    <span class="who"><span class="n">${esc(formatName(e, cfg.name_format))}${pit}</span>${team}</span>
+    <span class="who"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${team}</span>
     ${cols.map((c) => `<span class="c tnum">${c[3](e, race, classMode)}</span>`).join("")}
   </div>`;
 }
@@ -92,6 +127,7 @@ function render() {
   const snap = last;
   const ov = snap && snap.overlays;
   if (!ov) return;
+  renderFlash(snap, ov);
   if (SCREEN) return renderScreen(snap, ov);
   const entries = ov.standings;
   // No logo column when no team has a logo.
@@ -116,7 +152,11 @@ function render() {
       return `<div class="block">${classHeaderHtml(cls, "", rerender)}${rows(list, cls)}</div>`;
     }).join("");
   } else {
-    body = entries.length ? `<div class="block">${rows(entries.slice(0, cfg.rows))}</div>` : "";
+    // More drivers than rows: the top of the order, then (if asked) the last few.
+    const tail = cfg.rows_last && entries.length > cfg.rows + cfg.rows_last ? entries.slice(-cfg.rows_last) : [];
+    const top = tail.length ? entries.slice(0, cfg.rows) : entries.slice(0, cfg.rows + cfg.rows_last);
+    body = entries.length
+      ? `<div class="block">${rows(top)}${tail.length ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div>${rows(tail)}` : ""}</div>` : "";
   }
   const session = snap.session || {};
   const title = race ? "RACE" : ov.session_kind === "qualify" ? "QUALIFYING" : String(session.name || "PRACTICE").toUpperCase();
@@ -174,7 +214,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     `<td class="p r">${pos}</td>`,
     race ? `<td class="c">${change}</td>` : "",
     `<td class="c"><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span></td>`,
-    `<td>${esc(formatName(e, cfg.name_format))}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
+    `<td>${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
     compact ? "" : `<td class="team">${team}</td>`,
   ];
   if (race) {
@@ -260,7 +300,7 @@ function renderScreen(snap, ov) {
     ${body}</div>`;
   if (html !== shown) {
     shown = html;
-    stage.innerHTML = html;
+    screenRoot.innerHTML = html;
   }
 }
 

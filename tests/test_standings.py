@@ -24,6 +24,38 @@ class StandingsOverlayTests(unittest.TestCase):
             self.t += 0.1
             app.tick()
 
+    def test_fastest_lap_holders_and_flash(self):
+        app, source = self.app()
+        app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash_s": 1000}})
+        for _ in range(400):  # a few laps in, snapshots going out as in the app
+            self.run_for(app, 1)
+            ov = app.build_snapshot()["overlays"]
+        st = ov["standings"]
+        best = min(e["best_lap"] for e in st if e["best_lap"])
+        holders = [e for e in st if e["fastest"]]
+        self.assertEqual([e["best_lap"] for e in holders], [best])  # just the one overall
+        for key in {e["class_key"] for e in st}:
+            in_class = [e for e in st if e["class_key"] == key and e["best_lap"]]
+            if in_class:
+                marked = [e for e in in_class if e["class_fastest"]]
+                self.assertEqual([e["best_lap"] for e in marked], [min(e["best_lap"] for e in in_class)])
+        # A new fastest lap flashes, with its driver and time, for as long as set.
+        flash = ov["fastest_flash"]
+        self.assertIsNotNone(flash)
+        self.assertEqual((flash["car_idx"], flash["lap_time"], flash["scope"]), (holders[0]["car_idx"], best, "overall"))
+        app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash_s": 1}})
+        app._fl_flash["at"] -= 2
+        self.assertIsNone(app.build_snapshot()["overlays"]["fastest_flash"])
+        app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash": False, "fl_flash_s": 30}})
+        app._fl_flash["at"] += 2
+        self.assertIsNone(app.build_snapshot()["overlays"]["fastest_flash"])
+
+    def test_laps_set_before_the_app_started_dont_flash(self):
+        app, source = self.app()
+        self.run_for(app, 300)
+        app._fl_session = None  # as if the app had just connected
+        self.assertIsNone(app.build_snapshot()["overlays"]["fastest_flash"])
+
     def test_session_limit(self):
         self.assertEqual(_session_limit("30"), 30)
         self.assertEqual(_session_limit("1200.0000 sec"), 1200)

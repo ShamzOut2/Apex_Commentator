@@ -93,9 +93,10 @@ shows something else. Camera hotkeys work in whichever window has focus.
 - **Standings**: Pos (overall), Cls (position in class, underlined in the class
   colour), **+/−** (places gained or lost since the start, within the class
   when a class is picked), car number, driver and team, lap, gap to the
-  leader (timed by the app at points every ~10 m of track, so it updates
-  several times a second and keeps step with the order; "+1 L" for lapped
-  cars), interval to the car ahead, last and best lap, pit stops, flag
+  leader (timed by the app: how long ago the leader was where the car is
+  now, so it updates continuously, keeps step with the order and keeps
+  counting while a car is slow or stopped; "+1 L" for lapped cars), interval
+  to the car ahead, last and best lap, pit stops, flag
   (yellow, blue, white, chequered), penalties (black flag, DQ, meatball,
   warning) and incident points. **Click any driver** to put the camera on
   them. The class chips show one class at a time, with gaps and places within
@@ -289,6 +290,16 @@ are kept in `data/overlays.json`.
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
+  - **Last N drivers** (Overall view): when there are more drivers than rows,
+    the last few (last place included) are added at the bottom, after a
+    small gap. 0 turns it off.
+  - **Fastest lap**: a purple stopwatch by the holder's name. In Overall it's
+    the one fastest driver; in By class, each class's fastest.
+  - **New fastest lap flash**: when someone sets a new fastest lap, a purple
+    pill appears at the top middle of the screen with a stopwatch, the driver
+    and the lap time. Set how many seconds it stays. It can also flash each
+    class's new fastest lap. Races skip the first lap; laps set before the
+    app connected don't flash.
 - **Sponsors** (`/sponsors.html`): the active league's sponsor logos (added
   in the League builder) over the race. Choose a corner or the middle of an
   edge, all together or one at a time (and how long each shows), the size,

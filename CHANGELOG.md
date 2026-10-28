@@ -40,11 +40,20 @@ pop-up.
 - **Race gaps no longer stick or lag**:
   - iRacing's own gap figure only refreshes now and then for other cars, so
     it could freeze or fall out of step with the running order.
-  - Gaps are now timed by the app. Every ~10 m of track it notes when each car
-    passes, and a gap is the difference at the same point.
-  - They update several times a second, match the order on track, and stay
-    right when watching a replay.
+  - Gaps are now timed by the app. Every ~10 m of track it notes when each
+    car passes, and a gap is how long ago the leader was where the car is now.
+  - They update continuously, keep counting while a car is slow or in the
+    pits, always match the order on track, and stay right in replays.
+  - Cars in the garage show no gap.
   - Lapped cars show "+1 L", and intervals never go negative.
+- **Fastest lap on the standings tower**:
+  - A purple stopwatch by the holder's name (each class's holder in By
+    class).
+  - A new fastest lap flashes a purple pill at the top middle of the screen
+    with a stopwatch, the driver and the lap time, for as long as you set.
+  - Each class's new fastest lap can flash too.
+- **Last N drivers** on the Overall tower: when there are more drivers than
+  rows, the last few are added at the bottom.
 - **Contact between cars** in the race log (CONTACT). There are two signs:
   - the jolt of a hit: a car closing fast on the one ahead that suddenly
     stops closing within 0.12 s;

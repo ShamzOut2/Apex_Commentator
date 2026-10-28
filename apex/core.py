@@ -207,6 +207,9 @@ class App:
         self._grid_order = []      # car_idx in starting order
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
+        self._fl_session = None    # fastest laps: the session they're for,
+        self._fl_records = {}      # "overall" / class key -> fastest lap so far,
+        self._fl_flash = None      # and the newest one, for the flash on stream
         self._logged_until = {}    # session num -> race time logged so far
         self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
@@ -431,7 +434,7 @@ class App:
                 rows.append(row)
             self._assign_positions(rows, racing)
             if racing:
-                self._live_gaps(rows)
+                self._live_gaps(rows, frame)
             in_class = {}
             for r in rows:
                 del r["progress"]
@@ -583,6 +586,49 @@ class App:
             "laps_down": r.get("laps_down", 0), "class_laps_down": r.get("class_laps_down", 0),
         }
 
+    def _fastest_laps(self, standings, is_race, cfg, frame):
+        """Mark who holds the fastest lap (``fastest``: overall, ``class_fastest``:
+        in their class) and return the new-fastest-lap flash to show, if any."""
+        def lap_of(e):
+            t = e.get("best_lap") if is_race else e.get("best")
+            return t if t and t > 0 else None
+
+        holders = {}
+        for e in standings:
+            t = lap_of(e)
+            e["fastest"] = e["class_fastest"] = False
+            if t is None:
+                continue
+            for scope in ("overall", e["class_key"]):
+                if scope not in holders or t < holders[scope][0] - 1e-4:
+                    holders[scope] = (t, e)
+        for scope, (_, e) in holders.items():
+            e["fastest" if scope == "overall" else "class_fastest"] = True
+        # A new fastest lap: flash it. Laps already set when the session (or
+        # the app) started aren't news.
+        session = (frame.session_num, is_race)
+        if session != self._fl_session:
+            self._fl_session, self._fl_flash = session, None
+            self._fl_records = {scope: t for scope, (t, _) in holders.items()}
+        flashed = False
+        # Overall first: a lap that's fastest overall and in its class flashes once, as overall.
+        for scope, (t, e) in sorted(holders.items(), key=lambda kv: kv[0] != "overall"):
+            record = self._fl_records.get(scope)
+            if record is not None and t >= record - 1e-4:
+                continue
+            self._fl_records[scope] = t
+            # A race's first laps (standing or rolling start) aren't real fastest laps yet.
+            opening = is_race and (e.get("laps_completed") or 0) <= 1
+            if not flashed and not opening and (scope == "overall" or cfg["fl_flash_classes"]):
+                flashed = True
+                self._fl_flash = {"car_idx": e["car_idx"], "name": e["name"], "nickname": e.get("nickname", ""),
+                                  "number": e["number"], "class_key": e["class_key"], "lap_time": t,
+                                  "scope": "overall" if scope == "overall" else "class", "at": time.monotonic()}
+        f = self._fl_flash
+        if not (cfg["fl_flash"] and f and time.monotonic() - f["at"] < cfg["fl_flash_s"]):
+            return None
+        return {k: v for k, v in f.items() if k != "at"} | {"id": f"{f['car_idx']}:{f['lap_time']}"}
+
     def _session_progress(self, frame, session, rows, mode="auto"):
         """Laps or time left, for the standings header.
 
@@ -645,6 +691,7 @@ class App:
             for best, r in timed + untimed:
                 standings.append(dict(entries[r["car_idx"]], time=best, pos_change=None))
         _rank(standings, is_race)
+        flash = self._fastest_laps(standings, is_race, settings["standings"], frame)
         # The lap tracker: qualifying only (or practice, if asked).
         lap_cfg = settings["laps"]
         active = "qualify" in kind or (lap_cfg["practice"] and "practice" in kind)
@@ -673,6 +720,7 @@ class App:
             "session_kind": "race" if is_race else ("qualify" if "qualify" in kind else (kind or "practice")),
             "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
+            "fastest_flash": flash,
             # "all": every driver, for the full-screen timing page (timed
             # drivers by lap time, then the rest).
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
@@ -696,13 +744,14 @@ class App:
             r["pos_change"] = r["start_pos"] - r["pos"] if gained else None
             r["class_pos_change"] = r["class_start_pos"] - r["class_pos"] if gained and r["class_pos"] else None
 
-    def _live_gaps(self, rows):
+    def _live_gaps(self, rows, frame):
         """Gaps to the leader from the timing points (see gaps.py), in place of
         iRacing's, which lag; iRacing's stays where there's no timing yet."""
         ranked = [r for r in rows if r["pos"] is not None]
         if not ranked:
             return
         leader = ranked[0]
+        now = frame.timeline()[1]
         class_leader = {}
         for r in ranked:
             cl = class_leader.setdefault(r["class_key"], r)
@@ -710,7 +759,10 @@ class App:
             r["class_laps_down"] = _laps_down(cl, r)
             if r is leader:
                 continue
-            gap = self.gaps.gap(r["car_idx"], leader["car_idx"], r["progress"])
+            if r["progress"] < 0:
+                r["gap"] = None  # in the garage: no gap
+                continue
+            gap = self.gaps.gap(r["car_idx"], leader["car_idx"], r["progress"], now)
             if gap is not None:
                 r["gap"] = round(gap, 3)
 

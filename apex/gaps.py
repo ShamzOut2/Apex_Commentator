@@ -4,8 +4,9 @@ iRacing's own gap (``CarIdxF2Time``) only refreshes now and then for other
 cars, so it sticks and lags behind the live running order. Instead, the
 track is split into points about every 10 m. When a car passes one, the time
 is noted (interpolated between telemetry samples). A car's gap to another car
-is the difference between when each passed the same point on the same lap. It
-updates every few tenths of a second and always matches the order on track.
+is how long ago the other car was at the exact spot this one is at now (its
+time there interpolated between points). It counts up while a car is slow or
+stopped, and it always follows the order on track.
 """
 
 import math
@@ -24,7 +25,6 @@ class GapTimer:
 
     def reset(self):
         self._passed = {}     # car -> {point number: session time}, point number = lap * points + point
-        self._latest = {}     # car -> the last point it passed
         self._last = {}       # car -> (time, progress in laps)
         self._prev_time = None
         self._session = None
@@ -59,26 +59,27 @@ class GapTimer:
             first, end = math.floor(p0 * n) + 1, math.floor(p * n)
             for k in range(first, end + 1):
                 passed[k] = t0 + (k / n - p0) / (p - p0) * (now - t0)
-            if end >= first:
-                self._latest[car] = end
             if end >= first and len(passed) > (KEEP_LAPS + 1) * n:
                 for k in [k for k in passed if k < end - KEEP_LAPS * n]:
                     del passed[k]
 
-    def gap(self, car, ahead, progress=None):
-        """Seconds ``car`` is behind ``ahead``: when each passed the same point. None if unknown.
+    def gap(self, car, ahead, progress, now):
+        """Seconds ``car`` is behind ``ahead``: how long ago ``ahead`` was where
+        ``car`` is now (``progress``: laps + lap distance, at time ``now``). None if unknown.
 
-        The point is the one ``car`` is at (``progress``, laps + lap distance),
-        so a replay of an earlier moment gets that moment's gap; else the last
-        one it passed.
+        Works for a replay of an earlier moment too: the times are the race's own.
         """
-        mine = self._passed.get(car)
         theirs = self._passed.get(ahead)
-        k = math.floor(progress * self.points) if progress is not None and progress >= 0 else self._latest.get(car)
-        if not mine or not theirs or k is None:
+        if not theirs or progress is None or progress < 0:
             return None
-        # A point can be missing (e.g. a lap counter glitch at the line): use the one before.
-        for point in range(k, k - 5, -1):
-            if point in mine and point in theirs:
-                return max(0.0, mine[point] - theirs[point])
-        return None
+        x = progress * self.points
+        k = math.floor(x)
+        # A point can be missing (e.g. a lap counter glitch at the line): look a little either side.
+        before = next((p for p in range(k, k - 5, -1) if p in theirs), None)
+        after = next((p for p in range(k + 1, k + 6) if p in theirs), None)
+        if before is None:
+            return None
+        t = theirs[before]
+        if after is not None:
+            t += (theirs[after] - theirs[before]) * (x - before) / (after - before)
+        return max(0.0, now - t)

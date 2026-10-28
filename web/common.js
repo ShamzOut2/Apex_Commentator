@@ -375,6 +375,9 @@ function formatName(e, format) {
   }
 }
 
+// A stopwatch icon (fastest lap), coloured by CSS (currentColor).
+const STOPWATCH = '<svg class="stopwatch" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 1h6v2H9zm10.03 6.39 1.42-1.42-1.41-1.41-1.42 1.42A8.96 8.96 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61zM12 20a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm-1-12h2v6h-2z"/></svg>';
+
 // Fixed 1920x1080 stage, scaled to fit the browser source.
 function fitStage(stage) {
   const fit = () => {

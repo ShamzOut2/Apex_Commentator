@@ -1303,6 +1303,7 @@ const OVERLAY_FIELDS = {
     ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
     ["class_key", "Class", "class"],
     ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
+    ["rows_last", "Plus the last N drivers (overall, when there are more)", "number", { min: 0, max: 30 }],
     ["name_format", "Names", "select", NAME_FORMATS],
     ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
       ["time", "Time left"], ["none", "Nothing"]]],
@@ -1318,6 +1319,10 @@ const OVERLAY_FIELDS = {
     ["show_number", "Car numbers", "bool"],
     ["show_team", "Team names", "bool"],
     ["show_logo", "Team logos", "bool"],
+    ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
+    ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
+    ["fl_flash_s", "Fastest lap flash stays for (s)", "number", { min: 1, max: 60, step: 0.5 }],
+    ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"],
   ],
   laps: [
     ["visible", "On screen", "bool"],

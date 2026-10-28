@@ -17,6 +17,7 @@ DEFAULTS = {
         "mode": "overall",        # "overall" or "class"
         "class_key": "",          # "class" mode: one class only ("" = every class, one block each)
         "rows": 20,               # most drivers shown (per class in "class" mode)
+        "rows_last": 0,           # "overall": when there are more drivers, also the last N (last place included)
         "name_format": "last_initial",
         "show_team": True,
         "show_logo": True,
@@ -33,6 +34,13 @@ DEFAULTS = {
         # each driver appears once they've completed a lap.
         "reveal": False,
         "header_info": "auto",    # "auto" (laps or time, whichever the session is limited by), "laps", "time", "none"
+        # Fastest lap: a purple stopwatch by the holder's name (each class's
+        # holder in "class" mode), and a purple pill at the top middle of the
+        # screen for fl_flash_s when someone sets a new fastest lap.
+        "show_fastest_icon": True,
+        "fl_flash": True,
+        "fl_flash_s": 6.0,
+        "fl_flash_classes": False,  # also a new fastest lap in each class, not just overall
     },
     # Sponsor logos on their own (sponsors.html), over the race.
     "sponsors": {
@@ -93,7 +101,7 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
+LIMITS = {"rows_last": (0, 30), "fl_flash_s": (1.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "place": PLACES, "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
