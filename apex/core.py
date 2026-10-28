@@ -12,6 +12,7 @@ from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
 from .laps import LapTracker, sector_starts
 from .overlays import OverlaySettings
+from .settings import UserSettings
 from .league import driver_key, logo_url
 from .sources import (
     CS_AT_EXCITING,
@@ -186,6 +187,7 @@ class App:
         self.photobooth = None     # set by __main__ (needs the user data folder)
         self.laps = LapTracker()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
+        self.settings = UserSettings()     # settings changed in the app (likewise)
         self._class_of = {}        # car_idx -> class key, from the last snapshot
         self._race = RaceProgress()
 
@@ -333,6 +335,7 @@ class App:
                     "connected": False, "source": self.source.name, "league": self._league_summary(),
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
+                    "photobooth": self.photobooth.status() if self.photobooth else None,
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
                                  "laps": {"active": False, "camera": None, "trackers": [], "all": [],
                                           "sectors": len(self.laps.starts)}},
@@ -715,6 +718,13 @@ class App:
 
     def publish(self):
         snap = self.build_snapshot()
+        updater = getattr(self, "updater", None)
+        if updater is not None:
+            # So the pop-up appears whenever a check finds a new version.
+            st = updater.status()
+            snap["update"] = {"available": st["available"] and not st["installed"],
+                              "version": st["latest"] and st["latest"]["version"], "error": st["error"],
+                              "checked_at": st["checked_at"]}
         with self._changed:
             self._snapshot = snap
             self._version += 1
@@ -755,7 +765,7 @@ class App:
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -950,6 +960,18 @@ class App:
             return {"settings": self.overlays.update(overlay, values)}
         except ValueError as e:
             raise CommandError(str(e)) from e
+
+    def cmd_photobooth_folder(self, folder=""):
+        """Where iRacing saves screenshots ("" = its default folder)."""
+        from .photobooth import PhotoBoothError
+        if self.photobooth is None:
+            raise CommandError("The photo booth isn't available")
+        try:
+            self.photobooth.set_folder(folder)
+        except PhotoBoothError as e:
+            raise CommandError(str(e)) from e
+        self.settings.set("screenshots_dir", str(self.photobooth.custom_dir or ""))
+        return {"folder": str(self.photobooth.screenshots_dir)}
 
     def cmd_photobooth_cancel(self):
         if self.photobooth is not None:

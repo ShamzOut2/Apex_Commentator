@@ -215,6 +215,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._error("Update checks are turned off")
         if action == "check":
             return self._send_json({"ok": True, **updater.check()})
+        if action == "token":
+            return self._send_json({"ok": True, **updater.set_token(body.get("token"))})
         if action == "skip":
             updater.skip(str(body.get("version") or ""))
             return self._send_json({"ok": True})

@@ -66,6 +66,28 @@
           </button>
         </div>
         <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>; the other overlays are in the Overlays tab.</p>
+        <div id="updates-card" class="updates-card">
+          <div class="row">
+            <h3>Updates</h3>
+            <span id="upd-status" class="upd-status"></span>
+            <span class="grow"></span>
+            <button id="upd-check" class="btn">Check now</button>
+            <a id="upd-page" class="btn" target="_blank" rel="noopener" hidden>Release page ↗</a>
+            <button id="upd-install" class="btn primary" hidden>Install update</button>
+          </div>
+          <p id="upd-error" class="upd-error" hidden></p>
+          <details id="upd-token-box">
+            <summary>Private repository? Add a GitHub access token</summary>
+            <p class="hint">A private repository's releases can only be seen with a token. On GitHub: Settings → Developer
+              settings → Fine-grained tokens → Generate. Pick this repository only, with <b>Contents: Read-only</b>, and paste it
+              here. It's kept on this PC (in the app's data folder) and only sent to GitHub.</p>
+            <div class="row">
+              <input id="upd-token" type="password" class="grow" placeholder="github_pat_…" autocomplete="off" aria-label="GitHub access token">
+              <button id="upd-token-save" class="btn primary">Save and check</button>
+              <button id="upd-token-clear" class="btn subtle" hidden>Remove token</button>
+            </div>
+          </details>
+        </div>
       </div>
     </section>
 
@@ -190,6 +212,14 @@
               <button class="btn primary" id="pb-start">📷 Photograph the grid</button>
               <button class="btn subtle" id="pb-cancel" hidden>Cancel</button>
             </div>
+            <div class="row pb-folder">
+              <label class="grow">Screenshots folder
+                <input id="pb-folder" placeholder="iRacing's own folder" aria-label="iRacing screenshots folder"></label>
+              <button class="btn" id="pb-folder-save">Save</button>
+              <button class="btn subtle" id="pb-folder-reset" hidden>Use iRacing's folder</button>
+            </div>
+            <p class="hint">Where iRacing saves screenshots, normally Documents\iRacing\screenshots. If you moved your
+              iRacing documents folder to another drive, put the real folder here.</p>
             <p id="pb-status" class="hint" aria-live="polite"></p>
             <div id="pb-results" class="pb-results"></div>
           </div>

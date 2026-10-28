@@ -15,6 +15,7 @@ from pathlib import Path
 from . import __version__, desktop
 from .config import ROOT, load_config
 from .overlays import OverlaySettings
+from .settings import UserSettings
 from .core import App
 from .cutout import Cutout
 from .league import IRacingDataClient, LeagueStore
@@ -54,6 +55,7 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0):
     )
     app = App(source, cfg, LeagueStore(cfg["leagues_dir"], client))
     app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
+    app.settings = UserSettings(ROOT / "data" / "settings.json")
     if mock:
         # The mock "iRacing" writes its screenshots here.
         source.screenshots_dir = ROOT / "data" / "mock-screenshots"
@@ -62,9 +64,12 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0):
         shots = Path(cfg["screenshots_dir"]) if cfg["screenshots_dir"] else iracing_screenshots_dir()
     app.photobooth = PhotoBooth(app, shots, ROOT / "data" / "photobooth", Cutout(ROOT / "data" / "models"),
                                 settle_s=float(cfg["photobooth_settle_s"]))
+    if app.settings.get("screenshots_dir") and not mock:
+        app.photobooth.set_folder(app.settings.get("screenshots_dir"))
     app.updater = Updater(
         __version__, cfg["update_repo"], APP_DIR, ROOT / "data" / "update.json",
-        token=cfg["github_token"], enabled=cfg["update_check"], installer_mode=FROZEN,
+        token=cfg["github_token"] or app.settings.get("github_token", ""), enabled=cfg["update_check"],
+        installer_mode=FROZEN, settings=app.settings,
     )
     return app
 

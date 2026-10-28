@@ -27,6 +27,19 @@ pop-up.
   imported.
 - `--mock-laps N` ends the simulated race after N laps; simulated cars can
   retire.
+- **Updates panel** on the Home page:
+  - Shows your version, the newest version, when it last checked and any
+    problem.
+  - **Check now**, **Install update** and **Release page** buttons.
+  - Update checks used to fail silently, and on a private repository they
+    always failed ("not found"). The panel now says so, and takes a GitHub
+    access token so private releases can be seen and installed.
+  - The update pop-up now appears whenever a check finds a new version, not
+    only when the app opens.
+- **Photo booth "WinError 448: untrusted mount point" fixed**: when
+  `Documents\iRacing` is a folder link (junction) to another drive, the app
+  follows it to the real folder. A **Screenshots folder** setting under the
+  photo booth lets you pick the folder by hand.
 
 ## v0.3.0
 

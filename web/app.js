@@ -101,6 +101,8 @@ function render() {
   lb.classList.toggle("muted", !league);
   renderGridwalk(s);
   renderHome(s);
+  renderPhotoboothFolder(s.photobooth);
+  renderUpdates(s.update);
   renderOverlaySettings(s);
   renderChampLive(s);
 
@@ -523,6 +525,28 @@ $("#gw-url").textContent = `${location.origin}/gridwalk.html`;
 const PB_CAMERA_KEY = "apex.photoboothCamera";
 let pbGroupsKey = "";
 let pbResultsKey = "";
+
+function renderPhotoboothFolder(pb) {
+  if (!pb) return;
+  const input = $("#pb-folder");
+  if (document.activeElement !== input) input.value = pb.screenshots_custom ? pb.screenshots_dir : "";
+  input.placeholder = pb.screenshots_custom ? "iRacing's own folder" : pb.screenshots_dir;
+  $("#pb-folder-reset").hidden = !pb.screenshots_custom;
+}
+
+async function setPhotoboothFolder(folder) {
+  try {
+    const r = await api("/api/cmd", { method: "POST", body: { action: "photobooth_folder", params: { folder } } });
+    toast(`Screenshots folder: ${r.folder}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+$("#pb-folder-save").addEventListener("click", () => setPhotoboothFolder($("#pb-folder").value.trim()));
+$("#pb-folder").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") setPhotoboothFolder(e.target.value.trim());
+});
+$("#pb-folder-reset").addEventListener("click", () => setPhotoboothFolder(""));
 
 function renderPhotobooth(s) {
   const pb = s.photobooth;
@@ -1841,6 +1865,87 @@ try {
   update.dismissed = sessionStorage.getItem("apex.updateLater") !== null;
 } catch (e) { /* storage unavailable */ }
 
+// The Updates panel on the Home page: always there, whatever the check found.
+function renderUpdatePanel(st) {
+  if (!st) return;
+  const status = $("#upd-status");
+  let text = "";
+  if (!st.enabled) text = `v${st.current} · update checks are turned off in config.json`;
+  else if (st.installed) text = `v${st.installed} installed, restarting…`;
+  else if (st.available) text = `v${st.current} → <b>v${esc(st.latest.version)}</b> is available`;
+  else if (st.checked_at && !st.error) text = `v${st.current} · up to date (checked ${new Date(st.checked_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`;
+  else if (!st.checked_at) text = `v${st.current} · checking…`;
+  else text = `v${st.current}`;
+  status.innerHTML = text;
+  $("#upd-error").hidden = !st.error;
+  $("#upd-error").textContent = st.error || "";
+  $("#upd-install").hidden = !(st.available && st.can_install && !st.installed);
+  $("#upd-install").disabled = !!st.installing;
+  $("#upd-check").disabled = !st.enabled;
+  const page = $("#upd-page");
+  page.hidden = !(st.latest && st.latest.url);
+  if (st.latest) page.href = st.latest.url;
+  $("#upd-token-clear").hidden = !st.has_token;
+  // Open the token box when the repository can't be seen without one.
+  if (st.error && !st.has_token && /private/.test(st.error)) $("#upd-token-box").open = true;
+}
+
+let updateKey = "";
+
+// The live feed says when a check finished or found something: fetch the
+// full status then (pop-up included).
+function renderUpdates(u) {
+  if (!u) return;
+  const key = JSON.stringify(u);
+  if (key === updateKey) return;
+  updateKey = key;
+  api("/api/update").then((st) => {
+    renderUpdatePanel(st);
+    showUpdate(st);
+  }).catch(() => {});
+}
+
+async function updateAction(path, body = {}) {
+  const st = await api(`/api/update/${path}`, { method: "POST", body });
+  renderUpdatePanel(st);
+  showUpdate(st);
+  return st;
+}
+
+$("#upd-check").addEventListener("click", async () => {
+  $("#upd-check").disabled = true;
+  try {
+    const st = await updateAction("check");
+    if (!st.error && !st.available) toast("You're on the newest version");
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    $("#upd-check").disabled = false;
+  }
+});
+$("#upd-install").addEventListener("click", () => {
+  showUpdate(update.status, true);
+});
+$("#upd-token-save").addEventListener("click", async () => {
+  const token = $("#upd-token").value.trim();
+  if (!token) return toast("Paste a token first", true);
+  try {
+    const st = await updateAction("token", { token });
+    $("#upd-token").value = "";
+    toast(st.error ? "Token saved, but the check failed: see Updates" : "Token saved");
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+$("#upd-token-clear").addEventListener("click", async () => {
+  try {
+    await updateAction("token", { token: "" });
+    toast("Token removed");
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
 function showUpdate(status, force = false) {
   update.status = status;
   const available = status && status.available && !status.installed;
@@ -1891,7 +1996,8 @@ function closeUpdate() {
 async function checkForUpdate(attempt = 0) {
   try {
     const status = await api("/api/update");
-    if (!status.enabled) return;
+    if (!status.enabled) return renderUpdatePanel(status);
+    renderUpdatePanel(status);
     // The server checks GitHub in the background at start: wait for it.
     if (!status.checked_at && attempt < 10) return setTimeout(() => checkForUpdate(attempt + 1), 3000);
     showUpdate(status);
