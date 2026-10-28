@@ -205,6 +205,26 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(junk["drivers"][0]["car_image"], "")
         self.assertEqual(junk["teams"], [{"name": "T", "logo": None}])
 
+    def test_import_session_merges_without_losing_edits(self):
+        p = self.store.fetch(4242)
+        p["drivers"][0]["nickname"] = "Ames"
+        p["drivers"][0]["car_number"] = ""
+        p["drivers"].append({"name": "Hand Added", "car_number": "55"})
+        self.store.save(p)
+        session = [
+            {"cust_id": 1, "name": "Amy First", "number": "7", "team": "Apex Racing"},   # known: fill blanks
+            {"cust_id": 77, "name": "Hand Added", "number": "55", "team": ""},          # matches the hand-added one
+            {"cust_id": 9, "name": "New Person", "number": "9", "team": "Newcomers"},  # new
+        ]
+        league, added = self.store.import_session("4242", session)
+        self.assertEqual(added, 1)
+        by_name = {d["name"]: d for d in league["drivers"]}
+        self.assertEqual((by_name["Amy First"]["nickname"], by_name["Amy First"]["car_number"],
+                          by_name["Amy First"]["team"]), ("Ames", "7", "Apex Racing"))
+        self.assertEqual(by_name["Hand Added"]["cust_id"], 77)
+        self.assertEqual(by_name["New Person"]["team"], "Newcomers")
+        self.assertEqual(self.store.import_session("4242", session)[1], 0)  # idempotent
+
     def test_bad_league_id(self):
         with self.assertRaises(LeagueError):
             self.store.fetch("abc")

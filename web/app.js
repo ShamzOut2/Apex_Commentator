@@ -40,19 +40,33 @@ async function cmd(action, params = {}, okMsg) {
 
 const ui = {
   snap: null,
-  expanded: new Set(),   // car_idx with their event list open
-  filter: "all",
-  groupsKey: "",
+  logFilter: "all",
+  classFilter: "all",
+  selectedEvent: null,   // race log line picked for a replay
   editing: null,         // league profile being edited
   activeLeague: null,
-  groupByClass: true,
   library: [],           // built-in class logos
   libraryLoaded: false,
 };
 
-try {
-  ui.groupByClass = localStorage.getItem("apex.groupByClass") !== "0";
-} catch (e) { /* storage unavailable: keep default */ }
+// Per-PC preferences for the timing screen.
+const SETTINGS_KEY = "apex.timing";
+const settings = Object.assign(
+  { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null },
+  (() => {
+    try {
+      return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
+    } catch (e) {
+      return {};
+    }
+  })(),
+);
+
+function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (e) { /* storage unavailable */ }
+}
 
 // ---------------------------------------------------------------------------
 // live data stream
@@ -86,14 +100,16 @@ function render() {
   lb.textContent = league ? league.name : "No league";
   lb.classList.toggle("muted", !league);
   renderGridwalk(s);
+  renderHome(s);
 
   if (!s.connected) {
     $("#session-line").textContent = s.source === "iracing" ? "Waiting for iRacing…" : "Not connected";
     $("#replay-badge").textContent = "—";
     $("#replay-badge").className = "badge";
-    $("#driver-rows").innerHTML = "";
+    $("#standings-rows").innerHTML = "";
     rowEls.clear();
-    $("#drivers-empty").hidden = false;
+    $("#standings-empty").hidden = false;
+    $("#log-status").textContent = "";
     return;
   }
 
@@ -111,72 +127,89 @@ function render() {
     rb.textContent = `REPLAY ${fmtClock(s.replay.session_time)}`;
     rb.className = "badge replay";
   }
+  $("#btn-live").classList.toggle("on-air", !!s.replay.live);
 
-  renderCameraGroups(s.camera);
+  renderCamButtons(s.camera);
   renderPhotobooth(s);
-  renderDrivers(s);
-  renderEvents(s);
+  renderStandings(s);
+  renderLog(s);
 }
 
-function renderCameraGroups(cam) {
-  const key = cam.groups.map((g) => `${g.num}:${g.name}`).join("|");
-  const sel = $("#camera-group");
-  if (key !== ui.groupsKey) {
-    ui.groupsKey = key;
-    sel.innerHTML = cam.groups.map((g) => `<option value="${g.num}">${esc(g.name)}</option>`).join("");
-    // Quick buttons for the groups commentators reach for most.
-    const favourites = ["TV1", "TV2", "TV3", "Chase", "Cockpit", "Blimp", "Chopper"];
-    $("#camera-quick").innerHTML = cam.groups
-      .filter((g) => favourites.includes(g.name))
-      .map((g) => `<button class="chip" data-group="${g.num}">${esc(g.name)}</button>`)
-      .join("");
+// -- pages ----------------------------------------------------------------------
+
+const PAGE_KEY = "apex.page";
+
+function showPage(name) {
+  if (!document.getElementById(`tab-${name}`)) name = "home";
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("active", p.id === `tab-${name}`));
+  // The timing screen fills the window; the other pages scroll.
+  $("#main").classList.toggle("fixed", name === "timing");
+  if (name === "league") loadLeagues();
+  try {
+    localStorage.setItem(PAGE_KEY, name);
+  } catch (e) { /* storage unavailable */ }
+}
+
+function renderHome(s) {
+  $("#home-version").textContent = s.version ? `v${s.version}` : "";
+  const ses = s.session;
+  $("#home-session").textContent = s.connected
+    ? `${[ses.track, ses.track_config].filter(Boolean).join(" – ")} · ${ses.type || ses.name} · ${ses.state}` +
+      (s.source === "mock" ? " (demo mode)" : "")
+    : (s.source === "iracing" ? "Waiting for iRacing: join or spectate a session." : "Not connected.");
+  const drivers = (s.drivers || []).length;
+  const battles = s.connected ? findBattles(s, s.drivers || []).size : 0;
+  $("#tile-timing").textContent = s.connected
+    ? `${drivers} drivers · ${(s.events || []).length} logged${battles ? ` · ${battles} in battles` : ""}`
+    : "Offline";
+  const g = s.gridwalk || {};
+  $("#tile-gridwalk").textContent = g.visible ? (g.running ? "● On air" : "❚❚ On air, paused") : `${(g.entries || []).length} on the grid`;
+  $("#tile-league").textContent = s.league ? `Active: ${s.league.name}` : "No league active";
+}
+
+// -- camera bar -----------------------------------------------------------------
+
+let camKey = "";
+const RESERVED_KEYS = new Set(["l", "r", "arrowup", "arrowdown"]);
+
+// Camera group name -> key. Until set by hand, 1-9 go to the first nine cameras.
+function hotkeys(groups) {
+  if (settings.hotkeys) return settings.hotkeys;
+  const map = {};
+  groups.slice(0, 9).forEach((g, i) => { map[g.name] = String(i + 1); });
+  return map;
+}
+
+function keyLabel(k) {
+  return { arrowup: "↑", arrowdown: "↓", " ": "Space" }[k] || (k.length === 1 ? k.toUpperCase() : k);
+}
+
+function renderCamButtons(cam) {
+  const keys = hotkeys(cam.groups);
+  const key = JSON.stringify([cam.groups, keys]);
+  if (key !== camKey) {
+    camKey = key;
+    $("#cam-buttons").innerHTML = cam.groups.map((g) => `<button class="btn cam" data-group="${g.num}">
+        ${esc(g.name)}${keys[g.name] ? `<kbd>${esc(keyLabel(keys[g.name]))}</kbd>` : ""}</button>`).join("");
   }
-  if (document.activeElement !== sel) sel.value = String(cam.group);
-  document.querySelectorAll("#camera-quick .chip").forEach((c) => c.classList.toggle("active", +c.dataset.group === cam.group));
+  document.querySelectorAll("#cam-buttons .cam").forEach((b) => b.classList.toggle("active", +b.dataset.group === cam.group));
 }
 
-function eventText(ev, withDriver = true) {
-  const who = withDriver ? `<span class="num">${esc(ev.car_number)}</span> ${esc(ev.driver)}` : "";
-  const pts = ev.incidents ? ` <b>${ev.incidents}x</b>` : "";
-  switch (ev.type) {
-    case "overtake":
-      return `${who} passes <span class="num">${esc(ev.other_car_number)}</span> ${esc(ev.other_driver)}` +
-        (ev.position ? ` for <b>P${ev.position}</b>` : "");
-    case "offtrack":
-      return `${who} off track${pts}`;
-    case "slowdown":
-      return `${who} slows ${ev.from_kph}→${ev.speed_kph} km/h${pts}`;
-    default:
-      return `${who} incident${pts}`;
-  }
-}
+// -- standings ------------------------------------------------------------------
 
-function kindLabel(ev) {
-  const labels = { overtake: "PASS", offtrack: "OFF", slowdown: "SLOW", incident: "INC" };
-  const cls = ev.incidents ? "kind has-points" : `kind ${ev.type}`;
-  return `<span class="${cls}">${labels[ev.type] || ev.type}</span>`;
-}
-
-function eventItem(ev, withDriver = true) {
-  return `<li>
-    <span class="when">L${ev.lap} · ${fmtClock(ev.session_time)}</span>
-    <span class="what">${kindLabel(ev)}${eventText(ev, withDriver)}</span>
-    <button class="btn icon" data-act="watch" data-car="${ev.car_idx}" title="Watch live">👁</button>
-    <button class="btn primary icon" data-act="replay-event" data-event="${ev.id}" title="Replay this moment">↺ Replay</button>
-  </li>`;
-}
-
-// Rows are reconciled cell by cell rather than rebuilt, so buttons under the
-// mouse are not replaced mid-click by the 4 Hz updates.
+// Rows are reconciled cell by cell rather than rebuilt, so a row under the
+// mouse is not replaced mid-click by the 4 Hz updates.
 const rowEls = new Map();   // key -> <tr>
 
-function patchRow(key, className, cells) {
+function patchRow(key, className, cells, attrs = {}) {
   let tr = rowEls.get(key);
   if (!tr) {
     tr = document.createElement("tr");
     rowEls.set(key, tr);
   }
   if (tr.className !== className) tr.className = className;
+  for (const [k, v] of Object.entries(attrs)) if (tr.getAttribute(k) !== v) tr.setAttribute(k, v);
   while (tr.children.length > cells.length) tr.lastChild.remove();
   cells.forEach(([html, cls = "", colspan], i) => {
     let td = tr.children[i];
@@ -191,79 +224,120 @@ function patchRow(key, className, cells) {
   return tr;
 }
 
-function renderDrivers(s) {
-  const rows = s.drivers;
-  $("#driver-count").textContent = rows.length ? `(${rows.length})` : "";
-  $("#drivers-empty").hidden = rows.length > 0;
-  const isRace = (s.session.type || "").toLowerCase() === "race";
-  const classes = s.classes || [];
-  const classByKey = new Map(classes.map((c) => [c.key, c]));
-  const grouped = ui.groupByClass && (classes.length > 1 || classes.some((c) => c.key.startsWith("league:")));
-  $("#group-classes").checked = ui.groupByClass;
+function isRace(s) {
+  return (s.session.type || "").toLowerCase() === "race";
+}
 
-  // In grouped mode positions, gaps and intervals are within the class.
-  const groups = grouped
-    ? classes.map((c) => ({ cls: c, rows: rows.filter((r) => r.class_key === c.key) }))
-    : [{ cls: null, rows }];
-  const ordered = [];
-  for (const { cls, rows: groupRows } of groups) {
-    if (!groupRows.length) continue;
-    if (cls) {
-      const detail = `${groupRows.length} car${groupRows.length === 1 ? "" : "s"}`;
-      ordered.push(patchRow(`h${cls.key}`, "class-row", [[classHeaderHtml(cls, detail, () => ui.snap && renderDrivers(ui.snap)), "", 11]]));
+// Rows in the current view (all classes, or one), with gaps worked out for it.
+function standingsView(s) {
+  const rows = (s.drivers || []).filter((r) => ui.classFilter === "all" || r.class_key === ui.classFilter);
+  const race = isRace(s);
+  const fastest = Math.min(...rows.map((r) => r.best_lap || Infinity));
+  const leaderGap = rows.length ? rows[0].gap : null;
+  let prev = null;
+  return rows.map((r) => {
+    let gap = null, int = null;
+    if (race && r.gap != null && leaderGap != null) {
+      gap = r.gap - leaderGap;
+      if (prev && prev.gap != null) int = r.gap - prev.gap;
     }
-    const fastest = Math.min(...groupRows.map((r) => r.best_lap || Infinity));
-    const bestLapCar = groupRows.find((r) => r.best_lap && r.best_lap === fastest);
-    const leaderGap = groupRows[0].gap;
-    let prevGap = null;
-    groupRows.forEach((r, i) => {
-      let gap = "", int = "";
-      if (isRace) {
-        const g = r.gap != null && leaderGap != null ? r.gap - leaderGap : null;
-        if (i === 0) gap = "Leader";
-        else if (g != null && g > 0) gap = fmtDelta(g);
-        if (i > 0 && prevGap != null && r.gap != null) int = fmtDelta(r.gap - prevGap);
-        prevGap = r.gap;
-      } else if (r.best_lap && isFinite(fastest)) {
-        gap = r.best_lap === fastest ? "Fastest" : fmtDelta(r.best_lap - fastest);
-      }
-      const status = !r.in_world ? '<span class="tag out">OUT</span>'
-        : r.on_pit ? '<span class="tag pit">PIT</span>'
-        : r.surface === "off_track" ? '<span class="tag off">OFF</span>' : "";
-      const lg = r.league;
-      const team = (lg && lg.team) || r.team;
-      const watching = s.camera.car_idx === r.car_idx;
-      const open = ui.expanded.has(r.car_idx);
-      const color = (classByKey.get(r.class_key) || {}).color || r.class_color || "var(--muted)";
-      const pos = grouped ? r.class_pos : r.pos;
-      ordered.push(patchRow(`d${r.car_idx}`, `${watching ? "watching" : ""} ${r.in_world ? "" : "gone"}`, [
-        [String(pos ?? ""), "pos"],
-        [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
-        [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
-          `${team ? `<span class="sub">${esc(team)}</span>` : ""}${lg && lg.notes ? `<span class="notes">${esc(lg.notes)}</span>` : ""}`],
-        [String(r.lap ?? "")],
-        [gap, "c-time"],
-        [int, "c-time col-wide"],
-        [fmtLap(r.last_lap), "c-time col-wide"],
-        [fmtLap(r.best_lap), `c-time col-wide ${bestLapCar === r ? "best" : ""}`],
-        [r.incidents == null ? "" : r.incidents + "x"],
-        [status],
-        [`<div class="actions">
-          <button class="btn ${watching ? "primary" : ""}" data-act="watch" data-car="${r.car_idx}" title="Spectate this driver">👁 Watch</button>
-          <button class="btn" data-act="replay-driver" data-car="${r.car_idx}" ${r.last_event_id ? "" : "disabled"} title="Replay this driver's latest incident/overtake">↺</button>
-          <button class="btn ev-count" data-act="toggle" data-car="${r.car_idx}" ${r.event_count ? "" : "disabled"} title="Show this driver's events">${open ? "▴" : "▾"}${r.event_count || ""}</button>
-        </div>`],
-      ]));
-      if (open) {
-        const evs = s.events.filter((e) => e.car_idx === r.car_idx || e.other_car_idx === r.car_idx)
-          .sort((a, b) => b.session_num - a.session_num || b.session_time - a.session_time);
-        ordered.push(patchRow(`e${r.car_idx}`, "driver-events", [[
-          `<ul class="events">${evs.length ? evs.map((e) => eventItem(e)).join("") : "<li>No events stored</li>"}</ul>`, "", 11,
-        ]]));
-      }
-    });
-  }
-  const body = $("#driver-rows");
+    const v = { r, gap, int, fastestLap: isFinite(fastest) && r.best_lap === fastest, fastest };
+    prev = r;
+    return v;
+  });
+}
+
+// car_idx of everyone within the battle gap of the car ahead (and that car).
+function findBattles(s, rows) {
+  const out = new Set();
+  if (!isRace(s) || s.session.state !== "Racing") return out;
+  const view = rows === s.drivers ? standingsView(s) : rows;
+  view.forEach((v, i) => {
+    const ahead = view[i - 1];
+    const fighting = (x) => x.r.in_world && !x.r.on_pit;
+    if (ahead && v.int != null && v.int >= 0 && v.int <= settings.battleGap && fighting(v) && fighting(ahead)) {
+      out.add(v.r.car_idx);
+      out.add(ahead.r.car_idx);
+    }
+  });
+  return out;
+}
+
+const FLAG_LABELS = {
+  green: "Green", yellow: "Yellow", blue: "Blue", white: "White", checkered: "Chequered",
+  black: "Black", meatball: "Meatball", warning: "Warning", dq: "DQ",
+};
+
+function changeCell(n) {
+  if (n == null) return "";
+  if (n === 0) return '<span class="chg same">–</span>';
+  return n > 0 ? `<span class="chg up">▲${n}</span>` : `<span class="chg down">▼${-n}</span>`;
+}
+
+let classChipsKey = "";
+
+function renderClassFilter(s) {
+  const classes = s.classes || [];
+  const key = JSON.stringify(classes.map((c) => [c.key, c.name, c.color]));
+  if (key === classChipsKey) return;
+  classChipsKey = key;
+  if (ui.classFilter !== "all" && !classes.some((c) => c.key === ui.classFilter)) ui.classFilter = "all";
+  $("#class-filter").innerHTML = classes.length > 1
+    ? [`<button class="chip ${ui.classFilter === "all" ? "active" : ""}" data-class="all">All classes</button>`,
+      ...classes.map((c) => `<button class="chip ${ui.classFilter === c.key ? "active" : ""}" data-class="${esc(c.key)}">
+        <span class="swatch" style="background:${esc(c.color)}"></span>${esc(c.name)}</button>`)].join("")
+    : "";
+}
+
+function renderStandings(s) {
+  renderClassFilter(s);
+  document.documentElement.style.setProperty("--battle", settings.battleColor);
+  const view = standingsView(s);
+  $("#standings-empty").hidden = view.length > 0;
+  const race = isRace(s);
+  const battles = findBattles(s, view);
+  const classByKey = new Map((s.classes || []).map((c) => [c.key, c]));
+  const inClass = ui.classFilter !== "all";
+  const ordered = view.map((v) => {
+    const r = v.r;
+    const cls = classByKey.get(r.class_key) || {};
+    const color = cls.color || r.class_color || "var(--muted)";
+    const lg = r.league;
+    const team = (lg && lg.team) || r.team;
+    let gap = "", int = "";
+    if (race) {
+      gap = v.gap == null ? "" : v.gap <= 0 ? "Leader" : fmtDelta(v.gap);
+      int = v.int == null ? "" : fmtDelta(v.int);
+    } else if (r.best_lap && isFinite(v.fastest)) {
+      gap = v.fastestLap ? "Fastest" : fmtDelta(r.best_lap - v.fastest);
+    }
+    const status = !r.in_world ? '<span class="tag out">OUT</span>'
+      : r.on_pit ? '<span class="tag pit">PIT</span>'
+      : r.surface === "off_track" ? '<span class="tag off">OFF</span>' : "";
+    const watching = s.camera.car_idx === r.car_idx;
+    // Penalties have their own column; the flag column is for racing flags.
+    const flag = r.flag && !["green", "black", "dq", "meatball", "warning"].includes(r.flag)
+      ? `<span class="flag flag-${r.flag}">${FLAG_LABELS[r.flag] || r.flag}</span>` : "";
+    const className = [watching && "watching", !r.in_world && "gone", battles.has(r.car_idx) && "battle"].filter(Boolean).join(" ");
+    return patchRow(`d${r.car_idx}`, className, [
+      [String(r.pos ?? ""), "pos"],
+      [r.class_pos ? `<span class="cls-pos" style="border-color:${esc(color)}">${r.class_pos}</span>` : ""],
+      [changeCell(inClass ? r.class_pos_change : r.pos_change), "c-chg"],
+      [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
+      [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
+        `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}`, "driver-cell"],
+      [String(r.lap ?? "")],
+      [gap, "c-time"],
+      [int, "c-time"],
+      [fmtLap(r.last_lap), "c-time col-wide"],
+      [fmtLap(r.best_lap), `c-time col-wide ${v.fastestLap ? "best" : ""}`],
+      [r.pit_stops ? String(r.pit_stops) : "", "col-wide"],
+      [flag],
+      [(r.penalties || []).map((p) => `<span class="pen">⚑ ${esc(p)}</span>`).join(" ")],
+      [r.incidents == null ? "" : r.incidents + "x"],
+    ], { "data-car": String(r.car_idx), title: `Click to watch ${r.name}` });
+  });
+  const body = $("#standings-rows");
   const keep = new Set(ordered);
   for (const [key, tr] of rowEls) {
     if (!keep.has(tr)) {
@@ -271,25 +345,92 @@ function renderDrivers(s) {
       rowEls.delete(key);
     }
   }
-  // Only move rows that are out of place (positions change rarely).
   ordered.forEach((tr, i) => {
     if (body.children[i] !== tr) body.insertBefore(tr, body.children[i] || null);
   });
 }
 
-function renderEvents(s) {
-  const all = s.events;
-  $("#event-count").textContent = all.length ? `(${all.length})` : "";
-  const shown = all
-    .filter((e) => ui.filter === "all" || (ui.filter === "overtake" ? e.type === "overtake" : e.type !== "overtake"))
-    .sort((a, b) => b.session_num - a.session_num || b.session_time - a.session_time || b.id - a.id);
-  $("#events-empty").hidden = shown.length > 0;
-  const html = shown.map((e) => eventItem(e)).join("");
-  const list = $("#event-list");
-  if (list._html !== html) {
-    list.innerHTML = html;
-    list._html = html;
+// -- race log -------------------------------------------------------------------
+
+const LOG_LABELS = {
+  overtake: "PASS", offtrack: "OFF", slowdown: "SPIN", incident: "INC", pit_in: "PIT", pit_out: "PIT",
+  position: "LOST", penalty: "PEN", fastest_lap: "FAST",
+};
+const LOG_GROUPS = {
+  incident: ["offtrack", "slowdown", "incident"], pit: ["pit_in", "pit_out"],
+};
+const PREROLL_CHOICES = [5, 10, 15, 20, 25, 30];
+
+function car(num, name) {
+  return `<span class="num">${esc(num)}</span> ${esc(name)}`;
+}
+
+function eventText(ev) {
+  const who = car(ev.car_number, ev.driver);
+  const pts = ev.incidents ? ` <b>${ev.incidents}x</b>` : "";
+  switch (ev.type) {
+    case "overtake":
+      return `${who} passes ${car(ev.other_car_number, ev.other_driver)}${ev.position ? ` for <b>P${ev.position}</b>` : ""}`;
+    case "offtrack":
+      return `${who} off track${pts}`;
+    case "slowdown":
+      return `${who} slows ${ev.from_kph}→${ev.speed_kph} km/h${pts}`;
+    case "pit_in":
+      return `${who} pits${ev.position ? ` from P${ev.position}` : ""}`;
+    case "pit_out": {
+      const lost = ev.position && ev.from_position ? ev.position - ev.from_position : 0;
+      return `${who} rejoins <b>P${ev.position ?? "?"}</b>${lost > 0 ? ` (lost ${lost})` : ""} · ${ev.duration}s in the pits`;
+    }
+    case "position":
+      return `${who} loses <b>${ev.position - ev.from_position}</b> place${ev.position - ev.from_position === 1 ? "" : "s"} after going off (P${ev.from_position} → P${ev.position})`;
+    case "penalty":
+      return `${who}: <b>${esc(ev.penalty)}</b>`;
+    case "fastest_lap":
+      return `${who} fastest lap${ev.car_class ? ` in ${esc(ev.car_class)}` : ""}: <b>${fmtLap(ev.lap_time)}</b>`;
+    default:
+      return `${who} incident${pts}`;
   }
+}
+
+function logStatus(s) {
+  return {
+    live: "● Logging live",
+    replay: "● Logging the replay being played",
+    paused: "❚❚ Logging paused: you're watching something already logged. It resumes past that point (Go live).",
+    waiting: "Waiting for the session to start…",
+  }[s.detection] || "";
+}
+
+let logKey = "";
+
+function renderLog(s) {
+  const all = s.events || [];
+  $("#log-status").textContent = logStatus(s);
+  $("#log-status").className = `log-status ${s.detection || ""}`;
+  const types = LOG_GROUPS[ui.logFilter] || (ui.logFilter === "all" ? null : [ui.logFilter]);
+  const shown = all.filter((e) => !types || types.includes(e.type))
+    .sort((a, b) => b.session_num - a.session_num || b.session_time - a.session_time || b.id - a.id);
+  $("#log-empty").hidden = shown.length > 0;
+  const key = JSON.stringify([shown, ui.selectedEvent, settings.logPreroll]);
+  if (key === logKey) return;
+  logKey = key;
+  $("#race-log").innerHTML = shown.map((ev) => {
+    const selected = ev.id === ui.selectedEvent;
+    const cls = ev.incidents ? "kind has-points" : `kind ${ev.type}`;
+    return `<li class="${selected ? "selected" : ""}" data-event="${ev.id}">
+      <div class="log-line">
+        <span class="when">L${ev.lap} · ${fmtClock(ev.session_time)}</span>
+        <span class="${cls}">${LOG_LABELS[ev.type] || ev.type}</span>
+        <span class="what">${eventText(ev)}</span>
+      </div>
+      ${selected ? `<div class="log-actions">
+        <span class="label">Replay from</span>
+        ${PREROLL_CHOICES.map((p) => `<button class="chip ${p === settings.logPreroll ? "active" : ""}" data-preroll="${p}"
+            title="Replay from ${p} seconds before">−${p}s</button>`).join("")}
+        <button class="btn icon" data-watch="${ev.car_idx}" title="Watch ${esc(ev.driver)} live">👁</button>
+      </div>` : ""}
+    </li>`;
+  }).join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -444,83 +585,194 @@ $("#pb-camera").addEventListener("change", (e) => {
 // interactions
 // ---------------------------------------------------------------------------
 
-function selectedGroup() {
-  return +$("#camera-group").value || undefined;
+function replayEvent(id, preroll) {
+  return cmd("replay_event", { event_id: id, preroll }, (r) => `Replaying ${r.replaying} from ${preroll}s before`);
 }
 
 document.addEventListener("click", (e) => {
-  const tab = e.target.closest(".tab");
-  if (tab) {
-    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === tab));
-    document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("active", p.id === `tab-${tab.dataset.tab}`));
-    if (tab.dataset.tab === "league") loadLeagues();
-    return;
-  }
+  const tab = e.target.closest(".tab, [data-goto]");
+  if (tab) return showPage(tab.dataset.tab || tab.dataset.goto);
 
-  const filter = e.target.closest("#event-filter .chip");
+  const filter = e.target.closest("#log-filter .chip");
   if (filter) {
-    ui.filter = filter.dataset.filter;
-    document.querySelectorAll("#event-filter .chip").forEach((c) => c.classList.toggle("active", c === filter));
-    if (ui.snap && ui.snap.connected) renderEvents(ui.snap);
+    ui.logFilter = filter.dataset.filter;
+    document.querySelectorAll("#log-filter .chip").forEach((c) => c.classList.toggle("active", c === filter));
+    if (ui.snap && ui.snap.connected) renderLog(ui.snap);
     return;
   }
 
-  const quick = e.target.closest("#camera-quick .chip");
-  if (quick) return cmd("camera_group", { group: +quick.dataset.group });
+  const classChip = e.target.closest("#class-filter .chip");
+  if (classChip) {
+    ui.classFilter = classChip.dataset.class;
+    classChipsKey = "";
+    if (ui.snap && ui.snap.connected) renderStandings(ui.snap);
+    return;
+  }
+
+  const camBtn = e.target.closest("#cam-buttons .cam");
+  if (camBtn) return cmd("camera_group", { group: +camBtn.dataset.group });
+
+  // Race log: pick a line, then how far back the replay starts.
+  const preroll = e.target.closest("[data-preroll]");
+  if (preroll) {
+    settings.logPreroll = +preroll.dataset.preroll;
+    saveSettings();
+    return replayEvent(ui.selectedEvent, settings.logPreroll);
+  }
+  const watchBtn = e.target.closest("[data-watch]");
+  if (watchBtn) return cmd("watch", { car_idx: +watchBtn.dataset.watch });
+  const logLine = e.target.closest("#race-log li");
+  if (logLine) {
+    const id = +logLine.dataset.event;
+    ui.selectedEvent = ui.selectedEvent === id ? null : id;
+    if (ui.snap && ui.snap.connected) renderLog(ui.snap);
+    return;
+  }
+
+  // Standings: click a driver to put the camera on them.
+  const row = e.target.closest("#standings-rows tr[data-car]");
+  if (row) return cmd("watch", { car_idx: +row.dataset.car });
 
   const btn = e.target.closest("button[data-cmd]");
   if (btn) {
     const { cmd: action, ...rest } = btn.dataset;
     const params = {};
     for (const [k, v] of Object.entries(rest)) params[k] = isNaN(v) ? v : +v;
-    if (["step_car", "watch_special"].includes(action)) params.group = selectedGroup();
-    if (action === "clear_events" && !confirm("Clear all recorded events?")) return;
+    if (action === "clear_events" && !confirm("Clear the race log?")) return;
     return cmd(action, params);
   }
-
-  const act = e.target.closest("button[data-act]");
-  if (act) {
-    const car = +act.dataset.car;
-    switch (act.dataset.act) {
-      case "watch":
-        return cmd("watch", { car_idx: car, group: selectedGroup() });
-      case "replay-driver":
-        return cmd("replay_driver", { car_idx: car }, (r) => `Replaying ${r.replaying}`);
-      case "replay-event":
-        return cmd("replay_event", { event_id: +act.dataset.event }, (r) => `Replaying ${r.replaying}`);
-      case "toggle":
-        ui.expanded.has(car) ? ui.expanded.delete(car) : ui.expanded.add(car);
-        if (ui.snap) renderDrivers(ui.snap);
-        return;
-    }
-  }
 });
 
-$("#group-classes").addEventListener("change", (e) => {
-  ui.groupByClass = e.target.checked;
-  try {
-    localStorage.setItem("apex.groupByClass", ui.groupByClass ? "1" : "0");
-  } catch (err) { /* storage unavailable */ }
-  if (ui.snap && ui.snap.connected) renderDrivers(ui.snap);
-});
+// -- media bar ---------------------------------------------------------------------
 
+function showRewind() {
+  $("#rewind-secs").textContent = `${settings.rewind}s`;
+}
+
+function changeRewind(by) {
+  settings.rewind = Math.min(120, Math.max(5, settings.rewind + by));
+  saveSettings();
+  showRewind();
+}
+
+function rewind() {
+  return cmd("replay_seconds", { seconds: settings.rewind });
+}
+
+$("#rewind-less").addEventListener("click", () => changeRewind(-5));
+$("#rewind-more").addEventListener("click", () => changeRewind(5));
+$("#btn-rewind").addEventListener("click", rewind);
 $("#btn-live").addEventListener("click", () => cmd("live", {}, "Back to live"));
-$("#camera-group").addEventListener("change", (e) => cmd("camera_group", { group: +e.target.value }));
+showRewind();
+
+// -- battle settings -----------------------------------------------------------------
+
+$("#battle-gap").value = settings.battleGap;
+$("#battle-color").value = settings.battleColor;
+$("#battle-gap").addEventListener("change", (e) => {
+  const v = parseFloat(e.target.value);
+  if (v > 0) settings.battleGap = Math.round(v * 100) / 100;
+  e.target.value = settings.battleGap;
+  saveSettings();
+});
+$("#battle-color").addEventListener("input", (e) => {
+  settings.battleColor = e.target.value;
+  document.documentElement.style.setProperty("--battle", settings.battleColor);
+  saveSettings();
+});
+
+// -- camera hotkeys --------------------------------------------------------------------
+
+let hotkeyTarget = null;   // camera group name waiting for a key
+
+function renderHotkeyList() {
+  const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
+  const keys = hotkeys(groups);
+  $("#hotkey-list").innerHTML = groups.length ? groups.map((g) => `<button class="btn hk ${hotkeyTarget === g.name ? "primary" : ""}"
+      data-hk="${esc(g.name)}">${esc(g.name)} <kbd>${keys[g.name] ? esc(keyLabel(keys[g.name])) : "–"}</kbd></button>`).join("")
+    : '<p class="hint">Cameras appear once iRacing is connected.</p>';
+  $("#hotkey-prompt").textContent = hotkeyTarget ? `Press a key for ${hotkeyTarget}…` : "";
+}
+
+$("#btn-hotkeys").addEventListener("click", () => {
+  hotkeyTarget = null;
+  renderHotkeyList();
+  $("#hotkey-modal").hidden = false;
+});
+$("#hotkey-list").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-hk]");
+  if (!b) return;
+  hotkeyTarget = b.dataset.hk;
+  renderHotkeyList();
+});
+$("#hotkey-done").addEventListener("click", () => {
+  hotkeyTarget = null;
+  $("#hotkey-modal").hidden = true;
+  camKey = "";
+  if (ui.snap && ui.snap.connected) renderCamButtons(ui.snap.camera);
+});
+$("#hotkey-reset").addEventListener("click", () => {
+  settings.hotkeys = null;
+  saveSettings();
+  renderHotkeyList();
+});
+
+function captureHotkey(e) {
+  const key = e.key.toLowerCase();
+  if (key === "escape") {
+    hotkeyTarget = null;
+  } else {
+    const groups = ui.snap.camera.groups;
+    const map = { ...hotkeys(groups) };
+    if (key === "backspace" || key === "delete") {
+      delete map[hotkeyTarget];
+    } else if (RESERVED_KEYS.has(key)) {
+      $("#hotkey-prompt").textContent = `${keyLabel(key)} is taken. Pick another key for ${hotkeyTarget}.`;
+      return;
+    } else {
+      // A key belongs to one camera.
+      for (const [name, k] of Object.entries(map)) if (k === key) delete map[name];
+      map[hotkeyTarget] = key;
+    }
+    settings.hotkeys = map;
+    saveSettings();
+    hotkeyTarget = null;
+  }
+  renderHotkeyList();
+}
 
 document.addEventListener("keydown", (e) => {
+  if (!$("#hotkey-modal").hidden && hotkeyTarget) {
+    e.preventDefault();
+    return captureHotkey(e);
+  }
   if (e.target.closest("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!$("#hotkey-modal").hidden || !$("#update-modal").hidden) return;
+  const key = e.key.toLowerCase();
+  const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
+  const camName = Object.entries(hotkeys(groups)).find(([, k]) => k === key);
+  const cam = camName && groups.find((g) => g.name === camName[0]);
   const keys = {
     l: () => cmd("live", {}, "Back to live"),
-    r: () => cmd("replay_seconds", { seconds: 10 }),
-    ArrowUp: () => cmd("step_car", { direction: -1, group: selectedGroup() }),
-    ArrowDown: () => cmd("step_car", { direction: 1, group: selectedGroup() }),
+    r: rewind,
+    arrowup: () => cmd("step_car", { direction: -1 }),
+    arrowdown: () => cmd("step_car", { direction: 1 }),
   };
-  const fn = keys[e.key] || keys[e.key.toLowerCase()];
+  const fn = cam ? () => cmd("camera_group", { group: cam.num }) : keys[key];
   if (fn) {
     e.preventDefault();
     fn();
   }
 });
+
+$("#home-obs-url").textContent = `${location.origin}/gridwalk.html`;
+showPage((() => {
+  try {
+    return localStorage.getItem(PAGE_KEY) || "home";
+  } catch (e) {
+    return "home";
+  }
+})());
 
 // ---------------------------------------------------------------------------
 // league builder
@@ -864,6 +1116,17 @@ $("#roster-rows").addEventListener("click", (e) => {
     renderRoster();
   }
 });
+$("#btn-import-session").addEventListener("click", async () => {
+  try {
+    const saved = await saveEditor();
+    const r = await api(`/api/leagues/${encodeURIComponent(saved.id)}/import-session`, { method: "POST", body: {} });
+    openEditor(r.league);
+    toast(r.added ? `Added ${r.added} driver${r.added === 1 ? "" : "s"} from the session` : "Everyone in the session is already in this league");
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
 $("#btn-add-driver").addEventListener("click", () => {
   ui.editing.drivers.push({ name: "", cust_id: "", car_number: "", nickname: "", team: "", notes: "", class_id: "" });
   renderRoster();

@@ -35,6 +35,15 @@ FLAG_YELLOW = 0x0008
 FLAG_YELLOW_WAVING = 0x0100
 FLAG_CAUTION = 0x4000
 FLAG_CAUTION_WAVING = 0x8000
+# Per-car flags (CarIdxSessionFlags)
+FLAG_CHECKERED = 0x0001
+FLAG_WHITE = 0x0002
+FLAG_GREEN = 0x0004
+FLAG_BLUE = 0x0020
+FLAG_BLACK = 0x010000
+FLAG_DISQUALIFY = 0x020000
+FLAG_FURLED = 0x080000   # rolled black flag: a warning
+FLAG_REPAIR = 0x100000   # meatball: must pit for repairs
 CAUTION_FLAGS = FLAG_YELLOW | FLAG_YELLOW_WAVING | FLAG_CAUTION | FLAG_CAUTION_WAVING
 
 RPY_SRCH_TO_END = 1
@@ -73,6 +82,13 @@ class Frame:
     f2_time: list = field(default_factory=list)
     last_lap: list = field(default_factory=list)
     best_lap: list = field(default_factory=list)
+    car_flags: list = field(default_factory=list)
+
+    def timeline(self):
+        """(session number, session time) of what's on screen: live, or the replay being watched."""
+        if self.is_live or self.replay_session_time <= 0:
+            return self.session_num, self.session_time
+        return self.replay_session_num, self.replay_session_time
 
     @property
     def is_live(self):
@@ -148,6 +164,7 @@ class IRacingSource:
                 f2_time=v("CarIdxF2Time", []),
                 last_lap=v("CarIdxLastLapTime", []),
                 best_lap=v("CarIdxBestLapTime", []),
+                car_flags=v("CarIdxSessionFlags", []),
             )
             ir.unfreeze_var_buffer_latest()
             return frame
@@ -258,6 +275,8 @@ class MockSource:
         self.offtrack_until = [0.0] * n
         self.pit_until = [0.0] * n
         self.incidents = [0] * n
+        self.black_flag = [False] * n
+        self.served = [False] * n
         self.pending_incidents = []  # (apply_at, car_idx, points)
         self.last_lap = [-1.0] * n
         self.best_lap = [-1.0] * n
@@ -337,7 +356,11 @@ class MockSource:
                     if self.best_lap[i] < 0 or lap_time < self.best_lap[i]:
                         self.best_lap[i] = lap_time
                 self.lap_start[i] = t
-                if rng.random() < 0.04 and t > 120:
+                if self.black_flag[i] and not self.served[i]:
+                    # Serve the drive-through.
+                    self.pit_until[i] = t + 18
+                    self.served[i] = True
+                elif rng.random() < 0.04 and t > 120:
                     self.pit_until[i] = t + 22
             # Random off-track moment: ~once every 7 minutes per car.
             if t > 15 and t > self.slow_until[i] + 10 and rng.random() < dt / 420.0:
@@ -350,6 +373,8 @@ class MockSource:
         for apply_at, i, points in self.pending_incidents:
             if t >= apply_at:
                 self.incidents[i] += points
+                if self.incidents[i] >= 8 and not self.black_flag[i]:
+                    self.black_flag[i] = True  # incident limit: drive-through
                 self.drivers[i + 1]["CurDriverIncidentCount"] = self.incidents[i]
                 self.info_update += 1
             else:
@@ -371,6 +396,7 @@ class MockSource:
             surface = [TRK_NOT_IN_WORLD] * n
             last_lap = [-1.0] * n
             best_lap = [-1.0] * n
+            car_flags = [0] * n
             order = sorted(range(self.num_cars), key=lambda i: -self.progress[i])
             position = [0] * n
             f2 = [0.0] * n
@@ -392,6 +418,12 @@ class MockSource:
                     surface[idx] = TRK_ON_TRACK
                 last_lap[idx] = self.last_lap[i]
                 best_lap[idx] = self.best_lap[i]
+                flags = FLAG_GREEN
+                if self.black_flag[i] and not self.served[i]:
+                    flags |= FLAG_BLACK
+                elif self.incidents[i] >= 6 and not self.black_flag[i]:
+                    flags |= FLAG_FURLED
+                car_flags[idx] = flags
             live = self.replay_time is None
             return Frame(
                 session_time=t,
@@ -407,7 +439,7 @@ class MockSource:
                 replay_speed=self.replay_speed,
                 lap=lap, pct=pct, position=position, class_position=list(position),
                 on_pit=on_pit, surface=surface, f2_time=f2,
-                last_lap=last_lap, best_lap=best_lap,
+                last_lap=last_lap, best_lap=best_lap, car_flags=car_flags,
             )
 
     def session_info(self):

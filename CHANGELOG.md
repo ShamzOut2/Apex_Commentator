@@ -6,6 +6,22 @@ pop-up.
 
 ## Unreleased
 
+- **Main page and navigation**: Home, Timing, Grid walk, League builder and
+  Championship pages, with a Home page of tiles showing each one's status.
+- **Timing screen** replaces the driver list and events tab. It has
+  standings with class position, places gained/lost, gap, interval, flags and
+  penalties. Battles within 0.15 s (adjustable) flash in a colour of your
+  choice, and clicking a driver moves the camera to them. The race log lets
+  you pick a line and replay it from 5–30 s before. There are camera buttons
+  with configurable hotkeys, and a replay bar with rewind steps and LIVE.
+- **Race log**: now logs pit in/out (stop time, places lost), places lost
+  after an off, penalties (black flag, DQ, meatball, warning) and class
+  fastest laps, alongside overtakes and incidents.
+- **Logging fix**: logging no longer depends on iRacing reporting "live". It
+  logs saved replays as they play, and pauses only while you rewind over
+  something already logged. A status line shows whether it's running.
+- **League builder**: *Add drivers from session* merges the session's
+  drivers into a league without losing your edits.
 - **Photo booth**: photographs every loaded car inside iRacing (camera on
   the car, iRacing's panels hidden, iRacing's own screenshot), cuts the car out
   of its background with an AI model, and saves it as the driver's car photo

@@ -2,7 +2,9 @@ import unittest
 
 from apex.config import DEFAULTS
 from apex.events import EventDetector
-from apex.sources import Frame, STATE_RACING, TRK_OFF_TRACK, TRK_ON_TRACK, FLAG_CAUTION
+from apex.sources import (
+    FLAG_BLACK, FLAG_CAUTION, FLAG_FURLED, FLAG_GREEN, Frame, STATE_RACING, TRK_OFF_TRACK, TRK_ON_TRACK,
+)
 
 TRACK_M = 4000.0
 DRIVERS = {1: {"name": "Alice", "number": "1"}, 2: {"name": "Bob", "number": "2"}}
@@ -131,7 +133,8 @@ class IncidentTests(unittest.TestCase):
         for i in range(60):
             pct += 0.001 if i < 20 else 0.0002
             steps.append(frame(i * 0.1, {1: (2, pct, TRK_ON_TRACK, i >= 20)}))
-        self.assertEqual(run(self.det, steps), [])
+        # Entering the pit lane is logged as a pit stop, not as a slowdown.
+        self.assertEqual([e["type"] for e in run(self.det, steps)], ["pit_in"])
 
     def test_max_events_is_respected(self):
         det = EventDetector(dict(DEFAULTS, max_events=5))
@@ -144,6 +147,77 @@ class IncidentTests(unittest.TestCase):
             det.update_incidents(f, drivers)
         self.assertEqual(len(det.events), 5)
         self.assertEqual(det.events[-1]["id"], 11)
+
+
+
+class RaceEventTests(unittest.TestCase):
+    """Pit stops, places lost after an off, penalties and fastest laps."""
+
+    def setUp(self):
+        self.det = EventDetector(DEFAULTS)
+        self.drivers = {i: {"name": f"D{i}", "number": str(i), "car_class": "GT3"} for i in (1, 2, 3)}
+
+    def race(self, seconds, car, dt=0.1, start=0.0):
+        """Cars 2 and 3 lap steadily; car(t) gives car 1's (lap, pct, surface, on_pit, flags, best)."""
+        events = []
+        t = start
+        while t < start + seconds:
+            f = frame(t, {2: (5, (0.50 + t * 0.011) % 1, TRK_ON_TRACK, False),
+                          3: (5, (0.45 + t * 0.011) % 1, TRK_ON_TRACK, False),
+                          1: car(t)[:4]})
+            f.car_flags = [0, car(t)[4], FLAG_GREEN, FLAG_GREEN]
+            f.best_lap = [-1, car(t)[5], 90.0, 91.0]
+            events += self.det.update(f, self.drivers, TRACK_M, True)
+            t = round(t + dt, 3)
+        return events
+
+    def test_pit_stop_reports_time_and_places_lost(self):
+        def car(t):
+            if t < 2:      # leading, on track
+                return (5, 0.60 + t * 0.011, TRK_ON_TRACK, False, FLAG_GREEN, 89.0)
+            if t < 30:     # pit stop: crawls while the others pass
+                return (5, 0.62 + (t - 2) * 0.001, TRK_ON_TRACK, True, FLAG_GREEN, 89.0)
+            return (5, 0.65 + (t - 30) * 0.011, TRK_ON_TRACK, False, FLAG_GREEN, 89.0)
+        events = [e for e in self.race(32, car) if e["type"].startswith("pit")]
+        self.assertEqual([e["type"] for e in events], ["pit_in", "pit_out"])
+        pit_out = events[1]
+        self.assertAlmostEqual(pit_out["duration"], 28.0, delta=0.2)
+        self.assertEqual((pit_out["from_position"], pit_out["position"]), (1, 3))
+
+    def test_places_lost_after_going_off(self):
+        def car(t):
+            if t < 2:
+                return (5, 0.60 + t * 0.011, TRK_ON_TRACK, False, FLAG_GREEN, 89.0)
+            if t < 20:     # off and stuck while both others pass
+                return (5, 0.62 + (t - 2) * 0.0005, TRK_OFF_TRACK, False, FLAG_GREEN, 89.0)
+            return (5, 0.629 + (t - 20) * 0.011, TRK_ON_TRACK, False, FLAG_GREEN, 89.0)
+        events = self.race(28, car)
+        lost = [e for e in events if e["type"] == "position"]
+        self.assertEqual(len(lost), 1)
+        self.assertEqual((lost[0]["from_position"], lost[0]["position"], lost[0]["reason"]), (1, 3, "off"))
+        self.assertAlmostEqual(lost[0]["session_time"], 2.0, delta=0.15)  # replays from the moment it went off
+
+    def test_penalty_flags_are_logged_once(self):
+        def car(t):
+            flags = FLAG_GREEN | (FLAG_FURLED if t >= 1 else 0) | (FLAG_BLACK if t >= 2 else 0)
+            return (5, 0.60 + t * 0.011, TRK_ON_TRACK, False, flags, 89.0)
+        penalties = [e["penalty"] for e in self.race(4, car) if e["type"] == "penalty"]
+        self.assertEqual(penalties, ["Warning", "Black flag"])
+
+    def test_class_fastest_lap(self):
+        def car(t):
+            best = 89.0 if t < 1 else 88.5  # beats car 2's 90.0 and its own 89.0
+            return (5, 0.60 + t * 0.011, TRK_ON_TRACK, False, FLAG_GREEN, best)
+        laps = [e for e in self.race(2, car) if e["type"] == "fastest_lap"]
+        # The laps already set when logging started aren't news; the improvement is.
+        self.assertEqual([(e["car_idx"], e["lap_time"]) for e in laps], [(1, 88.5)])
+
+    def test_time_jump_starts_afresh(self):
+        def car(t):
+            return (5, 0.60 + t * 0.011, TRK_ON_TRACK, False, FLAG_GREEN, 89.0)
+        self.race(1, car)
+        # Skip ahead 60s in a replay: cars have moved a lot, but nothing is logged for the gap.
+        self.assertEqual([e for e in self.race(1, car, start=61) if e["type"] in ("overtake", "slowdown")], [])
 
 
 if __name__ == "__main__":

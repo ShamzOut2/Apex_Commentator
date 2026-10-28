@@ -4,6 +4,7 @@ snapshot the overlay renders, and runs spectate / replay commands.
 
 import re
 import threading
+from dataclasses import replace
 import time
 
 from . import __version__
@@ -17,6 +18,15 @@ from .sources import (
     RPY_SRCH_NEXT_INCIDENT,
     RPY_SRCH_PREV_INCIDENT,
     RPY_SRCH_TO_END,
+    CAUTION_FLAGS,
+    FLAG_BLACK,
+    FLAG_BLUE,
+    FLAG_CHECKERED,
+    FLAG_DISQUALIFY,
+    FLAG_FURLED,
+    FLAG_GREEN,
+    FLAG_REPAIR,
+    FLAG_WHITE,
     STATE_RACING,
     TRK_NOT_IN_WORLD,
 )
@@ -27,6 +37,13 @@ SESSION_STATES = {
 }
 SURFACES = {-1: "not_in_world", 0: "off_track", 1: "pit_stall", 2: "approaching_pits", 3: "on_track"}
 DEFAULT_TRACK_M = 4000.0
+# Per-car flags, most important first: the first one shown is "the" flag.
+CAR_FLAGS = (
+    (FLAG_DISQUALIFY, "dq"), (FLAG_BLACK, "black"), (FLAG_REPAIR, "meatball"), (FLAG_FURLED, "warning"),
+    (FLAG_BLUE, "blue"), (CAUTION_FLAGS, "yellow"), (FLAG_CHECKERED, "checkered"), (FLAG_WHITE, "white"),
+    (FLAG_GREEN, "green"),
+)
+PENALTY_NAMES = {"dq": "DQ", "black": "Black flag", "meatball": "Meatball", "warning": "Warning"}
 
 
 class CommandError(Exception):
@@ -44,6 +61,14 @@ def parse_track_length(text):
 
 def _at(seq, i, default=None):
     return seq[i] if i < len(seq) else default
+
+
+def car_flags(bits):
+    """The flag shown to a car (most important first) and its penalties."""
+    bits = int(bits or 0)
+    names = [name for bit, name in CAR_FLAGS if bits & bit]
+    return {"flag": names[0] if names else None,
+            "penalties": [PENALTY_NAMES[n] for n in names if n in PENALTY_NAMES]}
 
 
 def _lap_time(value):
@@ -73,6 +98,8 @@ class App:
         self._grid_order = []      # car_idx in starting order
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
+        self._logged_until = {}    # session num -> race time logged so far
+        self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
         self.photobooth = None     # set by __main__ (needs the user data folder)
 
@@ -117,10 +144,28 @@ class App:
                 self._info_update = update
                 self.detector.update_incidents(frame, self._drivers)
             self._frame = frame
-            # Detect on live data only: replay playback would create duplicates.
-            if frame.is_live:
-                self.detector.update(frame, self._drivers, self._track_m, self._is_race(frame))
+            self._detect(frame)
         return True
+
+    def _detect(self, frame):
+        """Log events from whatever iRacing is showing, live or a replay.
+
+        Only race time not logged yet is processed: rewinding during a live
+        race doesn't log moments twice, while a saved replay played forward
+        logs normally. Events are stamped with that timeline, which is what
+        replay seeking uses.
+        """
+        num, t = frame.timeline()
+        logged = self._logged_until.get(num, -1.0)
+        if t < logged - 1e-3:
+            self.detection = "paused"  # watching something already logged
+            return
+        if t <= logged + 1e-3:
+            return  # no new race time (sim paused): nothing changes
+        timeline_frame = replace(frame, session_num=num, session_time=t)
+        self.detector.update(timeline_frame, self._drivers, self._track_m, self._is_race(timeline_frame))
+        self._logged_until[num] = t
+        self.detection = "live" if frame.is_live else "replay"
 
     # -- session info -------------------------------------------------------
 
@@ -190,9 +235,12 @@ class App:
             events = self.detector.events
             counts = {}
             last_event = {}
+            pit_stops = {}
             for ev in events:
                 counts[ev["car_idx"]] = counts.get(ev["car_idx"], 0) + 1
                 last_event[ev["car_idx"]] = ev["id"]
+                if ev["type"] == "pit_out":
+                    pit_stops[ev["car_idx"]] = pit_stops.get(ev["car_idx"], 0) + 1
             classes = {}
             active_league = self.leagues.active()
             rows = []
@@ -216,6 +264,8 @@ class App:
                     "last_lap": _lap_time(_at(frame.last_lap, idx)),
                     "best_lap": _lap_time(_at(frame.best_lap, idx)),
                     "event_count": counts.get(idx, 0),
+                    "pit_stops": pit_stops.get(idx, 0),
+                    **car_flags(_at(frame.car_flags, idx, 0) | (frame.session_flags & CAUTION_FLAGS)),
                     "last_event_id": last_event.get(idx),
                     "progress": (lap + pct) if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1,
                 })
@@ -227,6 +277,7 @@ class App:
                 if r["pos"] is not None:
                     in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
                     r["class_pos"] = in_class[r["class_key"]]
+            self._add_start_positions(rows, is_race)
             session = self._session(frame)
             snap = {
                 "connected": True,
@@ -250,13 +301,31 @@ class App:
                     "speed": frame.replay_speed,
                 },
                 "drivers": rows,
+                "detection": self.detection,
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
                 "photobooth": self.photobooth.status() if self.photobooth else None,
                 "classes": self._ordered_classes(classes),
-                "events": events[-100:],
+                "events": events[-200:],
                 "league": self._league_summary(),
             }
             return snap
+
+    def _add_start_positions(self, rows, is_race):
+        """Grid position (overall and in class) and places gained since, in races."""
+        by_idx = {r["car_idx"]: r for r in rows}
+        in_class = {}
+        for start, idx in enumerate(self._grid_order, start=1):
+            r = by_idx.get(idx)
+            if r is None:
+                continue
+            in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
+            r["start_pos"], r["class_start_pos"] = start, in_class[r["class_key"]]
+        for r in rows:
+            r.setdefault("start_pos", None)
+            r.setdefault("class_start_pos", None)
+            gained = is_race and r["pos"] and r["start_pos"]
+            r["pos_change"] = r["start_pos"] - r["pos"] if gained else None
+            r["class_pos_change"] = r["class_start_pos"] - r["class_pos"] if gained and r["class_pos"] else None
 
     @staticmethod
     def _assign_positions(rows, racing):

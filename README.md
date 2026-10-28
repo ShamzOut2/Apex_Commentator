@@ -4,26 +4,24 @@ A lightweight iRacing overlay suite for commentators. It runs a small local web
 app next to iRacing. Open it in a browser on a second monitor, or add it as an
 OBS dock.
 
-- **Live driver list**: positions (live order while racing), gaps, intervals,
-  last/best laps, incident points, and pit and off-track status. The car you are
-  watching is highlighted.
-- **League builder**: pull a league roster from iRacing by **League ID**, then
-  add nicknames, teams and notes that show next to each driver in the overlay.
-  Define **classes** with your own names, colours and logos. The driver list
-  groups by class under coloured headers, and each logo's background is
-  recoloured to match its class.
-- **Spectate controls**: watch any driver in one click, step to the car
-  ahead or behind, jump to the leader, iRacing's incident/exciting cameras, and
-  quick camera-group buttons (TV1, Chase, Cockpit…).
-- **Replays**: overtakes and incidents are detected for every car and
-  saved with their exact session time. One click replays a driver's latest
-  moment, or any moment from the event feed, and **Go live** takes you back.
+- **Timing screen**: one screen for the race. Live standings with overall
+  and class position, places gained or lost, gap and interval, flags and
+  penalties. **Battles** (cars within 0.15 s) flash in a colour you choose.
+  Click a driver to put the camera on them. A **race log** records
+  overtakes, offs, spins, places lost, pit stops, penalties and fastest laps:
+  pick a line and replay it from 5 to 30 seconds before. Camera buttons with
+  your own hotkeys sit along the top, and replay controls and **LIVE** along
+  the bottom.
+- **League builder**: pull a league roster from iRacing by **League ID**, from
+  the current session, or add drivers by hand. Add nicknames, teams, team
+  logos, notes and car and helmet photos. Define **classes** with your own
+  names, colours and logos.
 - **Grid walk**: an on-stream graphic that walks the starting grid two drivers
   at a time, with livery, helmet, name, team and team logo. It's shown as cars
   standing on the grid, on a grid map or as a head-to-head, and advances on a
-  timer you set.
+  timer you set. The **photo booth** photographs every car in iRacing for it.
 
-![layout: control bar, driver table with Watch / Replay / events per driver](docs/overview.png)
+![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.png)
 
 ## Install (Windows)
 
@@ -73,12 +71,39 @@ works on any OS, and `--mock-speed 5` speeds it up. Other options:
 - **OBS:** *Docks → Custom Browser Docks*, URL `http://localhost:8180`. The
   layout compacts itself for narrow docks.
 
-## Keyboard shortcuts
+## Timing screen
+
+- **Standings**: Pos (overall), Cls (position in class, underlined in the class
+  colour), **+/−** (places gained or lost since the start, within the class
+  when a class is picked), car number, driver and team, lap, gap to the
+  leader, interval to the car ahead, last and best lap, pit stops, flag
+  (yellow, blue, white, chequered), penalties (black flag, DQ, meatball,
+  warning) and incident points. **Click any driver** to put the camera on
+  them. The class chips show one class at a time, with gaps and places within
+  it.
+- **Battles**: a driver within the battle gap of the car ahead (0.15 s by
+  default) flashes along with that car, in the colour you pick. Both settings
+  sit above the standings.
+- **Race log**: everything that happens, newest first, filterable: overtakes,
+  off tracks, spins, incident points, places lost after an off, pit in/out
+  (with stop time and places lost), penalties and class fastest laps. **Click
+  a line**, then pick how far back to start the replay: −5 s, −10 s and so
+  on up to −30 s. The camera follows that driver. The line above the log shows
+  whether logging is running: it logs live races and saved replays you play,
+  and pauses while you rewind over something already logged.
+- **Cameras**: one button per iRacing camera, plus Ahead, Behind, Leader,
+  Exciting and Incident cam. *⌨ Hotkeys* sets a key for each camera; out of
+  the box, 1–9 are the first nine cameras.
+- **Replay bar**: rewind the car on camera by a set time (5 s steps), step
+  through iRacing's incident markers, pause, play, slow motion, and **LIVE**.
+
+### Keyboard shortcuts
 
 | Key | Action |
 | --- | --- |
+| `1`–`9` (or your own) | Camera hotkeys |
 | `L` | Back to live |
-| `R` | Instant replay (last 10 s) |
+| `R` | Rewind the car on camera (by the rewind setting) |
 | `↑` / `↓` | Watch the car ahead / behind |
 
 ## How replays work
@@ -227,10 +252,9 @@ A driver's class comes from:
    (e.g. `GT3`), or otherwise
 3. their iRacing car class as-is.
 
-In the **Drivers** tab, *Group by class* shows each class under its header,
-with positions, gaps and intervals within the class.
-
-![driver list grouped by class](docs/classes.png)
+On the **Timing** screen, each driver's class position is underlined and
+their car number edged in the class colour, and the class chips above the
+standings show one class at a time. Class logos head the grid walk cards.
 
 **Built-in logos.** The league's tier logos ship with the app as layered
 SVGs in `web/logos/`: PRO, SEMI-PRO, PRO-AM, AM, GOLD, SILVER and BRONZE.

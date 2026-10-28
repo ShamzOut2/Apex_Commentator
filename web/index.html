@@ -15,71 +15,126 @@
       <button id="update-badge" class="badge update" hidden title="A new version is available">Update available</button>
       <span id="league-badge" class="badge muted" title="Active league">No league</span>
       <span id="replay-badge" class="badge">—</span>
-      <button id="btn-live" class="btn primary" title="Back to live (L)">Go live</button>
     </div>
   </header>
 
-  <section class="controls" aria-label="Spectate controls">
-    <div class="group">
-      <span class="label">Camera</span>
-      <select id="camera-group" title="Camera group"></select>
-      <div id="camera-quick" class="chips"></div>
-    </div>
-    <div class="group">
-      <span class="label">Spectate</span>
-      <button class="btn" data-cmd="step_car" data-direction="-1" title="Car ahead (↑)">▲ Ahead</button>
-      <button class="btn" data-cmd="step_car" data-direction="1" title="Car behind (↓)">▼ Behind</button>
-      <button class="btn" data-cmd="watch_special" data-mode="leader">Leader</button>
-      <button class="btn" data-cmd="watch_special" data-mode="exciting" title="iRacing picks the most exciting car">Exciting</button>
-      <button class="btn" data-cmd="watch_special" data-mode="incident" title="iRacing incident camera">Incident cam</button>
-    </div>
-    <div class="group">
-      <span class="label">Replay</span>
-      <button class="btn" data-cmd="replay_seconds" data-seconds="10" title="Instant replay 10 s (R)">↺ 10s</button>
-      <button class="btn" data-cmd="replay_seconds" data-seconds="30">↺ 30s</button>
-      <button class="btn" data-cmd="replay_incident" data-direction="-1" title="Previous iRacing incident marker">◀ Inc</button>
-      <button class="btn" data-cmd="replay_incident" data-direction="1" title="Next iRacing incident marker">Inc ▶</button>
-      <button class="btn" data-cmd="replay_speed" data-speed="0" title="Pause">❚❚</button>
-      <button class="btn" data-cmd="replay_speed" data-speed="1" title="Play">▶</button>
-    </div>
-  </section>
-
   <nav class="tabs" role="tablist">
-    <button class="tab active" data-tab="drivers">Drivers <span id="driver-count" class="count"></span></button>
-    <button class="tab" data-tab="events">Events <span id="event-count" class="count"></span></button>
+    <button class="tab" data-tab="home">Home</button>
+    <button class="tab" data-tab="timing">Timing</button>
     <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
     <button class="tab" data-tab="league">League builder</button>
+    <button class="tab" data-tab="championship">Championship</button>
   </nav>
 
-  <main>
-    <section id="tab-drivers" class="panel active">
-      <div class="toolbar">
-        <label class="toggle"><input type="checkbox" id="group-classes" checked> Group by class</label>
+  <main id="main">
+    <section id="tab-home" class="panel">
+      <div class="home">
+        <h1 class="home-title">Apex Commentator <span id="home-version" class="count"></span></h1>
+        <p id="home-session" class="hint"></p>
+        <div class="tiles">
+          <button class="tile" data-goto="timing">
+            <span class="tile-icon">⏱</span><b>Timing</b>
+            <span class="tile-text">Live standings, battles, race log, replays and cameras.</span>
+            <span class="tile-status" id="tile-timing"></span>
+          </button>
+          <button class="tile" data-goto="gridwalk">
+            <span class="tile-icon">🏁</span><b>Grid walk</b>
+            <span class="tile-text">The starting grid on stream, two drivers at a time. Photo booth for car photos.</span>
+            <span class="tile-status" id="tile-gridwalk"></span>
+          </button>
+          <button class="tile" data-goto="league">
+            <span class="tile-icon">👥</span><b>League builder</b>
+            <span class="tile-text">Drivers, teams, classes and logos, from the League ID, the session, or by hand.</span>
+            <span class="tile-status" id="tile-league"></span>
+          </button>
+          <button class="tile" data-goto="championship">
+            <span class="tile-icon">🏆</span><b>Championship</b>
+            <span class="tile-text">Points and standings across the season.</span>
+            <span class="tile-status">Coming next</span>
+          </button>
+        </div>
+        <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>.</p>
       </div>
-      <table class="grid drivers">
-        <thead>
-          <tr>
-            <th class="c-pos">P</th><th class="c-num">#</th><th>Driver</th><th class="c-num">Lap</th>
-            <th class="c-time">Gap</th><th class="c-time col-wide">Int</th><th class="c-time col-wide">Last</th><th class="c-time col-wide">Best</th>
-            <th class="c-num" title="Incident points">Inc</th><th class="c-status"></th><th class="c-actions"></th>
-          </tr>
-        </thead>
-        <tbody id="driver-rows"></tbody>
-      </table>
-      <p id="drivers-empty" class="empty">No drivers yet. Start iRacing and join or spectate a session.</p>
     </section>
 
-    <section id="tab-events" class="panel">
-      <div class="toolbar">
-        <div class="chips" id="event-filter">
-          <button class="chip active" data-filter="all">All</button>
-          <button class="chip" data-filter="overtake">Overtakes</button>
-          <button class="chip" data-filter="incident">Incidents</button>
+    <section id="tab-timing" class="panel timing">
+      <div class="cam-bar" aria-label="Cameras">
+        <div class="group" id="cam-buttons"></div>
+        <div class="group">
+          <button class="btn" data-cmd="step_car" data-direction="-1" title="Car ahead (↑)">▲ Ahead</button>
+          <button class="btn" data-cmd="step_car" data-direction="1" title="Car behind (↓)">▼ Behind</button>
+          <button class="btn" data-cmd="watch_special" data-mode="leader">Leader</button>
+          <button class="btn" data-cmd="watch_special" data-mode="exciting" title="iRacing picks the most exciting car">Exciting</button>
+          <button class="btn" data-cmd="watch_special" data-mode="incident" title="iRacing's incident camera">Incident cam</button>
+          <button class="btn subtle" id="btn-hotkeys" title="Set a keyboard shortcut for each camera">⌨ Hotkeys</button>
         </div>
-        <button class="btn subtle" data-cmd="clear_events">Clear</button>
       </div>
-      <ul id="event-list" class="events"></ul>
-      <p id="events-empty" class="empty">Overtakes and incidents appear here as they happen.</p>
+
+      <div class="timing-body">
+        <div class="standings-pane">
+          <div class="toolbar">
+            <div class="chips" id="class-filter"></div>
+            <div class="battle-settings">
+              <label title="Highlight drivers this close to the car ahead">Battle ≤
+                <input type="number" id="battle-gap" min="0.05" max="3" step="0.05"> s</label>
+              <label title="Colour battles flash in">Colour <input type="color" id="battle-color"></label>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="grid standings">
+              <thead>
+                <tr>
+                  <th class="c-pos" title="Overall position">Pos</th><th class="c-pos" title="Position in class">Cls</th>
+                  <th class="c-chg" title="Places gained (+) or lost (−) since the start">+/−</th>
+                  <th class="c-num">#</th><th>Driver</th><th class="c-num">Lap</th>
+                  <th class="c-time" title="Gap to the leader">Gap</th><th class="c-time" title="Interval to the car ahead">Int</th>
+                  <th class="c-time col-wide">Last</th><th class="c-time col-wide">Best</th>
+                  <th class="c-num col-wide" title="Pit stops">Pit</th><th class="c-flag">Flag</th><th>Penalty</th>
+                  <th class="c-num" title="Incident points">Inc</th>
+                </tr>
+              </thead>
+              <tbody id="standings-rows"></tbody>
+            </table>
+            <p id="standings-empty" class="empty">No drivers yet. Start iRacing and join or spectate a session.</p>
+          </div>
+        </div>
+
+        <div class="log-pane">
+          <div class="toolbar">
+            <div class="chips" id="log-filter">
+              <button class="chip active" data-filter="all">All</button>
+              <button class="chip" data-filter="overtake">Overtakes</button>
+              <button class="chip" data-filter="incident">Incidents</button>
+              <button class="chip" data-filter="position">Places</button>
+              <button class="chip" data-filter="pit">Pits</button>
+              <button class="chip" data-filter="penalty">Penalties</button>
+              <button class="chip" data-filter="fastest_lap">Laps</button>
+            </div>
+            <button class="btn subtle" data-cmd="clear_events" title="Clear the race log">Clear</button>
+          </div>
+          <p id="log-status" class="log-status"></p>
+          <ul id="race-log" class="race-log"></ul>
+          <p id="log-empty" class="empty">Overtakes, incidents, pit stops and more appear here as they happen.</p>
+        </div>
+      </div>
+
+      <div class="media-bar" aria-label="Replay controls">
+        <div class="group">
+          <span class="label">Rewind</span>
+          <button class="btn icon" id="rewind-less" title="5 seconds less">−</button>
+          <span id="rewind-secs" class="rewind-secs">10s</span>
+          <button class="btn icon" id="rewind-more" title="5 seconds more">+</button>
+          <button class="btn" id="btn-rewind" title="Instant replay of the car on camera (R)">⏪ Rewind</button>
+        </div>
+        <div class="group">
+          <button class="btn" data-cmd="replay_incident" data-direction="-1" title="Previous iRacing incident marker">⏮ Incident</button>
+          <button class="btn" data-cmd="replay_speed" data-speed="0" title="Pause">❚❚</button>
+          <button class="btn" data-cmd="replay_speed" data-speed="1" title="Play">▶</button>
+          <button class="btn" data-cmd="replay_speed" data-speed="2" data-slow_motion="1" title="Slow motion">Slow-mo</button>
+          <button class="btn" data-cmd="replay_incident" data-direction="1" title="Next iRacing incident marker">Incident ⏭</button>
+        </div>
+        <button class="btn live-btn" id="btn-live" title="Back to live (L)">● LIVE</button>
+      </div>
     </section>
 
     <section id="tab-gridwalk" class="panel">
@@ -180,11 +235,35 @@
             <tbody id="roster-rows"></tbody>
           </table>
           </div>
-          <button id="btn-add-driver" class="btn subtle">+ Add driver</button>
+          <div class="row">
+            <button id="btn-add-driver" class="btn subtle">+ Add driver</button>
+            <button id="btn-import-session" class="btn subtle" title="Add the drivers in the current iRacing session to this league">⤓ Add drivers from session</button>
+          </div>
         </div>
       </div>
     </section>
+    <section id="tab-championship" class="panel">
+      <div class="home">
+        <h2>Championship</h2>
+        <p class="hint">Points and season standings are coming next. Tell us your points system (points per position,
+          bonus points for pole or fastest lap, dropped rounds) and it'll be built around it.</p>
+      </div>
+    </section>
   </main>
+
+  <div id="hotkey-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="hotkey-title">
+      <h2 id="hotkey-title">Camera hotkeys</h2>
+      <p class="hint">Click a camera, then press the key you want for it. <kbd>Backspace</kbd> clears it.
+        L, R and the arrow keys are taken (live, rewind, car ahead/behind).</p>
+      <div id="hotkey-list" class="hotkey-list"></div>
+      <p id="hotkey-prompt" class="hint"></p>
+      <div class="modal-actions">
+        <button class="btn subtle" id="hotkey-reset">Reset to 1–9</button>
+        <button class="btn primary" id="hotkey-done">Done</button>
+      </div>
+    </div>
+  </div>
 
   <div id="update-modal" class="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="update-title">

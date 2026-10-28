@@ -124,6 +124,13 @@ class Handler(BaseHTTPRequestHandler):
                 profile = self.app.leagues.set_active(body.get("id") or None)
                 self.app.publish()
                 return self._send_json({"ok": True, "active": profile["id"] if profile else None})
+            if path.startswith("/api/leagues/") and path.endswith("/import-session"):
+                drivers = self.app.build_snapshot().get("drivers") or []
+                if not drivers:
+                    return self._error("No drivers in the current session")
+                league, added = self.app.leagues.import_session(path.split("/")[3], drivers)
+                self.app.publish()
+                return self._send_json({"ok": True, "league": league, "added": added})
             if path == "/api/leagues/from-session":
                 drivers = self.app.build_snapshot().get("drivers") or []
                 if not drivers:

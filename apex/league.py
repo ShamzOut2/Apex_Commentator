@@ -649,3 +649,30 @@ class LeagueStore:
         drivers.append(entry)
         self.save(profile)
         return driver_key(entry)
+
+    def import_session(self, profile_id, session_drivers):
+        """Merge the session's drivers into a league: add new ones, fill blanks.
+
+        Commentator edits (nicknames, notes, classes, photos) are never touched.
+        Returns ``(profile, added)``.
+        """
+        profile = self.get(profile_id)
+        if profile is None:
+            raise LeagueError("Save the league first.")
+        drivers = profile.setdefault("drivers", [])
+        by_id = {d.get("cust_id"): d for d in drivers if d.get("cust_id") is not None}
+        by_name = {d.get("name", "").strip().lower(): d for d in drivers if d.get("cust_id") is None}
+        added = 0
+        for sd in session_drivers:
+            existing = by_id.get(sd.get("cust_id")) or by_name.get(sd.get("name", "").strip().lower())
+            if existing is None:
+                drivers.append({"cust_id": sd.get("cust_id"), "name": sd.get("name", ""),
+                                "car_number": sd.get("number", ""), "team": sd.get("team", "")})
+                added += 1
+                continue
+            if existing.get("cust_id") is None and sd.get("cust_id") is not None:
+                existing["cust_id"] = sd["cust_id"]
+            for field, value in (("car_number", sd.get("number", "")), ("team", sd.get("team", ""))):
+                if value and not existing.get(field):
+                    existing[field] = value
+        return self.save(profile), added
