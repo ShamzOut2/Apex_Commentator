@@ -353,3 +353,48 @@ function car34Svg(design, number) {
     </g>
   </svg>`;
 }
+
+// ---------------------------------------------------------------------------
+// broadcast pages
+// ---------------------------------------------------------------------------
+
+// Driver name in one of the overlay formats (see apex/overlays.py).
+function formatName(e, format) {
+  const full = String(e.name || "").trim();
+  const parts = full.split(/\s+/);
+  const first = parts.length > 1 ? parts[0] : "";
+  const last = parts.length > 1 ? parts.slice(1).join(" ") : full;
+  switch (format) {
+    case "initial_last": return first ? `${first[0]}. ${last}` : last;
+    case "last_initial": return first ? `${last} ${first[0]}.` : last;
+    case "last": return last;
+    case "first": return first || last;
+    case "abbrev": return last.replace(/[^\p{L}]/gu, "").slice(0, 3).toUpperCase();
+    case "nickname": return e.nickname || full;
+    default: return full;
+  }
+}
+
+// Fixed 1920x1080 stage, scaled to fit the browser source.
+function fitStage(stage) {
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
+  };
+  addEventListener("resize", fit);
+  fit();
+  if (new URLSearchParams(location.search).has("preview")) document.body.classList.add("preview");
+}
+
+// Follow the app's live snapshot; reload after an app update so OBS picks up
+// new graphics.
+function followSnapshots(onSnap) {
+  const stream = new EventSource("/api/stream");
+  let version = null;
+  stream.onmessage = (msg) => {
+    const snap = JSON.parse(msg.data);
+    if (version && snap.version && snap.version !== version) return location.reload();
+    version = version || snap.version;
+    onSnap(snap);
+  };
+}

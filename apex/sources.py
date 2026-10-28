@@ -176,7 +176,8 @@ class IRacingSource:
             update = self.ir.session_info_update
             if update != self._info_update:
                 info = {}
-                for key in ("WeekendInfo", "SessionInfo", "DriverInfo", "CameraInfo", "QualifyResultsInfo"):
+                for key in ("WeekendInfo", "SessionInfo", "DriverInfo", "CameraInfo", "QualifyResultsInfo",
+                            "SplitTimeInfo"):
                     try:
                         info[key] = self.ir[key] or {}
                     except Exception:
@@ -243,7 +244,11 @@ class MockSource:
     name = "mock"
     TRACK_LENGTH_KM = 4.2
 
-    def __init__(self, num_cars=18, seed=None, time_scale=1.0, clock=time.monotonic):
+    SECTOR_STARTS = (0.0, 0.32, 0.68)
+
+    def __init__(self, num_cars=18, seed=None, time_scale=1.0, clock=time.monotonic, session="race"):
+        # "race", or "qualify": cars leave the pits and do timed laps, no grid.
+        self.session_kind = session
         self.rng = random.Random(seed)
         self.clock = clock
         self.time_scale = time_scale
@@ -267,14 +272,16 @@ class MockSource:
         # Qualifying: base pace plus a little luck; the grid follows the lap times.
         self.qual_time = [round(self.base_lap[i] - 1.2 + self.rng.uniform(0, 1.5), 3) for i in range(n)]
         self.qual_order = sorted(range(n), key=lambda i: self.qual_time[i])
-        # Staggered grid in qualifying order.
+        # Staggered grid in qualifying order (a race), or spread out on an
+        # out lap from the pits (qualifying).
         self.progress = [0.0] * n
         for rank, i in enumerate(self.qual_order):
-            self.progress[i] = -(rank * 0.006)
+            self.progress[i] = -(rank * 0.006) if session == "race" else -0.95 + i * (0.9 / n)
         self.slow_until = [0.0] * n
         self.offtrack_until = [0.0] * n
         self.pit_until = [0.0] * n
         self.incidents = [0] * n
+        self.lap_noise = [[1.0] * len(self.SECTOR_STARTS) for _ in range(n)]
         self.black_flag = [False] * n
         self.served = [False] * n
         self.pending_incidents = []  # (apply_at, car_idx, points)
@@ -343,12 +350,17 @@ class MockSource:
         for i in range(self.num_cars):
             # Pace oscillates per car so cars trade places.
             pace = 1.0 + 0.02 * math.sin(t / 31.0 + self.phase[i])
+            # Each lap and sector is a little different, so there are PBs to beat.
+            sector = sum(1 for b in self.SECTOR_STARTS[1:] if self.progress[i] % 1.0 >= b)
+            pace *= self.lap_noise[i][sector]
             if t < self.slow_until[i]:
                 pace *= 0.15
             if t < self.pit_until[i]:
                 pace *= 0.35
             prev = self.progress[i]
             self.progress[i] += dt / self.base_lap[i] * pace
+            if self.session_kind == "qualify" and prev < 0 <= self.progress[i]:
+                self.lap_start[i] = t  # out lap done: the first flying lap starts
             if int(math.floor(self.progress[i])) > int(math.floor(prev)) and self.progress[i] >= 1:
                 lap_time = t - self.lap_start[i]
                 if self.lap_start[i] > 0:
@@ -356,6 +368,7 @@ class MockSource:
                     if self.best_lap[i] < 0 or lap_time < self.best_lap[i]:
                         self.best_lap[i] = lap_time
                 self.lap_start[i] = t
+                self.lap_noise[i] = [rng.uniform(0.985, 1.015) for _ in self.SECTOR_STARTS]
                 if self.black_flag[i] and not self.served[i]:
                     # Serve the drive-through.
                     self.pit_until[i] = t + 18
@@ -397,19 +410,26 @@ class MockSource:
             last_lap = [-1.0] * n
             best_lap = [-1.0] * n
             car_flags = [0] * n
-            order = sorted(range(self.num_cars), key=lambda i: -self.progress[i])
             position = [0] * n
             f2 = [0.0] * n
-            leader = self.progress[order[0]]
-            for rank, i in enumerate(order, start=1):
-                position[i + 1] = rank
-                f2[i + 1] = max(0.0, (leader - self.progress[i]) * 90.0)
+            if self.session_kind == "race":
+                order = sorted(range(self.num_cars), key=lambda i: -self.progress[i])
+                leader = self.progress[order[0]]
+                for rank, i in enumerate(order, start=1):
+                    position[i + 1] = rank
+                    f2[i + 1] = max(0.0, (leader - self.progress[i]) * 90.0)
+            else:
+                # Qualifying: ranked by best lap; no time, no position.
+                timed = sorted((i for i in range(self.num_cars) if self.best_lap[i] > 0), key=lambda i: self.best_lap[i])
+                for rank, i in enumerate(timed, start=1):
+                    position[i + 1] = rank
             for i in range(self.num_cars):
                 p = self.progress[i]
                 idx = i + 1
                 lap[idx] = max(0, int(math.floor(p)) + 1) if p >= 0 else 0
                 pct[idx] = p % 1.0
-                on_pit[idx] = t < self.pit_until[i]
+                # Qualifying starts with an out lap from the pit lane.
+                on_pit[idx] = t < self.pit_until[i] or (self.session_kind == "qualify" and p < -0.9)
                 if on_pit[idx]:
                     surface[idx] = TRK_APPROACHING_PITS
                 elif t < self.offtrack_until[i]:
@@ -452,12 +472,18 @@ class MockSource:
                 "SessionInfo": {"Sessions": [{
                     "SessionNum": 0, "SessionType": "Race", "SessionName": "RACE",
                     "SessionLaps": "30", "SessionTime": "unlimited",
+                } if self.session_kind == "race" else {
+                    "SessionNum": 0, "SessionType": "Open Qualify", "SessionName": "QUALIFY",
+                    "SessionLaps": "unlimited", "SessionTime": "1200.0000 sec",
                 }]},
+                "SplitTimeInfo": {"Sectors": [
+                    {"SectorNum": n, "SectorStartPct": pct} for n, pct in enumerate(self.SECTOR_STARTS)
+                ]},
                 "DriverInfo": {"DriverCarIdx": 1, "Drivers": [dict(d) for d in self.drivers]},
                 "QualifyResultsInfo": {"Results": [
                     {"Position": pos, "ClassPosition": pos, "CarIdx": i + 1, "FastestTime": self.qual_time[i]}
                     for pos, i in enumerate(self.qual_order)
-                ]},
+                ] if self.session_kind == "race" else []},
                 "CameraInfo": {"Groups": [
                     {"GroupNum": 1, "GroupName": "Nose"},
                     {"GroupNum": 2, "GroupName": "Gearbox"},

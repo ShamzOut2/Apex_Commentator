@@ -6,6 +6,21 @@ pop-up.
 
 ## Unreleased
 
+- **Standings overlay** for stream (`/standings.html`): a timing tower,
+  overall or by class, with team names, logos and colours. In qualifying it
+  stays empty until drivers set clean laps.
+- **Qualifying lap tracker** (`/laps.html`): a big tracker for the car on
+  camera, plus small ones (you choose how many) for other cars on a timed lap.
+  Sector bars turn purple, green or yellow against the driver's best or the
+  class best. The lap time and its gap to the driver's best show for 5 s after
+  the line. Name styles, car and driver numbers, and team names and logos are
+  all optional.
+- **Team builder** tab: teams with logos, short names and colours, and
+  driver assignments. The roster gains a *Driver #* column.
+- **Overlays** tab: OBS addresses, live previews and settings for the stream
+  overlays.
+- `--mock-session qualify` simulates a qualifying session.
+
 - **Main page and navigation**: Home, Timing, Grid walk, League builder and
   Championship pages, with a Home page of tiles showing each one's status.
 - **Timing screen** replaces the driver list and events tab. It has

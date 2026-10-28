@@ -101,6 +101,7 @@ function render() {
   lb.classList.toggle("muted", !league);
   renderGridwalk(s);
   renderHome(s);
+  renderOverlaySettings(s);
 
   if (!s.connected) {
     $("#session-line").textContent = s.source === "iracing" ? "Waiting for iRacing…" : "Not connected";
@@ -146,6 +147,7 @@ function showPage(name) {
   // The timing screen fills the window; the other pages scroll.
   $("#main").classList.toggle("fixed", name === "timing");
   if (name === "league") loadLeagues();
+  if (name === "teams") renderTeamsLeagues();
   try {
     localStorage.setItem(PAGE_KEY, name);
   } catch (e) { /* storage unavailable */ }
@@ -163,6 +165,8 @@ function renderHome(s) {
   $("#tile-timing").textContent = s.connected
     ? `${drivers} drivers · ${(s.events || []).length} logged${battles ? ` · ${battles} in battles` : ""}`
     : "Offline";
+  const league = s.league;
+  $("#tile-teams").textContent = league ? `${league.teams} teams in ${league.name}` : "No league active";
   const g = s.gridwalk || {};
   $("#tile-gridwalk").textContent = g.visible ? (g.running ? "● On air" : "❚❚ On air, paused") : `${(g.entries || []).length} on the grid`;
   $("#tile-league").textContent = s.league ? `Active: ${s.league.name}` : "No league active";
@@ -765,6 +769,88 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// overlay settings (kept by the app, so every OBS source follows them)
+// ---------------------------------------------------------------------------
+
+const NAME_FORMATS = [["full", "Full name"], ["initial_last", "A. Driver"], ["last_initial", "Driver A."],
+  ["last", "Last name"], ["first", "First name"], ["abbrev", "DRI (3 letters)"], ["nickname", "Nickname"]];
+
+// [key, label, kind, options]
+const OVERLAY_FIELDS = {
+  standings: [
+    ["visible", "On screen", "bool"],
+    ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
+    ["class_key", "Class", "class"],
+    ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
+    ["name_format", "Names", "select", NAME_FORMATS],
+    ["show_gap", "Gaps / times", "bool"],
+    ["show_number", "Car numbers", "bool"],
+    ["show_team", "Team names", "bool"],
+    ["show_logo", "Team logos", "bool"],
+  ],
+  laps: [
+    ["visible", "On screen", "bool"],
+    ["count", "Small trackers", "number", { min: 0, max: 12 }],
+    ["name_format", "Names", "select", NAME_FORMATS],
+    ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"]]],
+    ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
+    ["hide_s", "Hide finished lap after (s)", "number", { min: 0, max: 60, step: 0.5 }],
+    ["show_number", "Car numbers", "bool"],
+    ["show_driver_number", "Driver numbers", "bool"],
+    ["show_team", "Team names", "bool"],
+    ["show_logo", "Team logos", "bool"],
+    ["show_invalid", "Track invalid laps too", "bool"],
+    ["practice", "Also in practice", "bool"],
+  ],
+};
+
+let overlayFormKey = "";
+
+function renderOverlaySettings(s) {
+  const ov = s.overlays;
+  if (!ov) return;
+  $("#tile-overlays").textContent = ov.laps.active ? "Lap tracker live (qualifying)" : `${ov.standings.length} in the standings`;
+  // Don't redraw under the cursor; redraw when settings or classes change.
+  const key = JSON.stringify([ov.settings, (s.classes || []).map((c) => [c.key, c.name])]);
+  if (key === overlayFormKey || document.activeElement.closest(".ov-form")) return;
+  overlayFormKey = key;
+  for (const [overlay, fields] of Object.entries(OVERLAY_FIELDS)) {
+    const values = ov.settings[overlay];
+    $(`#ov-${overlay}`).innerHTML = fields.map(([k, label, kind, opts]) => {
+      const v = values[k];
+      const attrs = `data-key="${k}" data-kind="${kind}"`;
+      if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
+      if (kind === "number") {
+        return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
+      }
+      const options = kind === "class"
+        ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
+        : opts;
+      if (kind === "class" && values.mode !== "class") return "";
+      return `<label class="ov-field">${label}<select ${attrs}>${options.map(([ov2, l]) =>
+        `<option value="${esc(ov2)}" ${ov2 === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+    }).join("");
+  }
+}
+
+document.querySelectorAll(".ov-form").forEach((form) => form.addEventListener("change", (e) => {
+  const el = e.target;
+  if (!el.dataset.key) return;
+  const value = el.dataset.kind === "bool" ? el.checked : el.dataset.kind === "number" ? +el.value : el.value;
+  overlayFormKey = "";
+  el.blur();
+  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
+}));
+
+for (const page of ["standings", "laps"]) $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;
+document.addEventListener("click", (e) => {
+  const copy = e.target.closest("[data-copy]");
+  if (!copy) return;
+  const text = document.getElementById(copy.dataset.copy).textContent;
+  navigator.clipboard.writeText(text).then(() => toast("Copied"), () => toast(text));
+});
+
 $("#home-obs-url").textContent = `${location.origin}/gridwalk.html`;
 showPage((() => {
   try {
@@ -813,7 +899,7 @@ function openEditor(profile) {
   document.querySelectorAll("#league-list li").forEach((li) => li.classList.toggle("selected", li.dataset.league === profile.id));
 }
 
-const ROSTER_FIELDS = [["name", ""], ["cust_id", "c-id"], ["car_number", "c-num"], ["nickname", ""], ["team", ""], ["notes", ""]];
+const ROSTER_FIELDS = [["name", ""], ["cust_id", "c-id"], ["car_number", "c-num"], ["driver_number", "c-num"], ["nickname", ""], ["team", ""], ["notes", ""]];
 
 function renderRoster() {
   const drivers = ui.editing.drivers || [];
@@ -859,7 +945,9 @@ async function uploadImage(target, file) {
   return data.league;
 }
 
-// -- teams --------------------------------------------------------------------
+// -- team builder ---------------------------------------------------------------
+// Edits the same league as the League builder (ui.editing); a driver's team is
+// their roster Team field.
 
 function editorTeams() {
   const teams = (ui.editing.teams = ui.editing.teams || []);
@@ -868,40 +956,153 @@ function editorTeams() {
     const name = String(d.team || "").trim();
     if (name && !known.has(name.toLowerCase())) {
       known.add(name.toLowerCase());
-      teams.push({ name, logo: null });
+      teams.push({ name, short: "", color: "", logo: null });
     }
   }
   return teams;
 }
 
-function renderTeams() {
-  const teams = editorTeams();
-  $("#team-list").innerHTML = teams.length ? teams.map((t, i) => `<div class="team-row">
-      <span class="team-logo">${t.logo ? `<img src="${esc(logoSrc(t.logo))}" alt="">` : ""}</span>
-      <span class="team-name">${esc(t.name)}</span>
-      <label class="btn">${t.logo ? "Replace logo" : "Upload logo"}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-team="${i}" hidden></label>
-      ${t.logo ? `<button class="btn subtle" data-clear-team="${i}">Remove</button>` : ""}
-    </div>`).join("") : '<p class="hint">No teams yet: fill in the Team column below.</p>';
-}
+const sameTeam = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 
-$("#team-list").addEventListener("change", async (e) => {
-  const input = e.target.closest("[data-team]");
-  if (!input || !input.files.length) return;
-  const team = editorTeams()[+input.dataset.team];
+async function renderTeamsLeagues() {
   try {
-    await uploadImage(`team:${team.name}`, input.files[0]);
-    toast(`Logo added to ${team.name}`);
+    const { leagues } = await api("/api/leagues");
+    const current = ui.editing && ui.editing.id;
+    $("#teams-league").innerHTML = `<option value="">${leagues.length ? "Pick a league…" : "No saved leagues yet"}</option>` +
+      leagues.map((l) => `<option value="${esc(l.id)}" ${l.id === current ? "selected" : ""}>${esc(l.name)}${l.active ? " (active)" : ""}</option>`).join("");
+    if (!current) {
+      const active = leagues.find((l) => l.active);
+      if (active) return openLeague(active.id);
+    }
   } catch (err) {
     toast(err.message, true);
   }
+  renderTeams();
+}
+
+async function openLeague(id) {
+  const league = await api(`/api/leagues/${encodeURIComponent(id)}`);
+  openEditor(league);
+  $("#teams-league").value = league.id;
+}
+
+function renderTeams() {
+  const cards = $("#team-cards");
+  if (!ui.editing) {
+    cards.innerHTML = '<p class="hint">Pick a league above, or build one in the League builder first.</p>';
+    $("#team-free").innerHTML = "";
+    return;
+  }
+  const teams = editorTeams();
+  const drivers = ui.editing.drivers || [];
+  const label = (d) => `${d.car_number ? `#${esc(d.car_number)} ` : ""}${esc(d.name || "Unnamed")}`;
+  cards.innerHTML = teams.length ? teams.map((t, i) => {
+    const members = drivers.map((d, j) => [d, j]).filter(([d]) => sameTeam(d.team, t.name));
+    const others = drivers.map((d, j) => [d, j]).filter(([d]) => !sameTeam(d.team, t.name));
+    return `<div class="team-card" style="--team:${esc(t.color || "#3a4150")}">
+      <div class="team-card-head">
+        <label class="team-logo big" title="${t.logo ? "Replace logo" : "Upload logo"}">
+          ${t.logo ? `<img src="${esc(logoSrc(t.logo))}" alt="">` : "+ Logo"}
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-team-logo="${i}" hidden>
+        </label>
+        <div class="team-fields">
+          <input data-team="${i}" data-key="name" value="${esc(t.name)}" placeholder="Team name" aria-label="Team name">
+          <div class="row">
+            <input data-team="${i}" data-key="short" class="narrow" maxlength="8" value="${esc(t.short || "")}" placeholder="Short" aria-label="Short name">
+            <input type="color" data-team="${i}" data-key="color" value="${esc(t.color || "#3a4150")}" aria-label="Team colour" title="Team colour">
+            ${t.color ? `<button class="btn subtle" data-team-nocolor="${i}" title="Use the class colour instead">No colour</button>` : ""}
+            ${t.logo ? `<button class="btn subtle" data-team-nologo="${i}">Remove logo</button>` : ""}
+            <button class="btn icon danger" data-team-delete="${i}" title="Delete team">✕</button>
+          </div>
+        </div>
+      </div>
+      <div class="chips team-members">${members.map(([d, j]) => `<span class="chip">${label(d)}
+        <button class="clear" data-team-unassign="${j}" title="Take out of the team">✕</button></span>`).join("") || '<span class="hint">No drivers yet</span>'}</div>
+      <select data-team-add="${i}" aria-label="Add a driver to ${esc(t.name)}">
+        <option value="">+ Add driver…</option>
+        ${others.map(([d, j]) => `<option value="${j}">${label(d)}${d.team ? ` (${esc(d.team)})` : ""}</option>`).join("")}
+      </select>
+    </div>`;
+  }).join("") : '<p class="hint">No teams yet: add one, or fill in the Team column in the League builder roster.</p>';
+  const free = drivers.map((d, j) => [d, j]).filter(([d]) => !String(d.team || "").trim());
+  $("#team-free").innerHTML = free.length ? free.map(([d]) => `<span class="chip">${label(d)}</span>`).join("")
+    : '<span class="hint">Everyone is in a team.</span>';
+}
+
+$("#teams-league").addEventListener("change", (e) => {
+  if (e.target.value) openLeague(e.target.value).catch((err) => toast(err.message, true));
 });
 
-$("#team-list").addEventListener("click", (e) => {
-  const clear = e.target.closest("[data-clear-team]");
-  if (clear) {
-    editorTeams()[+clear.dataset.clearTeam].logo = null;
-    renderTeams();
+$("#btn-add-team").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  const teams = editorTeams();
+  let n = teams.length + 1;
+  while (teams.some((t) => sameTeam(t.name, `Team ${n}`))) n++;
+  teams.push({ name: `Team ${n}`, short: "", color: "", logo: null });
+  renderTeams();
+});
+
+$("#btn-save-teams").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  saveEditor().then(() => toast("Teams saved")).catch((err) => toast(err.message, true));
+});
+
+$("#team-cards").addEventListener("change", async (e) => {
+  const teams = editorTeams();
+  const el = e.target;
+  if (el.dataset.teamLogo != null) {
+    const team = teams[+el.dataset.teamLogo];
+    if (!el.files.length) return;
+    try {
+      await uploadImage(`team:${team.name}`, el.files[0]);
+      toast(`Logo added to ${team.name}`);
+    } catch (err) {
+      toast(err.message, true);
+    }
+    return;
   }
+  if (el.dataset.teamAdd != null) {
+    if (el.value !== "") ui.editing.drivers[+el.value].team = teams[+el.dataset.teamAdd].name;
+    renderTeams();
+    renderRoster();
+    return;
+  }
+  if (el.dataset.team == null) return;
+  const team = teams[+el.dataset.team];
+  const key = el.dataset.key;
+  if (key === "name") {
+    const name = el.value.trim();
+    if (!name || teams.some((t) => t !== team && sameTeam(t.name, name))) {
+      toast(name ? `There's already a team called ${name}` : "A team needs a name", true);
+      el.value = team.name;
+      return;
+    }
+    // Renaming moves the team's drivers with it.
+    for (const d of ui.editing.drivers || []) if (sameTeam(d.team, team.name)) d.team = name;
+    team.name = name;
+    renderRoster();
+  } else {
+    team[key] = el.value.trim();
+  }
+  renderTeams();
+});
+
+$("#team-cards").addEventListener("click", (e) => {
+  const teams = editorTeams();
+  const b = e.target.closest("button");
+  if (!b) return;
+  const d = b.dataset;
+  if (d.teamUnassign != null) ui.editing.drivers[+d.teamUnassign].team = "";
+  else if (d.teamNocolor != null) teams[+d.teamNocolor].color = "";
+  else if (d.teamNologo != null) teams[+d.teamNologo].logo = null;
+  else if (d.teamDelete != null) {
+    const team = teams[+d.teamDelete];
+    if (!confirm(`Delete ${team.name}? Its drivers stay in the league without a team.`)) return;
+    for (const dr of ui.editing.drivers || []) if (sameTeam(dr.team, team.name)) dr.team = "";
+    teams.splice(+d.teamDelete, 1);
+  } else return;
+  renderTeams();
+  renderRoster();
 });
 
 // -- classes ------------------------------------------------------------------
@@ -1128,7 +1329,7 @@ $("#btn-import-session").addEventListener("click", async () => {
 });
 
 $("#btn-add-driver").addEventListener("click", () => {
-  ui.editing.drivers.push({ name: "", cust_id: "", car_number: "", nickname: "", team: "", notes: "", class_id: "" });
+  ui.editing.drivers.push({ name: "", cust_id: "", car_number: "", driver_number: "", nickname: "", team: "", notes: "", class_id: "" });
   renderRoster();
   $("#roster-rows tr:last-child input").focus();
 });

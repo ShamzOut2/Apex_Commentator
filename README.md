@@ -20,6 +20,13 @@ OBS dock.
   at a time, with livery, helmet, name, team and team logo. It's shown as cars
   standing on the grid, on a grid map or as a head-to-head, and advances on a
   timer you set. The **photo booth** photographs every car in iRacing for it.
+- **Standings overlay**: a timing tower for stream, overall or by class. In
+  qualifying it starts empty and fills as drivers set clean laps.
+- **Qualifying lap tracker**: live sector bars (purple, green, yellow) and lap
+  clocks along the bottom of the stream. A big tracker shows the car on camera,
+  with the lap time and gap to the driver's best when the lap is done.
+- **Team builder**: teams with logos, short names and colours, and who drives
+  for whom. They show on every overlay.
 
 ![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.png)
 
@@ -61,7 +68,8 @@ in the project folder.
 `start-mock.bat` (or `python -m apex --mock`) runs a simulated race. It
 works on any OS, and `--mock-speed 5` speeds it up. Other options:
 `python -m apex --help` (`--port`, `--host`, `--no-window` to use the browser,
-`--config`).
+`--config`). `--mock-session qualify` simulates qualifying instead, for trying
+the lap tracker.
 
 ### Using it from another PC or in OBS
 
@@ -218,6 +226,58 @@ grid walk uses it straight away. 📷 on a driver's row retakes just that car.
 - Cars not loaded into the session can't be photographed. They keep their
   uploaded or drawn car. Untick *Cut out background* to keep the track behind
   the car. Raw shots are kept in `data\photobooth\raw`.
+
+## Stream overlays
+
+The **Overlays** tab has each overlay's address for OBS, a live preview and
+its settings. Add each one as a *Browser Source* at 1920×1080 (the background
+is transparent). Settings changed in the tab show on stream straight away and
+are kept in `data/overlays.json`.
+
+- **Standings** (`/standings.html`): in a race, the running order with the gap
+  to the leader. In qualifying and practice, it shows the fastest clean lap,
+  and drivers only appear once they have one, so it starts empty.
+  - *Overall* lists everyone (with class position in multiclass).
+  - *By class* gives each class its own block with its header and logo, or
+    shows just one class.
+  - Choose the name style, how many drivers, and whether to show car numbers,
+    team names and team logos.
+- **Lap tracker** (`/laps.html`): only in qualifying (practice too, if you
+  tick it).
+  - The car on camera gets the big tracker. Up to 12 small ones show other
+    cars on a timed lap, nearest the line first.
+  - Each sector bar fills as the car goes round and turns solid when the
+    sector is done:
+    - **purple**: faster than the reference;
+    - **green**: within 0.2 s of it (adjustable);
+    - **yellow**: slower.
+  - The reference is the driver's own best ("personal") or the fastest in
+    their class this session ("session").
+  - The driver's best lap is always shown. When a lap is done, its time
+    stays up with the gap to that best (green if faster, red if slower), then
+    the tracker goes after 5 s (adjustable).
+  - Laps aren't timed out of the pits. A lap is marked invalid if the car goes
+    off track or into the pits, and invalid laps never count as bests.
+  - Sector splits come from iRacing's sector points for the track. Lap times
+    use iRacing's own time when it reports one.
+
+![standings tower by class](docs/standings.png)
+
+![qualifying lap tracker: big tracker for the car on camera, small ones for the rest](docs/laps.png)
+
+## Team builder
+
+The **Teams** tab works on the same league as the League builder. For each
+team, set:
+- its name (renaming moves its drivers with it);
+- a short name, used where space is tight;
+- a colour (optional; the class colour is used otherwise);
+- its logo.
+
+Add drivers to a team from the drop-down, or take them out with ✕. The roster's
+*Team* column in the League builder is the same thing. **Save** saves the
+league. The roster also has a **Driver #** column, for leagues that give
+drivers their own number; the lap tracker can show it.
 
 ## League builder
 
@@ -398,6 +458,8 @@ apex/
   events.py    overtake / incident detection
   core.py      poll loop, snapshot, spectate & replay commands
   gridwalk.py  grid order and grid walk state
+  laps.py      lap and sector timing for the lap tracker and standings
+  overlays.py  stream overlay settings
   league.py    iRacing Data API client and league profiles
   server.py    stdlib HTTP server + Server-Sent Events
   updater.py   update checks and in-app updates from GitHub releases
@@ -406,6 +468,7 @@ apex/
 web/           the overlay UI (plain HTML/CSS/JS, no build step)
   index.html   control panel (app.js)
   gridwalk.html  grid walk broadcast graphic for OBS (gridwalk.js)
+  standings.html, laps.html  standings tower and qualifying lap tracker for OBS
   common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos
 packaging/     PyInstaller recipe (apex.spec) and Inno Setup installer script

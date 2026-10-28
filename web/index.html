@@ -23,6 +23,8 @@
     <button class="tab" data-tab="timing">Timing</button>
     <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
     <button class="tab" data-tab="league">League builder</button>
+    <button class="tab" data-tab="teams">Teams</button>
+    <button class="tab" data-tab="overlays">Overlays</button>
     <button class="tab" data-tab="championship">Championship</button>
   </nav>
 
@@ -47,13 +49,23 @@
             <span class="tile-text">Drivers, teams, classes and logos, from the League ID, the session, or by hand.</span>
             <span class="tile-status" id="tile-league"></span>
           </button>
+          <button class="tile" data-goto="teams">
+            <span class="tile-icon">🛡</span><b>Teams</b>
+            <span class="tile-text">Team names, short names, colours and logos, and who drives for whom.</span>
+            <span class="tile-status" id="tile-teams"></span>
+          </button>
+          <button class="tile" data-goto="overlays">
+            <span class="tile-icon">📺</span><b>Overlays</b>
+            <span class="tile-text">Standings tower and the qualifying lap tracker for OBS, with their settings.</span>
+            <span class="tile-status" id="tile-overlays"></span>
+          </button>
           <button class="tile" data-goto="championship">
             <span class="tile-icon">🏆</span><b>Championship</b>
             <span class="tile-text">Points and standings across the season.</span>
             <span class="tile-status">Coming next</span>
           </button>
         </div>
-        <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>.</p>
+        <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>; the other overlays are in the Overlays tab.</p>
       </div>
     </section>
 
@@ -225,13 +237,13 @@
           <div id="class-list" class="class-list"></div>
           <button id="btn-add-class" class="btn subtle">+ Add class</button>
           <h3 class="section-title">Teams</h3>
-          <p class="hint">Team logos show next to the team name in the grid walk. Teams are taken from the roster's Team column.</p>
-          <div id="team-list" class="team-list"></div>
+          <p class="hint">Team names, logos and colours, and which drivers are in each team, are set in the team builder. The roster's Team column is the same thing.</p>
+          <button class="btn subtle" data-goto="teams">Open the team builder</button>
           <h3 class="section-title">Drivers</h3>
           <p class="hint">Nicknames, teams and notes show next to drivers in the overlay. Drivers are matched by iRacing customer ID, or by car number when there is no ID.</p>
           <div class="roster-scroll">
           <table class="grid roster">
-            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num">#</th><th>Nickname</th><th>Team</th><th>Notes</th><th class="c-class">Class</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
+            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num" title="Car number">Car #</th><th class="c-num" title="Driver's own number, if the league uses one">Driver #</th><th>Nickname</th><th>Team</th><th>Notes</th><th class="c-class">Class</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
             <tbody id="roster-rows"></tbody>
           </table>
           </div>
@@ -242,6 +254,50 @@
         </div>
       </div>
     </section>
+    <section id="tab-teams" class="panel">
+      <div class="home">
+        <div class="row teams-head">
+          <h2>Teams</h2>
+          <label class="field">League <select id="teams-league" aria-label="League"></select></label>
+          <span class="grow"></span>
+          <button id="btn-add-team" class="btn subtle">+ Add team</button>
+          <button id="btn-save-teams" class="btn primary">Save</button>
+        </div>
+        <p class="hint">Teams show on the standings overlay, the lap tracker and the grid walk. The short name is used where
+          space is tight; the colour is optional (the driver's class colour is used without one). Changes are saved with
+          the league.</p>
+        <div id="team-cards" class="team-cards"></div>
+        <h3 class="section-title">Not in a team</h3>
+        <div id="team-free" class="chips"></div>
+      </div>
+    </section>
+
+    <section id="tab-overlays" class="panel">
+      <div class="home">
+        <h2>Overlays</h2>
+        <p class="hint">Add each one to OBS as a Browser Source at 1920×1080 (the background is transparent). Changes here
+          show on stream straight away.</p>
+        <div class="overlay-cards">
+          <div class="overlay-card">
+            <h3>Standings</h3>
+            <p class="hint">Race: running order and gap to the leader. Qualifying and practice: fastest clean lap, and the
+              tower stays empty until someone sets one.</p>
+            <p class="obs-url"><code id="url-standings"></code> <button class="btn subtle" data-copy="url-standings">Copy</button></p>
+            <div class="preview-frame"><iframe src="/standings.html?preview=1" title="Standings preview" loading="lazy"></iframe></div>
+            <div id="ov-standings" class="ov-form" data-overlay="standings"></div>
+          </div>
+          <div class="overlay-card">
+            <h3>Lap tracker <span class="count">qualifying</span></h3>
+            <p class="hint">One big tracker for the car on camera and small ones for the others on a timed lap. Sector bars
+              go purple (fastest), green (within the margin) or yellow; a finished lap stays up for a few seconds.</p>
+            <p class="obs-url"><code id="url-laps"></code> <button class="btn subtle" data-copy="url-laps">Copy</button></p>
+            <div class="preview-frame"><iframe src="/laps.html?preview=1" title="Lap tracker preview" loading="lazy"></iframe></div>
+            <div id="ov-laps" class="ov-form" data-overlay="laps"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="tab-championship" class="panel">
       <div class="home">
         <h2>Championship</h2>

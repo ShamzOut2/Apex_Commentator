@@ -50,7 +50,7 @@ class ProfileTests(unittest.TestCase):
             normalise_profile({"name": "X", "league_id": "abc"})
         p = normalise_profile({"name": "My League!", "drivers": [{"name": " A ", "cust_id": "12"}, {"name": ""}]})
         self.assertEqual(p["id"], "my-league")
-        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": "", "class_id": "", "car_image": "", "helmet_image": ""}])
+        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": "", "class_id": "", "car_image": "", "helmet_image": "", "driver_number": ""}])
 
     def test_normalise_classes(self):
         p = normalise_profile({"name": "L", "classes": [
@@ -203,7 +203,7 @@ class StoreTests(unittest.TestCase):
         junk = normalise_profile({"name": "L", "drivers": [{"name": "A", "car_image": "../../x.png"}],
                                   "teams": [{"name": "T", "logo": "../x.png"}, {"name": "t"}, {"name": ""}]})
         self.assertEqual(junk["drivers"][0]["car_image"], "")
-        self.assertEqual(junk["teams"], [{"name": "T", "logo": None}])
+        self.assertEqual(junk["teams"], [{"name": "T", "short": "", "color": "", "logo": None}])
 
     def test_import_session_merges_without_losing_edits(self):
         p = self.store.fetch(4242)

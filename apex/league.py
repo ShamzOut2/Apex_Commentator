@@ -61,7 +61,7 @@ UPLOADED_LOGO = re.compile(r"[a-z0-9-]+\.(png|jpg|webp|svg)")
 LIBRARY_LOGO = re.compile(r"lib:([a-z0-9-]+\.svg)")
 TOKEN_URL = "https://oauth.iracing.com/oauth2/token"
 DATA_URL = "https://members-ng.iracing.com/data"
-EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "car_image", "helmet_image")
+EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "car_image", "helmet_image", "driver_number")
 DRIVER_IMAGES = ("car_image", "helmet_image")
 # Distinct defaults handed to new classes, in order.
 CLASS_PALETTE = ["#e8463c", "#2f80ed", "#27ae60", "#f2c94c", "#9b51e0", "#f2994a", "#56ccf2", "#eb5ea8"]
@@ -394,7 +394,13 @@ def normalise_profile(profile):
             continue
         seen_teams.add(team_name.lower())
         logo = t.get("logo") or None
-        teams.append({"name": team_name, "logo": logo if logo and _valid_logo_ref(str(logo)) else None})
+        color = str(t.get("color") or "").strip()
+        teams.append({
+            "name": team_name,
+            "short": str(t.get("short") or "").strip()[:8],
+            "color": color if HEX_COLOR.fullmatch(color) else "",
+            "logo": logo if logo and _valid_logo_ref(str(logo)) else None,
+        })
     pid = str(profile.get("id") or (league_id if league_id is not None else _slug(name)))
     return {
         "id": _slug(pid) if league_id is None else str(pid),
@@ -622,15 +628,20 @@ class LeagueStore:
                     return c
         return None
 
-    def team_logo(self, team_name, profile=None):
-        """Logo reference for a team in a league (the active one by default)."""
+    def team(self, team_name, profile=None):
+        """A team in a league (the active one by default), or None."""
         profile = profile or self._active
         if not profile or not team_name:
             return None
         for t in profile.get("teams", []):
             if t["name"].lower() == team_name.strip().lower():
-                return t.get("logo")
+                return t
         return None
+
+    def team_logo(self, team_name, profile=None):
+        """Logo reference for a team in a league (the active one by default)."""
+        team = self.team(team_name, profile)
+        return team.get("logo") if team else None
 
     def ensure_driver(self, profile_id, cust_id, name, car_number):
         """Find (or add) a session driver in a league's roster; returns their driver key."""
