@@ -84,6 +84,8 @@ input:focus, select:focus, .btn:focus-visible { outline: 2px solid var(--accent)
 
 /* tabs */
 .tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+/* A popped-out page: no tabs, and no button to pop it out again. */
+body.popout .tabs, body.popout [data-popout] { display: none; }
 .tab {
   background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 12px;
   cursor: pointer; color: var(--muted);

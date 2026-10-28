@@ -18,6 +18,8 @@ ERROR_ALREADY_EXISTS = 183
 IS_WINDOWS = sys.platform == "win32"
 
 _mutex = None
+_main_window = None
+_popouts = {}  # page -> its pop-out window
 
 
 def log_to_file():
@@ -63,10 +65,14 @@ def run_window(url, title, close_event):
     """
     import webview
 
+    global _main_window
     try:
         window = webview.create_window(
             title, url, width=1440, height=900, min_size=(960, 600), background_color="#0f1115",
         )
+        _main_window = window
+        # Pop-outs close with the main window.
+        window.events.closed += _close_popouts
 
         def watch():
             close_event.wait()
@@ -78,4 +84,41 @@ def run_window(url, title, close_event):
     except Exception as e:  # e.g. WebView2 runtime missing
         print(f"[apex] couldn't open the app window: {e!r}")
         return False
+    finally:
+        _main_window = None
     return True
+
+
+def open_popout(key, url, title, width=1280, height=820):
+    """Open a page of the control panel in a window of its own (or bring its
+    pop-out back if it's already open). False when there's no app window, so
+    the page opens it as a browser window instead."""
+    if _main_window is None:
+        return False
+    import webview
+
+    window = _popouts.get(key)
+    if window is not None:
+        try:
+            window.restore()
+            window.show()
+            # No "focus" call in pywebview: briefly on top brings it forward.
+            window.on_top = True
+            window.on_top = False
+            return True
+        except Exception:
+            _popouts.pop(key, None)
+    window = webview.create_window(title, url, width=width, height=height, min_size=(480, 320),
+                                   background_color="#0f1115")
+    window.events.closed += lambda: _popouts.pop(key, None)
+    _popouts[key] = window
+    return True
+
+
+def _close_popouts():
+    for window in list(_popouts.values()):
+        try:
+            window.destroy()
+        except Exception:
+            pass
+    _popouts.clear()

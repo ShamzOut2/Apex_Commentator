@@ -86,6 +86,10 @@ trying championship imports.
 
 ## Timing screen
 
+**⧉ Pop out** (next to *Hotkeys*) opens the timing screen in a window of its
+own, without the tabs, so it can sit on another monitor while the main window
+shows something else. Camera hotkeys work in whichever window has focus.
+
 - **Standings**: Pos (overall), Cls (position in class, underlined in the class
   colour), **+/−** (places gained or lost since the start, within the class
   when a class is picked), car number, driver and team, lap, gap to the
@@ -331,7 +335,8 @@ drivers their own number; the lap tracker can show it.
 The **Boards** tab puts a full-screen board on stream with one click. Add
 `/board.html` to OBS as a *Browser Source* at 1920×1080. It's empty
 (transparent) until you put a board on screen, and **Take off screen** clears
-it. The buttons are built from the active league:
+it. **⧉ Pop out** opens the Boards tab in a window of its own. The buttons are
+built from the active league:
 
 - **Championship standings**: Overall, and one button per class (e.g. PRO,
   SEMI-PRO, AM): that championship's drivers with their points, the gap to

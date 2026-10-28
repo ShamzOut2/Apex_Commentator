@@ -143,6 +143,8 @@ function render() {
 // -- pages ----------------------------------------------------------------------
 
 const PAGE_KEY = "apex.page";
+// ?popout=timing: one page in a window of its own (the Pop out buttons), without the tabs.
+const POPOUT = new URLSearchParams(location.search).get("popout");
 
 // A nickname that's just the name without its "(P)" class tag says nothing new.
 function sameButClassTag(name, nickname) {
@@ -157,6 +159,7 @@ function showPage(name) {
   $("#main").classList.toggle("fixed", name === "timing");
   if (name === "league") loadLeagues();
   if (name === "teams" || name === "championship") renderLeaguePickers();
+  if (POPOUT) return;  // a pop-out doesn't change which page the main window opens on
   try {
     localStorage.setItem(PAGE_KEY, name);
   } catch (e) { /* storage unavailable */ }
@@ -1540,7 +1543,23 @@ document.addEventListener("click", (e) => {
 });
 
 $("#home-obs-url").textContent = `${location.origin}/gridwalk.html`;
-showPage((() => {
+
+// Pop out: the app opens the page in its own window; in a browser, a new browser window.
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-popout]");
+  if (!btn) return;
+  const page = btn.dataset.popout;
+  const r = await cmd("popout", { page });
+  if (!r || !r.opened) {
+    const w = window.open(`/?popout=${page}`, `apex-${page}`, "width=1280,height=820");
+    if (!w) toast("The browser blocked the pop-up window: allow pop-ups for this page.", true);
+  }
+});
+if (POPOUT) {
+  document.body.classList.add("popout");
+  document.title = `${POPOUT[0].toUpperCase()}${POPOUT.slice(1)} – Apex Commentator`;
+}
+showPage(POPOUT || (() => {
   try {
     return localStorage.getItem(PAGE_KEY) || "home";
   } catch (e) {

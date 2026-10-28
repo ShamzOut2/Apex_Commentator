@@ -166,6 +166,14 @@ class BoardTests(unittest.TestCase):
             self.assertEqual(len(snap["board_options"]["groups"]), 3)
             app.command("board_hide", {})
             self.assertIsNone(app.build_snapshot()["board"])
+            # Pop-outs: in the app window they open there; otherwise the page opens one itself.
+            self.assertEqual(app.command("popout", {"page": "boards"}), {"opened": False})
+            opened = []
+            app.popout = lambda page, name: opened.append((page, name)) or True
+            self.assertEqual(app.command("popout", {"page": "timing"}), {"opened": True})
+            self.assertEqual(opened, [("timing", "Timing")])
+            with self.assertRaises(CommandError):
+                app.command("popout", {"page": "league"})
 
     def test_round_keeps_calendar_fields(self):
         rd = ch.normalise({"rounds": [{"track": "Spa", "config": "Endurance", "time": "19:30", "length": "90 min"}]})["rounds"][0]

@@ -37,6 +37,9 @@ pop-up.
     choose the corner or edge, all together or one at a time, size, caption,
     panel and which sponsors.
 - **Team logos** are larger on the teams' championship board.
+- **Pop out** buttons on the Timing and Boards tabs open that page in a
+  window of its own, without the tabs, for a second monitor. In a browser it
+  opens a browser window instead.
 - **Class and overall championships ("both")**: each standings table says
   what it adds up (class positions or overall positions, with the points
   table). Teams now count their drivers' overall points by default; a new

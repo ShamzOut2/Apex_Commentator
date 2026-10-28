@@ -197,6 +197,7 @@ class App:
         self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
         self.photobooth = None     # set by __main__ (needs the user data folder)
+        self.popout = None         # set by __main__: popout(page) opens a page in its own app window
         self.laps = LapTracker()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
         self.settings = UserSettings()     # settings changed in the app (likewise)
@@ -849,12 +850,21 @@ class App:
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "board_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "board_", "popout")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
         self.publish()
         return result or {}
+
+    POPOUT_PAGES = {"timing": "Timing", "boards": "Boards"}
+
+    def cmd_popout(self, page):
+        """Open a control panel page in its own window. ``opened`` False: the
+        page opens a browser window itself (no app window, e.g. in a browser)."""
+        if page not in self.POPOUT_PAGES:
+            raise CommandError("That page can't be popped out.")
+        return {"opened": bool(self.popout and self.popout(page, self.POPOUT_PAGES[page]))}
 
     def cmd_watch(self, car_idx, group=None, camera=0):
         d = self._driver(car_idx)

@@ -149,6 +149,7 @@ def main(argv=None):
     title = f"Apex Commentator {__version__}" + (" (demo mode)" if args.mock else "")
     print(f"{title} running at {url}")
 
+    app.popout = lambda page, name: desktop.open_popout(page, f"{url}?popout={page}", f"{name} – {title}")
     try:
         opened = (not args.no_window and desktop.window_available()
                   and desktop.run_window(url, title, restart_requested))
