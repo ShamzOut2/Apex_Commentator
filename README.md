@@ -166,6 +166,34 @@ styles have a transparent background, so they sit over your game feed. The walk 
 preview in the tab, and any other copy all stay in step. Add `?preview=1` to
 the URL to view it on a backdrop in a normal browser.
 
+### Photo booth: real car photos from iRacing
+
+The **Photo booth** in the Grid walk tab takes each driver's car photo
+inside iRacing itself, so it shows their real livery, whether that's a
+Trading Paints paint or an iRacing paint-shop design. For every car loaded
+into the session, it points the chosen camera at the car, hides iRacing's
+on-screen panels, takes iRacing's screenshot, then puts your camera and panels
+back. Each shot is then **cut out** with an AI background-removal model (the
+open IS-Net model, about 170 MB, downloaded the first time you use it), cropped
+to the car, and saved as that driver's car photo in the active league. The
+grid walk uses it straight away. 📷 on a driver's row retakes just that car.
+
+- **Turn on screenshots in iRacing first**: *Settings → Interface → Camera &
+  Screen Capture → Video and Screen Capture*, then restart iRacing. The app
+  looks in `Documents\iRacing\screenshots`. If yours are saved elsewhere,
+  set `"screenshots_dir"` in `config.json`.
+- **When**: it takes over the camera for about 2 seconds per car, so run it
+  before you go live. The cut-outs are made afterwards, in the background.
+- **Cars spread out make better photos**: the cut-out keeps the car in the
+  middle of the shot and drops cars that merely touch it. A car that
+  overlaps another in the frame can't be separated, so practice and
+  qualifying, when cars are apart, are a better time than the grid. Try
+  cameras such as *Chase*, *Rear Chase* or a TV camera, and retake any that
+  come out wrong.
+- Cars not loaded into the session can't be photographed. They keep their
+  uploaded or drawn car. Untick *Cut out background* to keep the track behind
+  the car. Raw shots are kept in `data\photobooth\raw`.
+
 ## League builder
 
 Open the **League builder** tab.

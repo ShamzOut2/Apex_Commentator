@@ -631,3 +631,21 @@ class LeagueStore:
             if t["name"].lower() == team_name.strip().lower():
                 return t.get("logo")
         return None
+
+    def ensure_driver(self, profile_id, cust_id, name, car_number):
+        """Find (or add) a session driver in a league's roster; returns their driver key."""
+        with self._lock:
+            profile = self.get(profile_id)
+        if profile is None:
+            raise LeagueError("League not found.")
+        drivers = profile.setdefault("drivers", [])
+        for d in drivers:
+            if cust_id is not None and d.get("cust_id") == cust_id:
+                return driver_key(d)
+        for d in drivers:
+            if d.get("cust_id") is None and d.get("name", "").strip().lower() == name.strip().lower():
+                return driver_key(d)
+        entry = {"cust_id": cust_id, "name": name, "car_number": car_number}
+        drivers.append(entry)
+        self.save(profile)
+        return driver_key(entry)

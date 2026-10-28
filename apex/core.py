@@ -74,6 +74,7 @@ class App:
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
+        self.photobooth = None     # set by __main__ (needs the user data folder)
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -250,6 +251,7 @@ class App:
                 },
                 "drivers": rows,
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
+                "photobooth": self.photobooth.status() if self.photobooth else None,
                 "classes": self._ordered_classes(classes),
                 "events": events[-100:],
                 "league": self._league_summary(),
@@ -585,3 +587,28 @@ class App:
 
     def cmd_gridwalk_reset_order(self):
         self.gridwalk.reset_order()
+
+    # -- photo booth -------------------------------------------------------------
+
+    def cmd_photobooth_start(self, car_idx=None, group=None, cutout=True):
+        """Photograph one car (car_idx) or every loaded car, in grid order."""
+        from .photobooth import PhotoBoothError
+
+        if self.photobooth is None:
+            raise CommandError("The photo booth isn't available")
+        if car_idx not in (None, ""):
+            cars = [int(car_idx)]
+        else:
+            frame = self._frame
+            # Only cars loaded onto the track can be photographed.
+            cars = [i for i in self._grid_order
+                    if frame and _at(frame.surface, i, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD]
+        try:
+            self.photobooth.start(cars, self._group(group), use_cutout=bool(cutout))
+        except PhotoBoothError as e:
+            raise CommandError(str(e)) from e
+        return {"cars": len(cars)}
+
+    def cmd_photobooth_cancel(self):
+        if self.photobooth is not None:
+            self.photobooth.cancel()

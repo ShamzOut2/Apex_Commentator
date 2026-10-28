@@ -109,6 +109,23 @@
             <code id="gw-url"></code> <button class="btn subtle icon" id="gw-copy" title="Copy URL">Copy</button>.
             Grid map and Head to head have a transparent background.</p>
           <div class="gw-preview"><iframe id="gw-frame" title="Grid walk preview" src="gridwalk.html?preview=1"></iframe></div>
+          <div class="booth">
+            <h3 class="section-title">Photo booth</h3>
+            <p class="hint">Photographs each car loaded into the session in iRacing and uses it as the driver's car
+              photo in the grid walk, saved to the active league. Needs iRacing's <i>Video and Screen Capture</i>
+              setting on. It takes over the camera for about 2 seconds per car, so run it before you go live.</p>
+            <div class="gw-settings">
+              <label>Camera <select id="pb-camera"></select></label>
+              <label class="toggle" title="Remove the track behind the car (an AI model, about 170 MB downloaded the first time)">
+                <input type="checkbox" id="pb-cutout" checked> Cut out background</label>
+            </div>
+            <div class="gw-controls">
+              <button class="btn primary" id="pb-start">📷 Photograph the grid</button>
+              <button class="btn subtle" id="pb-cancel" hidden>Cancel</button>
+            </div>
+            <p id="pb-status" class="hint" aria-live="polite"></p>
+            <div id="pb-results" class="pb-results"></div>
+          </div>
         </div>
         <div class="gw-order">
           <div class="toolbar">

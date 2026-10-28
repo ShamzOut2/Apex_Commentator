@@ -4,6 +4,13 @@ Release notes for each version. When a version tag is pushed, its section
 here becomes the GitHub release notes, which the app shows in its update
 pop-up.
 
+## Unreleased
+
+- **Photo booth**: photographs every loaded car inside iRacing (camera on
+  the car, iRacing's panels hidden, iRacing's own screenshot), cuts the car out
+  of its background with an AI model, and saves it as the driver's car photo
+  for the grid walk. It shows real liveries, Trading Paints included.
+
 ## v0.2.0
 
 Apex Commentator is now a proper Windows program.

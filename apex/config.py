@@ -39,6 +39,10 @@ DEFAULTS = {
     "iracing_client_id": "",
     "iracing_client_secret": "",
     "leagues_dir": "data/leagues",
+    # Photo booth: where iRacing saves screenshots ("" = Documents\\iRacing\\screenshots)
+    # and how long to let the camera settle on each car before the shot.
+    "screenshots_dir": "",
+    "photobooth_settle_s": 1.6,
     # Updates: check GitHub for new releases and offer them in the app.
     "update_check": True,
     "update_repo": "ShamzOut2/Apex_Commentator",

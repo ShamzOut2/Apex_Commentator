@@ -10,12 +10,15 @@ import sys
 import time
 import urllib.request
 import webbrowser
+from pathlib import Path
 
 from . import __version__, desktop
 from .config import ROOT, load_config
 from .core import App
+from .cutout import Cutout
 from .league import IRacingDataClient, LeagueStore
-from .paths import APP_DIR, FROZEN
+from .paths import APP_DIR, FROZEN, iracing_screenshots_dir
+from .photobooth import PhotoBooth
 from .server import make_server, serve_in_thread
 from .updater import Updater, restart_options, restart_requested
 
@@ -45,6 +48,14 @@ def build_app(cfg, mock, mock_speed=1.0):
         cfg["iracing_client_id"], cfg["iracing_client_secret"],
     )
     app = App(source, cfg, LeagueStore(cfg["leagues_dir"], client))
+    if mock:
+        # The mock "iRacing" writes its screenshots here.
+        source.screenshots_dir = ROOT / "data" / "mock-screenshots"
+        shots = source.screenshots_dir
+    else:
+        shots = Path(cfg["screenshots_dir"]) if cfg["screenshots_dir"] else iracing_screenshots_dir()
+    app.photobooth = PhotoBooth(app, shots, ROOT / "data" / "photobooth", Cutout(ROOT / "data" / "models"),
+                                settle_s=float(cfg["photobooth_settle_s"]))
     app.updater = Updater(
         __version__, cfg["update_repo"], APP_DIR, ROOT / "data" / "update.json",
         token=cfg["github_token"], enabled=cfg["update_check"], installer_mode=FROZEN,
@@ -69,6 +80,10 @@ def smoke_test(cfg):
                 body = resp.read()
             if expect not in body:
                 raise AssertionError(f"{path} did not contain {expect!r}")
+        if FROZEN:
+            from .cutout import dependencies_available
+            if not dependencies_available():
+                raise AssertionError("photo booth cut-out libraries (onnxruntime, numpy, Pillow) aren't bundled")
         print(f"smoke test passed (v{__version__})")
         return 0
     except Exception as e:

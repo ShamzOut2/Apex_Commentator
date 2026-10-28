@@ -113,6 +113,7 @@ function render() {
   }
 
   renderCameraGroups(s.camera);
+  renderPhotobooth(s);
   renderDrivers(s);
   renderEvents(s);
 }
@@ -335,6 +336,7 @@ function renderGridwalk(s) {
       <td>${status}</td>
       <td><div class="actions">
         <button class="btn" data-gw-goto="${i}" title="Show this driver's pair now">Show</button>
+        <button class="btn icon" data-pb-car="${e.car_idx ?? ""}" ${e.in_world ? "" : "disabled"} title="${e.in_world ? "Take this car's photo in iRacing" : "Only cars loaded onto the track can be photographed"}">📷</button>
         <button class="btn icon" data-gw-move="${esc(e.key)}" data-dir="-1" ${i ? "" : "disabled"} title="Move up the grid">↑</button>
         <button class="btn icon" data-gw-move="${esc(e.key)}" data-dir="1" ${i < entries.length - 1 ? "" : "disabled"} title="Move down the grid">↓</button>
       </div></td>
@@ -354,6 +356,7 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
     return cmd(action, {});
   }
   if (btn.dataset.gwGoto != null) return cmd("gridwalk_goto", { index: +btn.dataset.gwGoto });
+  if (btn.dataset.pbCar) return startPhotobooth(+btn.dataset.pbCar);
   if (btn.dataset.gwMove) return cmd("gridwalk_move", { key: btn.dataset.gwMove, direction: +btn.dataset.dir });
   if (btn.id === "gw-reset-order") return cmd("gridwalk_reset_order", {}, "Grid order reset");
   if (btn.id === "gw-copy") {
@@ -366,6 +369,76 @@ $("#gw-style").addEventListener("change", (e) => cmd("gridwalk_settings", { styl
 $("#gw-loop").addEventListener("change", (e) => cmd("gridwalk_settings", { loop: e.target.checked }));
 $("#gw-absent").addEventListener("change", (e) => cmd("gridwalk_settings", { include_absent: e.target.checked }));
 $("#gw-url").textContent = `${location.origin}/gridwalk.html`;
+
+// ---------------------------------------------------------------------------
+// photo booth
+// ---------------------------------------------------------------------------
+
+const PB_CAMERA_KEY = "apex.photoboothCamera";
+let pbGroupsKey = "";
+let pbResultsKey = "";
+
+function renderPhotobooth(s) {
+  const pb = s.photobooth;
+  if (!pb) return;
+  // Camera choice: the groups iRacing offers, remembering the last pick.
+  const groups = s.camera.groups || [];
+  const key = groups.map((g) => g.num + g.name).join("|");
+  const sel = $("#pb-camera");
+  if (key !== pbGroupsKey) {
+    pbGroupsKey = key;
+    let saved = null;
+    try {
+      saved = localStorage.getItem(PB_CAMERA_KEY);
+    } catch (e) { /* storage unavailable */ }
+    // A camera looking at the car from the front-side suits the grid walk best.
+    const preferred = ["Rear Chase", "Chase", "TV1"].map((n) => groups.find((g) => g.name === n)).find(Boolean);
+    sel.innerHTML = groups.map((g) => `<option value="${g.num}">${esc(g.name)}</option>`).join("");
+    const pick = groups.find((g) => g.name === saved) || preferred;
+    if (pick) sel.value = String(pick.num);
+  }
+  const busy = ["downloading", "capturing", "processing"].includes(pb.state);
+  $("#pb-start").disabled = busy;
+  $("#pb-cancel").hidden = !busy;
+  $("#pb-cutout").disabled = busy || !pb.cutout_available;
+  if (!pb.cutout_available) $("#pb-cutout").checked = false;
+  const dl = pb.model_download || {};
+  const pct = dl.total ? Math.round((dl.done / dl.total) * 100) : 0;
+  const n = pb.total;
+  const status = {
+    idle: pb.model_ready || !pb.cutout_available ? "" : "The cut-out model downloads the first time you use it (about 170 MB).",
+    downloading: `Downloading the cut-out model (first time only): ${pct}%…`,
+    capturing: `Photographing ${pb.current || ""} (${pb.captured + 1}/${n})… leave iRacing's camera alone.`,
+    processing: `${pb.use_cutout ? "Cutting out" : "Saving"} ${pb.current || ""} (${pb.processed + 1}/${n})…`,
+    done: `Done: ${pb.results.filter((r) => r.state === "saved").length} of ${n} photos saved to the league.`,
+    cancelled: `Cancelled: ${pb.results.filter((r) => r.state === "saved").length} photos saved.`,
+    error: pb.error || "Something went wrong.",
+  }[pb.state] || "";
+  const el = $("#pb-status");
+  el.textContent = status;
+  el.classList.toggle("error-text", pb.state === "error");
+  const resultsKey = JSON.stringify(pb.results);
+  if (resultsKey === pbResultsKey) return;
+  pbResultsKey = resultsKey;
+  $("#pb-results").innerHTML = pb.results.map((r) => `<figure class="pb-shot ${r.state}" title="${esc(r.error || r.state)}">
+      <div class="pb-img">${r.image ? `<img src="${esc(r.image)}" alt="">` : `<span>${esc(r.state === "failed" ? "✕" : "…")}</span>`}</div>
+      <figcaption><span class="num">${esc(r.number)}</span> ${esc(r.name)}</figcaption>
+    </figure>`).join("");
+}
+
+function startPhotobooth(carIdx) {
+  const params = { group: +$("#pb-camera").value || undefined, cutout: $("#pb-cutout").checked };
+  if (carIdx != null) params.car_idx = carIdx;
+  return cmd("photobooth_start", params, (r) => `Photographing ${r.cars} car${r.cars === 1 ? "" : "s"}…`);
+}
+
+$("#pb-start").addEventListener("click", () => startPhotobooth(null));
+$("#pb-cancel").addEventListener("click", () => cmd("photobooth_cancel", {}, "Cancelling…"));
+$("#pb-camera").addEventListener("change", (e) => {
+  try {
+    localStorage.setItem(PB_CAMERA_KEY, e.target.selectedOptions[0].textContent);
+  } catch (err) { /* storage unavailable */ }
+});
 
 // ---------------------------------------------------------------------------
 // interactions

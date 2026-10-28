@@ -18,6 +18,8 @@
   "iracing_client_id": "",
   "iracing_client_secret": "",
   "leagues_dir": "data/leagues",
+  "screenshots_dir": "",
+  "photobooth_settle_s": 1.6,
   "update_check": true,
   "update_repo": "ShamzOut2/Apex_Commentator",
   "github_token": ""
