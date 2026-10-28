@@ -25,6 +25,14 @@ pop-up.
     the tracks seen in sessions.
 - **League builder**: a league logo, horizontal and vertical banners, and the
   league's own calendar image for the boards.
+- **Teams' championship board**: team colour stripe and logo, the drivers who
+  scored, points per round, wins, penalties, and the gap to the leader and to
+  the team ahead (all optional). The Boards tab always shows the Teams
+  button and explains when there's nothing to show yet.
+- **Class and overall championships ("both")**: each standings table says
+  what it adds up (class positions or overall positions, with the points
+  table). Teams now count their drivers' overall points by default; a new
+  rule switches them to class points.
 
 - **Standings header** shows laps or time left: "LAP 5 / 20", "FINAL LAP",
   "FINISHED" or "12:34 LEFT". Automatic follows how the session is limited,

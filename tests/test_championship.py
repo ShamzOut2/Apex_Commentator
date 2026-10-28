@@ -106,6 +106,32 @@ class ScoringTests(unittest.TestCase):
         self.assertIsNone(ch.live_round_for(champ, "123:2"))
         self.assertEqual(ch.live_round_for(champ, "999:2")["id"], "r2")
 
+    def test_both_adds_up_per_championship(self):
+        classes = [{"id": "pro", "name": "PRO"}, {"id": "am", "name": "AM"}]
+        drivers = [{"cust_id": i, "name": n, "team": t} for i, n, t in ((1, "A", "Red"), (2, "B", "Red"), (3, "C", "Blue"), (4, "D", "Blue"))]
+        rules = {"scoring": "both", "points": [10, 6, 4], "overall_points": [20, 15, 10, 5], "classified_pct": 0,
+                 "bonuses": {"fastest_lap": 1}}
+        rounds = [
+            {"id": "r1", "results": [res("cust:1", 1, "pro"), res("cust:3", 2, "am", fl=80), res("cust:2", 3, "pro"), res("cust:4", 4, "am")]},
+            {"id": "r2", "results": [res("cust:3", 1, "am"), res("cust:2", 2, "pro", fl=80), res("cust:4", 3, "am"), res("cust:1", 4, "pro")]},
+        ]
+        p = profile(rules, rounds, penalties=[{"driver": "cust:2", "points": 2}], classes=classes, drivers=drivers)
+        st = ch.standings(p)
+        tables = {g["name"]: {d["driver"]: ([s["points"] for s in d["rounds"]], d["points"]) for d in g["drivers"]}
+                  for g in st["groups"]}
+        # Overall positions: R1 A 20, C 15+1 (fastest), B 10, D 5; R2 C 20, B 15+1, D 10, A 5.
+        self.assertEqual(tables["Overall"], {"cust:3": ([16, 20], 36), "cust:1": ([20, 5], 25),
+                                             "cust:2": ([10, 16], 24), "cust:4": ([5, 10], 15)})
+        # Class positions: the fastest lap in each class gets the bonus there.
+        self.assertEqual(tables["PRO"], {"cust:1": ([10, 6], 16), "cust:2": ([6, 11], 15)})
+        self.assertEqual(tables["AM"], {"cust:3": ([11, 10], 21), "cust:4": ([6, 6], 12)})
+        self.assertIn("overall positions: 20, 15, 10, 5", st["groups"][0]["basis"])
+        self.assertIn("class positions: 10, 6, 4", st["groups"][1]["basis"])
+        # Teams take overall points by default (penalty off): Red 25 + 26 - 2, Blue 36 + 15.
+        self.assertEqual({t["team"]: t["points"] for t in st["teams"]}, {"Red": 49, "Blue": 51})
+        p["championship"]["rules"]["team_points"] = "class"
+        self.assertEqual({t["team"]: t["points"] for t in ch.standings(p)["teams"]}, {"Red": 31, "Blue": 33})
+
     def test_old_saves_without_new_rules_still_score(self):
         p = {"name": "Old", "drivers": [], "classes": [], "championship": {
             "rules": {"points": [5]}, "rounds": [{"id": "r1", "results": [res("a", 1)]}], "penalties": []}}

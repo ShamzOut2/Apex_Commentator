@@ -44,8 +44,13 @@ DEFAULTS = {
         "show_gap": True, "show_ahead": False,  # gap to the leader; gap to the driver ahead
         "show_wins": False, "show_penalty": False,
     },
-    "board_teams": {"banner": "none", "banner_id": "", "league_logo": True, "rows": 12, "show_logo": True,
-                    "show_gap": True},
+    "board_teams": {
+        "banner": "none", "banner_id": "", "league_logo": True,
+        "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
+        "show_logo": True, "show_color": True,  # team logo; team colour stripe
+        "show_drivers": True,  # the drivers who scored for the team, under its name
+        "show_gap": True, "show_ahead": False, "show_wins": False, "show_penalty": False,
+    },
     "board_makes": {"banner": "none", "banner_id": "", "league_logo": True, "rows": 12, "show_logo": True,
                     "show_gap": True, "show_wins": True},
     "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True,

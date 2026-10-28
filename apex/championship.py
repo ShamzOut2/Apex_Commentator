@@ -51,6 +51,7 @@ DEFAULT_RULES = {
     "classified_pct": 75,       # must complete this % of the class winner's laps to score, else DNF (0 = off)
     "dnf_scores": True,         # a DNF still scores the points for where it was classified
     "team_best": 0,             # team championship: best N drivers per team per round (0 = all)
+    "team_points": "overall",   # "both": teams score their drivers' "overall" or "class" points
 }
 
 
@@ -108,6 +109,7 @@ def normalise_rules(rules):
         "classified_pct": _num(rules.get("classified_pct", DEFAULT_RULES["classified_pct"]), 0, lo=0, hi=100),
         "dnf_scores": bool(rules.get("dnf_scores", True)),
         "team_best": _num(rules.get("team_best"), 0, lo=0, hi=20, cast=int),
+        "team_points": "class" if rules.get("team_points") == "class" else "overall",
     }
 
 
@@ -356,8 +358,12 @@ def standings(profile, live_round=None):
             name, order = cls["name"], list(classes).index(key)
         else:
             name, order = (key.replace("iracing:", "") or "No class"), 999
+        # What this table is scored on, so class and overall totals make sense side by side.
+        table = rules["overall_points"] if key == OVERALL and rules["overall_points"] else rules["points"]
+        basis = "overall positions" if key == OVERALL else "class positions"
         out_groups.append({"key": key, "name": name, "color": cls["color"] if cls else None,
-                           "drivers": members, "order": order})
+                           "drivers": members, "order": order,
+                           "basis": f"Scored on {basis}: {', '.join(str(p) for p in table[:6])}{'…' if len(table) > 6 else ''}"})
     out_groups.sort(key=lambda g: g["order"])
     return {
         "rounds": [{"id": rd["id"], "name": rd["name"], "track": rd["track"], "date": rd["date"],
@@ -405,31 +411,62 @@ def _key(d):
     return f"name:{str(d.get('name', '')).strip().lower()}"
 
 
+def _team_group(result, rules):
+    """Which of a result's points count for its team."""
+    if rules["scoring"] == "both":
+        return OVERALL if rules["team_points"] == "overall" else result["class_id"]
+    return _group_keys(result, rules)[0]
+
+
 def _team_standings(profile, scored, per_round, rules, penalties):
-    """Teams score their drivers' points: overall points when that's the only
-    championship, class points otherwise."""
-    team_of = {_key(d): d.get("team", "").strip() for d in profile.get("drivers", []) if d.get("team", "").strip()}
-    if not team_of:
+    """Teams score their drivers' points (with class and overall championships,
+    the overall points unless the rules say class).
+
+    Each team: its total, points per round, wins (its drivers' wins in the
+    championship it scores in) and what each driver brought in.
+    """
+    roster = {_key(d): d for d in profile.get("drivers", []) if d.get("team", "").strip()}
+    if not roster:
         return []
-    totals = {}
+    totals, rounds, wins, members = {}, {}, {}, {}
     for rd in scored:
         by_team = {}
         for r in rd["results"]:
-            team = team_of.get(r["driver"])
-            res = per_round[rd["id"]].get(_group_keys(r, rules)[0], {}).get(r["driver"])
-            if team and res:
-                by_team.setdefault(team, []).append(res["total"])
-        for team, pts in by_team.items():
-            pts.sort(reverse=True)
-            if rules["team_best"]:
-                pts = pts[:rules["team_best"]]
-            totals[team] = totals.get(team, 0) + sum(pts)
+            d = roster.get(r["driver"])
+            res = per_round[rd["id"]].get(_team_group(r, rules), {}).get(r["driver"])
+            if d and res:
+                by_team.setdefault(d["team"].strip(), []).append((res["total"], r["driver"], res["rank"]))
+        for team, entries in by_team.items():
+            entries.sort(key=lambda e: -e[0])
+            counted = entries[:rules["team_best"]] if rules["team_best"] else entries
+            pts = _round(sum(e[0] for e in counted))
+            totals[team] = totals.get(team, 0) + pts
+            rounds.setdefault(team, {})[rd["id"]] = pts
+            wins[team] = wins.get(team, 0) + sum(1 for e in entries if e[2] == 1)
+            for total, driver, _ in counted:
+                m = members.setdefault(team, {})
+                m[driver] = m.get(driver, 0) + total
+    pens = {}
     for d, p in penalties.items():
-        if team_of.get(d) in totals:
-            totals[team_of[d]] -= p
-    ranked = sorted(totals.items(), key=lambda kv: -kv[1])
+        team = roster[d]["team"].strip() if d in roster else None
+        if team in totals:
+            totals[team] -= p
+            pens[team] = pens.get(team, 0) + p
+            members[team][d] = members[team].get(d, 0) - p
+    ranked = sorted(totals.items(), key=lambda kv: (-kv[1], -wins.get(kv[0], 0), kv[0].lower()))
     lead = ranked[0][1] if ranked else 0
-    return [{"pos": i, "team": t, "points": _round(p), "behind": _round(lead - p)} for i, (t, p) in enumerate(ranked, start=1)]
+    out = []
+    for i, (team, pts) in enumerate(ranked, start=1):
+        drivers = sorted(members.get(team, {}).items(), key=lambda kv: -kv[1])
+        out.append({
+            "pos": i, "team": team, "points": _round(pts), "behind": _round(lead - pts),
+            "ahead": _round(ranked[i - 2][1] - pts) if i > 1 else None,
+            "wins": wins.get(team, 0), "penalty_points": _round(pens.get(team, 0)),
+            "rounds": [{"round": rd["id"], "points": rounds.get(team, {}).get(rd["id"])} for rd in scored],
+            "drivers": [{"driver": d, "name": roster[d].get("name", ""), "nickname": roster[d].get("nickname", ""),
+                         "points": _round(p)} for d, p in drivers],
+        })
+    return out
 
 
 def projection(profile, live_round):

@@ -40,6 +40,10 @@
 .make { display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 5px; height: 1.6em; width: 3.4em; vertical-align: -.4em; padding: 2px 4px; }
 .make img { max-height: 100%; max-width: 100%; object-fit: contain; }
 .make-name { margin-left: 8px; }
+.team-cell { display: inline-flex; align-items: center; max-width: 100%; vertical-align: middle; }
+.team-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.team-stripe { flex: none; width: 6px; height: 1.3em; border-radius: 3px; margin-right: 12px; }
+.btable td.team-drivers { font-size: calc(var(--row-font, 22px) * .78); }
 .btable .rd { text-align: center; color: var(--muted); }
 .btable .rd.dropped { text-decoration: line-through; opacity: .5; }
 .btable .up { color: var(--green); } .btable .down { color: var(--red); }

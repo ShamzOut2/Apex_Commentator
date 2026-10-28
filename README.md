@@ -370,7 +370,11 @@ standings update from what's saved.
     - *Both*: every result scores twice and the points are kept apart. Class
       positions score in the class championship, and overall positions in
       the Overall championship. The overall championship can have its own
-      points table.
+      points table. Bonuses and penalty points apply in both, and each
+      standings table shows what it's scored on.
+      Example (class points 10, 6, 4; overall 20, 15, 10, 5): a PRO driver
+      who finishes 3rd overall and 2nd in PRO scores 10 towards Overall and
+      6 towards PRO.
   - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
   - The fastest-lap bonus can be limited to the top N finishers.
@@ -379,7 +383,8 @@ standings update from what's saved.
     points or bonuses. 0 turns it off.
   - Whether DNFs score for where they're classified.
   - **Team championship**: count every driver, or each team's best N per
-    round.
+    round. With *Both*, teams count their drivers' overall points, or class
+    points if you choose.
   - **Bonus points**: pole, fastest lap, led a lap, each lap led, most laps
     led, most places gained, clean race (no incidents), finished, started, and
     race win. Use 0 for bonuses you don't award; negative values take points

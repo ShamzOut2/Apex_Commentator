@@ -109,6 +109,17 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(rows[0]["winners"][0]["group_name"], "Overall")
         self.assertEqual(rows[0]["winners"][0]["name"], "Driver 1")
 
+    def test_teams_board(self):
+        settings = overlay_settings({"board_teams": {"rounds": 2, "show_ahead": True}})
+        b = boards.build(league(teams=[{"name": "Red", "color": "#ff0000"}]), {"kind": "teams", "params": {}}, settings)
+        # Overall points (10, 6, 4, 3): Red = drivers 1 and 3, Blue = 2 and 4.
+        self.assertEqual([(r["team"], r["points"], r["behind"], r["ahead"], r["wins"]) for r in b["rows"]],
+                         [("Red", 16, 0, None, 1), ("Blue", 7, 9, 9, 0)])
+        self.assertEqual(b["rows"][0]["drivers"], ["Driver 1", "Driver 3"])  # stream names, best scorer first
+        self.assertEqual(b["rows"][0]["color"], "#ff0000")
+        self.assertEqual((b["round_names"], b["rows"][0]["rounds"]), (["R1"], [16]))
+        self.assertTrue(boards.options(league())["has_teams"])
+
     def test_options_and_banner(self):
         opts = boards.options(league())
         self.assertEqual([g["name"] for g in opts["groups"]], ["Overall", "PRO", "AM"])

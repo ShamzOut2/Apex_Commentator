@@ -39,9 +39,14 @@ function columns(b) {
     add(s.show_ahead, "To ahead", "140px", "r muted", (r) => (r.ahead != null ? `−${fmtPts(r.ahead)}` : ""));
   } else if (b.kind === "teams") {
     add(true, "Pos", "70px", "p r", (r) => r.pos);
-    add(true, "Team", "auto", "", (r) => `${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}${esc(r.team)}`);
-    add(true, "Pts", "120px", "r pts", (r) => fmtPts(r.points));
-    add(s.show_gap, "Gap", "120px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
+    add(true, "Team", "auto", "", (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(r.color)}"></span>` : ""}${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
+    add(s.show_drivers, "Drivers", "auto", "muted team-drivers", (r) => esc(r.drivers.join(" · ")));
+    b.round_names.forEach((name, i) => add(true, name, "70px", "rd", (r) => (r.rounds[i] == null ? "–" : fmtPts(r.rounds[i]))));
+    add(s.show_wins, "Wins", "80px", "r muted", (r) => r.wins || "");
+    add(s.show_penalty, "Pen", "80px", "r down", (r) => (r.penalty_points ? `−${fmtPts(r.penalty_points)}` : ""));
+    add(true, "Pts", "110px", "r pts", (r) => fmtPts(r.points));
+    add(s.show_gap, s.show_ahead ? "To leader" : "Gap", s.show_ahead ? "140px" : "110px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
+    add(s.show_ahead, "To ahead", "140px", "r muted", (r) => (r.ahead != null ? `−${fmtPts(r.ahead)}` : ""));
   } else if (b.kind === "makes") {
     add(true, "Pos", "70px", "p r", (r) => r.pos);
     add(true, "Manufacturer", "auto", "", (r) => (s.show_logo ? makeChip({ name: r.make, logo: r.make_logo, withName: true }) : esc(r.make)));

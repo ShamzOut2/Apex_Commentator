@@ -36,7 +36,8 @@ def options(league):
         name, color, _ = _group_info(league, g["key"])
         groups.append({"key": g["key"], "name": name, "color": color})
     rounds = [{"id": r["id"], "name": r["name"], "track": r["track"], "scored": r["scored"]} for r in table["rounds"]]
-    return {"groups": groups, "rounds": rounds, "teams": bool(table["teams"])}
+    return {"groups": groups, "rounds": rounds, "teams": bool(table["teams"]),
+            "has_teams": any(d.get("team") for d in league.get("drivers", []))}
 
 
 def _person(league, name, nickname):
@@ -108,7 +109,18 @@ def build(league, board, settings, live_results=None):
         out["rows"] = rows
     elif kind == "teams":
         table = championship.standings(league)
-        out["rows"] = [dict(t, team_logo=team_logos.get(t["team"].lower())) for t in table["teams"][:cfg["rows"]]]
+        info = {t["name"].lower(): t for t in league.get("teams", [])}
+        rounds = [r for r in table["rounds"] if r["scored"]]
+        last = rounds[-cfg["rounds"]:] if cfg["rounds"] else []
+        out["round_names"] = [f"R{rounds.index(r) + 1}" for r in last]
+        rows = []
+        for t in table["teams"][:cfg["rows"]]:
+            team = info.get(t["team"].lower(), {})
+            per = {s["round"]: s["points"] for s in t["rounds"]}
+            rows.append(dict(t, team_logo=team_logos.get(t["team"].lower()), color=team.get("color") or None,
+                             drivers=[_person(league, d["name"], d["nickname"]) for d in t["drivers"]],
+                             rounds=[per.get(r["id"]) for r in last]))
+        out["rows"] = rows
     elif kind == "makes":
         out["rows"] = [dict(m, make_logo=make_logo(m["make"])) for m in championship.make_standings(league, group)[:cfg["rows"]]]
     elif kind == "calendar":

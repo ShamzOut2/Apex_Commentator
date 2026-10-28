@@ -897,8 +897,13 @@ function renderChampStandings() {
   const head = rounds.map((r, i) => `<th class="c-rd" title="${esc([r.name, r.track, r.date].filter(Boolean).join(" · "))}${r.multiplier !== 1 ? ` (×${r.multiplier})` : ""}">R${i + 1}</th>`).join("");
   const anyLicence = st.groups.some((g) => g.drivers.some((d) => d.licence_points));
   const anyPen = st.groups.some((g) => g.drivers.some((d) => d.penalty_points));
-  box.innerHTML = st.groups.map((g) => `<div class="champ-group">
-      ${g.key || st.groups.length > 1 ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}</div>` : ""}
+  // Class and overall championships: each table says which points it adds up.
+  const rules = (ui.editing && champData().rules) || {};
+  const both = rules.scoring === "both";
+  const teamPen = st.teams.some((t) => t.penalty_points);
+  const teamBasis = both ? ` <span class="hint">${(rules.team_points || "overall") === "class" ? "Drivers' class points" : "Drivers' overall points"}</span>` : "";
+  box.innerHTML = (both ? '<p class="hint">Class and overall are separate championships: each driver scores in their class (on class positions) and overall (on overall positions), and each table adds up its own points. Bonuses and penalties apply in both.</p>' : "") + st.groups.map((g) => `<div class="champ-group">
+      ${g.key || st.groups.length > 1 ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}${both ? ` <span class="hint">${esc(g.basis)}</span>` : ""}</div>` : ""}
       <div class="table-scroll"><table class="grid champ-table standings-table">
         <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Team</th>${head}${anyPen ? '<th class="c-num" title="Penalty points taken off">Pen</th>' : ""}${anyLicence ? '<th class="c-num" title="Licence points">Lic</th>' : ""}<th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
         <tbody>${g.drivers.map((d) => `<tr>
@@ -918,9 +923,14 @@ function renderChampStandings() {
         </tr>`).join("")}</tbody>
       </table></div>
     </div>`).join("") + (st.teams.length ? `<div class="champ-group">
-      <div class="champ-group-head">Teams</div>
-      <table class="grid champ-table"><thead><tr><th class="c-num">Pos</th><th>Team</th><th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
-      <tbody>${st.teams.map((t) => `<tr><td class="c-num"><b>${t.pos}</b></td><td>${esc(t.team)}</td><td class="c-num"><b>${fmtPts(t.points)}</b></td><td class="c-num sub">${t.behind ? `−${fmtPts(t.behind)}` : ""}</td></tr>`).join("")}</tbody></table>
+      <div class="champ-group-head">Teams${teamBasis}</div>
+      <div class="table-scroll"><table class="grid champ-table"><thead><tr><th class="c-num">Pos</th><th>Team</th><th>Drivers</th>${head}<th class="c-num">Wins</th>${teamPen ? '<th class="c-num" title="Penalty points taken off">Pen</th>' : ""}<th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
+      <tbody>${st.teams.map((t) => `<tr><td class="c-num"><b>${t.pos}</b></td><td>${esc(t.team)}</td>
+        <td class="sub">${t.drivers.map((d) => `${esc(d.name)} (${fmtPts(d.points)})`).join(", ")}</td>
+        ${rounds.map((r) => { const x = t.rounds.find((y) => y.round === r.id); return `<td class="c-rd">${x && x.points != null ? fmtPts(x.points) : "–"}</td>`; }).join("")}
+        <td class="c-num sub">${t.wins || ""}</td>
+        ${teamPen ? `<td class="c-num bad">${t.penalty_points ? `−${fmtPts(t.penalty_points)}` : ""}</td>` : ""}
+        <td class="c-num"><b>${fmtPts(t.points)}</b></td><td class="c-num sub">${t.behind ? `−${fmtPts(t.behind)}` : ""}</td></tr>`).join("")}</tbody></table></div>
     </div>` : "");
 }
 
@@ -1109,6 +1119,9 @@ function renderChampRules() {
       <input type="number" min="0" max="100" data-rule="classified_pct" value="${r.classified_pct ?? 75}"></label>
     <label class="ov-field">Team championship: best N drivers per team each round (0 = all)
       <input type="number" min="0" max="20" data-rule="team_best" value="${r.team_best || 0}"></label>
+    ${r.scoring === "both" ? `<label class="ov-field">Team championship counts its drivers'
+      <select data-rule="team_points">${[["overall", "Overall points"], ["class", "Class points"]].map(([v, l]) =>
+        `<option value="${v}" ${(r.team_points || "overall") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
     <label class="ov-field check"><input type="checkbox" data-rule="dnf_scores" ${r.dnf_scores !== false ? "checked" : ""}> DNFs score the points for where they're classified</label>
     <h3 class="section-title wide">Bonus points <span class="hint">(0 = not used; negative numbers take points off)</span></h3>
     ${champ.bonuses.map(([k, label]) => `<label class="ov-field">${esc(label)}
@@ -1365,7 +1378,10 @@ const BOARD_FIELDS = {
     ["show_make", "Car badges", "bool"], ["show_gap", "Points gap to the leader", "bool"],
     ["show_ahead", "Points gap to the driver ahead", "bool"], ["show_wins", "Wins", "bool"],
     ["show_penalty", "Penalty points", "bool"]],
-  board_teams: [["rows", "Teams shown", "number", { min: 1, max: 64 }], ["show_logo", "Team logos", "bool"], ["show_gap", "Gap to the leader", "bool"]],
+  board_teams: [["rows", "Teams shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
+    ["show_logo", "Team logos", "bool"], ["show_color", "Team colour stripe", "bool"], ["show_drivers", "Drivers who scored", "bool"],
+    ["show_gap", "Points gap to the leader", "bool"], ["show_ahead", "Points gap to the team ahead", "bool"],
+    ["show_wins", "Wins", "bool"], ["show_penalty", "Penalty points", "bool"]],
   board_makes: [["rows", "Manufacturers shown", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
     ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"]],
   board_calendar: [["style", "Show", "select", [["cards", "The calendar built from the rounds"], ["image", "The league's own calendar image"]]],
@@ -1405,7 +1421,8 @@ function renderBoards(s) {
     $("#board-buttons").innerHTML = !s.league ? '<p class="hint">Activate a league (League builder) to use boards.</p>' : `
       <div class="board-group"><h4>Championship standings</h4>${groups.length ? groups.map((g) => boardButton(g.name, "championship", g.key, g.color)).join("")
         : '<span class="hint">No results yet.</span>'}</div>
-      ${opts.teams ? `<div class="board-group"><h4>Teams</h4>${boardButton("Teams' championship", "teams")}</div>` : ""}
+      <div class="board-group"><h4>Teams</h4>${opts.teams ? boardButton("Teams' championship", "teams")
+        : `<span class="hint">${opts.has_teams ? "No team points yet." : "Give drivers a team in the League builder (Teams tab) for a teams' championship."}</span>`}</div>
       <div class="board-group"><h4>Manufacturers</h4>${groups.map((g) => boardButton(g.name, "makes", g.key, g.color)).join("") || '<span class="hint">No results yet.</span>'}</div>
       <div class="board-group"><h4>Season</h4>${boardButton("Season calendar", "calendar")}</div>
       <div class="board-group"><h4>Finishing order</h4>
