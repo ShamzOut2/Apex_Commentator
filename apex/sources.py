@@ -305,6 +305,7 @@ class MockSource:
         self.slow_until = [0.0] * n
         self.offtrack_until = [0.0] * n
         self.spin_at = [None] * n   # when the car's current moment is a spin
+        self.moment_at = [None] * n  # when the car's current moment (off / spin) began
         self.pit_until = [0.0] * n
         self.incidents = [0] * n
         self.lap_noise = [[1.0] * len(self.SECTOR_STARTS) for _ in range(n)]
@@ -409,10 +410,8 @@ class MockSource:
             # Each lap and sector is a little different, so there are PBs to beat.
             sector = sum(1 for b in self.SECTOR_STARTS[1:] if self.progress[i] % 1.0 >= b)
             pace *= self.lap_noise[i][sector]
-            if t < self.slow_until[i]:
-                pace *= 0.15
-                if self.spin_at[i] is not None and 0.3 <= t - self.spin_at[i] < 1.3:
-                    pace = -0.12  # turned round: sliding backwards
+            if self.moment_at[i] is not None:
+                pace *= self._moment_pace(i, t)
             if t < self.pit_until[i]:
                 pace *= 0.35
             prev = self.progress[i]
@@ -450,6 +449,7 @@ class MockSource:
             if t > 15 and t > self.slow_until[i] + 10 and rng.random() < dt / 420.0:
                 self.offtrack_until[i] = t + 2.5
                 self.slow_until[i] = t + 3.0
+                self.moment_at[i] = t
                 self.spin_at[i] = t if rng.random() < 0.5 else None  # half of them spin
                 points = rng.choice([1, 2, 4])
                 # Incident points reach session info a few seconds later, like the sim.
@@ -469,6 +469,25 @@ class MockSource:
             self.replay_time += dt * self.replay_speed
             if self.replay_time >= t:
                 self.replay_time = None
+
+    def _moment_pace(self, i, t):
+        """Speed factor through an off / spin: slows like a real car (no instant
+        changes), half of them turning round and sliding backwards, then
+        pulls away again."""
+        x = t - self.moment_at[i]
+
+        def ramp(a, b, x0, x1):
+            return a + (b - a) * min(1.0, max(0.0, (x - x0) / (x1 - x0)))
+
+        if x >= 7.0:
+            self.moment_at[i] = None
+            return 1.0
+        if x >= 3.0:
+            return ramp(0.15, 1.0, 3.0, 7.0)
+        if self.spin_at[i] is not None:
+            # Scrubbing off speed sideways, then rolling backwards for a moment.
+            return ramp(1.0, -0.1, 0.0, 2.6) if x < 2.6 else ramp(-0.1, 0.15, 2.6, 3.0)
+        return ramp(1.0, 0.15, 0.0, 2.5)
 
     def read(self):
         with self._lock:

@@ -371,11 +371,11 @@ function renderStandings(s) {
 // -- race log -------------------------------------------------------------------
 
 const LOG_LABELS = {
-  overtake: "PASS", offtrack: "OFF", slowdown: "SLOW", spin: "SPIN", incident: "INC", pit_in: "PIT", pit_out: "PIT",
+  overtake: "PASS", offtrack: "OFF", slowdown: "SLOW", spin: "SPIN", contact: "CONTACT", incident: "INC", pit_in: "PIT", pit_out: "PIT",
   position: "LOST", penalty: "PEN", fastest_lap: "FAST",
 };
 const LOG_GROUPS = {
-  incident: ["offtrack", "slowdown", "spin", "incident"], pit: ["pit_in", "pit_out"],
+  incident: ["contact", "offtrack", "slowdown", "spin", "incident"], pit: ["pit_in", "pit_out"],
 };
 const PREROLL_CHOICES = [5, 10, 15, 20, 25, 30];
 
@@ -393,6 +393,10 @@ function eventText(ev) {
       return `${who} ${ev.spin ? "spins off track" : "off track"}${pts}`;
     case "slowdown":
       return `${who} slows ${ev.from_kph}→${ev.speed_kph} km/h${pts}`;
+    case "contact": {
+      const theirs = ev.other_incidents ? ` <b>${ev.other_incidents}x</b>` : "";
+      return `${who}${pts} and ${car(ev.other_car_number, ev.other_driver)}${theirs} make contact`;
+    }
     case "spin":
       return `${who} spins (${ev.from_kph}→${ev.speed_kph} km/h)${pts}`;
     case "pit_in":

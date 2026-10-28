@@ -136,6 +136,7 @@ spectate. It records:
 | **Off track** | A car's track surface changes to off track. |
 | **Slowdown** (SLOW) | A car's speed collapses relative to its recent pace *and* it's well under the usual speed at that point of the track, so braking hard for a hairpin doesn't count. The app learns each corner's usual speed from the cars going through it. Ignored on pit road and under caution. |
 | **Spin** (SPIN) | A slowdown or off track where the car also rotates sharply within 0.2 s. iRacing only sends a car's heading for the car driven on this PC, so for that car it's the heading turning 45°+ in 0.2 s. For every car, it's the steering snapping 180°+ of opposite lock in 0.2 s, or the car travelling backwards along the track (it has turned round). Without any of these, the moment stays a slowdown or off track. |
+| **Contact** (CONTACT) | Two cars touching. iRacing doesn't report contact between other cars, so the app looks for two signs. First, a car closing fast on the one just ahead (within a few metres) that suddenly stops closing within 0.12 s: the jolt of a hit, quicker than any braking. Second, a driver getting 4x (iRacing's car-contact incident) while another car was right next to them. That car is named, and the other driver's 4x goes on the same entry. |
 | **Incident points** | When iRacing reports more incident points for a driver, they are attached to that driver's off/slowdown from the last 15 s, or logged as their own incident. |
 
 Pressing **Replay** pauses playback, seeks the replay tape to the event's
@@ -669,6 +670,7 @@ defaults:
 | `spin_window_s` | `0.2` | The rotation that makes a spin must happen within this many seconds |
 | `spin_yaw_deg` | `45` | Heading change in that window that counts (car driven on this PC only) |
 | `spin_steer_deg` | `180` | Steering-wheel snap in that window that counts (every car) |
+| `contact_jolt_kph` | `20` | Contact: how fast a car must be closing before suddenly stopping closing |
 | `poll_hz` | `30` | Telemetry samples per second (spin detection needs 20 or more) |
 | `event_cooldown_s` | `8` | Minimum gap between incidents logged for the same car |
 | `gridwalk_interval_s` | `8` | Grid walk: seconds each pair stays on screen |

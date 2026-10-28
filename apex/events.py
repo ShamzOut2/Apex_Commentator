@@ -19,9 +19,18 @@ it works for spectators and commentators, not just the driver in the car:
   (turned round). Without those it stays a slowdown.
 * Off tracks and slowdowns share a per-car cooldown, so one moment (a spin
   that leaves the track) is one event rather than two.
+* **Contact** between cars. iRacing doesn't report it for other cars, so two
+  signs are used:
+  - the jolt of an impact: a car closing on the one just ahead (within a
+    few metres) at ``contact_jolt_kph`` or more, which within 0.2 s suddenly
+    isn't closing any more: their speeds evened out or they pushed apart.
+    It has to happen within ``CONTACT_WINDOW_S`` (0.12 s), far quicker than
+    braking can manage;
+  - a driver getting 4x (iRacing's car contact incident) while another car
+    was right next to them in the seconds before.
 * **Incident points** - when session info reports a higher incident count for
-  a driver, the points are attached to that car's off track/slowdown from the
-  last few seconds, or recorded as a stand-alone incident.
+  a driver, the points are attached to that car's contact/off track/slowdown
+  from the last few seconds, or recorded as a stand-alone incident.
 * **Pit stops** (races) - pit in, and pit out with the stop time and the
   places it cost.
 * **Places lost after an off** (races) - once the car has been back on track
@@ -60,6 +69,12 @@ SPEED_BIN_MIN_SAMPLES = 8  # samples in a piece before its usual speed counts
 SPIN_BACKWARDS_M = 3.0     # this far backwards along the track: the car has turned round
 SPIN_MATCH_S = 3.0         # rotation this close to a slowdown / off track makes it a spin
 HISTORY_S = 1.5
+CONTACT_RANGE_M = 6.0      # cars this close along the track can be touching
+NEAR_RANGE_M = 12.0        # "right next to": who a 4x car contact was with
+NEAR_KEEP_S = 15.0         # how far back to look for that (session info lags)
+CONTACT_POINTS = 4         # iRacing's incident points for car contact
+CONTACT_COOLDOWN_S = 5.0
+CONTACT_WINDOW_S = 0.12    # an impact's jolt is this quick: braking would need ~5 g to match it
 PENALTY_FLAGS = (
     (FLAG_DISQUALIFY, "Disqualified"),
     (FLAG_BLACK, "Black flag"),
@@ -86,6 +101,7 @@ class EventDetector:
         self.spin_window_s = float(cfg.get("spin_window_s", 0.2))
         self.spin_yaw = math.radians(float(cfg.get("spin_yaw_deg", 45.0)))
         self.spin_steer = math.radians(float(cfg.get("spin_steer_deg", 180.0)))
+        self.contact_jolt = float(cfg.get("contact_jolt_kph", 20.0)) / 3.6
         self.cooldown_s = float(cfg.get("event_cooldown_s", 8.0))
         self.max_events = int(cfg.get("max_events", 300))
         self._ids = itertools.count(1)
@@ -105,6 +121,9 @@ class EventDetector:
         self._history = {}        # car -> deque of (time, metres moved, steer, yaw)
         self._rotated = {}        # car -> (time, how) of its last sharp rotation
         self._moment = {}         # car -> its last off track / slowdown event, to upgrade to a spin
+        self._near = {}           # car -> deque of (time, other car, metres apart) while cars are close
+        self._closing = {}        # (car behind, car ahead) -> deque of (time, closing speed m/s)
+        self._contact_at = {}     # pair -> time of its last contact
         self._prev_surface = {}
         self._last_kind_time = {}
         self._session_num = None
@@ -182,6 +201,7 @@ class EventDetector:
         caution = bool(frame.session_flags & CAUTION_FLAGS)
         created = []
         created += self._detect_surface_and_speed(frame, drivers, track_length_m, dt, caution)
+        created += self._detect_contact(frame, drivers, track_length_m)
         racing = is_race and frame.session_state == STATE_RACING
         created += self._detect_race_events(frame, drivers, is_race, racing)
         created += self._detect_fastest_laps(frame, drivers)
@@ -254,6 +274,91 @@ class EventDetector:
         self._speed_fast.pop(idx, None)
         self._speed_base.pop(idx, None)
         self._history.pop(idx, None)
+
+    # -- contact -------------------------------------------------------------
+
+    def _speed(self, idx, now, span=0.1):
+        """A car's speed over the last ``span`` seconds (m/s) from its history, or None."""
+        hist = self._history.get(idx)
+        if not hist or len(hist) < 2:
+            return None
+        moved, start = 0.0, None
+        for t, m, _, _ in reversed(hist):
+            if now - t > span + 1e-6:
+                break
+            moved += m
+            start = t
+        prev = [t for t, _, _, _ in hist if t < (start if start is not None else now)]
+        if start is None or not prev:
+            return None
+        return moved / (now - prev[-1]) if now > prev[-1] else None
+
+    def _detect_contact(self, frame, drivers, track_length_m):
+        created = []
+        now = frame.session_time
+        cars = []
+        for idx in drivers:
+            pct = _at(frame.pct, idx, -1.0)
+            if pct is None or pct < 0 or _at(frame.surface, idx, TRK_NOT_IN_WORLD) == TRK_NOT_IN_WORLD \
+                    or _at(frame.on_pit, idx, False):
+                continue
+            cars.append((pct * track_length_m, idx))
+        cars.sort()
+        close = []
+        for i, (m, idx) in enumerate(cars):
+            # Neighbours further round the track (wrapping at the line).
+            for j in range(i + 1, i + len(cars)):
+                m2, other = cars[j % len(cars)]
+                apart = (m2 - m) % track_length_m
+                if apart > NEAR_RANGE_M:
+                    break
+                close.append((apart, idx, other))  # idx is behind other
+        for apart, behind, ahead in close:
+            for a, b in ((behind, ahead), (ahead, behind)):
+                near = self._near.setdefault(a, deque())
+                near.append((now, b, apart))
+            if apart > CONTACT_RANGE_M:
+                continue
+            vb, va = self._speed(behind, now), self._speed(ahead, now)
+            if vb is None or va is None:
+                continue
+            closing = self._closing.setdefault((behind, ahead), deque())
+            closing.append((now, vb - va))
+            while closing and now - closing[0][0] > CONTACT_WINDOW_S + 1e-6:
+                closing.popleft()
+            # The jolt of an impact: the car behind was closing fast and, within
+            # the window, suddenly isn't (speeds evened out or pushed apart).
+            # A leader braking makes the closing speed rise instead.
+            was = max(c for _, c in closing)
+            now_closing = closing[-1][1]
+            if was >= self.contact_jolt and now_closing <= 0.25 * was:
+                pair = frozenset((behind, ahead))
+                last = self._contact_at.get(pair)
+                if last is None or now - last >= CONTACT_COOLDOWN_S:
+                    self._contact_at[pair] = now
+                    created.append(self._emit("contact", behind, frame, drivers, other=ahead, other_incidents=0))
+                closing.clear()
+        for near in self._near.values():
+            while near and now - near[0][0] > NEAR_KEEP_S:
+                near.popleft()
+        live = {(b, a) for _, b, a in close}
+        for pair in [p for p in self._closing if p not in live]:
+            del self._closing[pair]
+        return created
+
+    def _contact_for_points(self, idx, frame, drivers):
+        """A 4x for ``idx``: (the contact it belongs to, whether it's new), or (None, False) if no car was near."""
+        now = frame.session_time
+        for ev in reversed(self.events):
+            if now - ev["session_time"] > INCIDENT_MATCH_WINDOW_S:
+                break
+            if ev["type"] == "contact" and idx in (ev["car_idx"], ev.get("other_car_idx")):
+                return ev, False
+        near = [x for x in self._near.get(idx, ()) if now - x[0] <= NEAR_KEEP_S]
+        if not near:
+            return None, False
+        when, other, _ = min(near, key=lambda x: x[2])
+        return self._emit("contact", idx, frame, drivers, when=when, other=other, other_incidents=0), True
 
     # -- spins ----------------------------------------------------------------
 
@@ -457,6 +562,13 @@ class EventDetector:
             if prev is None or count <= prev:
                 continue
             points = count - prev
+            if points >= CONTACT_POINTS:
+                contact, new = self._contact_for_points(idx, frame, drivers)
+                if contact is not None:
+                    contact["incidents" if contact["car_idx"] == idx else "other_incidents"] += points
+                    if new:
+                        created.append(contact)
+                    continue
             recent = None
             for ev in reversed(self.events):
                 if now - ev["session_time"] > INCIDENT_MATCH_WINDOW_S:

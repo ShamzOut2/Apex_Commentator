@@ -172,6 +172,67 @@ class IncidentTests(unittest.TestCase):
         slow = [0.0] * 60 + [math.radians(min(60, 2 * k)) for k in range(1, 41)]  # 60 deg over 1.5 s: a corner
         self.assertEqual([e["type"] for e in self.drive(speeds, yaw=slow)], ["slowdown"])
 
+    def two_cars(self, speeds, dt=1 / 30, gap_m=20.0):
+        """Car 1 ahead, car 2 behind it; speeds[i] = (car 1 m/s, car 2 m/s). Returns events and frames."""
+        m1, m2, steps = 1000.0 + gap_m, 1000.0, []
+        for i, (v1, v2) in enumerate(speeds):
+            m1, m2 = m1 + v1 * dt, m2 + v2 * dt
+            steps.append(frame(400 + i * dt, {1: (3, m1 / TRACK_M, TRK_ON_TRACK, False),
+                                               2: (3, m2 / TRACK_M, TRK_ON_TRACK, False)}))
+        return run(self.det, steps), steps
+
+    def test_rear_end_contact(self):
+        # Car 2 closes at 8 m/s from 20 m, hits car 1 at ~2.4 s: car 2 slows, car 1 is shoved on.
+        speeds = [(40.0, 48.0)] * 72 + [(46.0, 41.0)] * 30 + [(44.0, 43.0)] * 30
+        events, _ = self.two_cars(speeds)
+        contacts = [e for e in events if e["type"] == "contact"]
+        self.assertEqual([(e["car_idx"], e["other_car_idx"]) for e in contacts], [(2, 1)])
+        self.assertAlmostEqual(contacts[0]["session_time"], 400 + 72 / 30, delta=0.1)
+
+    def test_following_through_a_braking_zone_is_not_contact(self):
+        # Nose to tail into a corner: car 2 brakes a bit later and harder (0.5 g more), no touching.
+        speeds = [(60.0, 60.0)] * 30
+        v1 = v2 = 60.0
+        for _ in range(45):
+            v1, v2 = v1 - 30.0 / 30, v2 - 35.0 / 30
+            speeds.append((v1, v2))
+        speeds += [(v1, v2)] * 30
+        events, _ = self.two_cars(speeds, gap_m=4.0)
+        self.assertEqual([e for e in events if e["type"] == "contact"], [])
+
+    def test_braking_hard_to_avoid_a_car_is_not_contact(self):
+        # Closing at 8 m/s, then braking at ~3 g relative to stop closing a metre short.
+        speeds = [(40.0, 48.0)] * 30  # 12 m back, closes to ~4 m
+        v2 = 48.0
+        while v2 > 40.0:
+            v2 -= 30.0 / 30
+            speeds.append((40.0, v2))
+        speeds += [(40.0, 40.0)] * 30
+        events, steps = self.two_cars(speeds, gap_m=12.0)
+        self.assertGreater(steps[-1].pct[1] - steps[-1].pct[2], 2.0 / TRACK_M)  # never touched
+        self.assertEqual([e for e in events if e["type"] == "contact"], [])
+
+    def test_car_contact_incident_points_name_the_other_car(self):
+        _, steps = self.two_cars([(40.0, 40.0)] * 90, gap_m=5.0)  # side by side-ish, no jolt
+        drivers = {1: dict(DRIVERS[1], incidents=0), 2: dict(DRIVERS[2], incidents=0)}
+        self.det.update_incidents(steps[-1], drivers)
+        drivers[2]["incidents"] = 4
+        created = self.det.update_incidents(steps[-1], drivers)
+        self.assertEqual([(e["type"], e["car_idx"], e["other_car_idx"], e["incidents"]) for e in created],
+                         [("contact", 2, 1, 4)])
+        drivers[1]["incidents"] = 4  # the other driver's 4x goes on the same contact
+        self.assertEqual(self.det.update_incidents(steps[-1], drivers), [])
+        self.assertEqual(created[0]["other_incidents"], 4)
+
+    def test_car_contact_points_with_nobody_near_stay_an_incident(self):
+        steps = [frame(500 + i / 30, {1: (3, 0.1 + i * 0.0003, TRK_ON_TRACK, False),
+                                      2: (3, 0.6 + i * 0.0003, TRK_ON_TRACK, False)}) for i in range(60)]
+        run(self.det, steps)
+        drivers = {1: dict(DRIVERS[1], incidents=0), 2: dict(DRIVERS[2], incidents=0)}
+        self.det.update_incidents(steps[-1], drivers)
+        drivers[1]["incidents"] = 4
+        self.assertEqual([e["type"] for e in self.det.update_incidents(steps[-1], drivers)], ["incident"])
+
     def test_incident_points_without_a_visible_moment_create_an_event(self):
         f = frame(500, {1: (5, 0.5, TRK_ON_TRACK, False)})
         drivers = {1: dict(DRIVERS[1], incidents=2)}

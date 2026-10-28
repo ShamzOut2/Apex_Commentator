@@ -40,6 +40,9 @@ DEFAULTS = {
     "spin_window_s": 0.2,
     "spin_yaw_deg": 45.0,
     "spin_steer_deg": 180.0,
+    # Contact: a car closing on the one just ahead at this speed or more that,
+    # within 0.12 s, suddenly stops closing (the jolt of a hit).
+    "contact_jolt_kph": 20.0,
     "event_cooldown_s": 8.0,      # min seconds between incidents of the same kind per car
     "max_events": 300,
     # iRacing Data API (league builder). Prefer the env vars below.

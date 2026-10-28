@@ -45,6 +45,13 @@ pop-up.
   - They update several times a second, match the order on track, and stay
     right when watching a replay.
   - Lapped cars show "+1 L", and intervals never go negative.
+- **Contact between cars** in the race log (CONTACT). There are two signs:
+  - the jolt of a hit: a car closing fast on the one ahead that suddenly
+    stops closing within 0.12 s;
+  - a 4x (iRacing's car-contact incident) while another car was right
+    there.
+
+  Both drivers are named, with their incident points.
 - **Spin detection**:
   - A slowdown is only logged as a **SPIN** when the car also rotates
     sharply within 0.2 s. For the car driven on your PC, that's its heading
