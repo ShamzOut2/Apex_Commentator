@@ -16,8 +16,9 @@ DEFAULTS = {
     # Web server. Use "0.0.0.0" to open the overlay from another PC on your LAN.
     "host": "127.0.0.1",
     "port": 8180,
-    # How often telemetry is sampled (Hz). Event detection runs at this rate.
-    "poll_hz": 10,
+    # How often telemetry is sampled (Hz). Event detection runs at this rate;
+    # spin detection looks at 0.2 s windows, so keep it at 20 or more.
+    "poll_hz": 30,
     # How often the overlay is pushed a fresh snapshot (Hz).
     "push_hz": 4,
     # Replay behaviour.
@@ -31,6 +32,14 @@ DEFAULTS = {
     "overtake_hold_s": 1.5,       # a pass must hold this long to count
     "overtake_max_gap_laps": 0.04,  # only cars this close on track are compared
     "slowdown_ratio": 0.35,       # speed falling below this fraction of recent speed = incident
+    "slowdown_corner_ratio": 0.5, # ...and below this fraction of the usual speed at that point of the track
+    # A slowdown is a spin when the car also rotates within spin_window_s:
+    # its heading turns spin_yaw_deg (the car driven on this PC: iRacing only
+    # sends heading for that one), its steering snaps spin_steer_deg (opposite
+    # lock), or it travels backwards along the track.
+    "spin_window_s": 0.2,
+    "spin_yaw_deg": 45.0,
+    "spin_steer_deg": 180.0,
     "event_cooldown_s": 8.0,      # min seconds between incidents of the same kind per car
     "max_events": 300,
     # iRacing Data API (league builder). Prefer the env vars below.

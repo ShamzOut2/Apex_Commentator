@@ -37,6 +37,17 @@ pop-up.
     choose the corner or edge, all together or one at a time, size, caption,
     panel and which sponsors.
 - **Team logos** are larger on the teams' championship board.
+- **Spin detection**:
+  - A slowdown is only logged as a **SPIN** when the car also rotates
+    sharply within 0.2 s. For the car driven on your PC, that's its heading
+    (iRacing doesn't send heading for other cars). For every car, it's the
+    steering snapping to opposite lock, or the car going backwards along the
+    track.
+  - Other slowdowns are logged as **SLOW**.
+  - Braking hard for a slow corner no longer counts: a slowdown also has to
+    be well under the usual speed at that point of the track, which the app
+    learns from the cars going through it.
+  - Telemetry is now read 30 times a second (was 10).
 - **Pop out** buttons on the Timing and Boards tabs open that page in a
   window of its own, without the tabs, for a second monitor. In a browser it
   opens a browser window instead.

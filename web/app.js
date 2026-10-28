@@ -369,11 +369,11 @@ function renderStandings(s) {
 // -- race log -------------------------------------------------------------------
 
 const LOG_LABELS = {
-  overtake: "PASS", offtrack: "OFF", slowdown: "SPIN", incident: "INC", pit_in: "PIT", pit_out: "PIT",
+  overtake: "PASS", offtrack: "OFF", slowdown: "SLOW", spin: "SPIN", incident: "INC", pit_in: "PIT", pit_out: "PIT",
   position: "LOST", penalty: "PEN", fastest_lap: "FAST",
 };
 const LOG_GROUPS = {
-  incident: ["offtrack", "slowdown", "incident"], pit: ["pit_in", "pit_out"],
+  incident: ["offtrack", "slowdown", "spin", "incident"], pit: ["pit_in", "pit_out"],
 };
 const PREROLL_CHOICES = [5, 10, 15, 20, 25, 30];
 
@@ -388,9 +388,11 @@ function eventText(ev) {
     case "overtake":
       return `${who} passes ${car(ev.other_car_number, ev.other_driver)}${ev.position ? ` for <b>P${ev.position}</b>` : ""}`;
     case "offtrack":
-      return `${who} off track${pts}`;
+      return `${who} ${ev.spin ? "spins off track" : "off track"}${pts}`;
     case "slowdown":
       return `${who} slows ${ev.from_kph}→${ev.speed_kph} km/h${pts}`;
+    case "spin":
+      return `${who} spins (${ev.from_kph}→${ev.speed_kph} km/h)${pts}`;
     case "pit_in":
       return `${who} pits${ev.position ? ` from P${ev.position}` : ""}`;
     case "pit_out": {
@@ -432,11 +434,11 @@ function renderLog(s) {
   logKey = key;
   $("#race-log").innerHTML = shown.map((ev) => {
     const selected = ev.id === ui.selectedEvent;
-    const cls = ev.incidents ? "kind has-points" : `kind ${ev.type}`;
+    const cls = ev.incidents ? "kind has-points" : `kind ${ev.spin ? "spin" : ev.type}`;
     return `<li class="${selected ? "selected" : ""}" data-event="${ev.id}">
       <div class="log-line">
         <span class="when">L${ev.lap} · ${fmtClock(ev.session_time)}</span>
-        <span class="${cls}">${LOG_LABELS[ev.type] || ev.type}</span>
+        <span class="${cls}">${ev.spin ? "SPIN" : LOG_LABELS[ev.type] || ev.type}</span>
         <span class="what">${eventText(ev)}</span>
       </div>
       ${selected ? `<div class="log-actions">

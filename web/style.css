@@ -332,6 +332,7 @@ kbd {
 .kind.penalty { background: #000; color: #fff; border: 1px solid #555; }
 .kind.fastest_lap { background: #c08cff; color: #1a0033; }
 .kind.slowdown { background: var(--warn); color: #1d1600; }
+.kind.spin { background: #ff8a3d; color: #1d0a00; }
 .rewind-secs { min-width: 36px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
 .live-btn { margin-left: auto; font-weight: 800; letter-spacing: .06em; background: var(--bad); color: #fff; border-color: transparent; }
 .live-btn.on-air { background: transparent; color: var(--good); border-color: var(--good); }

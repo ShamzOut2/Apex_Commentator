@@ -132,7 +132,8 @@ spectate. It records:
 | --- | --- |
 | **Overtake** | In a race under green, cars close on track swap order *and stay swapped* for 1.5 s, with both on track. Swaps from pit stops, offs or side-by-side jostling don't count. The event is timestamped when the pass started. |
 | **Off track** | A car's track surface changes to off track. |
-| **Slowdown** | A car's speed collapses relative to its recent pace (spin, contact, stopping). Ignored on pit road and under caution. |
+| **Slowdown** (SLOW) | A car's speed collapses relative to its recent pace *and* it's well under the usual speed at that point of the track, so braking hard for a hairpin doesn't count. The app learns each corner's usual speed from the cars going through it. Ignored on pit road and under caution. |
+| **Spin** (SPIN) | A slowdown or off track where the car also rotates sharply within 0.2 s. iRacing only sends a car's heading for the car driven on this PC, so for that car it's the heading turning 45°+ in 0.2 s. For every car, it's the steering snapping 180°+ of opposite lock in 0.2 s, or the car travelling backwards along the track (it has turned round). Without any of these, the moment stays a slowdown or off track. |
 | **Incident points** | When iRacing reports more incident points for a driver, they are attached to that driver's off/slowdown from the last 15 s, or logged as their own incident. |
 
 Pressing **Replay** pauses playback, seeks the replay tape to the event's
@@ -662,6 +663,11 @@ defaults:
 | `default_camera_group` | `""` | Camera group for Watch/Replay, e.g. `"TV1"` (blank = keep current) |
 | `overtake_hold_s` | `1.5` | How long a pass must hold to count |
 | `slowdown_ratio` | `0.35` | Speed below this fraction of recent pace counts as a slowdown |
+| `slowdown_corner_ratio` | `0.5` | ...and below this fraction of the usual speed at that point of the track |
+| `spin_window_s` | `0.2` | The rotation that makes a spin must happen within this many seconds |
+| `spin_yaw_deg` | `45` | Heading change in that window that counts (car driven on this PC only) |
+| `spin_steer_deg` | `180` | Steering-wheel snap in that window that counts (every car) |
+| `poll_hz` | `30` | Telemetry samples per second (spin detection needs 20 or more) |
 | `event_cooldown_s` | `8` | Minimum gap between incidents logged for the same car |
 | `gridwalk_interval_s` | `8` | Grid walk: seconds each pair stays on screen |
 | `gridwalk_style` | `"track"` | Grid walk style: `"track"`, `"grid"` or `"h2h"` |

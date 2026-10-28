@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from apex.config import DEFAULTS
@@ -115,6 +116,61 @@ class IncidentTests(unittest.TestCase):
         created = self.det.update_incidents(steps[-1], drivers)
         self.assertEqual(created, [])
         self.assertEqual(self.det.events[0]["incidents"], 4)
+
+    def drive(self, speeds, dt=0.05, steer=None, yaw=None, start=0.1):
+        """Car 1 at speeds[i] m/s each step (negative: backwards); steer / yaw: per step, or None."""
+        steps, pct = [], start
+        for i, v in enumerate(speeds):
+            pct = (pct + v * dt / TRACK_M) % 1.0
+            f = frame(300 + i * dt, {1: (2, pct, TRK_ON_TRACK, False)})
+            f.steer = [0.0, steer[i] if steer else 0.0]
+            if yaw is not None:
+                f.player_car_idx, f.yaw = 1, yaw[i]
+            steps.append(f)
+        return run(self.det, steps)
+
+    def test_braking_for_a_hairpin_is_not_a_spin(self):
+        # 75 m/s down to 15 m/s at ~4 g for a hairpin, then back up, lap after lap.
+        def speed_at(d):
+            brake, apex, exit_ = 2000.0, 2077.0, 2107.0
+            if brake <= d < apex:
+                return math.sqrt(max(15.0 ** 2, 75.0 ** 2 - 2 * 35.0 * (d - brake)))
+            if apex <= d < exit_:
+                return 15.0
+            if d >= exit_:
+                return min(75.0, math.sqrt(15.0 ** 2 + 2 * 8.0 * (d - exit_)))
+            return 75.0
+        speeds, d, laps = [], 0.0, []
+        for _ in range(6 * 1400):
+            v = speed_at(d % TRACK_M)
+            speeds.append(v)
+            d += v * 0.05
+        events = self.drive(speeds, start=0.0)
+        self.assertEqual([e for e in events if e["type"] == "spin"], [])
+        # Once the detector knows the corner, braking for it isn't even a slowdown.
+        late = [e for e in events if e["session_time"] > 300 + 0.05 * len(speeds) * 0.5]
+        self.assertEqual(late, [])
+
+    def test_sliding_backwards_after_a_spin(self):
+        speeds = [50.0] * 60 + [10.0] * 4 + [2.0] * 4 + [-8.0] * 12 + [0.0] * 20
+        events = self.drive(speeds)
+        self.assertEqual([(e["type"], e["spin"]) for e in events], [("spin", "backwards")])
+
+    def test_snap_of_opposite_lock_within_the_window(self):
+        speeds = [50.0] * 60 + [3.0] * 40
+        steer = [0.3] * 58 + [-3.4] * 42  # 210 degrees of wheel in one sample, as it slows
+        self.assertEqual([e["type"] for e in self.drive(speeds, steer=steer)], ["spin"])
+        self.det = EventDetector(DEFAULTS)
+        slow_turn = [0.3 - 3.7 * min(1.0, max(0.0, (i - 40) / 30)) for i in range(100)]  # the same, over 1.5 s
+        self.assertEqual([e["type"] for e in self.drive(speeds, steer=slow_turn)], ["slowdown"])
+
+    def test_heading_of_the_car_driven_on_this_pc(self):
+        speeds = [50.0] * 60 + [3.0] * 40
+        quick = [0.0] * 60 + [math.radians(20 * k) for k in range(1, 4)] + [math.radians(60)] * 37  # 60 deg in 0.15 s
+        self.assertEqual([(e["type"], e["spin"]) for e in self.drive(speeds, yaw=quick)], [("spin", "yaw")])
+        self.det = EventDetector(DEFAULTS)
+        slow = [0.0] * 60 + [math.radians(min(60, 2 * k)) for k in range(1, 41)]  # 60 deg over 1.5 s: a corner
+        self.assertEqual([e["type"] for e in self.drive(speeds, yaw=slow)], ["slowdown"])
 
     def test_incident_points_without_a_visible_moment_create_an_event(self):
         f = frame(500, {1: (5, 0.5, TRK_ON_TRACK, False)})

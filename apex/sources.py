@@ -86,6 +86,10 @@ class Frame:
     last_lap: list = field(default_factory=list)
     best_lap: list = field(default_factory=list)
     car_flags: list = field(default_factory=list)
+    steer: list = field(default_factory=list)  # CarIdxSteer: steering wheel angle, rad
+    # Heading of the car being driven on this PC (iRacing only sends it for that one).
+    player_car_idx: int = -1
+    yaw: float = None                   # rad
 
     def timeline(self):
         """(session number, session time) of what's on screen: live, or the replay being watched."""
@@ -171,6 +175,9 @@ class IRacingSource:
                 last_lap=v("CarIdxLastLapTime", []),
                 best_lap=v("CarIdxBestLapTime", []),
                 car_flags=v("CarIdxSessionFlags", []),
+                steer=v("CarIdxSteer", []),
+                player_car_idx=v("PlayerCarIdx", -1),
+                yaw=v("Yaw", None),
             )
             ir.unfreeze_var_buffer_latest()
             return frame
@@ -297,6 +304,7 @@ class MockSource:
             self.progress[i] = -(rank * 0.006) if session == "race" else -0.95 + i * (0.9 / n)
         self.slow_until = [0.0] * n
         self.offtrack_until = [0.0] * n
+        self.spin_at = [None] * n   # when the car's current moment is a spin
         self.pit_until = [0.0] * n
         self.incidents = [0] * n
         self.lap_noise = [[1.0] * len(self.SECTOR_STARTS) for _ in range(n)]
@@ -403,6 +411,8 @@ class MockSource:
             pace *= self.lap_noise[i][sector]
             if t < self.slow_until[i]:
                 pace *= 0.15
+                if self.spin_at[i] is not None and 0.3 <= t - self.spin_at[i] < 1.3:
+                    pace = -0.12  # turned round: sliding backwards
             if t < self.pit_until[i]:
                 pace *= 0.35
             prev = self.progress[i]
@@ -440,6 +450,7 @@ class MockSource:
             if t > 15 and t > self.slow_until[i] + 10 and rng.random() < dt / 420.0:
                 self.offtrack_until[i] = t + 2.5
                 self.slow_until[i] = t + 3.0
+                self.spin_at[i] = t if rng.random() < 0.5 else None  # half of them spin
                 points = rng.choice([1, 2, 4])
                 # Incident points reach session info a few seconds later, like the sim.
                 self.pending_incidents.append((t + rng.uniform(2, 5), i, points))
@@ -474,6 +485,7 @@ class MockSource:
             car_flags = [0] * n
             position = [0] * n
             f2 = [0.0] * n
+            steer = [0.0] * n
             if self.session_kind == "race":
                 order = sorted(range(self.num_cars), key=lambda i: -self.progress[i])
                 leader = self.progress[order[0]]
@@ -503,6 +515,9 @@ class MockSource:
                     surface[idx] = TRK_ON_TRACK
                 last_lap[idx] = self.last_lap[i]
                 best_lap[idx] = self.best_lap[i]
+                steer[idx] = 0.6 * math.sin(p * 40.0 + self.phase[i])  # turning through the corners
+                if self.spin_at[i] is not None and 0.0 <= t - self.spin_at[i] < 0.4:
+                    steer[idx] = -4.0  # snap of opposite lock
                 flags = FLAG_GREEN
                 if self.black_flag[i] and not self.served[i]:
                     flags |= FLAG_BLACK
@@ -526,7 +541,7 @@ class MockSource:
                 session_laps_remain=max(0, self.race_laps - max(self.mock_laps)) if self.race_laps else 32767,
                 lap=lap, laps_completed=laps_completed, pct=pct, position=position, class_position=list(position),
                 on_pit=on_pit, surface=surface, f2_time=f2,
-                last_lap=last_lap, best_lap=best_lap, car_flags=car_flags,
+                last_lap=last_lap, best_lap=best_lap, car_flags=car_flags, steer=steer,
             )
 
     def session_info(self):
