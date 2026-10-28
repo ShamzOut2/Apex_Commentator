@@ -16,6 +16,7 @@ from . import __version__, desktop
 from .config import ROOT, load_config
 from .overlays import OverlaySettings
 from .settings import UserSettings
+from .tracks import TrackCatalogue
 from .core import App
 from .cutout import Cutout
 from .league import IRacingDataClient, LeagueStore
@@ -59,6 +60,7 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
     app = App(source, cfg, LeagueStore(cfg["leagues_dir"], client))
     app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
     app.settings = UserSettings(ROOT / "data" / "settings.json")
+    app.tracks = TrackCatalogue(ROOT / "data" / "tracks.json", client)
     if mock:
         # The mock "iRacing" writes its screenshots here.
         source.screenshots_dir = ROOT / "data" / "mock-screenshots"
@@ -88,7 +90,7 @@ def smoke_test(cfg):
     try:
         import irsdk  # noqa: F401  (bundled for live iRacing sessions)
         time.sleep(1.5)
-        for path, expect in (("/", b"Apex"), ("/gridwalk.html", b"gridwalk.js"), ("/standings.html", b"standings.js"), ("/laps.html", b"laps.js"), ("/logos/pro.svg", b"data-apex-fill"),
+        for path, expect in (("/", b"Apex"), ("/gridwalk.html", b"gridwalk.js"), ("/standings.html", b"standings.js"), ("/laps.html", b"laps.js"), ("/board.html", b"board.js"), ("/makes/porsche.png", b"PNG"), ("/logos/pro.svg", b"data-apex-fill"),
                              ("/api/state", b'"connected": true')):
             with urllib.request.urlopen(base + path, timeout=10) as resp:
                 body = resp.read()

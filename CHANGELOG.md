@@ -6,6 +6,25 @@ pop-up.
 
 ## Unreleased
 
+- **Boards**: full-screen championship standings (overall and per class),
+  teams' and manufacturers' championships, the season calendar, and
+  finishing orders (latest round, any round, or live). They're put on screen
+  with buttons in the new Boards tab, and each board's columns, league logo
+  and banner are configurable. OBS page: `/board.html`.
+- **Car makes**:
+  - 37 manufacturer badges, from the Apex Overlays project; see
+    THIRD_PARTY_NOTICES.md.
+  - A roster *Car* field, worked out from the iRacing car or picked by hand.
+  - Each result keeps its make, for the manufacturers' championship.
+- **Season calendar**:
+  - Rounds get a track and configuration chosen from lists, plus start time
+    and length.
+  - The track list is iRacing's official list when Data API credentials are
+    set (*Fetch official track list*). Otherwise it's a built-in list plus
+    the tracks seen in sessions.
+- **League builder**: a league logo, horizontal and vertical banners, and the
+  league's own calendar image for the boards.
+
 - **Standings header** shows laps or time left: "LAP 5 / 20", "FINAL LAP",
   "FINISHED" or "12:34 LEFT". Automatic follows how the session is limited,
   or you can choose.

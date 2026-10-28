@@ -13,7 +13,11 @@ from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
 from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
 from .settings import UserSettings
+from .tracks import TrackCatalogue
+from . import boards
 from .league import driver_key, logo_url, strip_class_prefix
+from .makes import logo_for as make_logo
+from .makes import make_for
 from .sources import (
     CS_AT_EXCITING,
     CS_AT_INCIDENT,
@@ -196,6 +200,9 @@ class App:
         self.laps = LapTracker()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
         self.settings = UserSettings()     # settings changed in the app (likewise)
+        self.tracks = TrackCatalogue()     # likewise: the season calendar's track list
+        self.board = {"kind": None, "params": {}}  # the full-screen board on screen, if any
+        self._board_cache = (None, None)
         self._class_of = {}        # car_idx -> class key, from the last snapshot
         self._track_sectors = self.laps.starts  # the track's own split points
         self._race = RaceProgress()
@@ -284,6 +291,7 @@ class App:
     def _load_session_info(self, info, frame):
         weekend = info.get("WeekendInfo") or {}
         self._track_m = parse_track_length(weekend.get("TrackLength"))
+        self.tracks.remember(weekend.get("TrackID"), weekend.get("TrackDisplayName", ""), weekend.get("TrackConfigName", ""))
         sessions = (info.get("SessionInfo") or {}).get("Sessions") or []
         self._session_meta = {
             "track": weekend.get("TrackDisplayName", ""),
@@ -313,6 +321,9 @@ class App:
                 "number": str(d.get("CarNumber", "")),
                 "team": team if team != d.get("UserName") else "",
                 "car": d.get("CarScreenNameShort", ""),
+                "car_name": d.get("CarScreenName") or d.get("CarScreenNameShort", ""),
+                # The manufacturer, from iRacing's car name and path.
+                "make": make_for(d.get("CarScreenName") or d.get("CarScreenNameShort", ""), d.get("CarPath", "")),
                 "car_class": d.get("CarClassShortName") or "",
                 "class_color": f"#{int(color):06x}" if isinstance(color, int) else None,
                 "irating": d.get("IRating"),
@@ -350,6 +361,7 @@ class App:
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                     "photobooth": self.photobooth.status() if self.photobooth else None,
+                    **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
                                  "laps": {"active": False, "camera": None, "trackers": [], "all": [],
                                           "sectors": len(self.laps.starts)}},
@@ -375,6 +387,9 @@ class App:
                 row = dict(d)
                 league = self.leagues.lookup(d["cust_id"], d["number"])
                 row["league"] = {k: league.get(k, "") for k in ("nickname", "team", "notes", "driver_number")} if league else None
+                # The car as logged in the league wins over iRacing's car name.
+                row["make"] = (league or {}).get("car_make") or d["make"]
+                row["make_logo"] = make_logo(row["make"])
                 row["class_key"] = self._class_key(classes, active_league, league, d)
                 row.update({
                     "lap": lap if lap is not None and lap >= 0 else None,
@@ -435,6 +450,7 @@ class App:
                 "league": self._league_summary(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
+                **self._boards(active_league, lambda: self.session_results(active_league, rows)[0] if is_race else None),
             }
             return snap
 
@@ -485,6 +501,7 @@ class App:
                 "laps_led": off.get("LapsLed") or 0,
                 "fastest_lap": fastest if isinstance(fastest, (int, float)) and fastest > 0 else r["best_lap"],
                 "incidents": incidents or 0, "status": status,
+                "make": (entry or {}).get("car_make") or r.get("make", ""),
             }))
         return results, added
 
@@ -539,6 +556,7 @@ class App:
             "team_logo": logo_url(pid, team.get("logo")) if team and pid else None,
             "class_key": r["class_key"], "car": r["car"], "on_pit": r["on_pit"], "in_world": r["in_world"],
             # For the full-screen versions.
+            "make": r["make"], "make_logo": r["make_logo"],
             "lap": r["lap"], "last_lap": r["last_lap"], "best_lap": r["best_lap"], "pit_stops": r["pit_stops"],
             "laps_completed": r["laps_completed"],
         }
@@ -762,6 +780,8 @@ class App:
             "team": team,
             "team_logo": logo_url(pid, self.leagues.team_logo(team, active_league)) if pid else None,
             "car": d.get("car", ""),
+            "make": league.get("car_make") or d.get("make", ""),
+            "make_logo": make_logo(league.get("car_make") or d.get("make", "")),
             "car_image": logo_url(pid, league.get("car_image")) if pid else None,
             "helmet_image": logo_url(pid, league.get("helmet_image")) if pid else None,
             "car_design": d.get("car_design"),
@@ -774,7 +794,10 @@ class App:
 
     def _league_summary(self):
         active = self.leagues.active()
-        return {"id": active["id"], "name": active["name"], "teams": len(active.get("teams", []))} if active else None
+        if not active:
+            return None
+        return {"id": active["id"], "name": active["name"], "teams": len(active.get("teams", [])),
+                "banners": [{k: b[k] for k in ("id", "name", "orientation")} for b in active.get("banners", [])]}
 
     def publish(self):
         snap = self.build_snapshot()
@@ -825,7 +848,7 @@ class App:
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "board_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -1014,6 +1037,35 @@ class App:
         except PhotoBoothError as e:
             raise CommandError(str(e)) from e
         return {"cars": len(cars)}
+
+    def cmd_board_show(self, kind, group="", round=""):
+        """Put a full-screen board on screen (board.html)."""
+        if kind not in boards.KINDS:
+            raise CommandError(f"Unknown board '{kind}'")
+        if not self.leagues.active():
+            raise CommandError("Activate a league first: boards show its championship")
+        self.board = {"kind": kind, "params": {"group": str(group or ""), "round": str(round or "")}}
+        return {"board": kind}
+
+    def cmd_board_hide(self):
+        self.board = {"kind": None, "params": {}}
+
+    def _boards(self, active_league, live_results):
+        board, opts = self._board_snapshot(active_league, live_results)
+        return {"board": board, "board_options": opts}
+
+    def _board_snapshot(self, active_league, live_results):
+        """(board, options): cached until the league, the board or its settings change."""
+        settings = self.overlays.get()
+        key = (active_league and (active_league["id"], active_league.get("updated_at")), repr(self.board),
+               repr({k: v for k, v in settings.items() if k.startswith("board")}))
+        live = self.board.get("kind") == "results" and self.board["params"].get("round") == "live"
+        if key == self._board_cache[0] and not live:
+            return self._board_cache[1]
+        value = (boards.build(active_league, self.board, settings, live_results() if live else None),
+                 boards.options(active_league))
+        self._board_cache = (key, value)
+        return value
 
     def cmd_overlay_settings(self, overlay, values):
         try:

@@ -33,6 +33,29 @@ DEFAULTS = {
         "reveal": False,
         "header_info": "auto",    # "auto" (laps or time, whichever the session is limited by), "laps", "time", "none"
     },
+    # Full-screen boards (board.html), one section each. Every board has:
+    # banner ("none", "top", "bottom", "left", "right"), banner_id (which of
+    # the league's banners, "" = the first of the right shape) and
+    # league_logo (the league's logo in the header).
+    "board_championship": {
+        "banner": "none", "banner_id": "", "league_logo": True,
+        "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
+        "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
+        "show_gap": True, "show_wins": False, "show_penalty": False,
+    },
+    "board_teams": {"banner": "none", "banner_id": "", "league_logo": True, "rows": 12, "show_logo": True,
+                    "show_gap": True},
+    "board_makes": {"banner": "none", "banner_id": "", "league_logo": True, "rows": 12, "show_logo": True,
+                    "show_gap": True, "show_wins": True},
+    "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True,
+                       "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
+                       "show_date": True, "show_time": True, "show_config": True, "show_length": True,
+                       "show_winners": True},
+    "board_results": {
+        "banner": "none", "banner_id": "", "league_logo": True,
+        "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
+        "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True, "show_status": True,
+    },
     "laps": {
         "visible": True,
         "count": 4,               # small trackers along the bottom
@@ -50,8 +73,8 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"rows": (1, 64), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
-CHOICES = {"mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
+LIMITS = {"rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
+CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "style": ("cards", "image"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 
 def normalise(settings):

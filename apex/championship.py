@@ -126,6 +126,7 @@ def normalise_result(r):
         "incidents": _num(r.get("incidents"), 0, lo=0, cast=int),
         "status": status,
         "adjust": _num(r.get("adjust"), 0, lo=-1000, hi=1000),  # hand-given points (+ or -)
+        "make": str(r.get("make") or "").strip()[:40],  # the car driven that round (manufacturers' standings)
     }
 
 
@@ -140,7 +141,11 @@ def normalise(champ):
             "id": _id(rd.get("id")),
             "name": str(rd.get("name") or f"Round {len(rounds) + 1}").strip(),
             "track": str(rd.get("track") or "").strip(),
+            "config": str(rd.get("config") or "").strip()[:80],      # the track's layout
+            "track_id": rd.get("track_id") if isinstance(rd.get("track_id"), int) else None,
             "date": str(rd.get("date") or "").strip()[:10],
+            "time": str(rd.get("time") or "").strip()[:5],           # start time, "19:30"
+            "length": str(rd.get("length") or "").strip()[:40],     # "60 min", "30 laps", ...
             "multiplier": _num(rd.get("multiplier"), 1.0, lo=0, hi=10),
             "no_drop": bool(rd.get("no_drop")),
             # The iRacing session the results were imported from.
@@ -463,3 +468,94 @@ def live_round_for(champ, session_key=None):
         rd = next(rd for rd in rounds if rd["id"] == champ["live_round"])
         return None if rd["results"] and rd["session"] else rd
     return next((rd for rd in rounds if not rd["results"]), None)
+
+
+# -- for the full-screen boards -------------------------------------------------
+
+
+def _roster(profile):
+    return {_key(d): d for d in profile.get("drivers", [])}
+
+
+def make_standings(profile, group):
+    """Manufacturers' points in one championship (a class, or overall): the sum
+    of what their drivers scored each round, in the car they drove that round."""
+    champ = normalise(profile.get("championship"))
+    rules = champ["rules"]
+    roster = _roster(profile)
+    totals, wins = {}, {}
+    for rd in champ["rounds"]:
+        if not rd["results"]:
+            continue
+        scores = score_round(rd, rules).get(group, {})
+        for r in rd["results"]:
+            res = scores.get(r["driver"])
+            make = r.get("make") or (roster.get(r["driver"]) or {}).get("car_make", "")
+            if not res or not make:
+                continue
+            totals[make] = totals.get(make, 0) + res["total"]
+            if res["rank"] == 1:
+                wins[make] = wins.get(make, 0) + 1
+    ranked = sorted(totals.items(), key=lambda kv: (-kv[1], -wins.get(kv[0], 0), kv[0].lower()))
+    lead = ranked[0][1] if ranked else 0
+    return [{"pos": i, "make": m, "points": _round(p), "behind": _round(lead - p), "wins": wins.get(m, 0)}
+            for i, (m, p) in enumerate(ranked, start=1)]
+
+
+def round_results(profile, rd, group):
+    """One round's finishing order in one championship, with the points scored."""
+    champ = normalise(profile.get("championship"))
+    rules = champ["rules"]
+    roster = _roster(profile)
+    scored = score_round(rd, rules)
+    if group in scored:
+        scores = scored[group]
+    else:
+        # A finishing order the points system doesn't score (e.g. overall when
+        # points go by class): everyone by position, no points.
+        order = sorted((r for r in rd["results"] if r["status"] not in ("dns",)), key=lambda r: r["position"] or 10_000)
+        scores = {r["driver"]: {"rank": None if r["status"] == "dsq" else i, "status": r["status"], "short": False,
+                                "total": None} for i, r in enumerate(order, start=1)}
+    rows = [r for r in rd["results"] if r["driver"] in scores]
+    # Grid positions within this championship (a class's own grid order).
+    starters = sorted((r for r in rows if r["start_position"]), key=lambda r: r["start_position"])
+    grid = {r["driver"]: i for i, r in enumerate(starters, start=1)}
+    best = min((r["fastest_lap"] for r in rows if r["fastest_lap"] and r["status"] not in ("dsq", "dns")), default=None)
+    out = []
+    for r in sorted(rows, key=lambda r: (scores[r["driver"]]["rank"] is None, scores[r["driver"]]["rank"] or 0)):
+        s = scores[r["driver"]]
+        info = roster.get(r["driver"]) or {}
+        out.append({
+            "rank": s["rank"], "driver": r["driver"], "name": info.get("name") or r["name"],
+            "nickname": info.get("nickname", ""), "car_number": info.get("car_number", ""),
+            "team": info.get("team", ""), "class_id": r["class_id"],
+            "make": r.get("make") or info.get("car_make", ""),
+            "start": grid.get(r["driver"]), "laps": r["laps"], "laps_led": r["laps_led"],
+            "fastest_lap": r["fastest_lap"], "has_fastest": best is not None and r["fastest_lap"] == best,
+            "status": s["status"], "short": s["short"], "points": s["total"],
+        })
+    return out
+
+
+def calendar(profile):
+    """The season's rounds, with each championship's winner for rounds already run."""
+    champ = normalise(profile.get("championship"))
+    rules = champ["rules"]
+    roster = _roster(profile)
+    out = []
+    for i, rd in enumerate(champ["rounds"], start=1):
+        winners = []
+        if rd["results"]:
+            for group, scores in score_round(rd, rules).items():
+                win = next((d for d, s in scores.items() if s["rank"] == 1), None)
+                if win:
+                    info = roster.get(win) or {}
+                    name = info.get("name") or next((r["name"] for r in rd["results"] if r["driver"] == win), win)
+                    winners.append({"group": group, "name": name, "nickname": info.get("nickname", "")})
+            # Overall first, then the classes in the league's order.
+            order = [OVERALL] + [c["id"] for c in profile.get("classes", [])]
+            winners.sort(key=lambda w: order.index(w["group"]) if w["group"] in order else 99)
+        out.append({"round": i, "id": rd["id"], "name": rd["name"], "track": rd["track"], "config": rd["config"],
+                    "date": rd["date"], "time": rd["time"], "length": rd["length"], "done": bool(rd["results"]),
+                    "multiplier": rd["multiplier"], "winners": winners})
+    return out

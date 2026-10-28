@@ -105,6 +105,7 @@ function render() {
   renderUpdates(s.update);
   renderOverlaySettings(s);
   renderChampLive(s);
+  renderBoards(s);
 
   if (!s.connected) {
     $("#session-line").textContent = s.source === "iracing" ? "Waiting for iRacing…" : "Not connected";
@@ -625,6 +626,7 @@ function replayEvent(id, preroll) {
 
 document.addEventListener("click", (e) => {
   const tab = e.target.closest(".tab, [data-goto]");
+  if (tab && tab.dataset.champGoto) champ.view = tab.dataset.champGoto;
   if (tab) return showPage(tab.dataset.tab || tab.dataset.goto);
 
   const filter = e.target.closest("#log-filter .chip");
@@ -974,7 +976,51 @@ function roundPoints(roundId) {
   return out;
 }
 
+// The season calendar's track list: pick a track, then one of its layouts.
+const trackList = { groups: [], status: null, loaded: false };
+
+async function loadTracks(force = false) {
+  if (trackList.loaded && !force) return;
+  try {
+    const r = await api("/api/tracks");
+    trackList.groups = r.tracks;
+    trackList.status = r;
+    trackList.loaded = true;
+    $("#track-names").innerHTML = r.tracks.map((g) => `<option value="${esc(g.track)}"></option>`).join("");
+    renderTrackStatus();
+    if (champ.view === "rounds") renderChampRounds();
+  } catch (e) { /* typing a track still works */ }
+}
+
+function trackGroup(name) {
+  const n = String(name || "").trim().toLowerCase();
+  return trackList.groups.find((g) => g.track.toLowerCase() === n);
+}
+
+function configField(rd, i) {
+  const g = trackGroup(rd.track);
+  if (!g) {
+    return `<input data-round="${i}" data-rkey="config" value="${esc(rd.config || "")}" placeholder="Configuration" aria-label="Configuration">`;
+  }
+  const configs = g.configs.map((c) => c.config);
+  const current = rd.config || "";
+  const extra = current && !configs.includes(current) ? `<option selected>${esc(current)}</option>` : "";
+  return `<select data-round="${i}" data-rkey="config" aria-label="Configuration">${extra}${configs.map((c) =>
+    `<option value="${esc(c)}" ${c === current ? "selected" : ""}>${esc(c || "(one layout)")}</option>`).join("")}</select>`;
+}
+
+function renderTrackStatus() {
+  const st = trackList.status;
+  if (!st) return;
+  $("#track-source").textContent = st.official
+    ? `${st.official} official layouts from iRacing (fetched ${st.fetched_at})${st.seen ? `, plus ${st.seen} seen in sessions` : ""}.`
+    : `Built-in list of iRacing tracks${st.seen ? `, plus ${st.seen} layouts seen in sessions` : ""}. ` +
+      (st.api ? "Fetch the official list for every layout." : "Set iRacing API credentials to fetch the official list.");
+  $("#btn-fetch-tracks").hidden = !st.api;
+}
+
 function renderChampRounds() {
+  loadTracks();
   const c = champData();
   const classes = ui.editing.classes || [];
   $("#champ-rounds").innerHTML = c.rounds.length ? c.rounds.map((rd, i) => {
@@ -987,8 +1033,11 @@ function renderChampRounds() {
       <div class="round-head">
         <span class="round-num">R${i + 1}</span>
         <input data-round="${i}" data-rkey="name" value="${esc(rd.name)}" placeholder="Round name" aria-label="Round name">
-        <input data-round="${i}" data-rkey="track" value="${esc(rd.track || "")}" placeholder="Track" aria-label="Track">
+        <input data-round="${i}" data-rkey="track" class="track-input" list="track-names" value="${esc(rd.track || "")}" placeholder="Track (type to search)" aria-label="Track">
+        ${configField(rd, i)}
         <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
+        <input type="time" data-round="${i}" data-rkey="time" value="${esc(rd.time || "")}" aria-label="Start time" title="Start time">
+        <input data-round="${i}" data-rkey="length" class="narrow-text" value="${esc(rd.length || "")}" placeholder="Length" aria-label="Race length" title="e.g. 60 min, 30 laps">
         <label class="field" title="Points multiplier, e.g. 2 for double points">×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
         <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
         <label class="field" title="The race in progress counts as this round in the live standings"><input type="radio" name="live-round" data-live-round="${esc(rd.id)}" ${isLive ? "checked" : ""}> Live</label>
@@ -1106,6 +1155,14 @@ function champChange(e, final) {
   } else if (d.round != null && d.rkey) {
     const rd = c.rounds[+d.round];
     rd[d.rkey] = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
+    if (d.rkey === "track" || d.rkey === "config") {
+      // A known track: its layouts fill the Configuration list.
+      const g = trackGroup(rd.track);
+      if (g && d.rkey === "track" && final) rd.config = g.configs[0].config;
+      const layout = g && g.configs.find((x) => x.config === rd.config);
+      rd.track_id = layout ? layout.id : null;
+      if (final) rerender = true;
+    }
   } else return;
   markChampDirty();
   if (rerender) renderChampionship();
@@ -1152,6 +1209,16 @@ $("#tab-championship").addEventListener("click", async (e) => {
   } else return;
   markChampDirty();
   renderChampionship();
+});
+
+$("#btn-fetch-tracks").addEventListener("click", async () => {
+  try {
+    const r = await api("/api/tracks/refresh", { method: "POST", body: {} });
+    toast(`Fetched ${r.count} track layouts from iRacing`);
+    await loadTracks(true);
+  } catch (err) {
+    toast(err.message, true);
+  }
 });
 
 $("#btn-add-round").addEventListener("click", () => {
@@ -1283,6 +1350,130 @@ document.querySelectorAll(".ov-form").forEach((form) => form.addEventListener("c
   cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
 }));
 
+// ---------------------------------------------------------------------------
+// boards: the full-screen championship, calendar and results screens
+// ---------------------------------------------------------------------------
+
+// Every board: the league logo in its header, and a banner where (and which).
+const BOARD_LOOK = [["league_logo", "League logo in the header", "bool"],
+  ["banner", "Banner", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"],
+    ["right", "Down the right"]]], ["banner_id", "Which banner", "banner"]];
+
+const BOARD_FIELDS = {
+  board_championship: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
+    ["show_make", "Car badges", "bool"], ["show_gap", "Gap to the leader", "bool"], ["show_wins", "Wins", "bool"],
+    ["show_penalty", "Penalty points", "bool"]],
+  board_teams: [["rows", "Teams shown", "number", { min: 1, max: 64 }], ["show_logo", "Team logos", "bool"], ["show_gap", "Gap to the leader", "bool"]],
+  board_makes: [["rows", "Manufacturers shown", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
+    ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"]],
+  board_calendar: [["style", "Show", "select", [["cards", "The calendar built from the rounds"], ["image", "The league's own calendar image"]]],
+    ["show_date", "Dates", "bool"], ["show_time", "Start times", "bool"], ["show_config", "Track layouts", "bool"],
+    ["show_length", "Race lengths", "bool"], ["show_winners", "Winners of past rounds", "bool"]],
+  board_results: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
+    ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
+    ["show_status", "DNF / DSQ", "bool"], ["show_points", "Points scored", "bool"]],
+};
+const BOARD_SECTION_NAMES = {
+  board_championship: "Championship standings", board_teams: "Teams' championship",
+  board_makes: "Manufacturers' championship", board_calendar: "Season calendar", board_results: "Finishing order",
+};
+
+let boardButtonsKey = "";
+let boardSettingsKey = "";
+let boardRound = "latest";
+
+function boardButton(label, kind, group = "", color = null, extra = {}) {
+  const b = ui.snap && ui.snap.board;
+  const on = b && ui.boardOn && ui.boardOn.kind === kind && ui.boardOn.group === group;
+  return `<button class="btn board-btn ${on ? "on-air" : ""}" data-board="${kind}" data-group="${esc(group)}"
+    ${extra.round ? `data-round="${esc(extra.round)}"` : ""} style="${color ? `--cls:${esc(color)}` : ""}">${color ? '<span class="swatch"></span>' : ""}${esc(label)}</button>`;
+}
+
+function renderBoards(s) {
+  const opts = s.board_options || { groups: [], rounds: [] };
+  ui.boardOn = s.board ? { kind: s.board.kind, group: s.board.group } : null;
+  $("#board-onair").textContent = s.board ? `On screen: ${s.board.title}${s.board.subtitle ? ` · ${s.board.subtitle}` : ""}` : "Nothing on screen";
+  $("#btn-board-hide").disabled = !s.board;
+  const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, !!s.board]);
+  if (key !== boardButtonsKey) {
+    boardButtonsKey = key;
+    const groups = opts.groups;
+    const scored = opts.rounds.filter((r) => r.scored);
+    $("#board-buttons").innerHTML = !s.league ? '<p class="hint">Activate a league (League builder) to use boards.</p>' : `
+      <div class="board-group"><h4>Championship standings</h4>${groups.length ? groups.map((g) => boardButton(g.name, "championship", g.key, g.color)).join("")
+        : '<span class="hint">No results yet.</span>'}</div>
+      ${opts.teams ? `<div class="board-group"><h4>Teams</h4>${boardButton("Teams' championship", "teams")}</div>` : ""}
+      <div class="board-group"><h4>Manufacturers</h4>${groups.map((g) => boardButton(g.name, "makes", g.key, g.color)).join("") || '<span class="hint">No results yet.</span>'}</div>
+      <div class="board-group"><h4>Season</h4>${boardButton("Season calendar", "calendar")}</div>
+      <div class="board-group"><h4>Finishing order</h4>
+        <label class="field">From <select id="board-round">
+          <option value="latest" ${boardRound === "latest" ? "selected" : ""}>Latest round</option>
+          <option value="live" ${boardRound === "live" ? "selected" : ""}>This session (live)</option>
+          ${scored.map((r) => `<option value="${esc(r.id)}" ${boardRound === r.id ? "selected" : ""}>${esc(r.name)}${r.track ? ` · ${esc(r.track)}` : ""}</option>`).join("")}
+        </select></label>
+        <div>${[{ key: "overall", name: "Overall", color: null }, ...groups.filter((g) => g.key !== "overall")]
+          .map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>`;
+  }
+  const skey = JSON.stringify([s.overlays && s.overlays.settings, (s.league && s.league.banners) || []]);
+  if (skey !== boardSettingsKey && !document.activeElement.closest("#board-settings")) {
+    boardSettingsKey = skey;
+    renderBoardSettings(s);
+  }
+}
+
+function renderBoardSettings(s) {
+  const settings = s.overlays && s.overlays.settings;
+  if (!settings) return;
+  const banners = (s.league && s.league.banners) || [];
+  $("#board-settings").innerHTML = Object.entries(BOARD_FIELDS).map(([section, fields]) => `
+    <div class="overlay-card"><h3>${BOARD_SECTION_NAMES[section]}</h3><div class="ov-form" data-overlay="${section}">
+    ${[...BOARD_LOOK, ...fields].map(([k, label, kind, opts]) => {
+      const v = settings[section][k];
+      const attrs = `data-key="${k}" data-kind="${kind === "banner" ? "select" : kind}"`;
+      if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
+      if (kind === "number") return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" value="${v}"></label>`;
+      const choices = kind === "banner"
+        ? [["", "The first of the right shape"], ...banners.map((b, i) => [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
+        : opts;
+      return `<label class="ov-field">${label}<select ${attrs}>${choices.map(([o, l]) =>
+        `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+    }).join("")}</div></div>`).join("");
+}
+
+$("#board-buttons").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-board]");
+  if (!b) return;
+  const params = { kind: b.dataset.board, group: b.dataset.group || "" };
+  if (params.kind === "results") params.round = boardRound;
+  const r = await cmd("board_show", params);
+  if (r) ui.boardOn = { kind: params.kind, group: params.group };
+  boardButtonsKey = "";
+});
+$("#board-buttons").addEventListener("change", (e) => {
+  if (e.target.id === "board-round") {
+    boardRound = e.target.value;
+    // Results already on screen switch to the new source straight away.
+    if (ui.boardOn && ui.boardOn.kind === "results") cmd("board_show", { kind: "results", group: ui.boardOn.group, round: boardRound });
+  }
+});
+$("#btn-board-hide").addEventListener("click", async () => {
+  await cmd("board_hide");
+  ui.boardOn = null;
+  boardButtonsKey = "";
+});
+$("#board-settings").addEventListener("change", (e) => {
+  const el = e.target;
+  const form = el.closest(".ov-form");
+  if (!el.dataset.key || !form) return;
+  const value = el.dataset.kind === "bool" ? el.checked : el.dataset.kind === "number" ? +el.value : el.value;
+  boardSettingsKey = "";
+  el.blur();
+  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
+});
+$("#url-board").textContent = `${location.origin}/board.html`;
+
 for (const page of ["standings", "laps"]) {
   $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;
   $(`#url-${page}-screen`).textContent = `${location.origin}/${page}.html?screen=1`;
@@ -1340,6 +1531,8 @@ function openEditor(profile) {
   renderClasses();
   renderTeams();
   renderRoster();
+  renderBanners();
+  renderLeagueImages();
   champ.dirty = false;
   champ.standings = null;
   renderChampionship();
@@ -1349,7 +1542,31 @@ function openEditor(profile) {
 
 const ROSTER_FIELDS = [["name", ""], ["cust_id", "c-id"], ["car_number", "c-num"], ["driver_number", "c-num"], ["nickname", ""], ["team", ""], ["notes", ""]];
 
+// Car makes (and their badges) the app knows, loaded once.
+const makes = { list: [], loaded: false };
+
+async function loadMakes() {
+  if (makes.loaded) return;
+  try {
+    makes.list = (await api("/api/makes")).makes;
+    makes.loaded = true;
+    if (ui.editing) renderRoster();
+  } catch (e) { /* the roster still works without badges */ }
+}
+
+function makeOptions(selected) {
+  const known = makes.list.some((m) => m.name === selected);
+  return `<option value="">Auto (iRacing car)</option>${selected && !known ? `<option selected>${esc(selected)}</option>` : ""}` +
+    makes.list.map((m) => `<option ${m.name === selected ? "selected" : ""}>${esc(m.name)}</option>`).join("");
+}
+
+function makeBadge(name) {
+  const m = makes.list.find((x) => x.name === name);
+  return `<span class="make-badge">${m && m.logo ? `<img src="${esc(m.logo)}" alt="${esc(name)}">` : ""}</span>`;
+}
+
 function renderRoster() {
+  loadMakes();
   const drivers = ui.editing.drivers || [];
   const classes = ui.editing.classes || [];
   const classOptions = (selected) => `<option value="">Auto (by car)</option>` +
@@ -1357,6 +1574,7 @@ function renderRoster() {
   $("#roster-rows").innerHTML = drivers.map((d, i) => `<tr>${ROSTER_FIELDS.map(([f]) =>
     `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"></td>`).join("")}
     <td><select data-row="${i}" data-field="class_id" aria-label="Class">${classOptions(d.class_id || "")}</select></td>
+    <td class="make-cell">${makeBadge(d.car_make)}<select data-row="${i}" data-field="car_make" aria-label="Car">${makeOptions(d.car_make || "")}</select></td>
     <td><div class="photos">${["car", "helmet"].map((kind) => photoButton(d, i, kind)).join("")}</div></td>
     <td><button class="btn icon danger" data-remove="${i}" title="Remove">✕</button></td></tr>`).join("");
 }
@@ -1392,6 +1610,76 @@ async function uploadImage(target, file) {
   openEditor(data.league);
   return data.league;
 }
+
+// -- league logo, calendar image and banners ---------------------------------------
+
+const LEAGUE_IMAGES = { logo: ["#league-logo-slot", "league logo"], calendar_image: ["#calendar-image-slot", "calendar image"] };
+
+function renderLeagueImages() {
+  for (const [field, [slot, label]] of Object.entries(LEAGUE_IMAGES)) {
+    const file = ui.editing && ui.editing[field];
+    $(slot).innerHTML = `<div class="image-slot-img ${field}">${file ? `<img src="${esc(logoSrc(file))}" alt="">` : `<span class="hint">No ${label}</span>`}</div>
+      <label class="btn subtle">${file ? "Replace" : "Upload"} ${label}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-league-image="${field}" hidden></label>
+      ${file ? `<button class="btn subtle" data-league-image-remove="${field}">Remove</button>` : ""}`;
+  }
+}
+
+$("#league-editor").addEventListener("change", async (e) => {
+  const input = e.target.closest("[data-league-image]");
+  if (!input || !input.files.length) return;
+  try {
+    await uploadImage(`league:${input.dataset.leagueImage}`, input.files[0]);
+    toast("Image added");
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+$("#league-editor").addEventListener("click", (e) => {
+  const rm = e.target.closest("[data-league-image-remove]");
+  if (!rm) return;
+  ui.editing[rm.dataset.leagueImageRemove] = null;
+  renderLeagueImages();
+  toast("Removed: save the league to keep the change");
+});
+
+function renderBanners() {
+  const list = (ui.editing && ui.editing.banners) || [];
+  $("#banner-list").innerHTML = list.length ? list.map((b, i) => `<div class="banner-card ${b.orientation}">
+      <div class="banner-img"><img src="${esc(logoSrc(b.file))}" alt=""></div>
+      <div class="banner-fields">
+        <input data-banner="${i}" data-key="name" value="${esc(b.name || "")}" placeholder="Name (optional)" aria-label="Banner name">
+        <select data-banner="${i}" data-key="orientation" aria-label="Shape">
+          <option value="horizontal" ${b.orientation === "horizontal" ? "selected" : ""}>Horizontal</option>
+          <option value="vertical" ${b.orientation === "vertical" ? "selected" : ""}>Vertical</option></select>
+        <button class="btn icon danger" data-banner-remove="${i}" title="Remove">✕</button>
+      </div></div>`).join("") : '<p class="hint">No logos or banners yet.</p>';
+}
+
+$("#league-editor").addEventListener("change", async (e) => {
+  const up = e.target.closest("[data-banner-upload]");
+  if (up && up.files.length) {
+    try {
+      await uploadImage(`banner:${up.dataset.bannerUpload}`, up.files[0]);
+      toast("Banner added");
+    } catch (err) {
+      toast(err.message, true);
+    }
+    up.value = "";
+    return;
+  }
+  const field = e.target.closest("[data-banner]");
+  if (field) {
+    ui.editing.banners[+field.dataset.banner][field.dataset.key] = field.value;
+    renderBanners();
+  }
+});
+$("#banner-list").addEventListener("click", (e) => {
+  const rm = e.target.closest("[data-banner-remove]");
+  if (!rm) return;
+  ui.editing.banners.splice(+rm.dataset.bannerRemove, 1);
+  renderBanners();
+  toast("Removed: save the league to keep the change");
+});
 
 // -- team builder ---------------------------------------------------------------
 // Edits the same league as the League builder (ui.editing); a driver's team is
@@ -1772,6 +2060,7 @@ $("#roster-rows").addEventListener("input", (e) => {
 });
 $("#roster-rows").addEventListener("change", async (e) => {
   if (e.target.dataset.field === "team") return renderTeams();
+  if (e.target.dataset.field === "car_make") return renderRoster();  // update the badge
   const input = e.target.closest("[data-photo]");
   if (!input || !input.files.length) return;
   const d = ui.editing.drivers[+input.dataset.row];

@@ -322,6 +322,34 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
 
+## Boards (full-screen championship, calendar and results)
+
+The **Boards** tab puts a full-screen board on stream with one click. Add
+`/board.html` to OBS as a *Browser Source* at 1920×1080. It's empty
+(transparent) until you put a board on screen, and **Take off screen** clears
+it. The buttons are built from the active league:
+
+- **Championship standings**: Overall, and one button per class.
+- **Teams' championship**.
+- **Manufacturers**: by the cars' makes, Overall and per class.
+- **Season calendar**: every round with track, layout, date, time and
+  length, which rounds are done (with their winners) and which is next. Or
+  the league's own calendar image instead (see *League builder*).
+- **Finishing order**: Overall or per class, from the latest round, a chosen
+  round, or the session going on now (live).
+
+Under *What each board shows*, every board can be set up separately:
+- the league logo in its header;
+- a league banner across the top or bottom or down either side, and which
+  banner;
+- the board's own columns: car numbers, team names and logos, car badges,
+  gaps, wins, penalty points, points from the last few rounds, laps, places
+  gained, fastest lap (purple), DNF/DSQ, points scored, and how many rows.
+
+Long tables split into two columns rather than shrinking. Names follow the
+league's *Remove driver class in name* setting, and car numbers take the
+class colour.
+
 ## Championship
 
 The **Championship** tab keeps each league's season. It works on the same
@@ -404,6 +432,31 @@ pronunciation hint), **Save**, then **Use in overlay**. Drivers are matched by
 iRacing customer ID, or by car number for hand-added entries without one.
 Re-fetching a league updates names and numbers, adds new members and keeps your
 notes. Profiles are plain JSON in `data/leagues/`.
+
+**Car**: each driver's car make (Porsche, BMW, Mercedes-AMG…), with its
+badge, for the manufacturers' championship and the boards. *Auto* uses the
+car they drive in iRacing, worked out from its name. Importing drivers from a
+session fills it in, and each championship result keeps the car driven that
+round.
+
+**League logo, banners and calendar image** (for the boards):
+- **League logo**: shown in the board headers.
+- **League banners**: wide ones for across the top or bottom, tall ones for
+  the sides.
+- **Calendar image**: a calendar graphic the league has made itself, which
+  the calendar board can show instead of its own. The rounds you enter still
+  drive the standings, results and next-round information.
+
+**Season calendar**: in Championship → *Calendar & results*, each round has
+a track and a **configuration** picked from lists, plus date, start time and
+length (e.g. "60 min").
+- Type to search the track list; the configuration list then shows that
+  track's layouts.
+- With iRacing API credentials set, **Fetch official track list** downloads
+  iRacing's complete list of tracks and layouts.
+- Without credentials, a built-in list of iRacing's tracks and main layouts
+  is used, plus every track the app has seen in a session. A track not in
+  the lists can be typed in.
 
 **Remove driver class in name**: some leagues put the class in front of
 driver names, like `(P) Dave Price` or `(PA) Mat Gatter`. Tick this box

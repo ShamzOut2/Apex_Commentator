@@ -227,6 +227,13 @@ class IRacingSource:
 # Mock source
 # ---------------------------------------------------------------------------
 
+# Real iRacing car names, GT3 then GT4, so makes and badges show in the mock.
+MOCK_CARS = (
+    ("Porsche 911 GT3 R (992)", "BMW M4 GT3", "Mercedes-AMG GT3 2020", "Ferrari 296 GT3", "Audi R8 LMS EVO II GT3",
+     "Lamborghini Huracan GT3 EVO", "McLaren 720S GT3 EVO", "Ford Mustang GT3", "Aston Martin Vantage GT3 EVO"),
+    ("Porsche 718 Cayman GT4 Clubsport MR", "BMW M4 G82 GT4", "Mercedes-AMG GT4", "Aston Martin Vantage GT4",
+     "McLaren 570S GT4", "Ford Mustang GT4"),
+)
 MOCK_TEAMS = ["Apex Racing", "Redline Motorsport", "Northbound GT", "Kestrel Works", "Vanta Racing", "Halcyon Motorsport"]
 MOCK_COLORS = ["d7263d", "1b76d1", "f2c94c", "111111", "ffffff", "2a9d58", "f2994a", "7b2cbf", "56ccf2", "9aa5b1"]
 
@@ -334,6 +341,8 @@ class MockSource:
                 "UserID": 100000 + i, "TeamName": MOCK_TEAMS[i % len(MOCK_TEAMS)], "CarNumber": num,
                 "CarNumberRaw": int(num), "CarIsPaceCar": 0, "IsSpectator": 0,
                 "CarScreenNameShort": "GT4" if self._is_gt4(i) else "GT3",
+                "CarScreenName": MOCK_CARS[self._is_gt4(i)][i % len(MOCK_CARS[self._is_gt4(i)])],
+                "CarPath": "",
                 "CarClassShortName": "GT4" if self._is_gt4(i) else "GT3",
                 "CarClassID": 4084 if self._is_gt4(i) else 4083,
                 "CarClassColor": 0x53FF77 if self._is_gt4(i) else 0xFFDA59, "IRating": 1500 + (self.num_cars - i) * 120,

@@ -25,6 +25,7 @@
     <button class="tab" data-tab="league">League builder</button>
     <button class="tab" data-tab="teams">Teams</button>
     <button class="tab" data-tab="overlays">Overlays</button>
+    <button class="tab" data-tab="boards">Boards</button>
     <button class="tab" data-tab="championship">Championship</button>
   </nav>
 
@@ -271,11 +272,30 @@
           <h3 class="section-title">Teams</h3>
           <p class="hint">Team names, logos and colours, and which drivers are in each team, are set in the team builder. The roster's Team column is the same thing.</p>
           <button class="btn subtle" data-goto="teams">Open the team builder</button>
+          <h3 class="section-title">Season calendar</h3>
+          <p class="hint">The season's rounds (track, layout, date, time, length) are set up with the championship; the
+            standings, results and calendar board all come from them. If the league has made its own calendar graphic, add it
+            here and the calendar board can show it instead.</p>
+          <div class="row">
+            <button class="btn subtle" data-goto="championship" data-champ-goto="rounds">Open the season calendar</button>
+          </div>
+          <div id="calendar-image-slot" class="image-slot"></div>
+          <h3 class="section-title">League logo</h3>
+          <p class="hint">Shown in the header of the full-screen boards (each board can turn it off).</p>
+          <div id="league-logo-slot" class="image-slot"></div>
+          <h3 class="section-title">League banners</h3>
+          <p class="hint">Logos and banners for the full-screen boards (championship, calendar, results). Upload a wide one for
+            across the top or bottom, and a tall one for the side; each board picks which to show.</p>
+          <div id="banner-list" class="banner-list"></div>
+          <div class="row">
+            <label class="btn subtle">+ Horizontal banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="horizontal" hidden></label>
+            <label class="btn subtle">+ Vertical banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="vertical" hidden></label>
+          </div>
           <h3 class="section-title">Drivers</h3>
           <p class="hint">Nicknames, teams and notes show next to drivers in the overlay. Drivers are matched by iRacing customer ID, or by car number when there is no ID.</p>
           <div class="roster-scroll">
           <table class="grid roster">
-            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num" title="Car number">Car #</th><th class="c-num" title="Driver's own number, if the league uses one">Driver #</th><th>Nickname</th><th>Team</th><th>Notes</th><th class="c-class">Class</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
+            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num" title="Car number">Car #</th><th class="c-num" title="Driver's own number, if the league uses one">Driver #</th><th>Nickname</th><th>Team</th><th>Notes</th><th class="c-class">Class</th><th class="c-make" title="The car's manufacturer: for badges and the manufacturers' championship. Auto uses the car they drive in iRacing.">Car</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
             <tbody id="roster-rows"></tbody>
           </table>
           </div>
@@ -335,6 +355,27 @@
       </div>
     </section>
 
+    <section id="tab-boards" class="panel">
+      <div class="home wide">
+        <div class="row teams-head">
+          <h2>Boards</h2>
+          <span id="board-onair" class="hint"></span>
+          <span class="grow"></span>
+          <button id="btn-board-hide" class="btn danger">Take off screen</button>
+        </div>
+        <p class="hint">Full-screen boards for the active league: championship standings, the season calendar and results.
+          Add <code id="url-board"></code> <button class="btn subtle" data-copy="url-board">Copy</button>
+          <a class="btn subtle" href="/board.html?preview=1" target="_blank" rel="noopener">Open ↗</a>
+          to OBS as a Browser Source at 1920×1080: it's empty (transparent) until you put a board on screen here.</p>
+        <div class="boards-layout">
+          <div class="board-buttons" id="board-buttons"></div>
+          <div class="board-preview"><div class="preview-frame"><iframe src="/board.html?preview=1" title="Board preview" loading="lazy"></iframe></div></div>
+        </div>
+        <h3 class="section-title">What each board shows</h3>
+        <div id="board-settings" class="board-settings"></div>
+      </div>
+    </section>
+
     <section id="tab-championship" class="panel">
       <div class="home wide">
         <div class="row teams-head">
@@ -346,7 +387,7 @@
         </div>
         <div id="champ-views" class="chips champ-views">
           <button class="chip active" data-champ-view="standings">Standings</button>
-          <button class="chip" data-champ-view="rounds">Rounds &amp; results</button>
+          <button class="chip" data-champ-view="rounds">Calendar &amp; results</button>
           <button class="chip" data-champ-view="penalties">Penalties</button>
           <button class="chip" data-champ-view="rules">Points &amp; rules</button>
         </div>
@@ -364,6 +405,8 @@
             minimum share of the race (Points &amp; rules) is a DNF and scores nothing. Correct anything by hand: positions,
             laps led, fastest laps, status, or extra points (+ or −). During a race the live standings count it as the
             round marked <b>live</b> (by default the first round without results).</p>
+          <p class="hint"><span id="track-source"></span> <button id="btn-fetch-tracks" class="btn subtle" hidden>Fetch official track list</button></p>
+          <datalist id="track-names"></datalist>
           <div id="champ-rounds"></div>
           <button id="btn-add-round" class="btn subtle">+ Add round</button>
         </div>
