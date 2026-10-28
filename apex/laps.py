@@ -37,6 +37,27 @@ def sector_starts(info):
     return tuple(starts) if len(starts) > 1 else DEFAULT_SECTORS
 
 
+def group_sectors(starts, count):
+    """Merge a track's split points into ``count`` sectors (0 = keep them all).
+
+    iRacing often splits a lap into many short sections; broadcasts show
+    three. The boundaries kept are the split points nearest to equal thirds
+    (or halves, quarters...) of the lap.
+    """
+    starts = tuple(starts)
+    if count <= 0 or len(starts) <= count:
+        return starts
+    inner = list(starts[1:])
+    chosen = []
+    for k in range(1, count):
+        target = k / count
+        pick = min((p for p in inner if p not in chosen and (not chosen or p > chosen[-1])),
+                   key=lambda p: abs(p - target), default=None)
+        if pick is not None:
+            chosen.append(pick)
+    return (0.0, *chosen)
+
+
 def colour(time, reference, green_s):
     if reference is None or time <= reference + 1e-4:
         return "purple"

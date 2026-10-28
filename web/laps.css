@@ -1,7 +1,12 @@
 .trackers {
   position: absolute; left: 40px; right: 40px; bottom: 36px;
-  display: flex; align-items: flex-end; gap: 12px;
+  display: flex; align-items: flex-end; gap: 24px;
 }
+/* The car on camera on the left; the rest to its right, wrapping onto a
+   second row (above) rather than shrinking until they can't be read. */
+.big-slot { flex: 0 0 auto; display: flex; }
+.big-slot:empty { display: none; }
+.small-slot { flex: 1; display: flex; flex-wrap: wrap-reverse; align-items: flex-end; gap: 12px; min-width: 0; }
 .tracker {
   background: var(--panel); border-radius: 10px; overflow: hidden; flex: 0 0 auto;
   border-top: 4px solid var(--cls, #8b93a3);
@@ -10,7 +15,7 @@
 }
 .tracker.gone { opacity: 0; position: absolute; visibility: hidden; }
 @keyframes tracker-in { from { opacity: 0; transform: translateY(20px); } }
-.tracker.big { width: 600px; order: -1; margin-right: 12px; }
+.tracker.big { width: 620px; }
 .tracker.small { width: var(--small-w, 290px); }
 
 .tk-top { display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px; min-width: 0; }
@@ -24,23 +29,31 @@
 .tk-top .badge { font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 3px; background: var(--red); color: #fff; letter-spacing: .05em; }
 .tk-top .badge.info { background: rgba(255,255,255,.18); }
 
-.tk-body { display: flex; align-items: stretch; gap: 10px; padding: 4px 10px 10px; }
-.sectors { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
-.sector { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; }
-.bar i { display: block; height: 100%; width: 0; background: rgba(255,255,255,.55); transition: width .3s linear; }
-.bar i.purple { background: var(--purple); }
-.bar i.green { background: var(--green); }
-.bar i.yellow { background: var(--yellow); }
-.sector .st { font-size: 13px; color: var(--muted); text-align: center; font-weight: 700; min-height: 1.2em; }
-.timebox { text-align: right; min-width: 92px; display: flex; flex-direction: column; justify-content: center; line-height: 1.1; }
+.tk-body { display: flex; align-items: center; gap: 12px; padding: 6px 10px 10px; }
+/* One pill per sector: it fills as the car goes round, then turns solid with
+   the sector time inside it, so times can never run into each other. */
+.sectors { flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 5px; }
+.sector {
+  position: relative; height: 26px; border-radius: 6px; overflow: hidden; min-width: 0;
+  background: rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center;
+}
+.sector i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(255,255,255,.3); transition: width .3s linear; }
+.sector i.purple { background: var(--purple); }
+.sector i.green { background: var(--green); }
+.sector i.yellow { background: var(--yellow); }
+.sector .st { position: relative; font-size: 14px; font-weight: 800; color: #fff; white-space: nowrap; letter-spacing: .01em; }
+.sector[data-c=green] .st { color: #06210f; }
+.sector[data-c=yellow] .st { color: #2a2100; }
+.sector.tight .st { visibility: hidden; }  /* too narrow for its time: colour only */
+.timebox { text-align: right; min-width: 104px; flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; line-height: 1.15; }
 .timebox .lt { font-size: 20px; font-weight: 800; }
 .timebox .lt.done { color: #fff; }
 .timebox .pv { font-size: 12px; color: var(--muted); font-weight: 600; }
 .timebox .dl { font-size: 15px; font-weight: 800; }
 .timebox .dl.faster { color: var(--green); }
 .timebox .dl.slower { color: var(--red); }
-.tracker.invalid .bar i { background: rgba(255,255,255,.3); }
+.tracker.invalid .sector i { background: rgba(255,255,255,.3); }
+.tracker.invalid .sector .st { color: #fff; }
 .tracker.invalid .lt { color: var(--muted); text-decoration: line-through; }
 
 .tracker.big .tk-top .n { font-size: 26px; }
@@ -48,9 +61,9 @@
 .tracker.big .tk-top .num { height: 30px; font-size: 19px; }
 .tracker.big .tk-top .team-logo { width: 40px; height: 32px; }
 .tracker.big .tk-top .tm { font-size: 15px; }
-.tracker.big .bar { height: 12px; }
-.tracker.big .sector .st { font-size: 17px; }
-.tracker.big .timebox { min-width: 140px; }
+.tracker.big .sector { height: 36px; border-radius: 8px; }
+.tracker.big .sector .st { font-size: 19px; }
+.tracker.big .timebox { min-width: 150px; }
 .tracker.big .timebox .lt { font-size: 32px; }
 .tracker.big .timebox .pv { font-size: 15px; }
 .tracker.big .timebox .dl { font-size: 20px; }

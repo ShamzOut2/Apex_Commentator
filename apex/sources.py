@@ -247,9 +247,13 @@ class MockSource:
     SECTOR_STARTS = (0.0, 0.32, 0.68)
 
     def __init__(self, num_cars=18, seed=None, time_scale=1.0, clock=time.monotonic, session="race",
-                 race_laps=0, retirements=False, no_shows=0):
+                 race_laps=0, retirements=False, no_shows=0, sectors=3):
         # "race", or "qualify": cars leave the pits and do timed laps, no grid.
         self.session_kind = session
+        if sectors != 3:
+            # Like many real tracks: lots of uneven split points.
+            self.SECTOR_STARTS = tuple(round(k / sectors + (0.02 if k % 2 else -0.015) * (k > 0), 3)
+                                       for k in range(sectors))
         self.rng = random.Random(seed)
         self.clock = clock
         self.time_scale = time_scale

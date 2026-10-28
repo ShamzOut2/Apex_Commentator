@@ -27,6 +27,7 @@ DEFAULTS = {
         "count": 4,               # small trackers along the bottom
         "name_format": "initial_last",
         "reference": "personal",  # sector colours against "personal" bests or the "session" (class) best
+        "sectors": 3,             # sectors shown: the track's split points merged into this many (0 = all of them)
         "green_s": 0.2,
         "hide_s": 5.0,
         "show_team": True,
@@ -38,7 +39,7 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"rows": (1, 64), "count": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
+LIMITS = {"rows": (1, 64), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
 CHOICES = {"mode": ("overall", "class"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 

@@ -272,6 +272,10 @@ are kept in `data/overlays.json`.
     - **purple**: faster than the reference;
     - **green**: within 0.2 s of it (adjustable);
     - **yellow**: slower.
+  - The track's timing split points are merged into 3 sectors by default,
+    like TV. The *Sectors* setting offers 2, 3, 4, or every split point the
+    track has. The time sits inside each finished sector; with many sectors
+    the small trackers show just the colours.
   - The reference is the driver's own best ("personal") or the fastest in
     their class this session ("session").
   - The driver's best lap is always shown. When a lap is done, its time

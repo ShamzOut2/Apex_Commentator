@@ -4,6 +4,20 @@ Release notes for each version. When a version tag is pushed, its section
 here becomes the GitHub release notes, which the app shows in its update
 pop-up.
 
+## v0.4.1
+
+- **Lap tracker readable on real tracks**: iRacing often splits a lap into
+  many short sections, and the sector times piled on top of each other.
+  - Sectors are now merged into 3 by default, like a TV broadcast. The
+    *Sectors* setting in the Overlays tab offers 2, 3, 4 or every split
+    point.
+  - Each sector is a pill that fills as the car goes round and turns solid
+    with its time inside. A pill too narrow for its time shows only its
+    colour.
+  - Small trackers keep a readable width and wrap onto a second row rather
+    than shrinking.
+- `--mock-sectors N` gives the simulated track N split points.
+
 ## v0.4.0
 
 - **Full-screen displays**: the standings and the qualifying lap tracker each
