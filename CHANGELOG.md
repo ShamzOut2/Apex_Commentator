@@ -14,7 +14,7 @@ pop-up.
   builds up in order at the end of lap 1.
 - **Standings columns to choose from**:
   - gap and interval;
-  - places gained/lost and class position;
+  - places gained/lost;
   - best and last lap;
   - laps completed, pit stops and the PIT badge.
 - The full-screen standings board shows laps or time left too, and counts
@@ -23,7 +23,12 @@ pop-up.
   names like `(P) Dave Price`.
   - The name without the tag goes in each driver's Nickname, and the
     overlays use it.
-  - The control panel keeps the full name, so class changes still show.
+  - The timing screen and roster keep the full name, so class changes still
+    show.
+- **Classes from name tags**: `(P)`, `(SP)`, `(PA)`, `(AM)` and the like put
+  drivers in the matching league class, by its name, its *iRacing classes*
+  entries or its initials. Numbers and stripes on the overlays take the class
+  colour, and the lap tracker's driver-number badge does too.
 
 ## v0.4.1
 

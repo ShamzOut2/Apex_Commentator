@@ -472,7 +472,7 @@ function renderGridwalk(s) {
   $("#gw-reset-order").hidden = !g.manual_order;
   $("#gw-empty").hidden = entries.length > 0;
   // Rebuild rows only when they change, so buttons aren't replaced mid-click.
-  const key = JSON.stringify([g.index, g.visible, entries.map((e) => [e.key, e.number, e.name, e.full_name, e.nickname, e.team,
+  const key = JSON.stringify([g.index, g.visible, entries.map((e) => [e.key, e.number, e.name, e.nickname, e.team,
     e.in_session, e.in_world, (classes.get(e.class_key) || {}).color])]);
   if (key === gwRowsKey) return;
   gwRowsKey = key;
@@ -484,7 +484,7 @@ function renderGridwalk(s) {
     return `<tr class="${onScreen ? "on-screen" : ""}">
       <td class="pos">P${e.grid_pos}</td>
       <td><span class="num" style="border-left-color:${esc(color)}">${esc(e.number)}</span></td>
-      <td><span class="name">${esc(e.full_name || e.name)}</span>${e.nickname ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
+      <td><span class="name">${esc(e.name)}</span>${e.nickname ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
       <td class="sub">${esc(e.team)}</td>
       <td>${status}</td>
       <td><div class="actions">
@@ -1219,7 +1219,6 @@ const OVERLAY_FIELDS = {
     ["show_gap", "Gap to leader / pole", "bool"],
     ["show_interval", "Interval to car ahead", "bool"],
     ["show_pos_change", "Places gained / lost (race)", "bool"],
-    ["show_class_pos", "Class position (overall view)", "bool"],
     ["show_best_lap", "Best lap", "bool"],
     ["show_last_lap", "Last lap", "bool"],
     ["show_laps", "Laps completed", "bool"],

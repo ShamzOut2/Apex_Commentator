@@ -258,7 +258,8 @@ are kept in `data/overlays.json`.
 - **Standings** (`/standings.html`): in a race, the running order with the gap
   to the leader. In qualifying and practice, it shows the fastest clean lap,
   and drivers only appear once they have one, so it starts empty.
-  - *Overall* lists everyone (with class position in multiclass).
+  - *Overall* lists everyone. Each driver's class shows in the colour of
+    their number and stripe.
   - *By class* gives each class its own block with its header and logo, or
     shows just one class.
   - **Header**: the session, with laps or time left. *Automatic* follows how
@@ -273,7 +274,6 @@ are kept in `data/overlays.json`.
     - gap to the leader (or to pole);
     - interval to the car ahead;
     - places gained or lost since the start;
-    - class position in the overall view;
     - best lap and last lap;
     - laps completed and pit stops;
     - a PIT badge on pit road.
@@ -415,8 +415,17 @@ driver names, like `(P) Dave Price` or `(PA) Mat Gatter`. Tick this box
 - The overlays (standings, lap tracker, grid walk, full-screen boards) show
   that nickname as the driver's name, so the name styles work properly
   ("D. Price", "Price D.").
-- The control panel (timing screen, grid walk list, roster) keeps the full
-  `(P) Dave Price`, so you can spot a driver changing class.
+- The grid walk (on stream and its list in the app) uses it too.
+- The timing screen and roster keep the full `(P) Dave Price`, so you can spot
+  a driver changing class.
+
+**Classes from name tags**: a tag like `(P)` also puts the driver in the
+matching league class, so their number and stripe take that class's colour.
+The match is the class's name or an entry in its *iRacing classes* field
+(e.g. `P`), or else the initials of its name: `SP` is Semi-Pro, `PA` is
+Pro-Am, `P` is Pro, `G` is Gold. The tag in the driver's current iRacing name
+counts, so a class change shows as soon as the tag changes. A class picked
+for a driver in the roster still wins.
 
 ### Classes and logos
 

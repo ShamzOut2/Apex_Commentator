@@ -31,7 +31,6 @@
 .srow .c .up { color: var(--green); }
 .srow .c .down { color: var(--red); }
 .srow .c .dim { color: var(--muted); opacity: .6; font-size: 14px; }
-.srow .cp { font-size: 11px; font-weight: 800; padding: 1px 5px; border-radius: 3px; margin-right: 6px; vertical-align: 2px; }
 .srow .pitb { margin-left: 8px; font-size: 11px; padding: 1px 5px; border-radius: 3px; background: #fff; color: #111; vertical-align: 2px; }
 .srow.cam { background: rgba(255, 122, 26, .22); }
 /* Column labels, when there are numbers to label. */

@@ -23,7 +23,6 @@ DEFAULTS = {
         "show_gap": True,         # race: gap to the leader; qualifying: gap to pole
         "show_interval": False,   # to the car ahead
         "show_pos_change": True,  # race: places gained / lost since the start
-        "show_class_pos": True,   # overall view of a multiclass field: class position
         "show_best_lap": False,
         "show_last_lap": False,
         "show_laps": False,       # laps completed

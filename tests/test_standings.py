@@ -111,11 +111,34 @@ class ClassTagTests(unittest.TestCase):
             snap = app.build_snapshot()
             panel = {d["car_idx"]: d["name"] for d in snap["drivers"]}
             stream = {e["car_idx"]: (e["name"], e["nickname"]) for e in snap["overlays"]["standings"]}
-            walk = {e["car_idx"]: (e["name"], e["full_name"]) for e in snap["gridwalk"]["entries"]}
+            walk = {e["car_idx"]: e["name"] for e in snap["gridwalk"]["entries"]}
             self.assertEqual(panel[1], "(P) Ayrton Vale")
             self.assertEqual(stream[1], ("Ayrton Vale", ""))
-            self.assertEqual(walk[2], ("Owen Price", "(SP) Owen Price"))
+            self.assertEqual(walk[2], "Owen Price")
             # Not in the roster at all: still shown without the tag.
             app.leagues.save(dict(prof, drivers=[d for d in prof["drivers"] if d["cust_id"] != 100001]))
             snap = app.build_snapshot()
             self.assertEqual({e["car_idx"]: e["name"] for e in snap["overlays"]["standings"]}[2], "Owen Price")
+
+
+class ClassFromTagTests(unittest.TestCase):
+    CLASSES = [{"id": "pro", "name": "Pro", "match": []}, {"id": "sp", "name": "Semi-Pro", "match": []},
+               {"id": "pa", "name": "Pro-Am", "match": []}, {"id": "am", "name": "Am", "match": []},
+               {"id": "gold", "name": "Gold", "match": ["GT3"]}]
+
+    def test_tags(self):
+        from apex.league import class_for_tag, class_tag
+        self.assertEqual(class_tag("(sp) Ben Gibbons"), "SP")
+        self.assertIsNone(class_tag("Ben Gibbons"))
+        pick = lambda t: (class_for_tag(self.CLASSES, t) or {}).get("id")
+        self.assertEqual([pick(t) for t in ("P", "SP", "PA", "AM", "G", "PRO-AM", "X")],
+                         ["pro", "sp", "pa", "am", "gold", "pa", None])
+
+    def test_tag_beats_car_class_but_not_an_own_pick(self):
+        store = LeagueStore(tempfile.mkdtemp())
+        profile = {"classes": self.CLASSES}
+        self.assertEqual(store.class_for(None, "GT3", profile, "(SP) Ben Gibbons")["id"], "sp")
+        self.assertEqual(store.class_for(None, "GT3", profile, "Ben Gibbons")["id"], "gold")
+        self.assertEqual(store.class_for({"class_id": "am"}, "GT3", profile, "(SP) Ben Gibbons")["id"], "am")
+        # The session name wins over the roster's: tags change when drivers move class.
+        self.assertEqual(store.class_for({"name": "(P) Ben Gibbons"}, "GT3", profile, "(PA) Ben Gibbons")["id"], "pa")

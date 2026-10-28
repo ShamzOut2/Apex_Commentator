@@ -465,7 +465,7 @@ class App:
                 profile.setdefault("drivers", []).append(entry)
                 added += 1
             key = driver_key(entry) if entry else driver_key({"cust_id": r["cust_id"], "name": r["name"]})
-            cls = self.leagues.class_for(entry, r["car_class"], profile)
+            cls = self.leagues.class_for(entry, r["car_class"], profile, r["name"])
             off = official.get(r["car_idx"], {})
             laps = off.get("LapsComplete")
             if not isinstance(laps, int) or laps < 0:
@@ -671,7 +671,7 @@ class App:
 
         League classes win; otherwise the iRacing car class is used as-is.
         """
-        cls = self.leagues.class_for(league_entry, driver["car_class"], active_league)
+        cls = self.leagues.class_for(league_entry, driver["car_class"], active_league, driver["name"])
         if cls is not None:
             key = f"league:{cls['id']}"
             if key not in classes:
@@ -757,7 +757,6 @@ class App:
         return {
             "car_idx": car_idx,
             "name": name,
-            "full_name": d["name"],  # as entered, "(P)" tag and all: for the control panel
             "nickname": nickname,
             "number": d.get("number", ""),
             "team": team,

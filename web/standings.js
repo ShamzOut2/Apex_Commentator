@@ -53,15 +53,13 @@ function gridFor(cfg, cols) {
 function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx) {
   const pos = classMode ? e.class_pos : e.pos;
   const team = cfg.show_team && e.team ? `<span class="tm">${esc(e.team)}</span>` : "";
-  const pill = !classMode && multiclass && cfg.show_class_pos
-    ? `<span class="cp" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(cls.name)} ${e.class_pos}</span>` : "";
   const pit = cfg.show_pit_status && e.on_pit ? '<span class="pitb">PIT</span>' : "";
   return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""}">
     <span class="p tnum">${pos}</span>
     <span class="stripe" style="background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : cls.color)}"></span>
     ${cfg.show_number ? `<span><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span></span>` : ""}
     ${cfg.show_logo ? `<span>${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
-    <span class="who"><span class="n">${pill}${esc(formatName(e, cfg.name_format))}${pit}</span>${team}</span>
+    <span class="who"><span class="n">${esc(formatName(e, cfg.name_format))}${pit}</span>${team}</span>
     ${cols.map((c) => `<span class="c tnum">${c[3](e, race, classMode)}</span>`).join("")}
   </div>`;
 }
@@ -165,14 +163,13 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   const interval = classMode ? e.class_interval : e.interval;
   const first = pos === 1;
   const change = race && e.pos_change ? `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>` : "";
-  const pill = !classMode && multiclass ? `<span class="cpill" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(cls.name)} ${e.class_pos}</span>` : "";
   const team = e.team ? `${cfg.show_logo && e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}${esc(e.team)}` : "";
   const cells = [
     `<td class="stripe" style="background:${esc(classMode && e.team_color ? e.team_color : cls.color)}"></td>`,
     `<td class="p r">${pos}</td>`,
     race ? `<td class="c">${change}</td>` : "",
     `<td class="c"><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span></td>`,
-    `<td>${pill}${esc(formatName(e, cfg.name_format))}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
+    `<td>${esc(formatName(e, cfg.name_format))}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
     compact ? "" : `<td class="team">${team}</td>`,
   ];
   if (race) {

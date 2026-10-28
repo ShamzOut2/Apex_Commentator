@@ -80,6 +80,37 @@ def strip_class_prefix(name):
     return stripped or name.strip()
 
 
+def class_tag(name):
+    """'(SP) Ben Gibbons' -> 'SP'; None without a tag."""
+    m = CLASS_PREFIX.match(str(name or ""))
+    tag = m.group(0).strip()[1:-1].strip() if m else ""
+    return tag.upper() or None
+
+
+def _squash(text):
+    return re.sub(r"[^0-9A-Z]", "", str(text or "").upper())
+
+
+def class_for_tag(classes, tag):
+    """The league class a name tag stands for, or None.
+
+    Exact first: the tag is the class's name or one of its "iRacing classes"
+    entries ("P" in the Pro class's list). Then initials: "SP" is Semi-Pro,
+    "PA" Pro-Am, "P" Pro.
+    """
+    tag = _squash(tag)
+    if not tag:
+        return None
+    for c in classes:
+        if tag in {_squash(c.get("name")), *(_squash(m) for m in c.get("match", []))}:
+            return c
+    for c in classes:
+        words = [w for w in re.split(r"[\s\-_/]+", str(c.get("name") or "")) if w]
+        if words and tag == "".join(w[0] for w in words).upper():
+            return c
+    return None
+
+
 def fill_clean_nicknames(drivers):
     """Give drivers whose name carries a class tag their clean name as nickname
     (an existing nickname is kept). Returns how many were filled."""
@@ -640,10 +671,12 @@ class LeagueStore:
                 by_number = d
         return by_number
 
-    def class_for(self, entry, car_class, profile=None):
-        """A league's class for a driver: their own pick, else by car class.
+    def class_for(self, entry, car_class, profile=None, name=None):
+        """A league's class for a driver: their own pick, else the class tag
+        in front of their name ("(P) Dave Price"), else by car class.
 
-        Uses the active league unless ``profile`` is given.
+        Uses the active league unless ``profile`` is given. ``name`` is the
+        driver's name in the session, whose tag can change as they move class.
         """
         profile = profile or self._active
         if not profile:
@@ -653,6 +686,13 @@ class LeagueStore:
             for c in classes:
                 if c["id"] == entry["class_id"]:
                     return c
+        # The tag in the session name first (it changes as drivers move
+        # class), else the one in the roster.
+        tag = class_tag(name) or class_tag((entry or {}).get("name"))
+        if tag:
+            by_tag = class_for_tag(classes, tag)
+            if by_tag:
+                return by_tag
         wanted = (car_class or "").lower()
         if wanted:
             for c in classes:
