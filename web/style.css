@@ -410,3 +410,36 @@ kbd {
 .ov-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 14px; }
 .ov-field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
 .ov-field.check { flex-direction: row; align-items: center; gap: 6px; color: var(--text); font-size: 13px; }
+
+/* --- championship ------------------------------------------------------------ */
+.home.wide { max-width: 1400px; }
+.champ-views { margin: 4px 0 12px; }
+.champ-view { margin-top: 6px; }
+.champ-table td.c-num, .champ-table th.c-num { text-align: right; width: 1%; white-space: nowrap; }
+.champ-table td.sub { margin: 0; }
+.champ-table .good { color: var(--good); }
+.champ-table .bad { color: var(--bad); }
+.champ-table input, .champ-table select { width: 100%; min-width: 0; }
+.champ-table input.c-num { width: 64px; text-align: right; }
+.champ-table input.lap-input { width: 96px; }
+.champ-table input.grow { min-width: 220px; }
+.standings-table th.c-rd, .standings-table td.c-rd { text-align: center; width: 1%; min-width: 34px; }
+.standings-table td.dropped { color: var(--muted); text-decoration: line-through; }
+.standings-table td.win { color: var(--accent); font-weight: 700; }
+.champ-group { margin-bottom: 16px; }
+.champ-group-head {
+  font-weight: 800; padding: 6px 10px; border-left: 5px solid var(--cls, var(--accent));
+  background: var(--panel-2); border-radius: var(--radius) var(--radius) 0 0;
+}
+.champ-live { border: 1px solid var(--accent); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 16px; background: rgba(255, 122, 26, .06); }
+.champ-live h3 { margin: 4px 0 10px; }
+.round-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); padding: 8px 10px; margin-bottom: 10px; }
+.round-card.open { border-color: var(--accent); }
+.round-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.round-head .round-num { font-weight: 800; color: var(--accent); min-width: 2.2em; }
+.round-head input[data-rkey=name] { width: 180px; }
+.round-head input[data-rkey=track] { width: 200px; }
+.round-head input.narrow { width: 56px; }
+.results-table { margin-top: 8px; }
+.champ-rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 16px; }
+.champ-rules .wide { grid-column: 1 / -1; }

@@ -27,6 +27,10 @@ OBS dock.
   with the lap time and gap to the driver's best when the lap is done.
 - **Team builder**: teams with logos, short names and colours, and who drives
   for whom. They show on every overlay.
+- **Championship**: each league's season with your points system, bonuses,
+  drop rounds, class and team championships and post-race penalties. Results
+  can be imported from the session, and live standings show the championship
+  as if the race finished now.
 
 ![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.png)
 
@@ -279,6 +283,57 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
 
+## Championship
+
+The **Championship** tab keeps each league's season. It works on the same
+league as the League builder and Teams tabs. Press **Save** after changes; the
+standings update from what's saved.
+
+- **Points & rules**
+  - Points for each finishing position (e.g. `25, 18, 15, 12, 10, 8, 6, 4,
+    2, 1`).
+  - Optional points for qualifying positions, taken from the starting grid.
+  - **Championships**: one per class (scored on class positions; each class
+    is its own championship) or one for everyone.
+  - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
+    are dropped first. Drops only start once a driver has more rounds than N.
+  - The fastest-lap bonus can be limited to the top N finishers.
+  - **Classified**: a driver must complete a percentage of the winner's laps
+    to score.
+  - Whether DNFs score for where they're classified.
+  - **Team championship**: count every driver, or each team's best N per
+    round.
+  - **Bonus points**: pole, fastest lap, led a lap, each lap led, most laps
+    led, most places gained, clean race (no incidents), finished, started, and
+    race win. Use 0 for bonuses you don't award; negative values take points
+    off.
+- **Rounds & results**
+  - Add the season's rounds, with a points multiplier (2 for double points)
+    and *Can't drop* for rounds that always count.
+  - After a race, press **Import from session** while still in the session
+    (or watching its replay). This fills in finishing order, class, grid,
+    laps, laps led, fastest lap, incidents and DNFs from iRacing, and adds
+    drivers missing from the roster.
+  - Everything can be corrected by hand, including DSQ and extra points
+    (+ or −) for a round. The points column shows what each result scored.
+- **Penalties**
+  - *Points off* are taken from the driver's total (and their team's) and are
+    never dropped.
+  - *Licence points* are a running tally per driver, shown in the standings.
+- **Standings**
+  - One table per class with each round's points. Dropped rounds are struck
+    through, and hovering a cell shows its bonuses.
+  - Ties are broken by most wins, then most seconds, and so on.
+  - Below the drivers is the team championship.
+- **Live**
+  - During a race with the league active, the standings tab shows the
+    championship as if the race finished now: race points, points before,
+    live total, gap, and places gained or lost.
+  - The race counts as the round marked *Live* (by default, the first round
+    without results).
+  - The same data is in the app's live feed (`championship` in
+    `/api/state`), ready for a points-battle overlay.
+
 ## League builder
 
 Open the **League builder** tab.
@@ -460,6 +515,7 @@ apex/
   gridwalk.py  grid order and grid walk state
   laps.py      lap and sector timing for the lap tracker and standings
   overlays.py  stream overlay settings
+  championship.py  championship points, drop rounds, penalties and live projection
   league.py    iRacing Data API client and league profiles
   server.py    stdlib HTTP server + Server-Sent Events
   updater.py   update checks and in-app updates from GitHub releases

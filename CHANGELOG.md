@@ -4,8 +4,25 @@ Release notes for each version. When a version tag is pushed, its section
 here becomes the GitHub release notes, which the app shows in its update
 pop-up.
 
-## Unreleased
+## v0.3.0
 
+- **Championship** tab: season points for each league.
+  - **Rules**: points for finishing positions and, if you want them,
+    qualifying positions. Bonuses for pole, fastest lap (optionally top N
+    only), leading a lap, each lap led, most laps led, most places gained, a
+    clean race, finishing, starting and the win. Drop rounds, a minimum share
+    of laps to be classified, and whether DNFs score.
+  - **Championships**: one per class, or one overall, plus a team
+    championship (optionally each team's best N drivers per round).
+  - **Rounds**: double-points (or any multiplier) and can't-drop rounds.
+    *Import from session* fills a round from the race you're in (laps, laps
+    led, fastest laps, grid, incidents, DNFs). Every result can be corrected
+    by hand, and extra points can be given or taken.
+  - **Penalties**: points taken off after a race (never dropped) and licence
+    penalty points, with reasons.
+  - **Live standings** during a race: the championship as if the race
+    finished now, with places and points gained, ready for a points-battle
+    overlay.
 - **Standings overlay** for stream (`/standings.html`): a timing tower,
   overall or by class, with team names, logos and colours. In qualifying it
   stays empty until drivers set clean laps.

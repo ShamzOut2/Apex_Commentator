@@ -7,7 +7,7 @@ import threading
 from dataclasses import replace
 import time
 
-from . import __version__
+from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
 from .laps import LapTracker, sector_starts
@@ -354,8 +354,77 @@ class App:
                 "events": events[-200:],
                 "league": self._league_summary(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
+                "championship": self._championship_snapshot(rows, frame, is_race, active_league),
             }
             return snap
+
+    # -- championship -------------------------------------------------------
+
+    def session_results(self, profile, rows=None, add_missing=False):
+        """The current session as championship results for ``profile``.
+
+        Uses iRacing's official results (laps, laps led, fastest lap, why a car
+        is out) where it has them, and the live order otherwise. With
+        ``add_missing``, drivers not in the roster are added to ``profile``.
+        Returns ``(results, added)``.
+        """
+        frame = self._frame
+        if rows is None:
+            rows = self.build_snapshot().get("drivers") or []
+        session = self._session(frame) if frame else {}
+        official = {r.get("CarIdx"): r for r in session.get("ResultsPositions") or [] if isinstance(r, dict)}
+        results, added = [], 0
+        for r in sorted(rows, key=lambda r: r["pos"] or 10_000):
+            entry = self.leagues.lookup(r["cust_id"], r["number"], profile)
+            if entry is None:
+                entry = next((d for d in profile.get("drivers", []) if d.get("cust_id") is None
+                              and d.get("name", "").strip().lower() == r["name"].strip().lower()), None)
+            if entry is None and add_missing:
+                entry = {"cust_id": r["cust_id"], "name": r["name"], "car_number": r["number"], "team": r["team"]}
+                profile.setdefault("drivers", []).append(entry)
+                added += 1
+            key = driver_key(entry) if entry else driver_key({"cust_id": r["cust_id"], "name": r["name"]})
+            cls = self.leagues.class_for(entry, r["car_class"], profile)
+            off = official.get(r["car_idx"], {})
+            laps = off.get("LapsComplete")
+            if not isinstance(laps, int) or laps < 0:
+                laps = max(0, (r["lap"] or 1) - 1)
+            fastest = off.get("FastestTime")
+            reason = str(off.get("ReasonOutStr") or "Running").strip().lower()
+            if r["pos"] is None and not off:
+                status = "dns"
+            else:
+                status = "finished" if reason == "running" else "dnf"
+            incidents = off.get("Incidents") if isinstance(off.get("Incidents"), int) else r["incidents"]
+            results.append(championship.normalise_result({
+                "driver": key, "name": r["name"],
+                "class_id": cls["id"] if cls else f"iracing:{r['car_class'] or 'Field'}",
+                "position": r["pos"], "start_position": r["start_pos"], "laps": laps,
+                "laps_led": off.get("LapsLed") or 0,
+                "fastest_lap": fastest if isinstance(fastest, (int, float)) and fastest > 0 else r["best_lap"],
+                "incidents": incidents or 0, "status": status,
+            }))
+        return results, added
+
+    def _championship_snapshot(self, rows, frame, is_race, active_league):
+        """Season standings for the active league; during a race, as if it finished now."""
+        if not active_league:
+            return None
+        champ = active_league.get("championship") or championship.normalise({})
+        racing = is_race and frame.session_state >= STATE_RACING and any(r["pos"] for r in rows)
+        if not racing and not any(rd["results"] for rd in champ["rounds"]):
+            return None
+        if racing:
+            rd = championship.live_round_for(champ) or {"id": "live", "name": "This race", "track": "", "date": "",
+                                                        "multiplier": 1.0, "no_drop": False}
+            results, _ = self.session_results(active_league, rows)
+            groups = championship.projection(active_league, dict(rd, results=results))
+            return {"live": True, "round": rd["name"], "groups": groups}
+        table = championship.standings(active_league)
+        groups = [{"key": g["key"], "name": g["name"], "color": g["color"], "drivers": [
+            {k: d[k] for k in ("driver", "name", "team", "car_number", "points", "pos", "behind")}
+            for d in g["drivers"]]} for g in table["groups"]]
+        return {"live": False, "round": None, "groups": groups}
 
     # -- stream overlays ----------------------------------------------------
 

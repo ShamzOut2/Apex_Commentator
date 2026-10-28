@@ -102,6 +102,7 @@ function render() {
   renderGridwalk(s);
   renderHome(s);
   renderOverlaySettings(s);
+  renderChampLive(s);
 
   if (!s.connected) {
     $("#session-line").textContent = s.source === "iracing" ? "Waiting for iRacing…" : "Not connected";
@@ -147,7 +148,7 @@ function showPage(name) {
   // The timing screen fills the window; the other pages scroll.
   $("#main").classList.toggle("fixed", name === "timing");
   if (name === "league") loadLeagues();
-  if (name === "teams") renderTeamsLeagues();
+  if (name === "teams" || name === "championship") renderLeaguePickers();
   try {
     localStorage.setItem(PAGE_KEY, name);
   } catch (e) { /* storage unavailable */ }
@@ -770,6 +771,397 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ---------------------------------------------------------------------------
+// championship: rules, rounds and results, penalties and standings for the
+// League builder's league (ui.editing.championship). Standings are worked out
+// by the app from the saved league; the live table comes with each snapshot.
+// ---------------------------------------------------------------------------
+
+const champ = { view: "standings", standings: null, bonuses: [], defaults: null, dirty: false, open: new Set() };
+const STATUS_NAMES = [["finished", "Finished"], ["dnf", "DNF"], ["dsq", "DSQ"], ["dns", "DNS"]];
+
+function champData() {
+  const p = ui.editing;
+  if (!p.championship) p.championship = JSON.parse(JSON.stringify(champ.defaults || { rules: {}, rounds: [], penalties: [], live_round: "" }));
+  return p.championship;
+}
+
+async function loadChampStandings() {
+  if (!ui.editing || !ui.editing.id) return;
+  const id = ui.editing.id;
+  try {
+    const r = await api(`/api/leagues/${encodeURIComponent(id)}/championship`);
+    if (!ui.editing || ui.editing.id !== id) return;
+    champ.bonuses = r.bonuses;
+    champ.defaults = r.championship;
+    if (!ui.editing.championship) ui.editing.championship = r.championship;
+    champ.standings = r.standings;
+    renderChampionship();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+function markChampDirty() {
+  champ.dirty = true;
+  $("#champ-dirty").hidden = false;
+}
+
+function newId() {
+  return Math.random().toString(36).slice(2, 12);
+}
+
+function parseLapTime(text) {
+  const m = String(text || "").trim().match(/^(?:(\d+):)?(\d+(?:\.\d+)?)$/);
+  return m ? (+(m[1] || 0)) * 60 + +m[2] : null;
+}
+
+function rosterOptions(selected, fallbackName) {
+  const drivers = ui.editing.drivers || [];
+  const keys = new Set(drivers.map(driverKey));
+  const extra = selected && !keys.has(selected) ? `<option value="${esc(selected)}" selected>${esc(fallbackName || selected)}</option>` : "";
+  return `<option value="">Pick a driver…</option>${extra}` + drivers.map((d) => {
+    const k = driverKey(d);
+    return `<option value="${esc(k)}" ${k === selected ? "selected" : ""}>${d.car_number ? `#${esc(d.car_number)} ` : ""}${esc(d.name || "Unnamed")}</option>`;
+  }).join("");
+}
+
+function champClassName(id) {
+  const cls = (ui.editing.classes || []).find((c) => c.id === id);
+  return cls ? cls.name : String(id || "").replace(/^iracing:/, "") || "Overall";
+}
+
+function renderChampionship() {
+  const has = !!ui.editing;
+  $("#champ-empty").hidden = has;
+  document.querySelectorAll(".champ-view").forEach((v) => (v.hidden = !has || v.dataset.view !== champ.view));
+  document.querySelectorAll("[data-champ-view]").forEach((b) => b.classList.toggle("active", b.dataset.champView === champ.view));
+  $("#champ-dirty").hidden = !champ.dirty;
+  if (!has) return;
+  champData();
+  if (champ.view === "standings") renderChampStandings();
+  if (champ.view === "rounds") renderChampRounds();
+  if (champ.view === "penalties") renderChampPenalties();
+  if (champ.view === "rules") renderChampRules();
+  if (ui.snap) renderChampLive(ui.snap);
+}
+
+// -- standings ----------------------------------------------------------------
+
+function fmtPts(v) {
+  return v == null ? "" : Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+function renderChampStandings() {
+  const st = champ.standings;
+  const box = $("#champ-standings");
+  if (!st) {
+    box.innerHTML = '<p class="hint">Loading…</p>';
+    return;
+  }
+  const rounds = st.rounds.filter((r) => r.scored);
+  if (!st.groups.length) {
+    box.innerHTML = '<p class="hint">No results yet. Add rounds and their results under <b>Rounds &amp; results</b>.</p>';
+    return;
+  }
+  const head = rounds.map((r, i) => `<th class="c-rd" title="${esc([r.name, r.track, r.date].filter(Boolean).join(" · "))}${r.multiplier !== 1 ? ` (×${r.multiplier})` : ""}">R${i + 1}</th>`).join("");
+  const anyLicence = st.groups.some((g) => g.drivers.some((d) => d.licence_points));
+  const anyPen = st.groups.some((g) => g.drivers.some((d) => d.penalty_points));
+  box.innerHTML = st.groups.map((g) => `<div class="champ-group">
+      ${g.key || st.groups.length > 1 ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}</div>` : ""}
+      <div class="table-scroll"><table class="grid champ-table standings-table">
+        <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Team</th>${head}${anyPen ? '<th class="c-num" title="Penalty points taken off">Pen</th>' : ""}${anyLicence ? '<th class="c-num" title="Licence points">Lic</th>' : ""}<th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
+        <tbody>${g.drivers.map((d) => `<tr>
+          <td class="c-num"><b>${d.pos}</b></td>
+          <td>${d.car_number ? `<span class="sub">#${esc(d.car_number)}</span> ` : ""}${esc(d.name)}</td>
+          <td class="sub">${esc(d.team)}</td>
+          ${rounds.map((r) => {
+            const s = d.rounds.find((x) => x.round === r.id);
+            const res = s && s.result;
+            const title = res ? `${res.rank ? `P${res.rank}` : res.status.toUpperCase()}${Object.keys(res.bonus).length ? ` · bonus: ${Object.entries(res.bonus).map(([k, v]) => `${k.replace(/_/g, " ")} ${v}`).join(", ")}` : ""}` : "Didn't take part";
+            return `<td class="c-rd ${s && s.dropped ? "dropped" : ""} ${res && res.rank === 1 ? "win" : ""}" title="${esc(title)}${s && s.dropped ? " (dropped)" : ""}">${!res ? "–" : res.status === "dsq" ? "DSQ" : res.status === "dns" ? "DNS" : fmtPts(s.points)}</td>`;
+          }).join("")}
+          ${anyPen ? `<td class="c-num bad">${d.penalty_points ? `−${fmtPts(d.penalty_points)}` : ""}</td>` : ""}
+          ${anyLicence ? `<td class="c-num">${d.licence_points || ""}</td>` : ""}
+          <td class="c-num"><b>${fmtPts(d.points)}</b></td>
+          <td class="c-num sub">${d.behind ? `−${fmtPts(d.behind)}` : ""}</td>
+        </tr>`).join("")}</tbody>
+      </table></div>
+    </div>`).join("") + (st.teams.length ? `<div class="champ-group">
+      <div class="champ-group-head">Teams</div>
+      <table class="grid champ-table"><thead><tr><th class="c-num">Pos</th><th>Team</th><th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
+      <tbody>${st.teams.map((t) => `<tr><td class="c-num"><b>${t.pos}</b></td><td>${esc(t.team)}</td><td class="c-num"><b>${fmtPts(t.points)}</b></td><td class="c-num sub">${t.behind ? `−${fmtPts(t.behind)}` : ""}</td></tr>`).join("")}</tbody></table>
+    </div>` : "");
+}
+
+let champLiveKey = "";
+
+function renderChampLive(s) {
+  const box = $("#champ-live");
+  const c = s.championship;
+  const show = c && c.live && ui.editing && s.league && s.league.id === ui.editing.id && champ.view === "standings";
+  $("#tile-championship").textContent = c && c.live ? `Live: ${c.round}` : s.league ? `${s.league.name}` : "No league active";
+  if (!show) {
+    box.hidden = true;
+    champLiveKey = "";
+    return;
+  }
+  const key = JSON.stringify(c);
+  if (key === champLiveKey) return;
+  champLiveKey = key;
+  box.hidden = false;
+  box.innerHTML = `<h3>Live: ${esc(c.round)} <span class="hint">if the race finished now (from the race order, before stewards)</span></h3>` +
+    c.groups.map((g) => `<div class="champ-group">
+      ${c.groups.length > 1 || g.key ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}</div>` : ""}
+      <table class="grid champ-table"><thead><tr><th class="c-num">Pos</th><th></th><th>Driver</th><th class="c-num">In race</th><th class="c-num">Race pts</th><th class="c-num">Before</th><th class="c-num">Live</th><th class="c-num">Gap</th></tr></thead>
+      <tbody>${g.drivers.map((d) => {
+        const move = d.pos_before ? d.pos_before - d.pos : null;
+        return `<tr>
+          <td class="c-num"><b>${d.pos}</b></td>
+          <td class="c-num ${move > 0 ? "good" : move < 0 ? "bad" : "sub"}">${move ? (move > 0 ? `▲${move}` : `▼${-move}`) : d.pos_before ? "–" : "new"}</td>
+          <td>${d.car_number ? `<span class="sub">#${esc(d.car_number)}</span> ` : ""}${esc(d.name)}</td>
+          <td class="c-num sub">${d.race_rank ? `P${d.race_rank}` : ""}</td>
+          <td class="c-num good">${d.race_points ? `+${fmtPts(d.race_points)}` : ""}</td>
+          <td class="c-num sub">${fmtPts(d.points_before)}</td>
+          <td class="c-num"><b>${fmtPts(d.points)}</b></td>
+          <td class="c-num sub">${d.behind ? `−${fmtPts(d.behind)}` : ""}</td>
+        </tr>`;
+      }).join("")}</tbody></table></div>`).join("");
+}
+
+// -- rounds and results ---------------------------------------------------------
+
+function roundPoints(roundId) {
+  const out = {};
+  for (const g of (champ.standings && champ.standings.groups) || []) {
+    for (const d of g.drivers) {
+      const s = d.rounds.find((x) => x.round === roundId);
+      if (s && s.result) out[d.driver] = s.points;
+    }
+  }
+  return out;
+}
+
+function renderChampRounds() {
+  const c = champData();
+  const classes = ui.editing.classes || [];
+  $("#champ-rounds").innerHTML = c.rounds.length ? c.rounds.map((rd, i) => {
+    const open = champ.open.has(rd.id);
+    const isLive = c.live_round ? c.live_round === rd.id : c.rounds.find((r) => !(r.results || []).length) === rd;
+    const pts = roundPoints(rd.id);
+    const classIds = [...new Set([...classes.map((x) => x.id), ...(rd.results || []).map((r) => r.class_id).filter(Boolean)])];
+    const results = (rd.results || []).map((r, j) => [r, j]).sort((a, b) => (a[0].position || 999) - (b[0].position || 999));
+    return `<div class="round-card ${open ? "open" : ""}">
+      <div class="round-head">
+        <span class="round-num">R${i + 1}</span>
+        <input data-round="${i}" data-rkey="name" value="${esc(rd.name)}" placeholder="Round name" aria-label="Round name">
+        <input data-round="${i}" data-rkey="track" value="${esc(rd.track || "")}" placeholder="Track" aria-label="Track">
+        <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
+        <label class="field" title="Points multiplier, e.g. 2 for double points">×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
+        <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
+        <label class="field" title="The race in progress counts as this round in the live standings"><input type="radio" name="live-round" data-live-round="${esc(rd.id)}" ${isLive ? "checked" : ""}> Live</label>
+        <span class="grow"></span>
+        <span class="sub">${(rd.results || []).length ? `${rd.results.length} results` : "No results"}</span>
+        <button class="btn" data-round-toggle="${esc(rd.id)}">${open ? "Close" : "Results"}</button>
+        <button class="btn" data-round-import="${i}" title="Fill this round with the results of the race session you're in">⤓ Import from session</button>
+        <button class="btn icon danger" data-round-delete="${i}" title="Delete round">✕</button>
+      </div>
+      ${open ? `<div class="table-scroll"><table class="grid champ-table results-table">
+        <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored (after saving)">Pts</th><th></th></tr></thead>
+        <tbody>${results.map(([r, j]) => `<tr>
+          <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"></td>
+          <td><select data-round="${i}" data-res="${j}" data-key="driver">${rosterOptions(r.driver, r.name)}</select></td>
+          <td><select data-round="${i}" data-res="${j}" data-key="class_id"><option value="">—</option>${classIds.map((id) => `<option value="${esc(id)}" ${id === r.class_id ? "selected" : ""}>${esc(champClassName(id))}</option>`).join("")}</select></td>
+          <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="start_position" value="${r.start_position ?? ""}"></td>
+          <td><input type="number" class="c-num" min="0" data-round="${i}" data-res="${j}" data-key="laps" value="${r.laps ?? 0}"></td>
+          <td><input type="number" class="c-num" min="0" data-round="${i}" data-res="${j}" data-key="laps_led" value="${r.laps_led ?? 0}"></td>
+          <td><input class="lap-input" data-round="${i}" data-res="${j}" data-key="fastest_lap" value="${r.fastest_lap ? fmtLap(r.fastest_lap) : ""}" placeholder="1:28.123"></td>
+          <td><input type="number" class="c-num" min="0" data-round="${i}" data-res="${j}" data-key="incidents" value="${r.incidents ?? 0}"></td>
+          <td><select data-round="${i}" data-res="${j}" data-key="status">${STATUS_NAMES.map(([v, l]) => `<option value="${v}" ${v === r.status ? "selected" : ""}>${l}</option>`).join("")}</select></td>
+          <td><input type="number" class="c-num" step="0.5" data-round="${i}" data-res="${j}" data-key="adjust" value="${r.adjust || 0}"></td>
+          <td class="c-num"><b>${pts[r.driver] != null ? fmtPts(pts[r.driver]) : ""}</b></td>
+          <td><button class="btn icon danger" data-res-delete="${j}" data-round="${i}" title="Remove">✕</button></td>
+        </tr>`).join("")}</tbody></table></div>
+        <button class="btn subtle" data-res-add="${i}">+ Add result</button>` : ""}
+    </div>`;
+  }).join("") : '<p class="hint">No rounds yet.</p>';
+}
+
+// -- penalties -------------------------------------------------------------------
+
+function renderChampPenalties() {
+  const c = champData();
+  const names = {};
+  for (const rd of c.rounds) for (const r of rd.results || []) names[r.driver] = r.name;
+  $("#champ-penalties").innerHTML = c.penalties.length ? c.penalties.map((p, i) => `<tr>
+      <td><select data-pen="${i}" data-key="driver">${rosterOptions(p.driver, names[p.driver])}</select></td>
+      <td><select data-pen="${i}" data-key="round_id"><option value="">—</option>${c.rounds.map((rd, k) =>
+        `<option value="${esc(rd.id)}" ${rd.id === p.round_id ? "selected" : ""}>R${k + 1} ${esc(rd.name)}</option>`).join("")}</select></td>
+      <td><input type="number" class="c-num" min="0" step="0.5" data-pen="${i}" data-key="points" value="${p.points || 0}"></td>
+      <td><input type="number" class="c-num" min="0" data-pen="${i}" data-key="licence" value="${p.licence || 0}"></td>
+      <td><input class="grow" data-pen="${i}" data-key="reason" value="${esc(p.reason || "")}" placeholder="e.g. Avoidable contact, T1 lap 1"></td>
+      <td><button class="btn icon danger" data-pen-delete="${i}" title="Remove">✕</button></td>
+    </tr>`).join("") : '<tr><td colspan="6" class="hint">No penalties.</td></tr>';
+}
+
+// -- rules -------------------------------------------------------------------------
+
+function renderChampRules() {
+  const r = champData().rules;
+  const b = r.bonuses || {};
+  $("#champ-rules").innerHTML = `
+    <label class="ov-field wide">Points for each finishing position (1st, 2nd, 3rd…)
+      <input data-rule="points" value="${esc((r.points || []).join(", "))}"></label>
+    <label class="ov-field wide">Qualifying points (pole, 2nd, 3rd…; leave empty for none). Uses the starting grid.
+      <input data-rule="qualifying_points" value="${esc((r.qualifying_points || []).join(", "))}"></label>
+    <label class="ov-field">Championships
+      <select data-rule="scoring"><option value="class" ${r.scoring !== "overall" ? "selected" : ""}>One per class (class positions)</option>
+        <option value="overall" ${r.scoring === "overall" ? "selected" : ""}>One for everyone (overall positions)</option></select></label>
+    <label class="ov-field">Drop rounds (each driver's worst N don't count)
+      <input type="number" min="0" max="50" data-rule="drop_rounds" value="${r.drop_rounds || 0}"></label>
+    <label class="ov-field">Fastest-lap bonus only in the top N (0 = anyone)
+      <input type="number" min="0" data-rule="fastest_lap_top" value="${r.fastest_lap_top || 0}"></label>
+    <label class="ov-field">Classified: completed at least this % of the winner's laps (0 = off)
+      <input type="number" min="0" max="100" data-rule="classified_pct" value="${r.classified_pct || 0}"></label>
+    <label class="ov-field">Team championship: best N drivers per team each round (0 = all)
+      <input type="number" min="0" max="20" data-rule="team_best" value="${r.team_best || 0}"></label>
+    <label class="ov-field check"><input type="checkbox" data-rule="dnf_scores" ${r.dnf_scores !== false ? "checked" : ""}> DNFs score the points for where they're classified</label>
+    <h3 class="section-title wide">Bonus points <span class="hint">(0 = not used; negative numbers take points off)</span></h3>
+    ${champ.bonuses.map(([k, label]) => `<label class="ov-field">${esc(label)}
+      <input type="number" step="0.5" data-bonus="${k}" value="${b[k] || 0}"></label>`).join("")}`;
+}
+
+// -- editing -------------------------------------------------------------------------
+
+function champChange(e, final) {
+  const el = e.target;
+  const c = champData();
+  const d = el.dataset;
+  let rerender = false;
+  if (d.rule) {
+    const r = c.rules;
+    if (d.rule === "points" || d.rule === "qualifying_points") {
+      if (!final) return;
+      r[d.rule] = el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
+      rerender = true;
+    } else if (el.type === "checkbox") r[d.rule] = el.checked;
+    else r[d.rule] = el.type === "number" ? +el.value : el.value;
+  } else if (d.bonus) {
+    c.rules.bonuses = c.rules.bonuses || {};
+    c.rules.bonuses[d.bonus] = +el.value || 0;
+  } else if (d.liveRound) {
+    c.live_round = d.liveRound;
+  } else if (d.pen != null) {
+    c.penalties[+d.pen][d.key] = el.type === "number" ? +el.value : el.value;
+  } else if (d.res != null) {
+    const r = c.rounds[+d.round].results[+d.res];
+    if (d.key === "fastest_lap") {
+      if (!final) return;
+      r.fastest_lap = parseLapTime(el.value);
+      rerender = true;
+    } else if (d.key === "driver") {
+      r.driver = el.value;
+      const dr = (ui.editing.drivers || []).find((x) => driverKey(x) === el.value);
+      r.name = dr ? dr.name : r.name;
+    } else if (el.type === "number") {
+      r[d.key] = el.value === "" ? null : +el.value;
+      rerender = final && d.key === "position";
+    } else r[d.key] = el.value;
+  } else if (d.round != null && d.rkey) {
+    const rd = c.rounds[+d.round];
+    rd[d.rkey] = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
+  } else return;
+  markChampDirty();
+  if (rerender) renderChampionship();
+}
+
+$("#tab-championship").addEventListener("input", (e) => champChange(e, false));
+$("#tab-championship").addEventListener("change", (e) => {
+  if (e.target.classList.contains("league-picker")) return;
+  champChange(e, true);
+});
+
+$("#tab-championship").addEventListener("click", async (e) => {
+  const b = e.target.closest("button");
+  if (!b || !ui.editing) return;
+  const d = b.dataset;
+  const c = champData();
+  if (d.champView) {
+    champ.view = d.champView;
+    champLiveKey = "";
+    return renderChampionship();
+  }
+  if (d.roundToggle) {
+    champ.open.has(d.roundToggle) ? champ.open.delete(d.roundToggle) : champ.open.add(d.roundToggle);
+    return renderChampionship();
+  }
+  if (d.roundDelete != null) {
+    const rd = c.rounds[+d.roundDelete];
+    if (!confirm(`Delete ${rd.name} and its results?`)) return;
+    c.rounds.splice(+d.roundDelete, 1);
+    c.penalties = c.penalties.filter((p) => p.round_id !== rd.id);
+    if (c.live_round === rd.id) c.live_round = "";
+  } else if (d.resAdd != null) {
+    const rd = c.rounds[+d.resAdd];
+    rd.results = rd.results || [];
+    const next = Math.max(0, ...rd.results.map((r) => r.position || 0)) + 1;
+    rd.results.push({ driver: "", name: "", class_id: "", position: next, start_position: null, laps: 0, laps_led: 0,
+      fastest_lap: null, incidents: 0, status: "finished", adjust: 0 });
+  } else if (d.resDelete != null) {
+    c.rounds[+d.round].results.splice(+d.resDelete, 1);
+  } else if (d.penDelete != null) {
+    c.penalties.splice(+d.penDelete, 1);
+  } else if (d.roundImport != null) {
+    return importRound(c.rounds[+d.roundImport]);
+  } else return;
+  markChampDirty();
+  renderChampionship();
+});
+
+$("#btn-add-round").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  const c = champData();
+  c.rounds.push({ id: newId(), name: `Round ${c.rounds.length + 1}`, track: "", date: "", multiplier: 1, no_drop: false, results: [] });
+  markChampDirty();
+  renderChampionship();
+});
+
+$("#btn-add-penalty").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  const c = champData();
+  c.penalties.push({ id: newId(), driver: "", round_id: c.rounds.length ? c.rounds[c.rounds.length - 1].id : "", points: 0, licence: 0, reason: "" });
+  markChampDirty();
+  renderChampionship();
+});
+
+async function saveChampionship() {
+  // Unfinished rows (no driver picked) would be dropped on save: say so.
+  const c = champData();
+  const blank = c.rounds.some((rd) => (rd.results || []).some((r) => !r.driver)) || c.penalties.some((p) => !p.driver);
+  if (blank && !confirm("Results or penalties without a driver will be removed when saving. Save anyway?")) return false;
+  await saveEditor();
+  toast("Championship saved");
+  return true;
+}
+
+$("#btn-save-champ").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  saveChampionship().catch((err) => toast(err.message, true));
+});
+
+async function importRound(rd) {
+  if ((rd.results || []).length && !confirm(`Replace the results of ${rd.name} with the current session's?`)) return;
+  try {
+    const saved = await saveEditor();
+    const r = await api(`/api/leagues/${encodeURIComponent(saved.id)}/championship/import`, { method: "POST", body: { round_id: rd.id } });
+    champ.open.add(rd.id);
+    openEditor(r.league);
+    toast(`Imported ${r.count} results${r.added ? `, ${r.added} new drivers added to the roster` : ""}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // overlay settings (kept by the app, so every OBS source follows them)
 // ---------------------------------------------------------------------------
 
@@ -896,6 +1288,10 @@ function openEditor(profile) {
   renderClasses();
   renderTeams();
   renderRoster();
+  champ.dirty = false;
+  champ.standings = null;
+  renderChampionship();
+  loadChampStandings();
   document.querySelectorAll("#league-list li").forEach((li) => li.classList.toggle("selected", li.dataset.league === profile.id));
 }
 
@@ -964,12 +1360,15 @@ function editorTeams() {
 
 const sameTeam = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 
-async function renderTeamsLeagues() {
+// The league pickers on the Teams and Championship pages. They all edit the
+// League builder's league (ui.editing); with none open, the active one opens.
+async function renderLeaguePickers() {
   try {
     const { leagues } = await api("/api/leagues");
     const current = ui.editing && ui.editing.id;
-    $("#teams-league").innerHTML = `<option value="">${leagues.length ? "Pick a league…" : "No saved leagues yet"}</option>` +
+    const html = `<option value="">${leagues.length ? "Pick a league…" : "No saved leagues yet"}</option>` +
       leagues.map((l) => `<option value="${esc(l.id)}" ${l.id === current ? "selected" : ""}>${esc(l.name)}${l.active ? " (active)" : ""}</option>`).join("");
+    for (const sel of document.querySelectorAll(".league-picker")) sel.innerHTML = html;
     if (!current) {
       const active = leagues.find((l) => l.active);
       if (active) return openLeague(active.id);
@@ -978,12 +1377,13 @@ async function renderTeamsLeagues() {
     toast(err.message, true);
   }
   renderTeams();
+  renderChampionship();
 }
 
 async function openLeague(id) {
   const league = await api(`/api/leagues/${encodeURIComponent(id)}`);
   openEditor(league);
-  $("#teams-league").value = league.id;
+  for (const sel of document.querySelectorAll(".league-picker")) sel.value = league.id;
 }
 
 function renderTeams() {
@@ -1029,9 +1429,14 @@ function renderTeams() {
     : '<span class="hint">Everyone is in a team.</span>';
 }
 
-$("#teams-league").addEventListener("change", (e) => {
-  if (e.target.value) openLeague(e.target.value).catch((err) => toast(err.message, true));
-});
+document.querySelectorAll(".league-picker").forEach((sel) => sel.addEventListener("change", (e) => {
+  if (!e.target.value) return;
+  if (champ.dirty && !confirm("Leave without saving the championship changes?")) {
+    e.target.value = ui.editing ? ui.editing.id : "";
+    return;
+  }
+  openLeague(e.target.value).catch((err) => toast(err.message, true));
+}));
 
 $("#btn-add-team").addEventListener("click", () => {
   if (!ui.editing) return toast("Pick a league first", true);

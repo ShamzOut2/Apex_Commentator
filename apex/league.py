@@ -54,6 +54,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import championship
 from .paths import WEB_DIR
 
 LOGO_LIBRARY_DIR = WEB_DIR / "logos"
@@ -227,6 +228,8 @@ def merge_profiles(existing, fresh):
     result["drivers"] = merged
     result["classes"] = existing.get("classes", [])
     result["teams"] = existing.get("teams", [])
+    if existing.get("championship"):
+        result["championship"] = existing["championship"]
     return result
 
 
@@ -411,6 +414,7 @@ def normalise_profile(profile):
         "classes": classes,
         "teams": teams,
         "drivers": drivers,
+        "championship": championship.normalise(profile.get("championship")),
     }
 
 
@@ -595,9 +599,9 @@ class LeagueStore:
     def active(self):
         return self._active
 
-    def lookup(self, cust_id, car_number):
-        """Find the active league's entry for a session driver."""
-        profile = self._active
+    def lookup(self, cust_id, car_number, profile=None):
+        """Find a league's entry (the active league by default) for a session driver."""
+        profile = profile or self._active
         if not profile:
             return None
         by_number = None

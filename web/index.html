@@ -61,8 +61,8 @@
           </button>
           <button class="tile" data-goto="championship">
             <span class="tile-icon">🏆</span><b>Championship</b>
-            <span class="tile-text">Points and standings across the season.</span>
-            <span class="tile-status">Coming next</span>
+            <span class="tile-text">Points, bonuses, drop rounds, class and team championships, penalties, and live standings during a race.</span>
+            <span class="tile-status" id="tile-championship"></span>
           </button>
         </div>
         <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>; the other overlays are in the Overlays tab.</p>
@@ -258,7 +258,7 @@
       <div class="home">
         <div class="row teams-head">
           <h2>Teams</h2>
-          <label class="field">League <select id="teams-league" aria-label="League"></select></label>
+          <label class="field">League <select id="teams-league" class="league-picker" aria-label="League"></select></label>
           <span class="grow"></span>
           <button id="btn-add-team" class="btn subtle">+ Add team</button>
           <button id="btn-save-teams" class="btn primary">Save</button>
@@ -299,10 +299,49 @@
     </section>
 
     <section id="tab-championship" class="panel">
-      <div class="home">
-        <h2>Championship</h2>
-        <p class="hint">Points and season standings are coming next. Tell us your points system (points per position,
-          bonus points for pole or fastest lap, dropped rounds) and it'll be built around it.</p>
+      <div class="home wide">
+        <div class="row teams-head">
+          <h2>Championship</h2>
+          <label class="field">League <select id="champ-league" class="league-picker" aria-label="League"></select></label>
+          <span class="grow"></span>
+          <span id="champ-dirty" class="hint" hidden>Unsaved changes</span>
+          <button id="btn-save-champ" class="btn primary">Save</button>
+        </div>
+        <div id="champ-views" class="chips champ-views">
+          <button class="chip active" data-champ-view="standings">Standings</button>
+          <button class="chip" data-champ-view="rounds">Rounds &amp; results</button>
+          <button class="chip" data-champ-view="penalties">Penalties</button>
+          <button class="chip" data-champ-view="rules">Points &amp; rules</button>
+        </div>
+        <div id="champ-empty" class="hint">Pick a league above, or build one in the League builder first.</div>
+
+        <div class="champ-view" data-view="standings">
+          <div id="champ-live" class="champ-live" hidden></div>
+          <div id="champ-standings"></div>
+        </div>
+
+        <div class="champ-view" data-view="rounds" hidden>
+          <p class="hint">Add the season's rounds. After a race, open its round and press <b>Import from session</b>
+            (while still in the session, or a replay of it) to fill in the results, then correct anything by hand:
+            positions, laps led, fastest laps, DNF/DSQ, or extra points (+ or −). During a race the live standings count it
+            as the round marked <b>live</b> (by default the first round without results).</p>
+          <div id="champ-rounds"></div>
+          <button id="btn-add-round" class="btn subtle">+ Add round</button>
+        </div>
+
+        <div class="champ-view" data-view="penalties" hidden>
+          <p class="hint">Post-race penalties. <b>Points</b> come off the driver's championship total (and their team's)
+            and are never dropped. <b>Licence points</b> are a running tally per driver, shown in the standings.</p>
+          <table class="grid champ-table">
+            <thead><tr><th>Driver</th><th>Round</th><th class="c-num">Points off</th><th class="c-num">Licence pts</th><th>Reason</th><th></th></tr></thead>
+            <tbody id="champ-penalties"></tbody>
+          </table>
+          <button id="btn-add-penalty" class="btn subtle">+ Add penalty</button>
+        </div>
+
+        <div class="champ-view" data-view="rules" hidden>
+          <div id="champ-rules" class="champ-rules"></div>
+        </div>
       </div>
     </section>
   </main>

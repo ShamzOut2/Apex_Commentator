@@ -19,6 +19,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
+from . import championship
 from .core import CommandError
 from .league import LOGO_TYPES, MAX_IMAGE_BYTES, LeagueError, logo_library, profile_from_session
 from .paths import WEB_DIR
@@ -88,6 +89,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._logo(path)
         if path == "/api/leagues":
             return self._send_json({"leagues": self.app.leagues.list(), "active": self.app.leagues.active_id})
+        if path.startswith("/api/leagues/") and path.endswith("/championship"):
+            profile = self.app.leagues.get(path.split("/")[3])
+            if profile is None:
+                return self._error("League not found", HTTPStatus.NOT_FOUND)
+            return self._send_json({
+                "bonuses": championship.BONUSES,
+                "championship": championship.normalise(profile.get("championship")),
+                "standings": championship.standings(profile),
+            })
         if path.startswith("/api/leagues/"):
             profile = self.app.leagues.get(path.split("/", 3)[3])
             if profile is None:
@@ -131,6 +141,8 @@ class Handler(BaseHTTPRequestHandler):
                 league, added = self.app.leagues.import_session(path.split("/")[3], drivers)
                 self.app.publish()
                 return self._send_json({"ok": True, "league": league, "added": added})
+            if path.startswith("/api/leagues/") and path.endswith("/championship/import"):
+                return self._import_round(path.split("/")[3], str(body.get("round_id") or ""))
             if path == "/api/leagues/from-session":
                 drivers = self.app.build_snapshot().get("drivers") or []
                 if not drivers:
@@ -152,6 +164,29 @@ class Handler(BaseHTTPRequestHandler):
         return self._error("Not found", HTTPStatus.NOT_FOUND)
 
     # -- endpoints ----------------------------------------------------------
+
+    def _import_round(self, profile_id, round_id):
+        """Fill a championship round with the current session's results."""
+        app = self.app
+        with app._lock:
+            if not app._drivers or app._frame is None:
+                return self._error("Not connected to a session")
+            if not app._is_race(app._frame):
+                return self._error("Results can only be imported from a race session")
+            profile = app.leagues.get(profile_id)
+            if profile is None:
+                return self._error("League not found", HTTPStatus.NOT_FOUND)
+            rounds = profile.setdefault("championship", championship.normalise({}))["rounds"]
+            rd = next((r for r in rounds if r["id"] == round_id), None)
+            if rd is None:
+                return self._error("Save the round first")
+            results, added = app.session_results(profile, add_missing=True)
+            rd["results"] = results
+            if not rd["track"]:
+                rd["track"] = app._session_meta.get("track", "")
+            league = app.leagues.save(profile)
+        app.publish()
+        return self._send_json({"ok": True, "league": league, "added": added, "count": len(results)})
 
     def _stream(self):
         self.send_response(HTTPStatus.OK)
