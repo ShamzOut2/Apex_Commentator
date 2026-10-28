@@ -19,6 +19,11 @@ pop-up.
   - laps completed, pit stops and the PIT badge.
 - The full-screen standings board shows laps or time left too, and counts
   laps completed.
+- **League builder: "Remove driver class in name"** for leagues that tag
+  names like `(P) Dave Price`.
+  - The name without the tag goes in each driver's Nickname, and the
+    overlays use it.
+  - The control panel keeps the full name, so class changes still show.
 
 ## v0.4.1
 

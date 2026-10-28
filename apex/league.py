@@ -69,6 +69,27 @@ CLASS_PALETTE = ["#e8463c", "#2f80ed", "#27ae60", "#f2c94c", "#9b51e0", "#f2994a
 MAX_IMAGE_BYTES = 8 * 1024 * 1024  # livery screenshots can be big
 LOGO_TYPES = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp", "svg": "image/svg+xml"}
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+# "(P) Dave Price", "(PA)Dave Price": a class tag some leagues put before names.
+CLASS_PREFIX = re.compile(r"^\s*\([^()]*\)\s*")
+
+
+def strip_class_prefix(name):
+    """'(P) Dave Price' -> 'Dave Price'; other names unchanged."""
+    name = str(name or "")
+    stripped = CLASS_PREFIX.sub("", name, count=1).strip()
+    return stripped or name.strip()
+
+
+def fill_clean_nicknames(drivers):
+    """Give drivers whose name carries a class tag their clean name as nickname
+    (an existing nickname is kept). Returns how many were filled."""
+    filled = 0
+    for d in drivers:
+        name = str(d.get("name") or "")
+        if not d.get("nickname") and CLASS_PREFIX.match(name):
+            d["nickname"] = strip_class_prefix(name)
+            filled += 1
+    return filled
 
 
 class LeagueError(Exception):
@@ -228,6 +249,7 @@ def merge_profiles(existing, fresh):
     result["drivers"] = merged
     result["classes"] = existing.get("classes", [])
     result["teams"] = existing.get("teams", [])
+    result["strip_class_prefix"] = existing.get("strip_class_prefix", False)
     if existing.get("championship"):
         result["championship"] = existing["championship"]
     return result
@@ -404,6 +426,11 @@ def normalise_profile(profile):
             "color": color if HEX_COLOR.fullmatch(color) else "",
             "logo": logo if logo and _valid_logo_ref(str(logo)) else None,
         })
+    # Overlays show names without a "(P)" class tag: the clean name goes in
+    # the nickname (drivers added later, e.g. from a session, included).
+    strip = bool(profile.get("strip_class_prefix"))
+    if strip:
+        fill_clean_nicknames(drivers)
     pid = str(profile.get("id") or (league_id if league_id is not None else _slug(name)))
     return {
         "id": _slug(pid) if league_id is None else str(pid),
@@ -415,6 +442,7 @@ def normalise_profile(profile):
         "teams": teams,
         "drivers": drivers,
         "championship": championship.normalise(profile.get("championship")),
+        "strip_class_prefix": strip,
     }
 
 

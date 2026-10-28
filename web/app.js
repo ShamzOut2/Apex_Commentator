@@ -143,6 +143,11 @@ function render() {
 
 const PAGE_KEY = "apex.page";
 
+// A nickname that's just the name without its "(P)" class tag says nothing new.
+function sameButClassTag(name, nickname) {
+  return String(name || "").replace(/^\s*\([^()]*\)\s*/, "").trim().toLowerCase() === String(nickname || "").trim().toLowerCase();
+}
+
 function showPage(name) {
   if (!document.getElementById(`tab-${name}`)) name = "home";
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
@@ -331,7 +336,7 @@ function renderStandings(s) {
       [r.class_pos ? `<span class="cls-pos" style="border-color:${esc(color)}">${r.class_pos}</span>` : ""],
       [changeCell(inClass ? r.class_pos_change : r.pos_change), "c-chg"],
       [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
-      [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
+      [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname && !sameButClassTag(r.name, lg.nickname) ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
         `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}`, "driver-cell"],
       [String(r.lap ?? "")],
       [gap, "c-time"],
@@ -467,7 +472,7 @@ function renderGridwalk(s) {
   $("#gw-reset-order").hidden = !g.manual_order;
   $("#gw-empty").hidden = entries.length > 0;
   // Rebuild rows only when they change, so buttons aren't replaced mid-click.
-  const key = JSON.stringify([g.index, g.visible, entries.map((e) => [e.key, e.number, e.name, e.nickname, e.team,
+  const key = JSON.stringify([g.index, g.visible, entries.map((e) => [e.key, e.number, e.name, e.full_name, e.nickname, e.team,
     e.in_session, e.in_world, (classes.get(e.class_key) || {}).color])]);
   if (key === gwRowsKey) return;
   gwRowsKey = key;
@@ -479,7 +484,7 @@ function renderGridwalk(s) {
     return `<tr class="${onScreen ? "on-screen" : ""}">
       <td class="pos">P${e.grid_pos}</td>
       <td><span class="num" style="border-left-color:${esc(color)}">${esc(e.number)}</span></td>
-      <td><span class="name">${esc(e.name)}</span>${e.nickname ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
+      <td><span class="name">${esc(e.full_name || e.name)}</span>${e.nickname ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
       <td class="sub">${esc(e.team)}</td>
       <td>${status}</td>
       <td><div class="actions">
@@ -1330,6 +1335,7 @@ function openEditor(profile) {
   $("#league-editor").hidden = false;
   $("#edit-name").value = profile.name || "";
   $("#edit-league-id").value = profile.league_id ?? "";
+  $("#edit-strip-class").checked = !!profile.strip_class_prefix;
   $("#btn-activate-league").textContent = profile.id && profile.id === ui.activeLeague ? "Active in overlay" : "Use in overlay";
   profile.classes = profile.classes || [];
   renderClasses();
@@ -1737,8 +1743,29 @@ function readEditor() {
   const p = ui.editing;
   p.name = $("#edit-name").value.trim();
   p.league_id = $("#edit-league-id").value.trim() || null;
+  p.strip_class_prefix = $("#edit-strip-class").checked;
   return p;
 }
+
+// "(P) Dave Price" -> "Dave Price" (same rule as league.strip_class_prefix).
+const CLASS_PREFIX = /^\s*\([^()]*\)\s*/;
+
+$("#edit-strip-class").addEventListener("change", (e) => {
+  if (!ui.editing) return;
+  ui.editing.strip_class_prefix = e.target.checked;
+  if (!e.target.checked) return;
+  let filled = 0;
+  for (const d of ui.editing.drivers || []) {
+    const name = String(d.name || "");
+    if (!d.nickname && CLASS_PREFIX.test(name)) {
+      d.nickname = name.replace(CLASS_PREFIX, "").trim() || name.trim();
+      filled++;
+    }
+  }
+  renderRoster();
+  toast(filled ? `Filled ${filled} nicknames with names minus their class tag. Save to keep them.`
+    : "No empty nicknames to fill. Overlays will show names without the class tag.");
+});
 
 $("#roster-rows").addEventListener("input", (e) => {
   const { row, field } = e.target.dataset;

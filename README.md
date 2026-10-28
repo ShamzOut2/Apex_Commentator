@@ -405,6 +405,19 @@ iRacing customer ID, or by car number for hand-added entries without one.
 Re-fetching a league updates names and numbers, adds new members and keeps your
 notes. Profiles are plain JSON in `data/leagues/`.
 
+**Remove driver class in name**: some leagues put the class in front of
+driver names, like `(P) Dave Price` or `(PA) Mat Gatter`. Tick this box
+(next to the league name) and:
+- Every driver with a tag like that gets the name without it, minus the
+  space, as their **Nickname** (`Dave Price`). Nicknames you've already typed
+  are kept. Drivers added later (from the session or a re-fetch) get one when
+  the league is saved.
+- The overlays (standings, lap tracker, grid walk, full-screen boards) show
+  that nickname as the driver's name, so the name styles work properly
+  ("D. Price", "Price D.").
+- The control panel (timing screen, grid walk list, roster) keeps the full
+  `(P) Dave Price`, so you can spot a driver changing class.
+
 ### Classes and logos
 
 ![class editor](docs/class-editor.png)

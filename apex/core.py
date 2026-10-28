@@ -13,7 +13,7 @@ from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
 from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
 from .settings import UserSettings
-from .league import driver_key, logo_url
+from .league import driver_key, logo_url, strip_class_prefix
 from .sources import (
     CS_AT_EXCITING,
     CS_AT_INCIDENT,
@@ -513,14 +513,27 @@ class App:
 
     # -- stream overlays ----------------------------------------------------
 
+    @staticmethod
+    def _stream_name(name, nickname, active_league):
+        """(name, nickname) to show on stream.
+
+        With the league's "Remove driver class in name" on, the stream name
+        is the nickname (the name without its "(P)" tag) and isn't shown again
+        as a nickname. The control panel keeps the full name.
+        """
+        if active_league and active_league.get("strip_class_prefix"):
+            return (nickname or strip_class_prefix(name)), ""
+        return name, nickname
+
     def _overlay_entry(self, r, active_league):
         """Who a driver is, for the stream overlays: league details win."""
         lg = r["league"] or {}
+        name, nickname = self._stream_name(r["name"], lg.get("nickname", ""), active_league)
         team_name = lg.get("team") or r["team"]
         team = self.leagues.team(team_name, active_league) if active_league else None
         pid = active_league["id"] if active_league else ""
         return {
-            "car_idx": r["car_idx"], "name": r["name"], "nickname": lg.get("nickname", ""),
+            "car_idx": r["car_idx"], "name": name, "nickname": nickname,
             "abbrev": r["abbrev"], "number": r["number"], "driver_number": lg.get("driver_number", ""),
             "team": team_name, "team_short": (team or {}).get("short", ""), "team_color": (team or {}).get("color", ""),
             "team_logo": logo_url(pid, team.get("logo")) if team and pid else None,
@@ -740,10 +753,12 @@ class App:
         league = league or {}
         pid = active_league["id"] if active_league else ""
         team = league.get("team") or d.get("team") or ""
+        name, nickname = self._stream_name(d["name"], league.get("nickname", ""), active_league)
         return {
             "car_idx": car_idx,
-            "name": d["name"],
-            "nickname": league.get("nickname", ""),
+            "name": name,
+            "full_name": d["name"],  # as entered, "(P)" tag and all: for the control panel
+            "nickname": nickname,
             "number": d.get("number", ""),
             "team": team,
             "team_logo": logo_url(pid, self.leagues.team_logo(team, active_league)) if pid else None,
