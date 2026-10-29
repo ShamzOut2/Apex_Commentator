@@ -363,9 +363,12 @@ function renderStandings(s) {
       rowEls.delete(key);
     }
   }
-  ordered.forEach((tr, i) => {
-    if (body.children[i] !== tr) body.insertBefore(tr, body.children[i] || null);
-  });
+  // Drivers changing places slide past each other.
+  flipRows(body, "tr[data-car]", () => {
+    ordered.forEach((tr, i) => {
+      if (body.children[i] !== tr) body.insertBefore(tr, body.children[i] || null);
+    });
+  }, 350, (el) => el.dataset.car);
 }
 
 // -- race log -------------------------------------------------------------------
@@ -1310,6 +1313,7 @@ const OVERLAY_FIELDS = {
     ["reveal", "Fill in as drivers complete a lap (header only at the start)", "bool"],
     ["show_gap", "Gap to leader / pole", "bool"],
     ["show_interval", "Interval to car ahead", "bool"],
+    ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }],
     ["show_pos_change", "Places gained / lost (race)", "bool"],
     ["show_best_lap", "Best lap", "bool"],
     ["show_last_lap", "Last lap", "bool"],

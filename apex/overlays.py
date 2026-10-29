@@ -24,6 +24,7 @@ DEFAULTS = {
         "show_number": True,
         "show_gap": True,         # race: gap to the leader; qualifying: gap to pole
         "show_interval": False,   # to the car ahead
+        "close_s": 0.15,          # race: an interval this close (or closer) shows red (0 = off)
         "show_pos_change": True,  # race: places gained / lost since the start
         "show_best_lap": False,
         "show_last_lap": False,
@@ -101,7 +102,7 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"rows_last": (0, 30), "fl_flash_s": (1.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
+LIMITS = {"close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (1.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "place": PLACES, "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}

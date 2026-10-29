@@ -293,6 +293,15 @@ are kept in `data/overlays.json`.
   - **Last N drivers** (Overall view): when there are more drivers than rows,
     the last few (last place included) are added at the bottom, after a
     small gap. 0 turns it off.
+  - **Close racing**: with the *Interval* column on, a driver within 0.15 s
+    of the car ahead has their interval in red. It stays red until they get
+    past (then whoever is now right behind turns red, if close enough) or
+    the gap opens up. It's racing under green only, not behind the safety
+    car. Set the threshold, or 0 to turn it off.
+  - **Transitions**: drivers slide up and down the tower as they change
+    places, with a brief green (gained) or red (lost) glow. New drivers fade
+    in. The stopwatch pops in when the fastest lap changes hands. The
+    fastest-lap pill drops in, shines, and fades out.
   - **Fastest lap**: a purple stopwatch by the holder's name. In Overall it's
     the one fastest driver; in By class, each class's fastest.
   - **New fastest lap flash**: when someone sets a new fastest lap, a purple
@@ -375,7 +384,9 @@ Under *What each board shows*, every board can be set up separately:
   gaps, wins, penalty points, points from the last few rounds, laps, places
   gained, fastest lap (purple), DNF/DSQ, points scored, and how many rows.
 
-Long tables split into two columns rather than shrinking. Names follow the
+Putting another board on screen crossfades from the old one, and a new
+board's header and rows sweep in one after another; **Take off screen**
+fades it out. Long tables split into two columns rather than shrinking. Names follow the
 league's *Remove driver class in name* setting, and car numbers take the
 class colour.
 

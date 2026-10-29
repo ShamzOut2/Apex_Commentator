@@ -24,9 +24,46 @@ flashBox.className = "fl-flash";
 stage.appendChild(flashBox);
 let flashId = "";
 
+// Who moved up or down, and who just took the fastest lap: a brief tint /
+// pop that carries on across redraws (see ongoing() in common.js).
+const MOVE_MS = 1600;
+const POP_MS = 700;
+const lastPlace = new Map();   // car -> position last drawn
+const moves = new Map();       // car -> {up, at}
+const holders = new Map();     // car -> when they took the fastest lap
+let placeView = "";
+
+function notePlaces(entries, classMode) {
+  const view = `${SCREEN}:${classMode}`;
+  const fresh = view !== placeView;  // switched view: nothing "moved"
+  placeView = view;
+  const now = performance.now();
+  for (const e of entries) {
+    const pos = classMode ? e.class_pos : e.pos;
+    const was = lastPlace.get(e.car_idx);
+    if (!fresh && was != null && pos != null && pos !== was) moves.set(e.car_idx, { up: pos < was, at: now });
+    lastPlace.set(e.car_idx, pos);
+    const holds = classMode ? e.class_fastest : e.fastest;
+    if (holds && !holders.has(e.car_idx)) holders.set(e.car_idx, fresh ? -1e9 : now);
+    if (!holds) holders.delete(e.car_idx);
+  }
+}
+
+function moveOf(car) {
+  const m = moves.get(car);
+  const style = m && ongoing(m.at, MOVE_MS);
+  if (!style) {
+    moves.delete(car);
+    return null;
+  }
+  return { cls: m.up ? "moved-up" : "moved-down", style };
+}
+
 // The purple stopwatch by the fastest lap's holder: overall, or each class's in "by class".
 function fastestIcon(e, cfg, classMode) {
-  return cfg.show_fastest_icon && (classMode ? e.class_fastest : e.fastest) ? `<span class="fl-icon" title="Fastest lap">${STOPWATCH}</span>` : "";
+  if (!cfg.show_fastest_icon || !(classMode ? e.class_fastest : e.fastest)) return "";
+  const pop = ongoing(holders.get(e.car_idx) ?? -1e9, POP_MS);
+  return `<span class="fl-icon ${pop ? "pop" : ""}" style="${pop || ""}" title="Fastest lap">${STOPWATCH}</span>`;
 }
 
 function renderFlash(snap, ov) {
@@ -71,10 +108,14 @@ const COLUMNS = [
     if (down) return `+${down} L`;
     return gap != null ? `+${race ? gap.toFixed(1) : gap.toFixed(3)}` : "";
   }],
-  ["show_interval", "80px", "Int", (e, race, classMode) => {
+  ["show_interval", "80px", "Int", (e, race, classMode, cfg, green) => {
     const interval = classMode ? e.class_interval : e.interval;
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
-    return !first && interval != null ? `+${race ? interval.toFixed(1) : interval.toFixed(3)}` : "";
+    if (first || interval == null) return "";
+    const text = `+${race ? interval.toFixed(1) : interval.toFixed(3)}`;
+    // Racing within close_s of the car ahead: red until they're past or it opens up.
+    const close = race && green && cfg.close_s > 0 && interval <= cfg.close_s && e.in_world && !e.on_pit;
+    return close ? `<span class="close">${text}</span>` : text;
   }],
 ];
 
@@ -87,17 +128,18 @@ function gridFor(cfg, cols) {
     ...cols.map((c) => c[1])].filter(Boolean).join(" ");
 }
 
-function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx) {
+function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) {
   const pos = classMode ? e.class_pos : e.pos;
   const team = cfg.show_team && e.team ? `<span class="tm">${esc(e.team)}</span>` : "";
   const pit = cfg.show_pit_status && e.on_pit ? '<span class="pitb">PIT</span>' : "";
-  return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""}">
+  const move = moveOf(e.car_idx);
+  return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
     <span class="p tnum">${pos}</span>
     <span class="stripe" style="background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : cls.color)}"></span>
     ${cfg.show_number ? `<span><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span></span>` : ""}
     ${cfg.show_logo ? `<span>${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
     <span class="who"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${team}</span>
-    ${cols.map((c) => `<span class="c tnum">${c[3](e, race, classMode)}</span>`).join("")}
+    ${cols.map((c) => `<span class="c tnum">${c[3](e, race, classMode, cfg, green)}</span>`).join("")}
   </div>`;
 }
 
@@ -140,8 +182,9 @@ function render() {
   const camIdx = snap.camera && snap.camera.car_idx;
   const cols = columnsFor(cfg, race);
   const grid = gridFor(cfg, cols);
+  notePlaces(entries, classMode);
   const rows = (list, cls) => list.map((e) => rowHtml(e, cfg, cols, cls || classes.get(e.class_key) || DEFAULT_CLASS,
-    race, classMode, multiclass, camIdx)).join("");
+    race, classMode, multiclass, camIdx, ov.green)).join("");
   let body;
   if (classMode) {
     const keys = cfg.class_key ? [cfg.class_key] : (snap.classes || []).map((c) => c.key);
@@ -178,7 +221,7 @@ function render() {
   tower.style.setProperty("--grid", grid);
   if (visible && html !== shown) {
     shown = html;
-    tower.innerHTML = html;
+    flipRows(tower, ".srow[data-key]", () => { tower.innerHTML = html; });
   }
 }
 
@@ -234,7 +277,8 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
       compact ? "" : `<td class="r muted">${e.lap ?? ""}</td>`,
     );
   }
-  return `<tr class="${e.car_idx === camIdx ? "cam" : ""}">${cells.join("")}</tr>`;
+  const moved = moveOf(e.car_idx);
+  return `<tr class="${e.car_idx === camIdx ? "cam" : ""} ${moved ? moved.cls : ""}" data-key="${e.car_idx}" style="${moved ? moved.style : ""}">${cells.join("")}</tr>`;
 }
 
 function screenHead(race, compact) {
@@ -260,6 +304,7 @@ function renderScreen(snap, ov) {
   const multiclass = new Set(entries.map((e) => e.class_key)).size > 1;
   const classMode = cfg.mode === "class";
   const camIdx = snap.camera && snap.camera.car_idx;
+  notePlaces(entries, classMode);
   // Lines: class headers and drivers, in order.
   const lines = [];
   if (classMode) {
@@ -300,7 +345,7 @@ function renderScreen(snap, ov) {
     ${body}</div>`;
   if (html !== shown) {
     shown = html;
-    screenRoot.innerHTML = html;
+    flipRows(screenRoot, "tr[data-key]", () => { screenRoot.innerHTML = html; });
   }
 }
 

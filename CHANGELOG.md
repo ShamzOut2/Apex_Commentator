@@ -46,6 +46,18 @@ pop-up.
     pits, always match the order on track, and stay right in replays.
   - Cars in the garage show no gap.
   - Lapped cars show "+1 L", and intervals never go negative.
+- **Transitions**:
+  - Boards crossfade when swapped, their rows sweep in, and they fade out
+    when taken off screen.
+  - On the standings tower, full-screen standings and Timing tab, drivers
+    slide to their new places when positions change, with a brief green /
+    red glow on the tower.
+  - The fastest-lap stopwatch pops in when the record changes hands, and
+    the fastest-lap pill shines on arrival.
+- **Close racing in red** on the standings tower: with the Interval column
+  on, a driver within 0.15 s (adjustable) of the car ahead has their
+  interval shown in red until they pass or the gap grows. Green-flag racing
+  only.
 - **Fastest lap on the standings tower**:
   - A purple stopwatch by the holder's name (each class's holder in By
     class).

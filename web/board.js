@@ -71,7 +71,7 @@ function columns(b) {
 function tableHtml(cols, rows) {
   return `<table class="btable"><colgroup>${cols.map((c) => `<col style="width:${c[1]}">`).join("")}</colgroup>
     <thead><tr>${cols.map((c) => `<th class="${c[2].replace(/\b(pts|p|muted|down)\b/g, "")}">${c[0]}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map((r) => `<tr class="${(r.pos || r.rank) <= 3 ? "top3" : ""}">${cols.map((c) => `<td class="${c[2]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    <tbody>${rows.map((r, i) => `<tr class="${(r.pos || r.rank) <= 3 ? "top3" : ""}" style="--i:${i}">${cols.map((c) => `<td class="${c[2]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
 function dateText(r) {
@@ -84,7 +84,7 @@ function dateText(r) {
 function calendarHtml(b) {
   const s = b.settings;
   if (!b.rows.length) return '<div class="empty-board">No rounds in the calendar yet.</div>';
-  return `<div class="cal">${b.rows.map((r) => `<div class="round ${r.done ? "done" : ""} ${r.next ? "next" : ""}">
+  return `<div class="cal">${b.rows.map((r, i) => `<div class="round ${r.done ? "done" : ""} ${r.next ? "next" : ""}" style="--i:${i}">
       <div class="rn">Round ${r.round}${r.multiplier !== 1 ? ` · ×${r.multiplier} points` : ""}<span class="tag">${r.next ? "Next" : r.done ? "Done" : ""}</span></div>
       <div class="tr">${esc(r.track || r.name)}</div>
       ${s.show_config && r.config ? `<div class="cf">${esc(r.config)}</div>` : ""}
@@ -96,8 +96,12 @@ function calendarHtml(b) {
 function render(snap) {
   const b = snap.board;
   if (!b) {
-    if (shown !== "none") stage.innerHTML = PREVIEW ? '<div class="preview-hint">No board on screen</div>' : "";
+    if (shown !== "none") {
+      leave();  // fade the board out
+      if (PREVIEW) stage.insertAdjacentHTML("beforeend", '<div class="preview-hint">No board on screen</div>');
+    }
     shown = "none";
+    boardKey = "";
     return;
   }
   let body;
@@ -146,8 +150,26 @@ function render(snap) {
     ${edge("right")}</div>`;
   if (html !== shown) {
     shown = html;
-    // Same board with new numbers: swap them in without fading again.
-    stage.innerHTML = steady ? html.replace('class="board ', 'class="board steady ') : html;
+    if (steady) {
+      // Same board with new numbers: swap them in without animating again.
+      const cur = stage.querySelector(".board:not(.leaving)");
+      if (cur) cur.outerHTML = html.replace('class="board ', 'class="board steady ');
+      else stage.innerHTML = html;
+    } else {
+      // Another board: the old one fades out as the new one comes in over it.
+      leave();
+      stage.querySelectorAll(".preview-hint").forEach((el) => el.remove());
+      stage.insertAdjacentHTML("beforeend", html);
+    }
+  }
+}
+
+// Fade out whatever board is on screen, then remove it.
+function leave() {
+  stage.querySelectorAll(".preview-hint").forEach((el) => el.remove());
+  for (const old of stage.querySelectorAll(".board:not(.leaving)")) {
+    old.classList.add("leaving");
+    setTimeout(() => old.remove(), 600);
   }
 }
 

@@ -68,3 +68,28 @@
 .fl-time { font-size: 24px; font-weight: 800; }
 /* Full screen: in the page heading, between the title and the lap count. */
 body.screen .fl-flash { top: 14px; }
+
+/* Transitions: rows slide to new places (flipRows); a driver who moved gets a
+   brief green (up) or red (down) tint; a new row fades in. */
+.srow.moved-up, .screen-table tr.moved-up { animation: moved-up 1.6s ease-out both; }
+.srow.moved-down, .screen-table tr.moved-down { animation: moved-down 1.6s ease-out both; }
+@keyframes moved-up { from { background: rgba(52, 211, 120, .38); } }
+@keyframes moved-down { from { background: rgba(255, 77, 77, .32); } }
+.row-enter { animation: row-enter .45s ease both; }
+@keyframes row-enter { from { opacity: 0; transform: translateX(-16px); } }
+/* The stopwatch pops in when the fastest lap changes hands. */
+.fl-icon.pop { animation: fl-pop .7s cubic-bezier(.2, .9, .3, 1.4) both; }
+@keyframes fl-pop { 0% { transform: scale(0) rotate(-90deg); opacity: 0; } 60% { transform: scale(1.5); opacity: 1; } }
+/* A new fastest lap: a light sweep across the pill once it's in. */
+.fl-pill { position: relative; overflow: hidden; }
+.fl-pill::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .35) 50%, transparent 65%);
+  transform: translateX(-120%); animation: fl-sweep 1.1s .35s ease-out both;
+}
+@keyframes fl-sweep { to { transform: translateX(120%); } }
+.fl-pill .stopwatch { animation: fl-tick 1s .2s ease-in-out 2; transform-origin: 50% 55%; }
+@keyframes fl-tick { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+
+/* Racing within close_s of the car ahead: the interval in red. */
+.srow .c .close { display: inline-block; background: #e8262c; color: #fff; border-radius: 5px; padding: 1px 6px; margin-right: -6px; }

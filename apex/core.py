@@ -718,6 +718,8 @@ class App:
         return {
             "settings": settings,
             "session_kind": "race" if is_race else ("qualify" if "qualify" in kind else (kind or "practice")),
+            # Racing under green: close intervals mean something (not behind the safety car).
+            "green": is_race and frame.session_state == STATE_RACING and not frame.session_flags & CAUTION_FLAGS,
             "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
             "fastest_flash": flash,
