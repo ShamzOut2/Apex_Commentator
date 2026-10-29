@@ -64,12 +64,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.version.outputs.tag }}
         run: |
-          # Use the changelog section for this version as the notes, if there is one.
-          awk -v v="${TAG#v}" '
-            $0 ~ "^## \\[?v?"v"\\]?" {found=1; next}
-            found && /^## / {exit}
-            found {print}
-          ' CHANGELOG.md > release-notes.md || true
+          # The notes are this version's CHANGELOG.md section ("Unreleased" if it
+          # hasn't been renamed yet): the app shows them in its update pop-up.
+          python3 -m apex.changelog --notes "$TAG" > release-notes.md || true
           if [ -s release-notes.md ]; then
             notes=(--notes-file release-notes.md)
           else

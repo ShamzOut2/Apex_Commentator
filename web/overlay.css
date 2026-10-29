@@ -60,9 +60,9 @@ body.screen { background: #0b0d12; }
 .screen-table .up { color: var(--green); }
 .screen-table .down { color: var(--red); }
 .screen-table .pit { font-size: .65em; font-weight: 800; padding: 1px 6px; border-radius: 3px; background: #fff; color: #111; margin-left: 8px; vertical-align: .15em; }
-.screen-table .classrow td { height: 40px; padding: 0; background: none !important; }
+/* Each class starts the same gap below the one before (or the column labels). */
+.screen-table .classrow td { height: 54px; padding: 14px 0 0; vertical-align: bottom; background: none !important; }
 .screen-table .classrow .class-head { height: 36px; font-size: 20px; border-radius: 6px; }
-.screen-table .cpill { display: inline-block; padding: 0 6px; border-radius: 3px; font-size: .7em; font-weight: 800; margin-right: 6px; vertical-align: .1em; }
 .screen-empty { margin: auto; font-size: 30px; color: var(--muted); font-weight: 700; }
 .screen-table .sec { padding: 0 4px; }
 .screen-table .sec div {

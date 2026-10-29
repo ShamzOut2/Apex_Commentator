@@ -34,6 +34,54 @@ OBS dock.
 
 ![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.png)
 
+## What's new
+
+<!-- whats-new:start -->
+**v0.4.2**
+
+### New features
+
+- **Full-screen boards** with one-click buttons (Boards tab): championship
+  standings (overall and each class), teams' and manufacturers'
+  championships, the season calendar, and finishing orders.
+- **Sponsor logos**: add them in the League builder, show them on any edge
+  of a board, or over the race with the new Sponsors overlay.
+- **League logo, banners and calendar image** in the League builder, for the
+  boards.
+- **Car makes**: manufacturer badges, and a Car field for each driver.
+- **Season calendar** with iRacing's tracks and layouts to pick from.
+- **Fastest lap** on the standings tower: a purple stopwatch by the holder,
+  and a "NEW FASTEST LAP" pill at the top of the screen.
+- **Close racing**: the interval turns red when a driver is within 0.15 s of
+  the car ahead.
+- **Last few drivers** can be added at the bottom of the Overall tower.
+- **Contact between cars** is logged in the race log.
+- **Pop out** the Timing and Boards tabs into their own windows.
+- **"Remove driver class in name"** for leagues that tag names like
+  `(P) Dave Price`, with classes picked up from the tags.
+- **Standings tower options**: laps or time left in the header, choose your
+  columns, and fill the tower in as drivers complete lap 1.
+- **What's new** notes like these in the update pop-up and the README.
+
+### Improvements
+
+- Smooth transitions: boards fade between each other, and drivers slide
+  up and down when they change places.
+- Spins are only called spins when the car actually rotates; hard braking
+  for a slow corner no longer counts.
+- Class and overall championships say what each table is scored on, and
+  teams count overall points (or class points, if you choose).
+- Larger team logos on the teams' board.
+- By-class standings have an even gap between the header and each class.
+
+### Fixes
+
+- Race gaps no longer stick or lag behind the running order. Lapped cars
+  show "+1 L".
+
+Every version's notes: [CHANGELOG.md](CHANGELOG.md).
+<!-- whats-new:end -->
+
 ## Install (Windows)
 
 1. Download **`ApexCommentator-Setup-<version>.exe`** from the
@@ -86,10 +134,17 @@ trying championship imports.
 
 ## Timing screen
 
+**⧉ Pop out** (next to *Hotkeys*) opens the timing screen in a window of its
+own, without the tabs, so it can sit on another monitor while the main window
+shows something else. Camera hotkeys work in whichever window has focus.
+
 - **Standings**: Pos (overall), Cls (position in class, underlined in the class
   colour), **+/−** (places gained or lost since the start, within the class
   when a class is picked), car number, driver and team, lap, gap to the
-  leader, interval to the car ahead, last and best lap, pit stops, flag
+  leader (timed by the app: how long ago the leader was where the car is
+  now, so it updates continuously, keeps step with the order and keeps
+  counting while a car is slow or stopped; "+1 L" for lapped cars), interval
+  to the car ahead, last and best lap, pit stops, flag
   (yellow, blue, white, chequered), penalties (black flag, DQ, meatball,
   warning) and incident points. **Click any driver** to put the camera on
   them. The class chips show one class at a time, with gaps and places within
@@ -128,7 +183,9 @@ spectate. It records:
 | --- | --- |
 | **Overtake** | In a race under green, cars close on track swap order *and stay swapped* for 1.5 s, with both on track. Swaps from pit stops, offs or side-by-side jostling don't count. The event is timestamped when the pass started. |
 | **Off track** | A car's track surface changes to off track. |
-| **Slowdown** | A car's speed collapses relative to its recent pace (spin, contact, stopping). Ignored on pit road and under caution. |
+| **Slowdown** (SLOW) | A car's speed collapses relative to its recent pace *and* it's well under the usual speed at that point of the track, so braking hard for a hairpin doesn't count. The app learns each corner's usual speed from the cars going through it. Ignored on pit road and under caution. |
+| **Spin** (SPIN) | A slowdown or off track where the car also rotates sharply within 0.2 s. iRacing only sends a car's heading for the car driven on this PC, so for that car it's the heading turning 45°+ in 0.2 s. For every car, it's the steering snapping 180°+ of opposite lock in 0.2 s, or the car travelling backwards along the track (it has turned round). Without any of these, the moment stays a slowdown or off track. |
+| **Contact** (CONTACT) | Two cars touching. iRacing doesn't report contact between other cars, so the app looks for two signs. First, a car closing fast on the one just ahead (within a few metres) that suddenly stops closing within 0.12 s: the jolt of a hit, quicker than any braking. Second, a driver getting 4x (iRacing's car-contact incident) while another car was right next to them. That car is named, and the other driver's 4x goes on the same entry. |
 | **Incident points** | When iRacing reports more incident points for a driver, they are attached to that driver's off/slowdown from the last 15 s, or logged as their own incident. |
 
 Pressing **Replay** pauses playback, seeks the replay tape to the event's
@@ -258,11 +315,54 @@ are kept in `data/overlays.json`.
 - **Standings** (`/standings.html`): in a race, the running order with the gap
   to the leader. In qualifying and practice, it shows the fastest clean lap,
   and drivers only appear once they have one, so it starts empty.
-  - *Overall* lists everyone (with class position in multiclass).
+  - *Overall* lists everyone. Each driver's class shows in the colour of
+    their number and stripe.
   - *By class* gives each class its own block with its header and logo, or
     shows just one class.
+  - **Header**: the session, with laps or time left. *Automatic* follows how
+    the session is limited ("LAP 5 / 20", then "FINAL LAP" and
+    "FINISHED"; or "12:34 LEFT"). You can also pick laps, time or nothing.
+  - **Fill in as drivers complete a lap**: at the start of any session, only
+    the header shows. Each driver appears as they cross the line to start
+    their next lap, so in a race the tower builds up in order at the end of
+    lap 1. In qualifying, a driver with a lap done but no clean time yet is
+    listed at the bottom.
+  - **Columns** (each on or off):
+    - gap to the leader (or to pole);
+    - interval to the car ahead;
+    - places gained or lost since the start;
+    - best lap and last lap;
+    - laps completed and pit stops;
+    - a PIT badge on pit road.
+
+    Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
+  - **Last N drivers** (Overall view): when there are more drivers than rows,
+    the last few (last place included) are added at the bottom, after a
+    small gap. 0 turns it off.
+  - **Close racing**: with the *Interval* column on, a driver within 0.15 s
+    of the car ahead has their interval in red text. It stays red until they get
+    past (then whoever is now right behind turns red, if close enough) or
+    the gap opens up. It's racing under green only, not behind the safety
+    car. Set the threshold, or 0 to turn it off.
+  - **Transitions**: drivers slide up and down the tower as they change
+    places, with a brief green (gained) or red (lost) glow. New drivers fade
+    in. The stopwatch pops in when the fastest lap changes hands. The
+    fastest-lap pill drops in saying "NEW FASTEST LAP", then switches to the
+    driver and lap time, and fades out at the end.
+  - **Fastest lap**: a purple stopwatch by the holder's name. In Overall it's
+    the one fastest driver; in By class, each class's fastest.
+  - **New fastest lap flash**: when someone sets a new fastest lap, a purple
+    pill appears at the top middle of the screen with a stopwatch. It says
+    "NEW FASTEST LAP" for about two seconds, then shows the driver and the lap
+    time. Set how many seconds it stays (3 or more). It can also flash each
+    class's new fastest lap. Races skip the first lap; laps set before the
+    app connected don't flash.
+- **Sponsors** (`/sponsors.html`): the active league's sponsor logos (added
+  in the League builder) over the race. Choose a corner or the middle of an
+  edge, all together or one at a time (and how long each shows), the size,
+  a caption such as "Partners", a dark panel behind, and which sponsors.
 - **Lap tracker** (`/laps.html`): only in qualifying (practice too, if you
   tick it).
   - The car on camera gets the big tracker. Up to 12 small ones show other
@@ -304,6 +404,42 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
 
+## Boards (full-screen championship, calendar and results)
+
+The **Boards** tab puts a full-screen board on stream with one click. Add
+`/board.html` to OBS as a *Browser Source* at 1920×1080. It's empty
+(transparent) until you put a board on screen, and **Take off screen** clears
+it. **⧉ Pop out** opens the Boards tab in a window of its own. The buttons are
+built from the active league:
+
+- **Championship standings**: Overall, and one button per class (e.g. PRO,
+  SEMI-PRO, AM): that championship's drivers with their points, the gap to
+  the leader and, if switched on, the gap to the driver ahead.
+- **Teams' championship**: each team's logo and colour, the drivers who
+  scored for it, points per round, wins, penalties, and the gaps to the
+  leader and to the team ahead.
+- **Manufacturers**: by the cars' makes, Overall and per class.
+- **Season calendar**: every round with track, layout, date, time and
+  length, which rounds are done (with their winners) and which is next. Or
+  the league's own calendar image instead (see *League builder*).
+- **Finishing order**: Overall or per class, from the latest round, a chosen
+  round, or the session going on now (live).
+
+Under *What each board shows*, every board can be set up separately:
+- the league logo in its header;
+- a league banner across the top or bottom or down either side, and which
+  banner;
+- the league's sponsor logos along any edge, and which sponsors;
+- the board's own columns: car numbers, team names and logos, car badges,
+  gaps, wins, penalty points, points from the last few rounds, laps, places
+  gained, fastest lap (purple), DNF/DSQ, points scored, and how many rows.
+
+Putting another board on screen crossfades from the old one, and a new
+board's header and rows sweep in one after another; **Take off screen**
+fades it out. Long tables split into two columns rather than shrinking. Names follow the
+league's *Remove driver class in name* setting, and car numbers take the
+class colour.
+
 ## Championship
 
 The **Championship** tab keeps each league's season. It works on the same
@@ -322,7 +458,11 @@ standings update from what's saved.
     - *Both*: every result scores twice and the points are kept apart. Class
       positions score in the class championship, and overall positions in
       the Overall championship. The overall championship can have its own
-      points table.
+      points table. Bonuses and penalty points apply in both, and each
+      standings table shows what it's scored on.
+      Example (class points 10, 6, 4; overall 20, 15, 10, 5): a PRO driver
+      who finishes 3rd overall and 2nd in PRO scores 10 towards Overall and
+      6 towards PRO.
   - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
   - The fastest-lap bonus can be limited to the top N finishers.
@@ -331,7 +471,8 @@ standings update from what's saved.
     points or bonuses. 0 turns it off.
   - Whether DNFs score for where they're classified.
   - **Team championship**: count every driver, or each team's best N per
-    round.
+    round. With *Both*, teams count their drivers' overall points, or class
+    points if you choose.
   - **Bonus points**: pole, fastest lap, led a lap, each lap led, most laps
     led, most places gained, clean race (no incidents), finished, started, and
     race win. Use 0 for bonuses you don't award; negative values take points
@@ -386,6 +527,53 @@ pronunciation hint), **Save**, then **Use in overlay**. Drivers are matched by
 iRacing customer ID, or by car number for hand-added entries without one.
 Re-fetching a league updates names and numbers, adds new members and keeps your
 notes. Profiles are plain JSON in `data/leagues/`.
+
+**Car**: each driver's car make (Porsche, BMW, Mercedes-AMG…), with its
+badge, for the manufacturers' championship and the boards. *Auto* uses the
+car they drive in iRacing, worked out from its name. Importing drivers from a
+session fills it in, and each championship result keeps the car driven that
+round.
+
+**League logo, banners and calendar image** (for the boards):
+- **League logo**: shown in the board headers.
+- **League banners**: wide ones for across the top or bottom, tall ones for
+  the sides.
+- **Calendar image**: a calendar graphic the league has made itself, which
+  the calendar board can show instead of its own. The rounds you enter still
+  drive the standings, results and next-round information.
+
+**Season calendar**: in Championship → *Calendar & results*, each round has
+a track and a **configuration** picked from lists, plus date, start time and
+length (e.g. "60 min").
+- Type to search the track list; the configuration list then shows that
+  track's layouts.
+- With iRacing API credentials set, **Fetch official track list** downloads
+  iRacing's complete list of tracks and layouts.
+- Without credentials, a built-in list of iRacing's tracks and main layouts
+  is used, plus every track the app has seen in a session. A track not in
+  the lists can be typed in.
+
+**Remove driver class in name**: some leagues put the class in front of
+driver names, like `(P) Dave Price` or `(PA) Mat Gatter`. Tick this box
+(next to the league name) and:
+- Every driver with a tag like that gets the name without it, minus the
+  space, as their **Nickname** (`Dave Price`). Nicknames you've already typed
+  are kept. Drivers added later (from the session or a re-fetch) get one when
+  the league is saved.
+- The overlays (standings, lap tracker, grid walk, full-screen boards) show
+  that nickname as the driver's name, so the name styles work properly
+  ("D. Price", "Price D.").
+- The grid walk (on stream and its list in the app) uses it too.
+- The timing screen and roster keep the full `(P) Dave Price`, so you can spot
+  a driver changing class.
+
+**Classes from name tags**: a tag like `(P)` also puts the driver in the
+matching league class, so their number and stripe take that class's colour.
+The match is the class's name or an entry in its *iRacing classes* field
+(e.g. `P`), or else the initials of its name: `P` is Pro, `SP` is Semi-Pro,
+`PA` is Pro-Am, `AM` is Am, `G` is Gold, `S` is Silver and `B` is Bronze. The tag in the driver's current iRacing name
+counts, so a class change shows as soon as the tag changes. A class picked
+for a driver in the roster still wins.
 
 ### Classes and logos
 
@@ -550,6 +738,12 @@ defaults:
 | `default_camera_group` | `""` | Camera group for Watch/Replay, e.g. `"TV1"` (blank = keep current) |
 | `overtake_hold_s` | `1.5` | How long a pass must hold to count |
 | `slowdown_ratio` | `0.35` | Speed below this fraction of recent pace counts as a slowdown |
+| `slowdown_corner_ratio` | `0.5` | ...and below this fraction of the usual speed at that point of the track |
+| `spin_window_s` | `0.2` | The rotation that makes a spin must happen within this many seconds |
+| `spin_yaw_deg` | `45` | Heading change in that window that counts (car driven on this PC only) |
+| `spin_steer_deg` | `180` | Steering-wheel snap in that window that counts (every car) |
+| `contact_jolt_kph` | `20` | Contact: how fast a car must be closing before suddenly stopping closing |
+| `poll_hz` | `30` | Telemetry samples per second (spin detection needs 20 or more) |
 | `event_cooldown_s` | `8` | Minimum gap between incidents logged for the same car |
 | `gridwalk_interval_s` | `8` | Grid walk: seconds each pair stays on screen |
 | `gridwalk_style` | `"track"` | Grid walk style: `"track"`, `"grid"` or `"h2h"` |
@@ -577,6 +771,7 @@ web/           the overlay UI (plain HTML/CSS/JS, no build step)
   index.html   control panel (app.js)
   gridwalk.html  grid walk broadcast graphic for OBS (gridwalk.js)
   standings.html, laps.html  standings tower and qualifying lap tracker for OBS
+  sponsors.html  sponsor logos for OBS
   common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos
 packaging/     PyInstaller recipe (apex.spec) and Inno Setup installer script

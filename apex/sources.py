@@ -73,7 +73,10 @@ class Frame:
     replay_session_time: float = 0.0
     replay_session_num: int = 0
     replay_speed: int = 1
+    session_time_remain: float = -1.0   # huge or -1 when the session isn't timed
+    session_laps_remain: int = -1       # 32767 or -1 when it isn't lap-limited
     lap: list = field(default_factory=list)
+    laps_completed: list = field(default_factory=list)
     pct: list = field(default_factory=list)
     position: list = field(default_factory=list)
     class_position: list = field(default_factory=list)
@@ -83,6 +86,10 @@ class Frame:
     last_lap: list = field(default_factory=list)
     best_lap: list = field(default_factory=list)
     car_flags: list = field(default_factory=list)
+    steer: list = field(default_factory=list)  # CarIdxSteer: steering wheel angle, rad
+    # Heading of the car being driven on this PC (iRacing only sends it for that one).
+    player_car_idx: int = -1
+    yaw: float = None                   # rad
 
     def timeline(self):
         """(session number, session time) of what's on screen: live, or the replay being watched."""
@@ -155,7 +162,10 @@ class IRacingSource:
                 replay_session_time=v("ReplaySessionTime", 0.0),
                 replay_session_num=v("ReplaySessionNum", 0),
                 replay_speed=v("ReplayPlaySpeed", 1),
+                session_time_remain=v("SessionTimeRemain", -1.0),
+                session_laps_remain=v("SessionLapsRemainEx", -1),
                 lap=v("CarIdxLap", []),
+                laps_completed=v("CarIdxLapCompleted", []),
                 pct=v("CarIdxLapDistPct", []),
                 position=v("CarIdxPosition", []),
                 class_position=v("CarIdxClassPosition", []),
@@ -165,6 +175,9 @@ class IRacingSource:
                 last_lap=v("CarIdxLastLapTime", []),
                 best_lap=v("CarIdxBestLapTime", []),
                 car_flags=v("CarIdxSessionFlags", []),
+                steer=v("CarIdxSteer", []),
+                player_car_idx=v("PlayerCarIdx", -1),
+                yaw=v("Yaw", None),
             )
             ir.unfreeze_var_buffer_latest()
             return frame
@@ -221,6 +234,13 @@ class IRacingSource:
 # Mock source
 # ---------------------------------------------------------------------------
 
+# Real iRacing car names, GT3 then GT4, so makes and badges show in the mock.
+MOCK_CARS = (
+    ("Porsche 911 GT3 R (992)", "BMW M4 GT3", "Mercedes-AMG GT3 2020", "Ferrari 296 GT3", "Audi R8 LMS EVO II GT3",
+     "Lamborghini Huracan GT3 EVO", "McLaren 720S GT3 EVO", "Ford Mustang GT3", "Aston Martin Vantage GT3 EVO"),
+    ("Porsche 718 Cayman GT4 Clubsport MR", "BMW M4 G82 GT4", "Mercedes-AMG GT4", "Aston Martin Vantage GT4",
+     "McLaren 570S GT4", "Ford Mustang GT4"),
+)
 MOCK_TEAMS = ["Apex Racing", "Redline Motorsport", "Northbound GT", "Kestrel Works", "Vanta Racing", "Halcyon Motorsport"]
 MOCK_COLORS = ["d7263d", "1b76d1", "f2c94c", "111111", "ffffff", "2a9d58", "f2994a", "7b2cbf", "56ccf2", "9aa5b1"]
 
@@ -284,6 +304,8 @@ class MockSource:
             self.progress[i] = -(rank * 0.006) if session == "race" else -0.95 + i * (0.9 / n)
         self.slow_until = [0.0] * n
         self.offtrack_until = [0.0] * n
+        self.spin_at = [None] * n   # when the car's current moment is a spin
+        self.moment_at = [None] * n  # when the car's current moment (off / spin) began
         self.pit_until = [0.0] * n
         self.incidents = [0] * n
         self.lap_noise = [[1.0] * len(self.SECTOR_STARTS) for _ in range(n)]
@@ -328,6 +350,8 @@ class MockSource:
                 "UserID": 100000 + i, "TeamName": MOCK_TEAMS[i % len(MOCK_TEAMS)], "CarNumber": num,
                 "CarNumberRaw": int(num), "CarIsPaceCar": 0, "IsSpectator": 0,
                 "CarScreenNameShort": "GT4" if self._is_gt4(i) else "GT3",
+                "CarScreenName": MOCK_CARS[self._is_gt4(i)][i % len(MOCK_CARS[self._is_gt4(i)])],
+                "CarPath": "",
                 "CarClassShortName": "GT4" if self._is_gt4(i) else "GT3",
                 "CarClassID": 4084 if self._is_gt4(i) else 4083,
                 "CarClassColor": 0x53FF77 if self._is_gt4(i) else 0xFFDA59, "IRating": 1500 + (self.num_cars - i) * 120,
@@ -386,8 +410,8 @@ class MockSource:
             # Each lap and sector is a little different, so there are PBs to beat.
             sector = sum(1 for b in self.SECTOR_STARTS[1:] if self.progress[i] % 1.0 >= b)
             pace *= self.lap_noise[i][sector]
-            if t < self.slow_until[i]:
-                pace *= 0.15
+            if self.moment_at[i] is not None:
+                pace *= self._moment_pace(i, t)
             if t < self.pit_until[i]:
                 pace *= 0.35
             prev = self.progress[i]
@@ -425,6 +449,8 @@ class MockSource:
             if t > 15 and t > self.slow_until[i] + 10 and rng.random() < dt / 420.0:
                 self.offtrack_until[i] = t + 2.5
                 self.slow_until[i] = t + 3.0
+                self.moment_at[i] = t
+                self.spin_at[i] = t if rng.random() < 0.5 else None  # half of them spin
                 points = rng.choice([1, 2, 4])
                 # Incident points reach session info a few seconds later, like the sim.
                 self.pending_incidents.append((t + rng.uniform(2, 5), i, points))
@@ -444,12 +470,32 @@ class MockSource:
             if self.replay_time >= t:
                 self.replay_time = None
 
+    def _moment_pace(self, i, t):
+        """Speed factor through an off / spin: slows like a real car (no instant
+        changes), half of them turning round and sliding backwards, then
+        pulls away again."""
+        x = t - self.moment_at[i]
+
+        def ramp(a, b, x0, x1):
+            return a + (b - a) * min(1.0, max(0.0, (x - x0) / (x1 - x0)))
+
+        if x >= 7.0:
+            self.moment_at[i] = None
+            return 1.0
+        if x >= 3.0:
+            return ramp(0.15, 1.0, 3.0, 7.0)
+        if self.spin_at[i] is not None:
+            # Scrubbing off speed sideways, then rolling backwards for a moment.
+            return ramp(1.0, -0.1, 0.0, 2.6) if x < 2.6 else ramp(-0.1, 0.15, 2.6, 3.0)
+        return ramp(1.0, 0.15, 0.0, 2.5)
+
     def read(self):
         with self._lock:
             self._advance()
             t = self.session_time
             n = self.num_cars + 1
             lap = [-1] * n
+            laps_completed = [-1] * n
             pct = [-1.0] * n
             on_pit = [False] * n
             surface = [TRK_NOT_IN_WORLD] * n
@@ -458,6 +504,7 @@ class MockSource:
             car_flags = [0] * n
             position = [0] * n
             f2 = [0.0] * n
+            steer = [0.0] * n
             if self.session_kind == "race":
                 order = sorted(range(self.num_cars), key=lambda i: -self.progress[i])
                 leader = self.progress[order[0]]
@@ -475,6 +522,7 @@ class MockSource:
                 if self.out[i]:
                     continue  # not in the world: lap -1, pct -1
                 lap[idx] = max(0, int(math.floor(p)) + 1) if p >= 0 else 0
+                laps_completed[idx] = self.mock_laps[i]
                 pct[idx] = p % 1.0
                 # Qualifying starts with an out lap from the pit lane.
                 on_pit[idx] = t < self.pit_until[i] or (self.session_kind == "qualify" and p < -0.9)
@@ -486,6 +534,9 @@ class MockSource:
                     surface[idx] = TRK_ON_TRACK
                 last_lap[idx] = self.last_lap[i]
                 best_lap[idx] = self.best_lap[i]
+                steer[idx] = 0.6 * math.sin(p * 40.0 + self.phase[i])  # turning through the corners
+                if self.spin_at[i] is not None and 0.0 <= t - self.spin_at[i] < 0.4:
+                    steer[idx] = -4.0  # snap of opposite lock
                 flags = FLAG_GREEN
                 if self.black_flag[i] and not self.served[i]:
                     flags |= FLAG_BLACK
@@ -505,9 +556,11 @@ class MockSource:
                 replay_session_time=t if live else self.replay_time,
                 replay_session_num=0,
                 replay_speed=self.replay_speed,
-                lap=lap, pct=pct, position=position, class_position=list(position),
+                session_time_remain=max(0.0, 1200.0 - t) if self.session_kind == "qualify" else 604800.0,
+                session_laps_remain=max(0, self.race_laps - max(self.mock_laps)) if self.race_laps else 32767,
+                lap=lap, laps_completed=laps_completed, pct=pct, position=position, class_position=list(position),
                 on_pit=on_pit, surface=surface, f2_time=f2,
-                last_lap=last_lap, best_lap=best_lap, car_flags=car_flags,
+                last_lap=last_lap, best_lap=best_lap, car_flags=car_flags, steer=steer,
             )
 
     def session_info(self):

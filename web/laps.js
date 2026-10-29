@@ -37,7 +37,7 @@ function topHtml(item, cfg, cls, kind) {
     ${cfg.show_number ? `<span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">#${esc(item.number)}</span>` : ""}
     ${cfg.show_logo && item.team_logo ? `<img class="team-logo" src="${esc(item.team_logo)}" alt="">` : ""}
     <span class="who"><span class="n">${esc(formatName(item, cfg.name_format))}</span>${team}</span>
-    ${cfg.show_driver_number && item.driver_number ? `<span class="dn">${esc(item.driver_number)}</span>` : ""}
+    ${cfg.show_driver_number && item.driver_number ? `<span class="dn" style="border-color:${esc(cls.color)};color:${esc(cls.color)}">${esc(item.driver_number)}</span>` : ""}
     ${badge}`;
 }
 

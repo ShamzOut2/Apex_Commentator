@@ -375,6 +375,48 @@ function formatName(e, format) {
   }
 }
 
+// Redraw a list and slide each row from where it was to its new place, so
+// drivers swapping positions glide past each other. Rows carry data-key.
+// Rows new to the list fade in. Works through redraws mid-slide: a row
+// carries on from wherever it had got to.
+function flipRows(container, selector, redraw, ms = 450, keyOf = (el) => el.dataset.key) {
+  const before = new Map();
+  container.querySelectorAll(selector).forEach((el) => before.set(keyOf(el), el.getBoundingClientRect().top));
+  redraw();
+  const moved = [];
+  const hadRows = before.size > 0;
+  container.querySelectorAll(selector).forEach((el) => {
+    const top = before.get(keyOf(el));
+    if (top === undefined) {
+      if (hadRows) el.classList.add("row-enter");
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const scale = el.offsetHeight ? rect.height / el.offsetHeight : 1;  // the stage is scaled to fit
+    const dy = (top - rect.top) / (scale || 1);
+    if (Math.abs(dy) < 1) return;
+    el.style.transition = "none";
+    el.style.transform = `translateY(${dy}px)`;
+    moved.push(el);
+  });
+  if (!moved.length) return;
+  container.getBoundingClientRect();  // apply the start positions before sliding
+  for (const el of moved) {
+    el.style.transition = `transform ${ms}ms cubic-bezier(.2, .8, .2, 1)`;
+    el.style.transform = "";
+  }
+}
+
+// An animation that keeps going across redraws: elements re-created mid-way
+// start where the last one had got to (a negative animation-delay).
+function ongoing(since, ms) {
+  const elapsed = performance.now() - since;
+  return elapsed < ms ? `animation-delay:-${Math.round(elapsed)}ms` : null;
+}
+
+// A stopwatch icon (fastest lap), coloured by CSS (currentColor).
+const STOPWATCH = '<svg class="stopwatch" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 1h6v2H9zm10.03 6.39 1.42-1.42-1.41-1.41-1.42 1.42A8.96 8.96 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61zM12 20a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm-1-12h2v6h-2z"/></svg>';
+
 // Fixed 1920x1080 stage, scaled to fit the browser source.
 function fitStage(stage) {
   const fit = () => {

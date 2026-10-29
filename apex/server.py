@@ -15,12 +15,14 @@
 import json
 import mimetypes
 import threading
+import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
 from . import championship
 from .core import CommandError
+from .makes import catalogue as makes_catalogue
 from .league import LOGO_TYPES, MAX_IMAGE_BYTES, LeagueError, logo_library, profile_from_session
 from .paths import WEB_DIR
 from .updater import UpdateError, request_restart
@@ -83,6 +85,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/update":
             updater = getattr(self.app, "updater", None)
             return self._send_json(updater.status() if updater else {"enabled": False})
+        if path == "/api/tracks":
+            query = parse_qs(urlparse(self.path).query).get("q", [""])[0]
+            if query:
+                return self._send_json({"tracks": self.app.tracks.search(query), **self.app.tracks.status()})
+            return self._send_json({"tracks": self.app.tracks.grouped(), **self.app.tracks.status()})
+        if path == "/api/makes":
+            return self._send_json({"makes": makes_catalogue()})
         if path == "/api/logo-library":
             return self._send_json({"logos": logo_library()})
         if path.startswith("/api/logos/"):
@@ -141,6 +150,12 @@ class Handler(BaseHTTPRequestHandler):
                 league, added = self.app.leagues.import_session(path.split("/")[3], drivers)
                 self.app.publish()
                 return self._send_json({"ok": True, "league": league, "added": added})
+            if path == "/api/tracks/refresh":
+                try:
+                    count = self.app.tracks.refresh(time.strftime("%Y-%m-%d %H:%M"))
+                except ValueError as e:
+                    return self._error(str(e))
+                return self._send_json({"ok": True, "count": count, **self.app.tracks.status()})
             if path.startswith("/api/leagues/") and path.endswith("/championship/import"):
                 return self._import_round(path.split("/")[3], str(body.get("round_id") or ""))
             if path == "/api/leagues/from-session":

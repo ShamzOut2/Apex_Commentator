@@ -10,10 +10,15 @@ import time
 from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
+from .gaps import GapTimer
 from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
 from .settings import UserSettings
-from .league import driver_key, logo_url
+from .tracks import TrackCatalogue
+from . import boards
+from .league import driver_key, logo_url, strip_class_prefix
+from .makes import logo_for as make_logo
+from .makes import make_for
 from .sources import (
     CS_AT_EXCITING,
     CS_AT_INCIDENT,
@@ -94,13 +99,34 @@ def _rank(standings, is_race):
         if is_race:
             gap, class_gap = t, (t - leader["first"]) if t is not None and leader["first"] is not None else None
         else:
-            gap, class_gap = t - first, t - leader["first"]
+            # Drivers without a lap time (shown once they've done a lap) have no gap.
+            gap = t - first if t is not None and first is not None else None
+            class_gap = t - leader["first"] if t is not None and leader["first"] is not None else None
         e["gap"] = round(gap, 3) if gap is not None and pos > 1 else None
         e["class_gap"] = round(class_gap, 3) if class_gap is not None and in_class[k] > 1 else None
-        e["interval"] = round(t - prev, 3) if t is not None and prev is not None else None
-        e["class_interval"] = round(t - leader["prev"], 3) if t is not None and leader["prev"] is not None else None
+        # Side by side, the car behind can be a hair ahead on time: never a negative interval.
+        e["interval"] = round(max(0.0, t - prev), 3) if t is not None and prev is not None else None
+        e["class_interval"] = round(max(0.0, t - leader["prev"]), 3) if t is not None and leader["prev"] is not None else None
         prev = t
         leader["prev"] = t
+
+
+def _session_limit(text):
+    """'30' -> 30 laps; '1200.0000 sec' -> 1200 s; 'unlimited' -> None."""
+    m = re.match(r"\s*([\d.]+)", str(text or ""))
+    return float(m.group(1)) if m else None
+
+
+def _laps_down(leader, r):
+    """Whole laps a car is behind a leader (0 on the lead lap)."""
+    down = leader["progress"] - r["progress"]
+    return int(down) if r["progress"] >= 0 and down >= 1 else 0
+
+
+def _progress(frame, idx):
+    """Laps + lap distance of a car, or -1 when it isn't on track."""
+    lap, pct = _at(frame.lap, idx, -1), _at(frame.pct, idx, -1.0)
+    return lap + pct if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1
 
 
 def _lap_time(value):
@@ -181,13 +207,21 @@ class App:
         self._grid_order = []      # car_idx in starting order
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
+        self._fl_session = None    # fastest laps: the session they're for,
+        self._fl_records = {}      # "overall" / class key -> fastest lap so far,
+        self._fl_flash = None      # and the newest one, for the flash on stream
         self._logged_until = {}    # session num -> race time logged so far
         self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
         self.photobooth = None     # set by __main__ (needs the user data folder)
+        self.popout = None         # set by __main__: popout(page) opens a page in its own app window
         self.laps = LapTracker()
+        self.gaps = GapTimer()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
         self.settings = UserSettings()     # settings changed in the app (likewise)
+        self.tracks = TrackCatalogue()     # likewise: the season calendar's track list
+        self.board = {"kind": None, "params": {}}  # the full-screen board on screen, if any
+        self._board_cache = (None, None)
         self._class_of = {}        # car_idx -> class key, from the last snapshot
         self._track_sectors = self.laps.starts  # the track's own split points
         self._race = RaceProgress()
@@ -255,6 +289,7 @@ class App:
         self.detector.update(timeline_frame, self._drivers, self._track_m, self._is_race(timeline_frame))
         if self._is_race(timeline_frame):
             self._race.update(timeline_frame)
+            self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
         self.laps.green_s = self.overlays.get()["laps"]["green_s"]
         self.laps.update(timeline_frame, self._lap_class)
         self._logged_until[num] = t
@@ -276,6 +311,8 @@ class App:
     def _load_session_info(self, info, frame):
         weekend = info.get("WeekendInfo") or {}
         self._track_m = parse_track_length(weekend.get("TrackLength"))
+        self.gaps.set_track(self._track_m)
+        self.tracks.remember(weekend.get("TrackID"), weekend.get("TrackDisplayName", ""), weekend.get("TrackConfigName", ""))
         sessions = (info.get("SessionInfo") or {}).get("Sessions") or []
         self._session_meta = {
             "track": weekend.get("TrackDisplayName", ""),
@@ -305,6 +342,9 @@ class App:
                 "number": str(d.get("CarNumber", "")),
                 "team": team if team != d.get("UserName") else "",
                 "car": d.get("CarScreenNameShort", ""),
+                "car_name": d.get("CarScreenName") or d.get("CarScreenNameShort", ""),
+                # The manufacturer, from iRacing's car name and path.
+                "make": make_for(d.get("CarScreenName") or d.get("CarScreenNameShort", ""), d.get("CarPath", "")),
                 "car_class": d.get("CarClassShortName") or "",
                 "class_color": f"#{int(color):06x}" if isinstance(color, int) else None,
                 "irating": d.get("IRating"),
@@ -342,6 +382,7 @@ class App:
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                     "photobooth": self.photobooth.status() if self.photobooth else None,
+                    **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
                                  "laps": {"active": False, "camera": None, "trackers": [], "all": [],
                                           "sectors": len(self.laps.starts)}},
@@ -367,16 +408,21 @@ class App:
                 row = dict(d)
                 league = self.leagues.lookup(d["cust_id"], d["number"])
                 row["league"] = {k: league.get(k, "") for k in ("nickname", "team", "notes", "driver_number")} if league else None
+                # The car as logged in the league wins over iRacing's car name.
+                row["make"] = (league or {}).get("car_make") or d["make"]
+                row["make_logo"] = make_logo(row["make"])
                 row["class_key"] = self._class_key(classes, active_league, league, d)
                 row.update({
                     "lap": lap if lap is not None and lap >= 0 else None,
+                    "laps_completed": _at(frame.laps_completed, idx, -1) if _at(frame.laps_completed, idx, -1) >= 0 else None,
                     "pct": round(pct, 4) if pct is not None and pct >= 0 else None,
                     "official_pos": _at(frame.position, idx, 0) or None,
                     "class_pos": _at(frame.class_position, idx, 0) or None,
                     "on_pit": bool(_at(frame.on_pit, idx, False)),
                     "surface": SURFACES.get(surface, "unknown"),
                     "in_world": surface != TRK_NOT_IN_WORLD,
-                    "gap": round(_at(frame.f2_time, idx, 0.0), 3) if is_race else None,
+                    "gap": round(_at(frame.f2_time, idx, 0.0), 3) if is_race else None,  # live timing replaces it (_live_gaps)
+                    "laps_down": 0,
                     "last_lap": _lap_time(_at(frame.last_lap, idx)),
                     "best_lap": _lap_time(_at(frame.best_lap, idx)),
                     "event_count": counts.get(idx, 0),
@@ -387,6 +433,8 @@ class App:
                 })
                 rows.append(row)
             self._assign_positions(rows, racing)
+            if racing:
+                self._live_gaps(rows, frame)
             in_class = {}
             for r in rows:
                 del r["progress"]
@@ -426,6 +474,7 @@ class App:
                 "league": self._league_summary(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
+                **self._boards(active_league, lambda: self.session_results(active_league, rows)[0] if is_race else None),
             }
             return snap
 
@@ -456,7 +505,7 @@ class App:
                 profile.setdefault("drivers", []).append(entry)
                 added += 1
             key = driver_key(entry) if entry else driver_key({"cust_id": r["cust_id"], "name": r["name"]})
-            cls = self.leagues.class_for(entry, r["car_class"], profile)
+            cls = self.leagues.class_for(entry, r["car_class"], profile, r["name"])
             off = official.get(r["car_idx"], {})
             laps = off.get("LapsComplete")
             if not isinstance(laps, int) or laps < 0:
@@ -476,6 +525,7 @@ class App:
                 "laps_led": off.get("LapsLed") or 0,
                 "fastest_lap": fastest if isinstance(fastest, (int, float)) and fastest > 0 else r["best_lap"],
                 "incidents": incidents or 0, "status": status,
+                "make": (entry or {}).get("car_make") or r.get("make", ""),
             }))
         return results, added
 
@@ -504,20 +554,103 @@ class App:
 
     # -- stream overlays ----------------------------------------------------
 
+    @staticmethod
+    def _stream_name(name, nickname, active_league):
+        """(name, nickname) to show on stream.
+
+        With the league's "Remove driver class in name" on, the stream name
+        is the nickname (the name without its "(P)" tag) and isn't shown again
+        as a nickname. The control panel keeps the full name.
+        """
+        if active_league and active_league.get("strip_class_prefix"):
+            return (nickname or strip_class_prefix(name)), ""
+        return name, nickname
+
     def _overlay_entry(self, r, active_league):
         """Who a driver is, for the stream overlays: league details win."""
         lg = r["league"] or {}
+        name, nickname = self._stream_name(r["name"], lg.get("nickname", ""), active_league)
         team_name = lg.get("team") or r["team"]
         team = self.leagues.team(team_name, active_league) if active_league else None
         pid = active_league["id"] if active_league else ""
         return {
-            "car_idx": r["car_idx"], "name": r["name"], "nickname": lg.get("nickname", ""),
+            "car_idx": r["car_idx"], "name": name, "nickname": nickname,
             "abbrev": r["abbrev"], "number": r["number"], "driver_number": lg.get("driver_number", ""),
             "team": team_name, "team_short": (team or {}).get("short", ""), "team_color": (team or {}).get("color", ""),
             "team_logo": logo_url(pid, team.get("logo")) if team and pid else None,
             "class_key": r["class_key"], "car": r["car"], "on_pit": r["on_pit"], "in_world": r["in_world"],
             # For the full-screen versions.
+            "make": r["make"], "make_logo": r["make_logo"],
             "lap": r["lap"], "last_lap": r["last_lap"], "best_lap": r["best_lap"], "pit_stops": r["pit_stops"],
+            "laps_completed": r["laps_completed"],
+            "laps_down": r.get("laps_down", 0), "class_laps_down": r.get("class_laps_down", 0),
+        }
+
+    def _fastest_laps(self, standings, is_race, cfg, frame):
+        """Mark who holds the fastest lap (``fastest``: overall, ``class_fastest``:
+        in their class) and return the new-fastest-lap flash to show, if any."""
+        def lap_of(e):
+            t = e.get("best_lap") if is_race else e.get("best")
+            return t if t and t > 0 else None
+
+        holders = {}
+        for e in standings:
+            t = lap_of(e)
+            e["fastest"] = e["class_fastest"] = False
+            if t is None:
+                continue
+            for scope in ("overall", e["class_key"]):
+                if scope not in holders or t < holders[scope][0] - 1e-4:
+                    holders[scope] = (t, e)
+        for scope, (_, e) in holders.items():
+            e["fastest" if scope == "overall" else "class_fastest"] = True
+        # A new fastest lap: flash it. Laps already set when the session (or
+        # the app) started aren't news.
+        session = (frame.session_num, is_race)
+        if session != self._fl_session:
+            self._fl_session, self._fl_flash = session, None
+            self._fl_records = {scope: t for scope, (t, _) in holders.items()}
+        flashed = False
+        # Overall first: a lap that's fastest overall and in its class flashes once, as overall.
+        for scope, (t, e) in sorted(holders.items(), key=lambda kv: kv[0] != "overall"):
+            record = self._fl_records.get(scope)
+            if record is not None and t >= record - 1e-4:
+                continue
+            self._fl_records[scope] = t
+            # A race's first laps (standing or rolling start) aren't real fastest laps yet.
+            opening = is_race and (e.get("laps_completed") or 0) <= 1
+            if not flashed and not opening and (scope == "overall" or cfg["fl_flash_classes"]):
+                flashed = True
+                self._fl_flash = {"car_idx": e["car_idx"], "name": e["name"], "nickname": e.get("nickname", ""),
+                                  "number": e["number"], "class_key": e["class_key"], "lap_time": t,
+                                  "scope": "overall" if scope == "overall" else "class", "at": time.monotonic()}
+        f = self._fl_flash
+        if not (cfg["fl_flash"] and f and time.monotonic() - f["at"] < cfg["fl_flash_s"]):
+            return None
+        return {k: v for k, v in f.items() if k != "at"} | {"id": f"{f['car_idx']}:{f['lap_time']}"}
+
+    def _session_progress(self, frame, session, rows, mode="auto"):
+        """Laps or time left, for the standings header.
+
+        "auto" follows how the session is limited: by laps (lap x of y) or
+        by time (time remaining).
+        """
+        laps_total = _session_limit(session.get("SessionLaps"))
+        time_total = _session_limit(session.get("SessionTime"))
+        if mode == "auto":
+            mode = "laps" if laps_total else "time" if time_total else "none"
+        lead = max((r["laps_completed"] or 0 for r in rows if r["laps_completed"] is not None), default=0)
+        remain = frame.session_time_remain
+        time_remain = remain if remain is not None and 0 <= remain < 604000 else None
+        finished = frame.session_state >= STATE_CHECKERED
+        lap = min(lead + 1, int(laps_total)) if laps_total else lead + 1
+        return {
+            "mode": mode,
+            "finished": finished,
+            "lap": lap if frame.session_state >= STATE_RACING else 0,
+            "laps_total": int(laps_total) if laps_total else None,
+            "time_remain": round(time_remain, 1) if time_remain is not None else None,
+            "time_total": time_total,
         }
 
     def _official_best(self, session):
@@ -536,23 +669,29 @@ class App:
         entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
         # Standings: race order in a race; otherwise fastest clean lap, and
         # only drivers who have set one (blank at the start of qualifying).
+        # With "reveal", a driver only appears once they've completed a lap:
+        # the tower fills up as the field crosses the line.
+        reveal = settings["standings"]["reveal"]
         standings = []
         if is_race:
             for r in rows:
-                if r["pos"] is not None:
+                if r["pos"] is not None and (not reveal or (r["laps_completed"] or 0) >= 1):
                     standings.append(dict(entries[r["car_idx"]], pos=r["pos"], class_pos=r["class_pos"],
                                           time=r["gap"], pos_change=r["pos_change"]))
         else:
             official = self._official_best(session)
-            timed = []
+            timed, untimed = [], []
             for r in rows:
                 best = official.get(r["car_idx"]) or self.laps.best(r["car_idx"])
                 if best:
                     timed.append((best, r))
+                elif reveal and (r["laps_completed"] or 0) >= 1:
+                    untimed.append((None, r))  # a lap done, but no clean time yet
             timed.sort(key=lambda x: x[0])
-            for best, r in timed:
+            for best, r in timed + untimed:
                 standings.append(dict(entries[r["car_idx"]], time=best, pos_change=None))
         _rank(standings, is_race)
+        flash = self._fastest_laps(standings, is_race, settings["standings"], frame)
         # The lap tracker: qualifying only (or practice, if asked).
         lap_cfg = settings["laps"]
         active = "qualify" in kind or (lap_cfg["practice"] and "practice" in kind)
@@ -579,7 +718,11 @@ class App:
         return {
             "settings": settings,
             "session_kind": "race" if is_race else ("qualify" if "qualify" in kind else (kind or "practice")),
+            # Racing under green: close intervals mean something (not behind the safety car).
+            "green": is_race and frame.session_state == STATE_RACING and not frame.session_flags & CAUTION_FLAGS,
+            "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
+            "fastest_flash": flash,
             # "all": every driver, for the full-screen timing page (timed
             # drivers by lap time, then the rest).
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
@@ -603,6 +746,28 @@ class App:
             r["pos_change"] = r["start_pos"] - r["pos"] if gained else None
             r["class_pos_change"] = r["class_start_pos"] - r["class_pos"] if gained and r["class_pos"] else None
 
+    def _live_gaps(self, rows, frame):
+        """Gaps to the leader from the timing points (see gaps.py), in place of
+        iRacing's, which lag; iRacing's stays where there's no timing yet."""
+        ranked = [r for r in rows if r["pos"] is not None]
+        if not ranked:
+            return
+        leader = ranked[0]
+        now = frame.timeline()[1]
+        class_leader = {}
+        for r in ranked:
+            cl = class_leader.setdefault(r["class_key"], r)
+            r["laps_down"] = _laps_down(leader, r)
+            r["class_laps_down"] = _laps_down(cl, r)
+            if r is leader:
+                continue
+            if r["progress"] < 0:
+                r["gap"] = None  # in the garage: no gap
+                continue
+            gap = self.gaps.gap(r["car_idx"], leader["car_idx"], r["progress"], now)
+            if gap is not None:
+                r["gap"] = round(gap, 3)
+
     @staticmethod
     def _assign_positions(rows, racing):
         """Live order while racing, iRacing's official order otherwise."""
@@ -618,7 +783,7 @@ class App:
 
         League classes win; otherwise the iRacing car class is used as-is.
         """
-        cls = self.leagues.class_for(league_entry, driver["car_class"], active_league)
+        cls = self.leagues.class_for(league_entry, driver["car_class"], active_league, driver["name"])
         if cls is not None:
             key = f"league:{cls['id']}"
             if key not in classes:
@@ -700,14 +865,17 @@ class App:
         league = league or {}
         pid = active_league["id"] if active_league else ""
         team = league.get("team") or d.get("team") or ""
+        name, nickname = self._stream_name(d["name"], league.get("nickname", ""), active_league)
         return {
             "car_idx": car_idx,
-            "name": d["name"],
-            "nickname": league.get("nickname", ""),
+            "name": name,
+            "nickname": nickname,
             "number": d.get("number", ""),
             "team": team,
             "team_logo": logo_url(pid, self.leagues.team_logo(team, active_league)) if pid else None,
             "car": d.get("car", ""),
+            "make": league.get("car_make") or d.get("make", ""),
+            "make_logo": make_logo(league.get("car_make") or d.get("make", "")),
             "car_image": logo_url(pid, league.get("car_image")) if pid else None,
             "helmet_image": logo_url(pid, league.get("helmet_image")) if pid else None,
             "car_design": d.get("car_design"),
@@ -720,7 +888,11 @@ class App:
 
     def _league_summary(self):
         active = self.leagues.active()
-        return {"id": active["id"], "name": active["name"], "teams": len(active.get("teams", []))} if active else None
+        if not active:
+            return None
+        return {"id": active["id"], "name": active["name"], "teams": len(active.get("teams", [])),
+                "banners": [{k: b[k] for k in ("id", "name", "orientation")} for b in active.get("banners", [])],
+                "sponsors": boards.sponsors(active, "")}
 
     def publish(self):
         snap = self.build_snapshot()
@@ -771,12 +943,21 @@ class App:
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "board_", "popout")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
         self.publish()
         return result or {}
+
+    POPOUT_PAGES = {"timing": "Timing", "boards": "Boards"}
+
+    def cmd_popout(self, page):
+        """Open a control panel page in its own window. ``opened`` False: the
+        page opens a browser window itself (no app window, e.g. in a browser)."""
+        if page not in self.POPOUT_PAGES:
+            raise CommandError("That page can't be popped out.")
+        return {"opened": bool(self.popout and self.popout(page, self.POPOUT_PAGES[page]))}
 
     def cmd_watch(self, car_idx, group=None, camera=0):
         d = self._driver(car_idx)
@@ -960,6 +1141,35 @@ class App:
         except PhotoBoothError as e:
             raise CommandError(str(e)) from e
         return {"cars": len(cars)}
+
+    def cmd_board_show(self, kind, group="", round=""):
+        """Put a full-screen board on screen (board.html)."""
+        if kind not in boards.KINDS:
+            raise CommandError(f"Unknown board '{kind}'")
+        if not self.leagues.active():
+            raise CommandError("Activate a league first: boards show its championship")
+        self.board = {"kind": kind, "params": {"group": str(group or ""), "round": str(round or "")}}
+        return {"board": kind}
+
+    def cmd_board_hide(self):
+        self.board = {"kind": None, "params": {}}
+
+    def _boards(self, active_league, live_results):
+        board, opts = self._board_snapshot(active_league, live_results)
+        return {"board": board, "board_options": opts}
+
+    def _board_snapshot(self, active_league, live_results):
+        """(board, options): cached until the league, the board or its settings change."""
+        settings = self.overlays.get()
+        key = (active_league and (active_league["id"], active_league.get("updated_at")), repr(self.board),
+               repr({k: v for k, v in settings.items() if k.startswith("board")}))
+        live = self.board.get("kind") == "results" and self.board["params"].get("round") == "live"
+        if key == self._board_cache[0] and not live:
+            return self._board_cache[1]
+        value = (boards.build(active_league, self.board, settings, live_results() if live else None),
+                 boards.options(active_league))
+        self._board_cache = (key, value)
+        return value
 
     def cmd_overlay_settings(self, overlay, values):
         try:

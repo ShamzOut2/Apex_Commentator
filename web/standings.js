@@ -2,6 +2,7 @@
 
 // Standings timing tower. Race: running order with gap to the leader.
 // Qualifying and practice: fastest clean lap, and nobody until they set one.
+// The columns are the commentator's choice (Overlays tab).
 
 const stage = $("#stage");
 const tower = $("#tower");
@@ -15,68 +16,222 @@ let shown = "";
 
 const DEFAULT_CLASS = { key: "", name: "", color: "#8b93a3", logo: null };
 
-function timeText(e, race, classMode) {
-  const gap = classMode ? e.class_gap : e.gap;
-  const first = classMode ? e.class_pos === 1 : e.pos === 1;
-  if (race) return first ? ["Leader", true] : [gap != null ? `+${gap.toFixed(1)}` : "", false];
-  return first ? [fmtLap(e.best), true] : [gap != null ? `+${gap.toFixed(3)}` : "", false];
+// The new-fastest-lap flash (top middle) lives beside the tower / full screen, not inside them.
+const screenRoot = document.createElement("div");
+if (SCREEN) stage.appendChild(screenRoot);
+const flashBox = document.createElement("div");
+flashBox.className = "fl-flash";
+stage.appendChild(flashBox);
+let flashId = "";
+
+// Who moved up or down, and who just took the fastest lap: a brief tint /
+// pop that carries on across redraws (see ongoing() in common.js).
+const MOVE_MS = 1600;
+const POP_MS = 700;
+const lastPlace = new Map();   // car -> position last drawn
+const moves = new Map();       // car -> {up, at}
+const holders = new Map();     // car -> when they took the fastest lap
+let placeView = "";
+
+function notePlaces(entries, classMode) {
+  const view = `${SCREEN}:${classMode}`;
+  const fresh = view !== placeView;  // switched view: nothing "moved"
+  placeView = view;
+  const now = performance.now();
+  for (const e of entries) {
+    const pos = classMode ? e.class_pos : e.pos;
+    const was = lastPlace.get(e.car_idx);
+    if (!fresh && was != null && pos != null && pos !== was) moves.set(e.car_idx, { up: pos < was, at: now });
+    lastPlace.set(e.car_idx, pos);
+    const holds = classMode ? e.class_fastest : e.fastest;
+    if (holds && !holders.has(e.car_idx)) holders.set(e.car_idx, fresh ? -1e9 : now);
+    if (!holds) holders.delete(e.car_idx);
+  }
 }
 
-function rowHtml(e, cfg, cls, race, classMode, multiclass, camIdx) {
-  const [t, lead] = cfg.show_gap ? timeText(e, race, classMode) : ["", false];
+function moveOf(car) {
+  const m = moves.get(car);
+  const style = m && ongoing(m.at, MOVE_MS);
+  if (!style) {
+    moves.delete(car);
+    return null;
+  }
+  return { cls: m.up ? "moved-up" : "moved-down", style };
+}
+
+// The purple stopwatch by the fastest lap's holder: overall, or each class's in "by class".
+function fastestIcon(e, cfg, classMode) {
+  if (!cfg.show_fastest_icon || !(classMode ? e.class_fastest : e.fastest)) return "";
+  const pop = ongoing(holders.get(e.car_idx) ?? -1e9, POP_MS);
+  return `<span class="fl-icon ${pop ? "pop" : ""}" style="${pop || ""}" title="Fastest lap">${STOPWATCH}</span>`;
+}
+
+function renderFlash(snap, ov) {
+  const f = snap.connected ? ov.fastest_flash : null;
+  const id = f ? f.id : "";
+  if (id === flashId) return;
+  flashId = id;
+  const old = flashBox.firstElementChild;
+  if (old) {
+    old.classList.add("out");
+    setTimeout(() => old.remove(), 450);
+  }
+  if (!f) return;
+  const cls = f.scope === "class" && (snap.classes || []).find((c) => c.key === f.class_key);
+  const pill = document.createElement("div");
+  pill.className = "fl-pill";
+  // "NEW FASTEST LAP" first, then who and the time (in the same spot, see standings.css).
+  pill.innerHTML = `${STOPWATCH}<div class="fl-swap">
+      <div class="fl-intro">New fastest lap${cls ? `<span>${esc(cls.name)}</span>` : ""}</div>
+      <div class="fl-text">
+        <div class="fl-cap">Fastest lap${cls ? ` · ${esc(cls.name)}` : ""}</div>
+        <div class="fl-name">${esc(f.name)}</div>
+        <div class="fl-time tnum">${fmtLap(f.lap_time)}</div>
+      </div>
+    </div>`;
+  flashBox.appendChild(pill);
+}
+
+// Columns after the driver, as the commentator has chosen them:
+// [setting, width, label, value(e, race, classMode)].
+const COLUMNS = [
+  ["show_pos_change", "46px", "+/−", (e, race) => {
+    if (!race || !e.pos_change) return race ? '<span class="dim">–</span>' : "";
+    return `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>`;
+  }, (race) => race],
+  ["show_laps", "44px", "Laps", (e) => e.laps_completed ?? ""],
+  ["show_pits", "40px", "Pit", (e) => e.pit_stops || ""],
+  ["show_last_lap", "92px", "Last", (e) => fmtLap(e.last_lap)],
+  ["show_best_lap", "92px", "Best", (e, race) => fmtLap(race ? e.best_lap : e.best)],
+  ["show_gap", "92px", "Gap", (e, race, classMode) => {
+    const gap = classMode ? e.class_gap : e.gap;
+    const first = classMode ? e.class_pos === 1 : e.pos === 1;
+    if (!race && e.best == null) return '<span class="dim">No time</span>';
+    if (first) return `<span class="lead">${race ? "Leader" : fmtLap(e.best)}</span>`;
+    const down = race && (classMode ? e.class_laps_down : e.laps_down);
+    if (down) return `+${down} L`;
+    return gap != null ? `+${race ? gap.toFixed(1) : gap.toFixed(3)}` : "";
+  }],
+  ["show_interval", "80px", "Int", (e, race, classMode, cfg, green) => {
+    const interval = classMode ? e.class_interval : e.interval;
+    const first = classMode ? e.class_pos === 1 : e.pos === 1;
+    if (first || interval == null) return "";
+    const text = `+${race ? interval.toFixed(1) : interval.toFixed(3)}`;
+    // Racing within close_s of the car ahead: red until they're past or it opens up.
+    const close = race && green && cfg.close_s > 0 && interval <= cfg.close_s && e.in_world && !e.on_pit;
+    return close ? `<span class="close">${text}</span>` : text;
+  }],
+];
+
+function columnsFor(cfg, race) {
+  return COLUMNS.filter(([key, , , , when]) => cfg[key] && (!when || when(race)));
+}
+
+function gridFor(cfg, cols) {
+  return ["40px", "6px", cfg.show_number ? "50px" : null, cfg.show_logo ? "30px" : null, "minmax(150px, 1fr)",
+    ...cols.map((c) => c[1])].filter(Boolean).join(" ");
+}
+
+function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) {
   const pos = classMode ? e.class_pos : e.pos;
-  const change = race && e.pos_change ? (e.pos_change > 0 ? "up" : "down") : "";
   const team = cfg.show_team && e.team ? `<span class="tm">${esc(e.team)}</span>` : "";
-  return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${e.on_pit ? "pit" : ""} ${change}">
+  const pit = cfg.show_pit_status && e.on_pit ? '<span class="pitb">PIT</span>' : "";
+  const move = moveOf(e.car_idx);
+  return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
     <span class="p tnum">${pos}</span>
     <span class="stripe" style="background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : cls.color)}"></span>
-    <span>${cfg.show_number ? `<span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span>` : ""}</span>
-    <span>${cfg.show_logo && e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>
-    <span class="who"><span class="n">${esc(formatName(e, cfg.name_format))}</span>${team}</span>
-    <span class="t tnum ${lead ? "lead" : ""}">${!classMode && multiclass ? `<span class="cp">P${e.class_pos}</span>` : ""}${esc(t)}</span>
+    ${cfg.show_number ? `<span><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span></span>` : ""}
+    ${cfg.show_logo ? `<span>${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
+    <span class="who"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${team}</span>
+    ${cols.map((c) => `<span class="c tnum">${c[3](e, race, classMode, cfg, green)}</span>`).join("")}
   </div>`;
+}
+
+// "LAP 5 / 20", "12:34 LEFT", "FINAL LAP", "FINISHED": whatever the
+// session is limited by (or what the commentator picked).
+function progressText(ov) {
+  const pr = ov.progress;
+  if (!pr || pr.mode === "none") return "";
+  if (pr.finished) return "FINISHED";
+  if (pr.mode === "laps") {
+    if (!pr.lap) return pr.laps_total ? `${pr.laps_total} LAPS` : "";
+    if (pr.laps_total && pr.lap >= pr.laps_total) return "FINAL LAP";
+    return `LAP ${pr.lap}${pr.laps_total ? ` / ${pr.laps_total}` : ""}`;
+  }
+  if (pr.time_remain == null) return "";
+  return `${fmtClock(pr.time_remain)} LEFT`;
+}
+
+function headRowHtml(cfg, cols) {
+  if (!cols.length) return "";
+  return `<div class="srow shead" style="grid-template-columns:${gridFor(cfg, cols)}">
+    <span></span><span></span>${cfg.show_number ? "<span></span>" : ""}${cfg.show_logo ? "<span></span>" : ""}<span></span>
+    ${cols.map((c) => `<span class="c">${c[2]}</span>`).join("")}</div>`;
 }
 
 function render() {
   const snap = last;
   const ov = snap && snap.overlays;
   if (!ov) return;
+  renderFlash(snap, ov);
   if (SCREEN) return renderScreen(snap, ov);
-  const cfg = ov.settings.standings;
+  const entries = ov.standings;
+  // No logo column when no team has a logo.
+  const cfg = { ...ov.settings.standings };
+  cfg.show_logo = cfg.show_logo && entries.some((e) => e.team_logo);
   const race = ov.session_kind === "race";
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
-  const entries = ov.standings;
   const multiclass = new Set(entries.map((e) => e.class_key)).size > 1;
   const classMode = cfg.mode === "class";
   const camIdx = snap.camera && snap.camera.car_idx;
+  const cols = columnsFor(cfg, race);
+  const grid = gridFor(cfg, cols);
+  notePlaces(entries, classMode);
+  const rows = (list, cls) => list.map((e) => rowHtml(e, cfg, cols, cls || classes.get(e.class_key) || DEFAULT_CLASS,
+    race, classMode, multiclass, camIdx, ov.green)).join("");
   let body;
   if (classMode) {
     const keys = cfg.class_key ? [cfg.class_key] : (snap.classes || []).map((c) => c.key);
     body = keys.map((k) => {
-      const rows = entries.filter((e) => e.class_key === k).slice(0, cfg.rows);
-      if (!rows.length) return "";
+      const list = entries.filter((e) => e.class_key === k).slice(0, cfg.rows);
+      if (!list.length) return "";
       const cls = classes.get(k) || DEFAULT_CLASS;
-      return `<div class="block">${classHeaderHtml(cls, "", rerender)}${rows.map((e) => rowHtml(e, cfg, cls, race, true, multiclass, camIdx)).join("")}</div>`;
+      return `<div class="block">${classHeaderHtml(cls, "", rerender)}${rows(list, cls)}</div>`;
     }).join("");
   } else {
-    body = `<div class="block">${entries.slice(0, cfg.rows).map((e) => rowHtml(e, cfg, classes.get(e.class_key) || DEFAULT_CLASS, race, false, multiclass, camIdx)).join("")}</div>`;
+    // More drivers than rows: the top of the order, then (if asked) the last few.
+    const tail = cfg.rows_last && entries.length > cfg.rows + cfg.rows_last ? entries.slice(-cfg.rows_last) : [];
+    const top = tail.length ? entries.slice(0, cfg.rows) : entries.slice(0, cfg.rows + cfg.rows_last);
+    body = entries.length
+      ? `<div class="block">${rows(top)}${tail.length ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div>${rows(tail)}` : ""}</div>` : "";
   }
   const session = snap.session || {};
   const title = race ? "RACE" : ov.session_kind === "qualify" ? "QUALIFYING" : String(session.name || "PRACTICE").toUpperCase();
   const sub = [snap.league && snap.league.name, session.track].filter(Boolean).join(" · ");
-  // Blank until someone has a time (qualifying), or when hidden.
-  const visible = snap.connected && cfg.visible && entries.length > 0;
-  const html = `<div class="tower-head"><span class="t1">${esc(title)}</span><span class="t2">${esc(sub)}</span></div>${body}`;
+  const progress = progressText(ov);
+  // Hidden until someone qualifies for a row, unless "reveal" is on: then
+  // the header shows from the start and drivers join as they cross the line.
+  const visible = snap.connected && cfg.visible && (entries.length > 0 || cfg.reveal);
+  const width = 430 + cols.reduce((n, c) => n + parseInt(c[1], 10) + 8, 0) - (cols.length ? 60 : 0);
+  // The header (with the column labels) is one panel; the drivers follow it,
+  // joined on (overall) or as a separate panel per class, evenly spaced.
+  const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head">
+      <div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
+      ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}
+    </div>${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
+  tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("hidden", !visible);
+  tower.style.width = `${width}px`;
+  tower.style.setProperty("--grid", grid);
   if (visible && html !== shown) {
     shown = html;
-    tower.innerHTML = html;
+    flipRows(tower, ".srow[data-key]", () => { tower.innerHTML = html; });
   }
 }
 
 // -- full-screen board --------------------------------------------------------
 
-const ROW_BUDGET = 900;  // px of the 1080 stage for table rows
+const ROW_BUDGET = 850;  // px of the 1080 stage left for table rows under the header and column labels
 
 function sessionTitle(snap, ov) {
   const session = snap.session || {};
@@ -100,20 +255,19 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   const interval = classMode ? e.class_interval : e.interval;
   const first = pos === 1;
   const change = race && e.pos_change ? `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>` : "";
-  const pill = !classMode && multiclass ? `<span class="cpill" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(cls.name)} ${e.class_pos}</span>` : "";
   const team = e.team ? `${cfg.show_logo && e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}${esc(e.team)}` : "";
   const cells = [
     `<td class="stripe" style="background:${esc(classMode && e.team_color ? e.team_color : cls.color)}"></td>`,
     `<td class="p r">${pos}</td>`,
     race ? `<td class="c">${change}</td>` : "",
     `<td class="c"><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span></td>`,
-    `<td>${pill}${esc(formatName(e, cfg.name_format))}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
+    `<td>${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
     compact ? "" : `<td class="team">${team}</td>`,
   ];
   if (race) {
     cells.push(
-      `<td class="r muted">${e.lap ?? ""}</td>`,
-      `<td class="r ${first ? "lead" : ""}">${first ? "Leader" : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`,
+      `<td class="r muted">${e.laps_completed ?? ""}</td>`,
+      `<td class="r ${first ? "lead" : ""}">${first ? "Leader" : (classMode ? e.class_laps_down : e.laps_down) ? `+${classMode ? e.class_laps_down : e.laps_down} L` : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`,
       `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(1)}` : ""}</td>`,
       compact ? "" : `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
       `<td class="r">${fmtLap(e.best_lap)}</td>`,
@@ -127,7 +281,8 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
       compact ? "" : `<td class="r muted">${e.lap ?? ""}</td>`,
     );
   }
-  return `<tr class="${e.car_idx === camIdx ? "cam" : ""}">${cells.join("")}</tr>`;
+  const moved = moveOf(e.car_idx);
+  return `<tr class="${e.car_idx === camIdx ? "cam" : ""} ${moved ? moved.cls : ""}" data-key="${e.car_idx}" style="${moved ? moved.style : ""}">${cells.join("")}</tr>`;
 }
 
 function screenHead(race, compact) {
@@ -135,8 +290,14 @@ function screenHead(race, compact) {
   if (race) cols.push(["Laps", "r"], ["Gap", "r"], ["Int", "r"], compact ? null : ["Last", "r"], ["Best", "r"], compact ? null : ["Pits", "r"]);
   else cols.push(["Best", "r"], ["Gap", "r"], ["Int", "r"], compact ? null : ["Laps", "r"]);
   const widths = { "": "", Pos: "70px", "#": "70px", Laps: "70px", Pits: "60px", Gap: "120px", Int: "110px", Last: "130px", Best: "130px" };
-  return `<colgroup>${cols.filter(Boolean).map(([l, c]) => `<col style="width:${c === "stripe" ? "6px" : c === "c" && !l ? "60px" : widths[l] || "auto"}">`).join("")}</colgroup>
+  return `<colgroup>${cols.filter(Boolean).map(([l, c]) => `<col style="width:${c === "stripe" ? "6px" : c === "c" && !l ? "78px" : widths[l] || "auto"}">`).join("")}</colgroup>
     <thead><tr>${cols.filter(Boolean).map(([l, c]) => `<th class="${c === "stripe" ? "stripe" : c}">${l}</th>`).join("")}</tr></thead>`;
+}
+
+// A class header row spans exactly the table's columns: spanning more makes
+// the browser share the width out with columns that aren't there.
+function spanFor(race, compact) {
+  return (screenHead(race, compact).match(/<col /g) || []).length;
 }
 
 function renderScreen(snap, ov) {
@@ -147,6 +308,7 @@ function renderScreen(snap, ov) {
   const multiclass = new Set(entries.map((e) => e.class_key)).size > 1;
   const classMode = cfg.mode === "class";
   const camIdx = snap.camera && snap.camera.car_idx;
+  notePlaces(entries, classMode);
   // Lines: class headers and drivers, in order.
   const lines = [];
   if (classMode) {
@@ -165,24 +327,29 @@ function renderScreen(snap, ov) {
   const perCol = 26;
   const ncols = Math.min(3, Math.max(1, Math.ceil(lines.length / perCol)));
   const rowsPerCol = Math.ceil(lines.length / ncols);
-  const rowH = Math.max(26, Math.min(44, Math.floor(ROW_BUDGET / Math.max(rowsPerCol, 1))));
   const compact = ncols > 1;
   const cols = [];
   for (let c = 0; c < ncols; c++) cols.push(lines.slice(c * rowsPerCol, (c + 1) * rowsPerCol));
+  // Class header rows are a fixed 54px (their gap included, see overlay.css):
+  // driver rows share what's left.
+  const fill = (col) => col.reduce((n, l) => n + (l.head ? 0 : 1), 0);
+  const heads = (col) => col.length - fill(col);
+  const tallest = cols.reduce((a, col) => (fill(col) + heads(col) * 2 > fill(a) + heads(a) * 2 ? col : a), cols[0] || []);
+  const rowH = Math.max(26, Math.min(44, Math.floor((ROW_BUDGET - heads(tallest) * 54) / Math.max(fill(tallest), 1))));
   const body = !snap.connected ? '<div class="screen-empty">Waiting for iRacing…</div>'
     : !entries.length ? `<div class="screen-empty">${race ? "Waiting for the race" : "No lap times yet"}</div>`
       : `<div class="screen-body">${cols.map((col) => `<div class="screen-col"><table class="screen-table">${screenHead(race, compact)}<tbody>${col.map((l) => l.head
-        ? `<tr class="classrow"><td colspan="20">${classHeaderHtml(l.head, `${l.n} cars`, rerender)}</td></tr>`
+        ? `<tr class="classrow"><td colspan="${spanFor(race, compact)}">${classHeaderHtml(l.head, `${l.n} cars`, rerender)}</td></tr>`
         : screenRow(l.e, cfg, classes.get(l.e.class_key) || DEFAULT_CLASS, race, classMode, multiclass, camIdx, compact)).join("")}</tbody></table></div>`).join("")}</div>`;
   const session = snap.session || {};
   const sub = [snap.league && snap.league.name, [session.track, session.track_config].filter(Boolean).join(" – ")].filter(Boolean).join(" · ");
   const html = `<div class="screen-page" style="--row-h:${rowH}px;--row-font:${Math.round(rowH * 0.55)}px">
     <div class="screen-head"><span class="t1">${esc(snap.connected ? sessionTitle(snap, ov) : "STANDINGS")}</span><span class="t2">${esc(sub)}</span>
-      <span class="t3">${snap.connected ? esc(sessionClock(snap, ov)) : ""}</span></div>
+      <span class="t3">${snap.connected ? esc(progressText(ov) || sessionClock(snap, ov)) : ""}</span></div>
     ${body}</div>`;
   if (html !== shown) {
     shown = html;
-    stage.innerHTML = html;
+    flipRows(screenRoot, "tr[data-key]", () => { screenRoot.innerHTML = html; });
   }
 }
 

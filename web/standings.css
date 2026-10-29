@@ -3,16 +3,24 @@
   transition: opacity .4s ease, transform .4s ease;
 }
 .tower.hidden { opacity: 0; transform: translateX(-30px); }
+.head-box { border-radius: 10px 10px 0 0; overflow: hidden; background: var(--panel); }
+.head-box.alone { border-radius: 10px; }
 .tower-head {
-  background: var(--panel); border-left: 6px solid var(--accent); border-radius: 10px 10px 0 0;
-  padding: 10px 14px; display: flex; align-items: baseline; gap: 10px;
+  background: var(--panel); border-left: 6px solid var(--accent);
+  padding: 10px 14px; display: flex; flex-direction: column; gap: 2px;
 }
+.tower-head .h1 { display: flex; align-items: baseline; gap: 10px; }
 .tower-head .t1 { font-size: 22px; font-weight: 900; letter-spacing: .06em; }
-.tower-head .t2 { font-size: 15px; color: var(--muted); font-weight: 600; margin-left: auto; text-align: right; }
+.tower-head .t3 { margin-left: auto; font-size: 20px; font-weight: 900; letter-spacing: .04em; color: var(--accent); }
+.tower-head .t2 { font-size: 14px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .block { background: var(--panel); }
 .block:last-child { border-radius: 0 0 10px 10px; overflow: hidden; }
+/* By class: the header and each class are separate panels, the same gap apart. */
+.tower.by-class { --class-gap: 8px; }
+.tower.by-class .head-box { border-radius: 10px; }
+.tower.by-class .block { margin-top: var(--class-gap); border-radius: 10px; overflow: hidden; }
 .srow {
-  display: grid; grid-template-columns: 40px 6px 50px 30px 1fr auto; align-items: center; gap: 8px;
+  display: grid; grid-template-columns: var(--grid); align-items: center; gap: 8px;
   height: 38px; padding-right: 12px; border-top: 1px solid var(--line); font-size: 18px;
   transition: background .3s;
 }
@@ -23,11 +31,81 @@
 .srow .who { min-width: 0; display: flex; flex-direction: column; line-height: 1.05; }
 .srow .who .n { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .srow .who .tm { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.srow .t { font-weight: 700; color: var(--muted); font-size: 17px; text-align: right; }
-.srow .t.lead { color: var(--ink); }
-.srow .cp { font-size: 12px; color: var(--muted); margin-right: 4px; }
+.srow .c { font-weight: 700; color: var(--muted); font-size: 17px; text-align: right; white-space: nowrap; }
+.srow .c .lead { color: var(--ink); }
+.srow .c .up { color: var(--green); }
+.srow .c .down { color: var(--red); }
+.srow .c .dim { color: var(--muted); opacity: .6; font-size: 14px; }
+.srow .pitb { margin-left: 8px; font-size: 11px; padding: 1px 5px; border-radius: 3px; background: #fff; color: #111; vertical-align: 2px; }
 .srow.cam { background: rgba(255, 122, 26, .22); }
-.srow.pit .n::after { content: "PIT"; margin-left: 8px; font-size: 11px; padding: 1px 5px; border-radius: 3px; background: #fff; color: #111; vertical-align: 2px; }
-.srow.up .p { color: var(--green); }
-.srow.down .p { color: var(--red); }
+/* Column labels, when there are numbers to label. */
+.srow.shead { height: 22px; background: var(--panel); border-top: none; }
+.srow.shead .c { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
 .empty { padding: 12px 14px; color: var(--muted); background: var(--panel); border-radius: 0 0 10px 10px; font-weight: 600; }
+
+/* Overall with "also the last N": a gap between the top of the order and the back. */
+.srow.skip { height: 16px; grid-template-columns: 40px 1fr; border-top: 1px solid var(--line); }
+.srow.skip .dots { color: var(--muted); font-size: 11px; letter-spacing: .3em; text-align: center; }
+
+/* Fastest lap: a purple stopwatch by the holder's name. */
+.fl-icon { display: inline-flex; vertical-align: -3px; margin-left: 7px; color: #b26bff; }
+.fl-icon .stopwatch { width: 1em; height: 1em; }
+
+/* A new fastest lap: a purple pill at the top middle of the screen. */
+.fl-flash { position: absolute; left: 0; right: 0; top: 40px; display: flex; justify-content: center; pointer-events: none; z-index: 5; }
+.fl-pill {
+  display: flex; align-items: center; gap: 16px; padding: 12px 34px 12px 22px; border-radius: 999px;
+  background: linear-gradient(135deg, #8a2be2, #6a1bb8); color: #fff; box-shadow: 0 8px 28px rgba(60, 0, 110, .45);
+  animation: fl-in .45s cubic-bezier(.2, .9, .3, 1.2) both;
+}
+.fl-pill.out { animation: fl-out .4s ease both; }
+@keyframes fl-in { from { opacity: 0; transform: translateY(-24px) scale(.92); } }
+@keyframes fl-out { to { opacity: 0; transform: translateY(-16px); } }
+.fl-pill .stopwatch { width: 46px; height: 46px; flex: none; }
+/* The intro ("NEW FASTEST LAP") and the details share one spot: the pill is
+   as wide as the wider of the two; the intro gives way to the details. */
+.fl-swap { display: grid; align-items: center; }
+.fl-swap > * { grid-area: 1 / 1; }
+.fl-intro {
+  display: flex; flex-direction: column; justify-content: center; font-size: 30px; font-weight: 900;
+  letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+  animation: fl-intro 1.9s ease both;
+}
+.fl-intro span { font-size: 15px; letter-spacing: .14em; opacity: .85; }
+@keyframes fl-intro {
+  0% { opacity: 0; transform: scale(.85); }
+  15%, 75% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+.fl-text { display: flex; flex-direction: column; line-height: 1.1; animation: fl-details .5s 1.6s ease both; }
+@keyframes fl-details { from { opacity: 0; transform: translateY(14px); } }
+.fl-cap { font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
+.fl-name { font-size: 26px; font-weight: 900; white-space: nowrap; }
+.fl-time { font-size: 24px; font-weight: 800; }
+/* Full screen: in the page heading, between the title and the lap count. */
+body.screen .fl-flash { top: 14px; }
+
+/* Transitions: rows slide to new places (flipRows); a driver who moved gets a
+   brief green (up) or red (down) tint; a new row fades in. */
+.srow.moved-up, .screen-table tr.moved-up { animation: moved-up 1.6s ease-out both; }
+.srow.moved-down, .screen-table tr.moved-down { animation: moved-down 1.6s ease-out both; }
+@keyframes moved-up { from { background: rgba(52, 211, 120, .38); } }
+@keyframes moved-down { from { background: rgba(255, 77, 77, .32); } }
+.row-enter { animation: row-enter .45s ease both; }
+@keyframes row-enter { from { opacity: 0; transform: translateX(-16px); } }
+/* The stopwatch pops in when the fastest lap changes hands. */
+.fl-icon.pop { animation: fl-pop .7s cubic-bezier(.2, .9, .3, 1.4) both; }
+@keyframes fl-pop { 0% { transform: scale(0) rotate(-90deg); opacity: 0; } 60% { transform: scale(1.5); opacity: 1; } }
+/* A new fastest lap: a light sweep across the pill once it's in. */
+.fl-pill { position: relative; overflow: hidden; }
+.fl-pill::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .35) 50%, transparent 65%);
+  transform: translateX(-120%); animation: fl-sweep 1.1s .25s ease-out both;
+}
+@keyframes fl-sweep { to { transform: translateX(120%); } }
+.fl-pill .stopwatch { animation: fl-tick 1s .2s ease-in-out 2; transform-origin: 50% 55%; }
+@keyframes fl-tick { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+
+/* Racing within close_s of the car ahead: the interval in red. */
+.srow .c .close { color: #ff3b3b; }

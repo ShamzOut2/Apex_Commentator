@@ -144,12 +144,31 @@ class Updater:
             "installer": None,
         }
 
+    def _notes_since(self, latest):
+        """What's new since this copy's version: the newest release's notes, or
+        (when versions were skipped) every newer release's, newest first."""
+        try:
+            releases = self._get_json(f"{API}/repos/{self.repo}/releases?per_page=30")
+        except (urllib.error.URLError, OSError, ValueError):
+            return latest["notes"]  # the newest one's notes will do
+        mine, newest = parse_version(self.current) or (0, 0, 0), parse_version(latest["version"])
+        newer = sorted(
+            ((parse_version(r.get("tag_name")), r.get("body") or "") for r in releases
+             if isinstance(r, dict) and not r.get("draft") and not r.get("prerelease")
+             and parse_version(r.get("tag_name")) and mine < parse_version(r.get("tag_name")) <= newest),
+            reverse=True)
+        if len(newer) < 2:
+            return latest["notes"]
+        return "\n\n".join(f"## v{'.'.join(map(str, v))}\n\n{body.strip()}" for v, body in newer)
+
     def check(self):
         """Ask GitHub for the newest version. Never raises; errors go in ``error``."""
         if not self.enabled:
             return self.status()
         try:
             latest = self._newest_release()
+            if latest and parse_version(latest["version"]) > (parse_version(self.current) or (0, 0, 0)):
+                latest["notes"] = self._notes_since(latest)
             with self._lock:
                 self.latest, self.error = latest, None
         except urllib.error.HTTPError as e:

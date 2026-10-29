@@ -51,6 +51,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -62,13 +63,102 @@ UPLOADED_LOGO = re.compile(r"[a-z0-9-]+\.(png|jpg|webp|svg)")
 LIBRARY_LOGO = re.compile(r"lib:([a-z0-9-]+\.svg)")
 TOKEN_URL = "https://oauth.iracing.com/oauth2/token"
 DATA_URL = "https://members-ng.iracing.com/data"
-EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "car_image", "helmet_image", "driver_number")
+EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "car_image", "helmet_image", "driver_number", "car_make")
 DRIVER_IMAGES = ("car_image", "helmet_image")
 # Distinct defaults handed to new classes, in order.
 CLASS_PALETTE = ["#e8463c", "#2f80ed", "#27ae60", "#f2c94c", "#9b51e0", "#f2994a", "#56ccf2", "#eb5ea8"]
 MAX_IMAGE_BYTES = 8 * 1024 * 1024  # livery screenshots can be big
 LOGO_TYPES = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp", "svg": "image/svg+xml"}
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+# "(P) Dave Price", "(PA)Dave Price": a class tag some leagues put before names.
+CLASS_PREFIX = re.compile(r"^\s*\([^()]*\)\s*")
+
+
+BANNER_SHAPES = ("horizontal", "vertical")
+
+
+def _uploaded(name):
+    """An uploaded image's file name, or None."""
+    return name if isinstance(name, str) and UPLOADED_LOGO.fullmatch(name) else None
+
+
+def normalise_banners(banners):
+    """League logos and banners for the full-screen boards: [{id, file, orientation, name}]."""
+    out = []
+    for b in banners or []:
+        if not isinstance(b, dict) or not UPLOADED_LOGO.fullmatch(str(b.get("file") or "")):
+            continue
+        out.append({
+            "id": re.sub(r"[^a-z0-9]", "", str(b.get("id") or ""))[:12] or uuid.uuid4().hex[:8],
+            "file": b["file"],
+            "orientation": b.get("orientation") if b.get("orientation") in BANNER_SHAPES else "horizontal",
+            "name": str(b.get("name") or "").strip()[:60],
+        })
+    return out
+
+
+def normalise_sponsors(sponsors):
+    """Sponsor logos, for the boards and the sponsors overlay: [{id, file, name}]."""
+    out = []
+    for s in sponsors or []:
+        if not isinstance(s, dict) or not UPLOADED_LOGO.fullmatch(str(s.get("file") or "")):
+            continue
+        out.append({
+            "id": re.sub(r"[^a-z0-9]", "", str(s.get("id") or ""))[:12] or uuid.uuid4().hex[:8],
+            "file": s["file"],
+            "name": str(s.get("name") or "").strip()[:60],
+        })
+    return out
+
+
+def strip_class_prefix(name):
+    """'(P) Dave Price' -> 'Dave Price'; other names unchanged."""
+    name = str(name or "")
+    stripped = CLASS_PREFIX.sub("", name, count=1).strip()
+    return stripped or name.strip()
+
+
+def class_tag(name):
+    """'(SP) Ben Gibbons' -> 'SP'; None without a tag."""
+    m = CLASS_PREFIX.match(str(name or ""))
+    tag = m.group(0).strip()[1:-1].strip() if m else ""
+    return tag.upper() or None
+
+
+def _squash(text):
+    return re.sub(r"[^0-9A-Z]", "", str(text or "").upper())
+
+
+def class_for_tag(classes, tag):
+    """The league class a name tag stands for, or None.
+
+    Exact first: the tag is the class's name or one of its "iRacing classes"
+    entries ("P" in the Pro class's list). Then initials: "SP" is Semi-Pro,
+    "PA" Pro-Am, "P" Pro.
+    """
+    tag = _squash(tag)
+    if not tag:
+        return None
+    for c in classes:
+        if tag in {_squash(c.get("name")), *(_squash(m) for m in c.get("match", []))}:
+            return c
+    for c in classes:
+        words = [w for w in re.split(r"[\s\-_/]+", str(c.get("name") or "")) if w]
+        if words and tag == "".join(w[0] for w in words).upper():
+            return c
+    return None
+
+
+def fill_clean_nicknames(drivers):
+    """Give drivers whose name carries a class tag their clean name as nickname
+    (an existing nickname is kept). Returns how many were filled."""
+    filled = 0
+    for d in drivers:
+        name = str(d.get("name") or "")
+        if not d.get("nickname") and CLASS_PREFIX.match(name):
+            d["nickname"] = strip_class_prefix(name)
+            filled += 1
+    return filled
 
 
 class LeagueError(Exception):
@@ -228,6 +318,11 @@ def merge_profiles(existing, fresh):
     result["drivers"] = merged
     result["classes"] = existing.get("classes", [])
     result["teams"] = existing.get("teams", [])
+    result["strip_class_prefix"] = existing.get("strip_class_prefix", False)
+    result["banners"] = existing.get("banners", [])
+    result["sponsors"] = existing.get("sponsors", [])
+    result["logo"] = existing.get("logo")
+    result["calendar_image"] = existing.get("calendar_image")
     if existing.get("championship"):
         result["championship"] = existing["championship"]
     return result
@@ -267,6 +362,7 @@ def profile_from_session(drivers, name):
             "car_number": d.get("number", ""),
             "team": d.get("team", ""),
             "notes": "",
+            "car_make": d.get("make", ""),
         } for d in drivers],
     }
 
@@ -404,6 +500,11 @@ def normalise_profile(profile):
             "color": color if HEX_COLOR.fullmatch(color) else "",
             "logo": logo if logo and _valid_logo_ref(str(logo)) else None,
         })
+    # Overlays show names without a "(P)" class tag: the clean name goes in
+    # the nickname (drivers added later, e.g. from a session, included).
+    strip = bool(profile.get("strip_class_prefix"))
+    if strip:
+        fill_clean_nicknames(drivers)
     pid = str(profile.get("id") or (league_id if league_id is not None else _slug(name)))
     return {
         "id": _slug(pid) if league_id is None else str(pid),
@@ -415,6 +516,12 @@ def normalise_profile(profile):
         "teams": teams,
         "drivers": drivers,
         "championship": championship.normalise(profile.get("championship")),
+        "strip_class_prefix": strip,
+        "banners": normalise_banners(profile.get("banners")),
+        "sponsors": normalise_sponsors(profile.get("sponsors")),
+        # The league's own logo (board headers) and its own calendar graphic.
+        "logo": _uploaded(profile.get("logo")),
+        "calendar_image": _uploaded(profile.get("calendar_image")),
     }
 
 
@@ -511,6 +618,8 @@ class LeagueStore:
         used = {c.get("logo") for c in profile.get("classes", [])}
         used |= {t.get("logo") for t in profile.get("teams", [])}
         used |= {d.get(k) for d in profile.get("drivers", []) for k in DRIVER_IMAGES}
+        used |= {b.get("file") for b in profile.get("banners", []) + profile.get("sponsors", [])}
+        used |= {profile.get("logo"), profile.get("calendar_image")}
         for f in folder.iterdir():
             if f.name not in used:
                 f.unlink(missing_ok=True)
@@ -523,7 +632,9 @@ class LeagueStore:
         """Store an uploaded image and point the profile at it.
 
         ``target`` is ``class:<class id>``, ``team:<team name>``,
-        ``car:<driver key>`` or ``helmet:<driver key>`` (see ``driver_key``).
+        ``car:<driver key>`` or ``helmet:<driver key>`` (see ``driver_key``);
+        ``league:logo`` or ``league:calendar_image``; or a new
+        ``banner:<horizontal|vertical>`` or ``sponsor:<name>``.
         """
         profile = self.get(profile_id)
         if profile is None:
@@ -544,6 +655,19 @@ class LeagueStore:
                 owner = {"name": key, "logo": None}
                 teams.append(owner)
             field, prefix = "logo", f"team-{_slug(key)}"
+        elif kind == "league" and key in ("logo", "calendar_image"):
+            owner, field, prefix = profile, key, f"league-{key.replace('_', '-')}"
+        elif kind == "banner":
+            # A new league logo / banner, "horizontal" or "vertical".
+            if key not in BANNER_SHAPES:
+                raise LeagueError("A banner is horizontal or vertical.")
+            owner = {"id": uuid.uuid4().hex[:8], "file": None, "orientation": key, "name": ""}
+            profile.setdefault("banners", []).append(owner)
+            field, prefix = "file", f"banner-{key}"
+        elif kind == "sponsor":
+            owner = {"id": uuid.uuid4().hex[:8], "file": None, "name": key.strip()[:60]}
+            profile.setdefault("sponsors", []).append(owner)
+            field, prefix = "file", "sponsor"
         elif kind in ("car", "helmet"):
             owner = next((d for d in profile.get("drivers", []) if driver_key(d) == key), None)
             if owner is None:
@@ -612,10 +736,12 @@ class LeagueStore:
                 by_number = d
         return by_number
 
-    def class_for(self, entry, car_class, profile=None):
-        """A league's class for a driver: their own pick, else by car class.
+    def class_for(self, entry, car_class, profile=None, name=None):
+        """A league's class for a driver: their own pick, else the class tag
+        in front of their name ("(P) Dave Price"), else by car class.
 
-        Uses the active league unless ``profile`` is given.
+        Uses the active league unless ``profile`` is given. ``name`` is the
+        driver's name in the session, whose tag can change as they move class.
         """
         profile = profile or self._active
         if not profile:
@@ -625,6 +751,13 @@ class LeagueStore:
             for c in classes:
                 if c["id"] == entry["class_id"]:
                     return c
+        # The tag in the session name first (it changes as drivers move
+        # class), else the one in the roster.
+        tag = class_tag(name) or class_tag((entry or {}).get("name"))
+        if tag:
+            by_tag = class_for_tag(classes, tag)
+            if by_tag:
+                return by_tag
         wanted = (car_class or "").lower()
         if wanted:
             for c in classes:
@@ -647,7 +780,7 @@ class LeagueStore:
         team = self.team(team_name, profile)
         return team.get("logo") if team else None
 
-    def ensure_driver(self, profile_id, cust_id, name, car_number):
+    def ensure_driver(self, profile_id, cust_id, name, car_number, make=""):
         """Find (or add) a session driver in a league's roster; returns their driver key."""
         with self._lock:
             profile = self.get(profile_id)
@@ -660,7 +793,7 @@ class LeagueStore:
         for d in drivers:
             if d.get("cust_id") is None and d.get("name", "").strip().lower() == name.strip().lower():
                 return driver_key(d)
-        entry = {"cust_id": cust_id, "name": name, "car_number": car_number}
+        entry = {"cust_id": cust_id, "name": name, "car_number": car_number, "car_make": make}
         drivers.append(entry)
         self.save(profile)
         return driver_key(entry)
@@ -682,12 +815,14 @@ class LeagueStore:
             existing = by_id.get(sd.get("cust_id")) or by_name.get(sd.get("name", "").strip().lower())
             if existing is None:
                 drivers.append({"cust_id": sd.get("cust_id"), "name": sd.get("name", ""),
-                                "car_number": sd.get("number", ""), "team": sd.get("team", "")})
+                                "car_number": sd.get("number", ""), "team": sd.get("team", ""),
+                                "car_make": sd.get("make", "")})
                 added += 1
                 continue
             if existing.get("cust_id") is None and sd.get("cust_id") is not None:
                 existing["cust_id"] = sd["cust_id"]
-            for field, value in (("car_number", sd.get("number", "")), ("team", sd.get("team", ""))):
+            for field, value in (("car_number", sd.get("number", "")), ("team", sd.get("team", "")),
+                                 ("car_make", sd.get("make", ""))):
                 if value and not existing.get(field):
                     existing[field] = value
         return self.save(profile), added

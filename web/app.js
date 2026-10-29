@@ -105,6 +105,7 @@ function render() {
   renderUpdates(s.update);
   renderOverlaySettings(s);
   renderChampLive(s);
+  renderBoards(s);
 
   if (!s.connected) {
     $("#session-line").textContent = s.source === "iracing" ? "Waiting for iRacing…" : "Not connected";
@@ -142,6 +143,13 @@ function render() {
 // -- pages ----------------------------------------------------------------------
 
 const PAGE_KEY = "apex.page";
+// ?popout=timing: one page in a window of its own (the Pop out buttons), without the tabs.
+const POPOUT = new URLSearchParams(location.search).get("popout");
+
+// A nickname that's just the name without its "(P)" class tag says nothing new.
+function sameButClassTag(name, nickname) {
+  return String(name || "").replace(/^\s*\([^()]*\)\s*/, "").trim().toLowerCase() === String(nickname || "").trim().toLowerCase();
+}
 
 function showPage(name) {
   if (!document.getElementById(`tab-${name}`)) name = "home";
@@ -151,6 +159,7 @@ function showPage(name) {
   $("#main").classList.toggle("fixed", name === "timing");
   if (name === "league") loadLeagues();
   if (name === "teams" || name === "championship") renderLeaguePickers();
+  if (POPOUT) return;  // a pop-out doesn't change which page the main window opens on
   try {
     localStorage.setItem(PAGE_KEY, name);
   } catch (e) { /* storage unavailable */ }
@@ -246,9 +255,10 @@ function standingsView(s) {
     let gap = null, int = null;
     if (race && r.gap != null && leaderGap != null) {
       gap = r.gap - leaderGap;
-      if (prev && prev.gap != null) int = r.gap - prev.gap;
+      if (prev && prev.gap != null) int = Math.max(0, r.gap - prev.gap);
     }
-    const v = { r, gap, int, fastestLap: isFinite(fastest) && r.best_lap === fastest, fastest };
+    const down = race ? (ui.classFilter === "all" ? r.laps_down : r.class_laps_down) || 0 : 0;
+    const v = { r, gap, int, down, fastestLap: isFinite(fastest) && r.best_lap === fastest, fastest };
     prev = r;
     return v;
   });
@@ -305,6 +315,7 @@ function renderStandings(s) {
   const battles = findBattles(s, view);
   const classByKey = new Map((s.classes || []).map((c) => [c.key, c]));
   const inClass = ui.classFilter !== "all";
+  const firstRow = view.length ? view[0].r : null;
   const ordered = view.map((v) => {
     const r = v.r;
     const cls = classByKey.get(r.class_key) || {};
@@ -313,7 +324,7 @@ function renderStandings(s) {
     const team = (lg && lg.team) || r.team;
     let gap = "", int = "";
     if (race) {
-      gap = v.gap == null ? "" : v.gap <= 0 ? "Leader" : fmtDelta(v.gap);
+      gap = v.gap == null ? "" : v.r === firstRow ? "Leader" : v.down ? `+${v.down} L` : fmtDelta(v.gap);
       int = v.int == null ? "" : fmtDelta(v.int);
     } else if (r.best_lap && isFinite(v.fastest)) {
       gap = v.fastestLap ? "Fastest" : fmtDelta(r.best_lap - v.fastest);
@@ -331,7 +342,7 @@ function renderStandings(s) {
       [r.class_pos ? `<span class="cls-pos" style="border-color:${esc(color)}">${r.class_pos}</span>` : ""],
       [changeCell(inClass ? r.class_pos_change : r.pos_change), "c-chg"],
       [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
-      [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
+      [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname && !sameButClassTag(r.name, lg.nickname) ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
         `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}`, "driver-cell"],
       [String(r.lap ?? "")],
       [gap, "c-time"],
@@ -352,19 +363,22 @@ function renderStandings(s) {
       rowEls.delete(key);
     }
   }
-  ordered.forEach((tr, i) => {
-    if (body.children[i] !== tr) body.insertBefore(tr, body.children[i] || null);
-  });
+  // Drivers changing places slide past each other.
+  flipRows(body, "tr[data-car]", () => {
+    ordered.forEach((tr, i) => {
+      if (body.children[i] !== tr) body.insertBefore(tr, body.children[i] || null);
+    });
+  }, 350, (el) => el.dataset.car);
 }
 
 // -- race log -------------------------------------------------------------------
 
 const LOG_LABELS = {
-  overtake: "PASS", offtrack: "OFF", slowdown: "SPIN", incident: "INC", pit_in: "PIT", pit_out: "PIT",
+  overtake: "PASS", offtrack: "OFF", slowdown: "SLOW", spin: "SPIN", contact: "CONTACT", incident: "INC", pit_in: "PIT", pit_out: "PIT",
   position: "LOST", penalty: "PEN", fastest_lap: "FAST",
 };
 const LOG_GROUPS = {
-  incident: ["offtrack", "slowdown", "incident"], pit: ["pit_in", "pit_out"],
+  incident: ["contact", "offtrack", "slowdown", "spin", "incident"], pit: ["pit_in", "pit_out"],
 };
 const PREROLL_CHOICES = [5, 10, 15, 20, 25, 30];
 
@@ -379,9 +393,15 @@ function eventText(ev) {
     case "overtake":
       return `${who} passes ${car(ev.other_car_number, ev.other_driver)}${ev.position ? ` for <b>P${ev.position}</b>` : ""}`;
     case "offtrack":
-      return `${who} off track${pts}`;
+      return `${who} ${ev.spin ? "spins off track" : "off track"}${pts}`;
     case "slowdown":
       return `${who} slows ${ev.from_kph}→${ev.speed_kph} km/h${pts}`;
+    case "contact": {
+      const theirs = ev.other_incidents ? ` <b>${ev.other_incidents}x</b>` : "";
+      return `${who}${pts} and ${car(ev.other_car_number, ev.other_driver)}${theirs} make contact`;
+    }
+    case "spin":
+      return `${who} spins (${ev.from_kph}→${ev.speed_kph} km/h)${pts}`;
     case "pit_in":
       return `${who} pits${ev.position ? ` from P${ev.position}` : ""}`;
     case "pit_out": {
@@ -423,11 +443,11 @@ function renderLog(s) {
   logKey = key;
   $("#race-log").innerHTML = shown.map((ev) => {
     const selected = ev.id === ui.selectedEvent;
-    const cls = ev.incidents ? "kind has-points" : `kind ${ev.type}`;
+    const cls = ev.incidents ? "kind has-points" : `kind ${ev.spin ? "spin" : ev.type}`;
     return `<li class="${selected ? "selected" : ""}" data-event="${ev.id}">
       <div class="log-line">
         <span class="when">L${ev.lap} · ${fmtClock(ev.session_time)}</span>
-        <span class="${cls}">${LOG_LABELS[ev.type] || ev.type}</span>
+        <span class="${cls}">${ev.spin ? "SPIN" : LOG_LABELS[ev.type] || ev.type}</span>
         <span class="what">${eventText(ev)}</span>
       </div>
       ${selected ? `<div class="log-actions">
@@ -620,6 +640,7 @@ function replayEvent(id, preroll) {
 
 document.addEventListener("click", (e) => {
   const tab = e.target.closest(".tab, [data-goto]");
+  if (tab && tab.dataset.champGoto) champ.view = tab.dataset.champGoto;
   if (tab) return showPage(tab.dataset.tab || tab.dataset.goto);
 
   const filter = e.target.closest("#log-filter .chip");
@@ -890,8 +911,13 @@ function renderChampStandings() {
   const head = rounds.map((r, i) => `<th class="c-rd" title="${esc([r.name, r.track, r.date].filter(Boolean).join(" · "))}${r.multiplier !== 1 ? ` (×${r.multiplier})` : ""}">R${i + 1}</th>`).join("");
   const anyLicence = st.groups.some((g) => g.drivers.some((d) => d.licence_points));
   const anyPen = st.groups.some((g) => g.drivers.some((d) => d.penalty_points));
-  box.innerHTML = st.groups.map((g) => `<div class="champ-group">
-      ${g.key || st.groups.length > 1 ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}</div>` : ""}
+  // Class and overall championships: each table says which points it adds up.
+  const rules = (ui.editing && champData().rules) || {};
+  const both = rules.scoring === "both";
+  const teamPen = st.teams.some((t) => t.penalty_points);
+  const teamBasis = both ? ` <span class="hint">${(rules.team_points || "overall") === "class" ? "Drivers' class points" : "Drivers' overall points"}</span>` : "";
+  box.innerHTML = (both ? '<p class="hint">Class and overall are separate championships: each driver scores in their class (on class positions) and overall (on overall positions), and each table adds up its own points. Bonuses and penalties apply in both.</p>' : "") + st.groups.map((g) => `<div class="champ-group">
+      ${g.key || st.groups.length > 1 ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}${both ? ` <span class="hint">${esc(g.basis)}</span>` : ""}</div>` : ""}
       <div class="table-scroll"><table class="grid champ-table standings-table">
         <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Team</th>${head}${anyPen ? '<th class="c-num" title="Penalty points taken off">Pen</th>' : ""}${anyLicence ? '<th class="c-num" title="Licence points">Lic</th>' : ""}<th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
         <tbody>${g.drivers.map((d) => `<tr>
@@ -911,9 +937,14 @@ function renderChampStandings() {
         </tr>`).join("")}</tbody>
       </table></div>
     </div>`).join("") + (st.teams.length ? `<div class="champ-group">
-      <div class="champ-group-head">Teams</div>
-      <table class="grid champ-table"><thead><tr><th class="c-num">Pos</th><th>Team</th><th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
-      <tbody>${st.teams.map((t) => `<tr><td class="c-num"><b>${t.pos}</b></td><td>${esc(t.team)}</td><td class="c-num"><b>${fmtPts(t.points)}</b></td><td class="c-num sub">${t.behind ? `−${fmtPts(t.behind)}` : ""}</td></tr>`).join("")}</tbody></table>
+      <div class="champ-group-head">Teams${teamBasis}</div>
+      <div class="table-scroll"><table class="grid champ-table"><thead><tr><th class="c-num">Pos</th><th>Team</th><th>Drivers</th>${head}<th class="c-num">Wins</th>${teamPen ? '<th class="c-num" title="Penalty points taken off">Pen</th>' : ""}<th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
+      <tbody>${st.teams.map((t) => `<tr><td class="c-num"><b>${t.pos}</b></td><td>${esc(t.team)}</td>
+        <td class="sub">${t.drivers.map((d) => `${esc(d.name)} (${fmtPts(d.points)})`).join(", ")}</td>
+        ${rounds.map((r) => { const x = t.rounds.find((y) => y.round === r.id); return `<td class="c-rd">${x && x.points != null ? fmtPts(x.points) : "–"}</td>`; }).join("")}
+        <td class="c-num sub">${t.wins || ""}</td>
+        ${teamPen ? `<td class="c-num bad">${t.penalty_points ? `−${fmtPts(t.penalty_points)}` : ""}</td>` : ""}
+        <td class="c-num"><b>${fmtPts(t.points)}</b></td><td class="c-num sub">${t.behind ? `−${fmtPts(t.behind)}` : ""}</td></tr>`).join("")}</tbody></table></div>
     </div>` : "");
 }
 
@@ -969,7 +1000,51 @@ function roundPoints(roundId) {
   return out;
 }
 
+// The season calendar's track list: pick a track, then one of its layouts.
+const trackList = { groups: [], status: null, loaded: false };
+
+async function loadTracks(force = false) {
+  if (trackList.loaded && !force) return;
+  try {
+    const r = await api("/api/tracks");
+    trackList.groups = r.tracks;
+    trackList.status = r;
+    trackList.loaded = true;
+    $("#track-names").innerHTML = r.tracks.map((g) => `<option value="${esc(g.track)}"></option>`).join("");
+    renderTrackStatus();
+    if (champ.view === "rounds") renderChampRounds();
+  } catch (e) { /* typing a track still works */ }
+}
+
+function trackGroup(name) {
+  const n = String(name || "").trim().toLowerCase();
+  return trackList.groups.find((g) => g.track.toLowerCase() === n);
+}
+
+function configField(rd, i) {
+  const g = trackGroup(rd.track);
+  if (!g) {
+    return `<input data-round="${i}" data-rkey="config" value="${esc(rd.config || "")}" placeholder="Configuration" aria-label="Configuration">`;
+  }
+  const configs = g.configs.map((c) => c.config);
+  const current = rd.config || "";
+  const extra = current && !configs.includes(current) ? `<option selected>${esc(current)}</option>` : "";
+  return `<select data-round="${i}" data-rkey="config" aria-label="Configuration">${extra}${configs.map((c) =>
+    `<option value="${esc(c)}" ${c === current ? "selected" : ""}>${esc(c || "(one layout)")}</option>`).join("")}</select>`;
+}
+
+function renderTrackStatus() {
+  const st = trackList.status;
+  if (!st) return;
+  $("#track-source").textContent = st.official
+    ? `${st.official} official layouts from iRacing (fetched ${st.fetched_at})${st.seen ? `, plus ${st.seen} seen in sessions` : ""}.`
+    : `Built-in list of iRacing tracks${st.seen ? `, plus ${st.seen} layouts seen in sessions` : ""}. ` +
+      (st.api ? "Fetch the official list for every layout." : "Set iRacing API credentials to fetch the official list.");
+  $("#btn-fetch-tracks").hidden = !st.api;
+}
+
 function renderChampRounds() {
+  loadTracks();
   const c = champData();
   const classes = ui.editing.classes || [];
   $("#champ-rounds").innerHTML = c.rounds.length ? c.rounds.map((rd, i) => {
@@ -982,8 +1057,11 @@ function renderChampRounds() {
       <div class="round-head">
         <span class="round-num">R${i + 1}</span>
         <input data-round="${i}" data-rkey="name" value="${esc(rd.name)}" placeholder="Round name" aria-label="Round name">
-        <input data-round="${i}" data-rkey="track" value="${esc(rd.track || "")}" placeholder="Track" aria-label="Track">
+        <input data-round="${i}" data-rkey="track" class="track-input" list="track-names" value="${esc(rd.track || "")}" placeholder="Track (type to search)" aria-label="Track">
+        ${configField(rd, i)}
         <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
+        <input type="time" data-round="${i}" data-rkey="time" value="${esc(rd.time || "")}" aria-label="Start time" title="Start time">
+        <input data-round="${i}" data-rkey="length" class="narrow-text" value="${esc(rd.length || "")}" placeholder="Length" aria-label="Race length" title="e.g. 60 min, 30 laps">
         <label class="field" title="Points multiplier, e.g. 2 for double points">×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
         <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
         <label class="field" title="The race in progress counts as this round in the live standings"><input type="radio" name="live-round" data-live-round="${esc(rd.id)}" ${isLive ? "checked" : ""}> Live</label>
@@ -1055,6 +1133,9 @@ function renderChampRules() {
       <input type="number" min="0" max="100" data-rule="classified_pct" value="${r.classified_pct ?? 75}"></label>
     <label class="ov-field">Team championship: best N drivers per team each round (0 = all)
       <input type="number" min="0" max="20" data-rule="team_best" value="${r.team_best || 0}"></label>
+    ${r.scoring === "both" ? `<label class="ov-field">Team championship counts its drivers'
+      <select data-rule="team_points">${[["overall", "Overall points"], ["class", "Class points"]].map(([v, l]) =>
+        `<option value="${v}" ${(r.team_points || "overall") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
     <label class="ov-field check"><input type="checkbox" data-rule="dnf_scores" ${r.dnf_scores !== false ? "checked" : ""}> DNFs score the points for where they're classified</label>
     <h3 class="section-title wide">Bonus points <span class="hint">(0 = not used; negative numbers take points off)</span></h3>
     ${champ.bonuses.map(([k, label]) => `<label class="ov-field">${esc(label)}
@@ -1101,6 +1182,14 @@ function champChange(e, final) {
   } else if (d.round != null && d.rkey) {
     const rd = c.rounds[+d.round];
     rd[d.rkey] = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
+    if (d.rkey === "track" || d.rkey === "config") {
+      // A known track: its layouts fill the Configuration list.
+      const g = trackGroup(rd.track);
+      if (g && d.rkey === "track" && final) rd.config = g.configs[0].config;
+      const layout = g && g.configs.find((x) => x.config === rd.config);
+      rd.track_id = layout ? layout.id : null;
+      if (final) rerender = true;
+    }
   } else return;
   markChampDirty();
   if (rerender) renderChampionship();
@@ -1147,6 +1236,16 @@ $("#tab-championship").addEventListener("click", async (e) => {
   } else return;
   markChampDirty();
   renderChampionship();
+});
+
+$("#btn-fetch-tracks").addEventListener("click", async () => {
+  try {
+    const r = await api("/api/tracks/refresh", { method: "POST", body: {} });
+    toast(`Fetched ${r.count} track layouts from iRacing`);
+    await loadTracks(true);
+  } catch (err) {
+    toast(err.message, true);
+  }
 });
 
 $("#btn-add-round").addEventListener("click", () => {
@@ -1207,11 +1306,27 @@ const OVERLAY_FIELDS = {
     ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
     ["class_key", "Class", "class"],
     ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
+    ["rows_last", "Plus the last N drivers (overall, when there are more)", "number", { min: 0, max: 30 }],
     ["name_format", "Names", "select", NAME_FORMATS],
-    ["show_gap", "Gaps / times", "bool"],
+    ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
+      ["time", "Time left"], ["none", "Nothing"]]],
+    ["reveal", "Fill in as drivers complete a lap (header only at the start)", "bool"],
+    ["show_gap", "Gap to leader / pole", "bool"],
+    ["show_interval", "Interval to car ahead", "bool"],
+    ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }],
+    ["show_pos_change", "Places gained / lost (race)", "bool"],
+    ["show_best_lap", "Best lap", "bool"],
+    ["show_last_lap", "Last lap", "bool"],
+    ["show_laps", "Laps completed", "bool"],
+    ["show_pits", "Pit stops", "bool"],
+    ["show_pit_status", "PIT badge on pit road", "bool"],
     ["show_number", "Car numbers", "bool"],
     ["show_team", "Team names", "bool"],
     ["show_logo", "Team logos", "bool"],
+    ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
+    ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
+    ["fl_flash_s", "Fastest lap flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }],
+    ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"],
   ],
   laps: [
     ["visible", "On screen", "bool"],
@@ -1228,7 +1343,37 @@ const OVERLAY_FIELDS = {
     ["show_invalid", "Track invalid laps too", "bool"],
     ["practice", "Also in practice", "bool"],
   ],
+  sponsors: [
+    ["visible", "On screen", "bool"],
+    ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+      ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+    ["layout", "Show", "select", [["rotate", "One at a time"], ["row", "All together"]]],
+    ["interval_s", "Seconds per logo (one at a time)", "number", { min: 1, max: 120, step: 1 }],
+    ["size", "Logo height (px)", "number", { min: 30, max: 300, step: 5 }],
+    ["background", "Dark panel behind", "bool"],
+    ["title", "Caption above (e.g. Partners)", "text"],
+    ["sponsor_ids", "Sponsors", "sponsors"],
+  ],
 };
+
+// Tick boxes for which of the league's sponsors to show ("" = all, "none" = none).
+function sponsorPicker(sponsors, value) {
+  if (!sponsors.length) return '<p class="hint">No sponsor logos in the active league yet (League builder).</p>';
+  const ids = value === "" ? null : new Set(value.split(","));
+  return `<div class="ov-field wide sponsor-pick"><span>Sponsors</span><div>${sponsors.map((sp, i) => `<label class="check">
+    <input type="checkbox" data-key="sponsor_ids" data-kind="sponsors" value="${esc(sp.id)}" ${!ids || ids.has(sp.id) ? "checked" : ""}>
+    <img src="${esc(sp.url)}" alt="">${esc(sp.name || `Sponsor ${i + 1}`)}</label>`).join("")}</div></div>`;
+}
+
+// A settings field's new value.
+function fieldValue(el) {
+  if (el.dataset.kind === "sponsors") {
+    const boxes = [...el.closest(".sponsor-pick").querySelectorAll("input")];
+    const on = boxes.filter((b) => b.checked).map((b) => b.value);
+    return on.length === boxes.length ? "" : on.length ? on.join(",") : "none";
+  }
+  return el.dataset.kind === "bool" ? el.checked : el.dataset.kind === "number" ? +el.value : el.value;
+}
 
 let overlayFormKey = "";
 
@@ -1237,7 +1382,7 @@ function renderOverlaySettings(s) {
   if (!ov) return;
   $("#tile-overlays").textContent = ov.laps.active ? "Lap tracker live (qualifying)" : `${ov.standings.length} in the standings`;
   // Don't redraw under the cursor; redraw when settings or classes change.
-  const key = JSON.stringify([ov.settings, (s.classes || []).map((c) => [c.key, c.name])]);
+  const key = JSON.stringify([ov.settings, (s.classes || []).map((c) => [c.key, c.name]), (s.league && s.league.sponsors) || []]);
   if (key === overlayFormKey || document.activeElement.closest(".ov-form")) return;
   overlayFormKey = key;
   for (const [overlay, fields] of Object.entries(OVERLAY_FIELDS)) {
@@ -1249,6 +1394,8 @@ function renderOverlaySettings(s) {
       if (kind === "number") {
         return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
       }
+      if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
+      if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v);
       const options = kind === "class"
         ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
         : opts;
@@ -1262,11 +1409,144 @@ function renderOverlaySettings(s) {
 document.querySelectorAll(".ov-form").forEach((form) => form.addEventListener("change", (e) => {
   const el = e.target;
   if (!el.dataset.key) return;
-  const value = el.dataset.kind === "bool" ? el.checked : el.dataset.kind === "number" ? +el.value : el.value;
+  const value = fieldValue(el);
   overlayFormKey = "";
   el.blur();
   cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
 }));
+
+// ---------------------------------------------------------------------------
+// boards: the full-screen championship, calendar and results screens
+// ---------------------------------------------------------------------------
+
+// Every board: the league logo in its header, and a banner where (and which).
+const BOARD_LOOK = [["league_logo", "League logo in the header", "bool"],
+  ["banner", "Banner", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"],
+    ["right", "Down the right"]]], ["banner_id", "Which banner", "banner"],
+  ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
+    ["left", "Down the left"], ["right", "Down the right"]]], ["sponsor_ids", "Which sponsors", "sponsors"]];
+
+const BOARD_FIELDS = {
+  board_championship: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
+    ["show_make", "Car badges", "bool"], ["show_gap", "Points gap to the leader", "bool"],
+    ["show_ahead", "Points gap to the driver ahead", "bool"], ["show_wins", "Wins", "bool"],
+    ["show_penalty", "Penalty points", "bool"]],
+  board_teams: [["rows", "Teams shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
+    ["show_logo", "Team logos", "bool"], ["show_color", "Team colour stripe", "bool"], ["show_drivers", "Drivers who scored", "bool"],
+    ["show_gap", "Points gap to the leader", "bool"], ["show_ahead", "Points gap to the team ahead", "bool"],
+    ["show_wins", "Wins", "bool"], ["show_penalty", "Penalty points", "bool"]],
+  board_makes: [["rows", "Manufacturers shown", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
+    ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"]],
+  board_calendar: [["style", "Show", "select", [["cards", "The calendar built from the rounds"], ["image", "The league's own calendar image"]]],
+    ["show_date", "Dates", "bool"], ["show_time", "Start times", "bool"], ["show_config", "Track layouts", "bool"],
+    ["show_length", "Race lengths", "bool"], ["show_winners", "Winners of past rounds", "bool"]],
+  board_results: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
+    ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
+    ["show_status", "DNF / DSQ", "bool"], ["show_points", "Points scored", "bool"]],
+};
+const BOARD_SECTION_NAMES = {
+  board_championship: "Championship standings", board_teams: "Teams' championship",
+  board_makes: "Manufacturers' championship", board_calendar: "Season calendar", board_results: "Finishing order",
+};
+
+let boardButtonsKey = "";
+let boardSettingsKey = "";
+let boardRound = "latest";
+
+function boardButton(label, kind, group = "", color = null, extra = {}) {
+  const b = ui.snap && ui.snap.board;
+  const on = b && ui.boardOn && ui.boardOn.kind === kind && ui.boardOn.group === group;
+  return `<button class="btn board-btn ${on ? "on-air" : ""}" data-board="${kind}" data-group="${esc(group)}"
+    ${extra.round ? `data-round="${esc(extra.round)}"` : ""} style="${color ? `--cls:${esc(color)}` : ""}">${color ? '<span class="swatch"></span>' : ""}${esc(label)}</button>`;
+}
+
+function renderBoards(s) {
+  const opts = s.board_options || { groups: [], rounds: [] };
+  ui.boardOn = s.board ? { kind: s.board.kind, group: s.board.group } : null;
+  $("#board-onair").textContent = s.board ? `On screen: ${s.board.title}${s.board.subtitle ? ` · ${s.board.subtitle}` : ""}` : "Nothing on screen";
+  $("#btn-board-hide").disabled = !s.board;
+  const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, !!s.board]);
+  if (key !== boardButtonsKey) {
+    boardButtonsKey = key;
+    const groups = opts.groups;
+    const scored = opts.rounds.filter((r) => r.scored);
+    $("#board-buttons").innerHTML = !s.league ? '<p class="hint">Activate a league (League builder) to use boards.</p>' : `
+      <div class="board-group"><h4>Championship standings</h4>${groups.length ? groups.map((g) => boardButton(g.name, "championship", g.key, g.color)).join("")
+        : '<span class="hint">No results yet.</span>'}</div>
+      <div class="board-group"><h4>Teams</h4>${opts.teams ? boardButton("Teams' championship", "teams")
+        : `<span class="hint">${opts.has_teams ? "No team points yet." : "Give drivers a team in the League builder (Teams tab) for a teams' championship."}</span>`}</div>
+      <div class="board-group"><h4>Manufacturers</h4>${groups.map((g) => boardButton(g.name, "makes", g.key, g.color)).join("") || '<span class="hint">No results yet.</span>'}</div>
+      <div class="board-group"><h4>Season</h4>${boardButton("Season calendar", "calendar")}</div>
+      <div class="board-group"><h4>Finishing order</h4>
+        <label class="field">From <select id="board-round">
+          <option value="latest" ${boardRound === "latest" ? "selected" : ""}>Latest round</option>
+          <option value="live" ${boardRound === "live" ? "selected" : ""}>This session (live)</option>
+          ${scored.map((r) => `<option value="${esc(r.id)}" ${boardRound === r.id ? "selected" : ""}>${esc(r.name)}${r.track ? ` · ${esc(r.track)}` : ""}</option>`).join("")}
+        </select></label>
+        <div>${[{ key: "overall", name: "Overall", color: null }, ...groups.filter((g) => g.key !== "overall")]
+          .map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>`;
+  }
+  const skey = JSON.stringify([s.overlays && s.overlays.settings, (s.league && s.league.banners) || [], (s.league && s.league.sponsors) || []]);
+  if (skey !== boardSettingsKey && !document.activeElement.closest("#board-settings")) {
+    boardSettingsKey = skey;
+    renderBoardSettings(s);
+  }
+}
+
+function renderBoardSettings(s) {
+  const settings = s.overlays && s.overlays.settings;
+  if (!settings) return;
+  const banners = (s.league && s.league.banners) || [];
+  $("#board-settings").innerHTML = Object.entries(BOARD_FIELDS).map(([section, fields]) => `
+    <div class="overlay-card"><h3>${BOARD_SECTION_NAMES[section]}</h3><div class="ov-form" data-overlay="${section}">
+    ${[...BOARD_LOOK, ...fields].map(([k, label, kind, opts]) => {
+      const v = settings[section][k];
+      const attrs = `data-key="${k}" data-kind="${kind === "banner" ? "select" : kind}"`;
+      if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
+      if (kind === "number") return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" value="${v}"></label>`;
+      if (kind === "sponsors") return settings[section].sponsors === "none" ? "" : sponsorPicker((s.league && s.league.sponsors) || [], v);
+      const choices = kind === "banner"
+        ? [["", "The first of the right shape"], ...banners.map((b, i) => [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
+        : opts;
+      return `<label class="ov-field">${label}<select ${attrs}>${choices.map(([o, l]) =>
+        `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+    }).join("")}</div></div>`).join("");
+}
+
+$("#board-buttons").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-board]");
+  if (!b) return;
+  const params = { kind: b.dataset.board, group: b.dataset.group || "" };
+  if (params.kind === "results") params.round = boardRound;
+  const r = await cmd("board_show", params);
+  if (r) ui.boardOn = { kind: params.kind, group: params.group };
+  boardButtonsKey = "";
+});
+$("#board-buttons").addEventListener("change", (e) => {
+  if (e.target.id === "board-round") {
+    boardRound = e.target.value;
+    // Results already on screen switch to the new source straight away.
+    if (ui.boardOn && ui.boardOn.kind === "results") cmd("board_show", { kind: "results", group: ui.boardOn.group, round: boardRound });
+  }
+});
+$("#btn-board-hide").addEventListener("click", async () => {
+  await cmd("board_hide");
+  ui.boardOn = null;
+  boardButtonsKey = "";
+});
+$("#board-settings").addEventListener("change", (e) => {
+  const el = e.target;
+  const form = el.closest(".ov-form");
+  if (!el.dataset.key || !form) return;
+  const value = fieldValue(el);
+  boardSettingsKey = "";
+  el.blur();
+  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
+});
+$("#url-board").textContent = `${location.origin}/board.html`;
+$("#url-sponsors").textContent = `${location.origin}/sponsors.html`;
 
 for (const page of ["standings", "laps"]) {
   $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;
@@ -1280,7 +1560,23 @@ document.addEventListener("click", (e) => {
 });
 
 $("#home-obs-url").textContent = `${location.origin}/gridwalk.html`;
-showPage((() => {
+
+// Pop out: the app opens the page in its own window; in a browser, a new browser window.
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-popout]");
+  if (!btn) return;
+  const page = btn.dataset.popout;
+  const r = await cmd("popout", { page });
+  if (!r || !r.opened) {
+    const w = window.open(`/?popout=${page}`, `apex-${page}`, "width=1280,height=820");
+    if (!w) toast("The browser blocked the pop-up window: allow pop-ups for this page.", true);
+  }
+});
+if (POPOUT) {
+  document.body.classList.add("popout");
+  document.title = `${POPOUT[0].toUpperCase()}${POPOUT.slice(1)} – Apex Commentator`;
+}
+showPage(POPOUT || (() => {
   try {
     return localStorage.getItem(PAGE_KEY) || "home";
   } catch (e) {
@@ -1319,11 +1615,15 @@ function openEditor(profile) {
   $("#league-editor").hidden = false;
   $("#edit-name").value = profile.name || "";
   $("#edit-league-id").value = profile.league_id ?? "";
+  $("#edit-strip-class").checked = !!profile.strip_class_prefix;
   $("#btn-activate-league").textContent = profile.id && profile.id === ui.activeLeague ? "Active in overlay" : "Use in overlay";
   profile.classes = profile.classes || [];
   renderClasses();
   renderTeams();
   renderRoster();
+  renderBanners();
+  renderSponsors();
+  renderLeagueImages();
   champ.dirty = false;
   champ.standings = null;
   renderChampionship();
@@ -1333,7 +1633,31 @@ function openEditor(profile) {
 
 const ROSTER_FIELDS = [["name", ""], ["cust_id", "c-id"], ["car_number", "c-num"], ["driver_number", "c-num"], ["nickname", ""], ["team", ""], ["notes", ""]];
 
+// Car makes (and their badges) the app knows, loaded once.
+const makes = { list: [], loaded: false };
+
+async function loadMakes() {
+  if (makes.loaded) return;
+  try {
+    makes.list = (await api("/api/makes")).makes;
+    makes.loaded = true;
+    if (ui.editing) renderRoster();
+  } catch (e) { /* the roster still works without badges */ }
+}
+
+function makeOptions(selected) {
+  const known = makes.list.some((m) => m.name === selected);
+  return `<option value="">Auto (iRacing car)</option>${selected && !known ? `<option selected>${esc(selected)}</option>` : ""}` +
+    makes.list.map((m) => `<option ${m.name === selected ? "selected" : ""}>${esc(m.name)}</option>`).join("");
+}
+
+function makeBadge(name) {
+  const m = makes.list.find((x) => x.name === name);
+  return `<span class="make-badge">${m && m.logo ? `<img src="${esc(m.logo)}" alt="${esc(name)}">` : ""}</span>`;
+}
+
 function renderRoster() {
+  loadMakes();
   const drivers = ui.editing.drivers || [];
   const classes = ui.editing.classes || [];
   const classOptions = (selected) => `<option value="">Auto (by car)</option>` +
@@ -1341,6 +1665,7 @@ function renderRoster() {
   $("#roster-rows").innerHTML = drivers.map((d, i) => `<tr>${ROSTER_FIELDS.map(([f]) =>
     `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"></td>`).join("")}
     <td><select data-row="${i}" data-field="class_id" aria-label="Class">${classOptions(d.class_id || "")}</select></td>
+    <td class="make-cell">${makeBadge(d.car_make)}<select data-row="${i}" data-field="car_make" aria-label="Car">${makeOptions(d.car_make || "")}</select></td>
     <td><div class="photos">${["car", "helmet"].map((kind) => photoButton(d, i, kind)).join("")}</div></td>
     <td><button class="btn icon danger" data-remove="${i}" title="Remove">✕</button></td></tr>`).join("");
 }
@@ -1376,6 +1701,109 @@ async function uploadImage(target, file) {
   openEditor(data.league);
   return data.league;
 }
+
+// -- league logo, calendar image and banners ---------------------------------------
+
+const LEAGUE_IMAGES = { logo: ["#league-logo-slot", "league logo"], calendar_image: ["#calendar-image-slot", "calendar image"] };
+
+function renderLeagueImages() {
+  for (const [field, [slot, label]] of Object.entries(LEAGUE_IMAGES)) {
+    const file = ui.editing && ui.editing[field];
+    $(slot).innerHTML = `<div class="image-slot-img ${field}">${file ? `<img src="${esc(logoSrc(file))}" alt="">` : `<span class="hint">No ${label}</span>`}</div>
+      <label class="btn subtle">${file ? "Replace" : "Upload"} ${label}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-league-image="${field}" hidden></label>
+      ${file ? `<button class="btn subtle" data-league-image-remove="${field}">Remove</button>` : ""}`;
+  }
+}
+
+$("#league-editor").addEventListener("change", async (e) => {
+  const input = e.target.closest("[data-league-image]");
+  if (!input || !input.files.length) return;
+  try {
+    await uploadImage(`league:${input.dataset.leagueImage}`, input.files[0]);
+    toast("Image added");
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+$("#league-editor").addEventListener("click", (e) => {
+  const rm = e.target.closest("[data-league-image-remove]");
+  if (!rm) return;
+  ui.editing[rm.dataset.leagueImageRemove] = null;
+  renderLeagueImages();
+  toast("Removed: save the league to keep the change");
+});
+
+function renderBanners() {
+  const list = (ui.editing && ui.editing.banners) || [];
+  $("#banner-list").innerHTML = list.length ? list.map((b, i) => `<div class="banner-card ${b.orientation}">
+      <div class="banner-img"><img src="${esc(logoSrc(b.file))}" alt=""></div>
+      <div class="banner-fields">
+        <input data-banner="${i}" data-key="name" value="${esc(b.name || "")}" placeholder="Name (optional)" aria-label="Banner name">
+        <select data-banner="${i}" data-key="orientation" aria-label="Shape">
+          <option value="horizontal" ${b.orientation === "horizontal" ? "selected" : ""}>Horizontal</option>
+          <option value="vertical" ${b.orientation === "vertical" ? "selected" : ""}>Vertical</option></select>
+        <button class="btn icon danger" data-banner-remove="${i}" title="Remove">✕</button>
+      </div></div>`).join("") : '<p class="hint">No logos or banners yet.</p>';
+}
+
+$("#league-editor").addEventListener("change", async (e) => {
+  const up = e.target.closest("[data-banner-upload]");
+  if (up && up.files.length) {
+    try {
+      await uploadImage(`banner:${up.dataset.bannerUpload}`, up.files[0]);
+      toast("Banner added");
+    } catch (err) {
+      toast(err.message, true);
+    }
+    up.value = "";
+    return;
+  }
+  const field = e.target.closest("[data-banner]");
+  if (field) {
+    ui.editing.banners[+field.dataset.banner][field.dataset.key] = field.value;
+    renderBanners();
+  }
+});
+function renderSponsors() {
+  const list = (ui.editing && ui.editing.sponsors) || [];
+  $("#sponsor-list").innerHTML = list.length ? list.map((sp, i) => `<div class="sponsor-card">
+      <div class="sponsor-img"><img src="${esc(logoSrc(sp.file))}" alt=""></div>
+      <input data-sponsor="${i}" value="${esc(sp.name || "")}" placeholder="Sponsor name" aria-label="Sponsor name">
+      <button class="btn icon danger" data-sponsor-remove="${i}" title="Remove">✕</button>
+    </div>`).join("") : '<p class="hint">No sponsors yet.</p>';
+}
+
+$("#league-editor").addEventListener("change", async (e) => {
+  const up = e.target.closest("[data-sponsor-upload]");
+  if (up && up.files.length) {
+    try {
+      // One at a time: each upload saves the league and adds one sponsor.
+      for (const file of up.files) await uploadImage(`sponsor:${file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " ")}`, file);
+      toast(up.files.length > 1 ? `${up.files.length} sponsors added` : "Sponsor added");
+    } catch (err) {
+      toast(err.message, true);
+    }
+    up.value = "";
+    return;
+  }
+  const field = e.target.closest("[data-sponsor]");
+  if (field) ui.editing.sponsors[+field.dataset.sponsor].name = field.value;
+});
+$("#sponsor-list").addEventListener("click", (e) => {
+  const rm = e.target.closest("[data-sponsor-remove]");
+  if (!rm) return;
+  ui.editing.sponsors.splice(+rm.dataset.sponsorRemove, 1);
+  renderSponsors();
+  toast("Removed: save the league to keep the change");
+});
+
+$("#banner-list").addEventListener("click", (e) => {
+  const rm = e.target.closest("[data-banner-remove]");
+  if (!rm) return;
+  ui.editing.banners.splice(+rm.dataset.bannerRemove, 1);
+  renderBanners();
+  toast("Removed: save the league to keep the change");
+});
 
 // -- team builder ---------------------------------------------------------------
 // Edits the same league as the League builder (ui.editing); a driver's team is
@@ -1726,8 +2154,29 @@ function readEditor() {
   const p = ui.editing;
   p.name = $("#edit-name").value.trim();
   p.league_id = $("#edit-league-id").value.trim() || null;
+  p.strip_class_prefix = $("#edit-strip-class").checked;
   return p;
 }
+
+// "(P) Dave Price" -> "Dave Price" (same rule as league.strip_class_prefix).
+const CLASS_PREFIX = /^\s*\([^()]*\)\s*/;
+
+$("#edit-strip-class").addEventListener("change", (e) => {
+  if (!ui.editing) return;
+  ui.editing.strip_class_prefix = e.target.checked;
+  if (!e.target.checked) return;
+  let filled = 0;
+  for (const d of ui.editing.drivers || []) {
+    const name = String(d.name || "");
+    if (!d.nickname && CLASS_PREFIX.test(name)) {
+      d.nickname = name.replace(CLASS_PREFIX, "").trim() || name.trim();
+      filled++;
+    }
+  }
+  renderRoster();
+  toast(filled ? `Filled ${filled} nicknames with names minus their class tag. Save to keep them.`
+    : "No empty nicknames to fill. Overlays will show names without the class tag.");
+});
 
 $("#roster-rows").addEventListener("input", (e) => {
   const { row, field } = e.target.dataset;
@@ -1735,6 +2184,7 @@ $("#roster-rows").addEventListener("input", (e) => {
 });
 $("#roster-rows").addEventListener("change", async (e) => {
   if (e.target.dataset.field === "team") return renderTeams();
+  if (e.target.dataset.field === "car_make") return renderRoster();  // update the badge
   const input = e.target.closest("[data-photo]");
   if (!input || !input.files.length) return;
   const d = ui.editing.drivers[+input.dataset.row];
@@ -1967,26 +2417,37 @@ function showUpdate(status, force = false) {
   $("#update-modal").hidden = false;
 }
 
-// Just enough markdown for release notes: headings, bullets, **bold**, `code`.
+// Just enough markdown for release notes: headings ("## v1.2.3" versions,
+// "### Fixes" sections), bullets, **bold**, `code`. A wrapped line carries
+// on the bullet or paragraph above it.
 function notesHtml(md) {
   const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
-  const out = [];
-  let list = false;
+  const blocks = [];  // [kind, text]: "ver", "h", "li" or "p"
   for (const raw of md.trim().split(/\r?\n/)) {
     const line = raw.trim();
-    const bullet = line.match(/^[-*]\s+(.*)/);
-    if (list && !bullet) {
-      out.push("</ul>");
-      list = false;
+    const last = blocks[blocks.length - 1];
+    if (!line) {
+      if (last) last.done = true;
+      continue;
     }
-    if (bullet) {
-      if (!list) out.push("<ul>");
-      list = true;
-      out.push(`<li>${inline(bullet[1])}</li>`);
-    } else if (/^#{1,6}\s/.test(line)) out.push(`<h4>${inline(line.replace(/^#+\s*/, ""))}</h4>`);
-    else if (line) out.push(`<p>${inline(line)}</p>`);
+    const bullet = line.match(/^[-*]\s+(.*)/);
+    if (/^#{1,2}\s/.test(line)) blocks.push({ kind: "ver", text: line.replace(/^#+\s*/, ""), done: true });
+    else if (/^#{3,6}\s/.test(line)) blocks.push({ kind: "h", text: line.replace(/^#+\s*/, ""), done: true });
+    else if (bullet) blocks.push({ kind: "li", text: bullet[1] });
+    else if (last && !last.done && (last.kind === "li" || last.kind === "p")) last.text += ` ${line}`;
+    else blocks.push({ kind: "p", text: line });
   }
-  if (list) out.push("</ul>");
+  const out = [];
+  blocks.forEach((b, i) => {
+    const prev = blocks[i - 1];
+    if (b.kind === "li" && (!prev || prev.kind !== "li")) out.push("<ul>");
+    if (b.kind === "ver") out.push(`<h3 class="notes-ver">${inline(b.text)}</h3>`);
+    else if (b.kind === "h") out.push(`<h4>${inline(b.text)}</h4>`);
+    else if (b.kind === "li") out.push(`<li>${inline(b.text)}</li>`);
+    else out.push(`<p>${inline(b.text)}</p>`);
+    const next = blocks[i + 1];
+    if (b.kind === "li" && (!next || next.kind !== "li")) out.push("</ul>");
+  });
   return out.join("");
 }
 
