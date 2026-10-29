@@ -11,6 +11,14 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- **Show on my screen**: put any overlay or board straight on your monitor,
+  over iRacing, instead of using OBS or a browser. Pick the monitor; your
+  mouse and keyboard go straight through to the game.
+
 ## v0.4.2
 
 ### New features

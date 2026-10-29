@@ -37,47 +37,13 @@ OBS dock.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.2**
+**Coming in the next update**
 
 ### New features
 
-- **Full-screen boards** with one-click buttons (Boards tab): championship
-  standings (overall and each class), teams' and manufacturers'
-  championships, the season calendar, and finishing orders.
-- **Sponsor logos**: add them in the League builder, show them on any edge
-  of a board, or over the race with the new Sponsors overlay.
-- **League logo, banners and calendar image** in the League builder, for the
-  boards.
-- **Car makes**: manufacturer badges, and a Car field for each driver.
-- **Season calendar** with iRacing's tracks and layouts to pick from.
-- **Fastest lap** on the standings tower: a purple stopwatch by the holder,
-  and a "NEW FASTEST LAP" pill at the top of the screen.
-- **Close racing**: the interval turns red when a driver is within 0.15 s of
-  the car ahead.
-- **Last few drivers** can be added at the bottom of the Overall tower.
-- **Contact between cars** is logged in the race log.
-- **Pop out** the Timing and Boards tabs into their own windows.
-- **"Remove driver class in name"** for leagues that tag names like
-  `(P) Dave Price`, with classes picked up from the tags.
-- **Standings tower options**: laps or time left in the header, choose your
-  columns, and fill the tower in as drivers complete lap 1.
-- **What's new** notes like these in the update pop-up and the README.
-
-### Improvements
-
-- Smooth transitions: boards fade between each other, and drivers slide
-  up and down when they change places.
-- Spins are only called spins when the car actually rotates; hard braking
-  for a slow corner no longer counts.
-- Class and overall championships say what each table is scored on, and
-  teams count overall points (or class points, if you choose).
-- Larger team logos on the teams' board.
-- By-class standings have an even gap between the header and each class.
-
-### Fixes
-
-- Race gaps no longer stick or lag behind the running order. Lapped cars
-  show "+1 L".
+- **Show on my screen**: put any overlay or board straight on your monitor,
+  over iRacing, instead of using OBS or a browser. Pick the monitor; your
+  mouse and keyboard go straight through to the game.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -403,6 +369,29 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 *Team* column in the League builder is the same thing. **Save** saves the
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
+
+## Overlays on your own screen (no OBS)
+
+Every overlay and board can also go straight on your monitor instead of into
+OBS or a browser. In the app window, press **Show on my screen** under its
+link: the Overlays tab for the standings tower, lap tracker (and their full
+screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
+
+- It sits over whatever is on that monitor, always on top. Run iRacing in
+  **windowed or borderless** mode: a game in exclusive full screen covers it.
+- It never takes the keyboard, and your mouse goes straight through to the
+  game or the app underneath.
+- With more than one monitor, pick which one; changing it moves the overlay.
+- **Remove** takes it down; *Remove all from my screen* clears everything.
+  They also close with the app.
+- The first time, the app asks whether you can see your screen through it.
+  If you don't answer within 15 seconds it takes the overlay down by itself
+  (in case it came up solid and covered your screen). From then on it just
+  appears.
+
+This needs the app window (it isn't available when the app runs in a browser).
+Soft drop shadows are left out on screen, since only fully see-through parts
+can show the game behind.
 
 ## Boards (full-screen championship, calendar and results)
 

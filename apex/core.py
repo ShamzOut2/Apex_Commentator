@@ -215,6 +215,7 @@ class App:
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
         self.photobooth = None     # set by __main__ (needs the user data folder)
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
+        self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
         self.laps = LapTracker()
         self.gaps = GapTimer()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
@@ -382,6 +383,7 @@ class App:
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                     "photobooth": self.photobooth.status() if self.photobooth else None,
+                    "desktop": self._desktop_snapshot(),
                     **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
                                  "laps": {"active": False, "camera": None, "trackers": [], "all": [],
@@ -471,6 +473,7 @@ class App:
                 "photobooth": self.photobooth.status() if self.photobooth else None,
                 "classes": self._ordered_classes(classes),
                 "events": events[-200:],
+                "desktop": self._desktop_snapshot(),
                 "league": self._league_summary(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
@@ -943,12 +946,47 @@ class App:
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "board_", "popout")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "board_", "popout", "desktop_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
         self.publish()
         return result or {}
+
+    # Overlays that can go straight on the user's screen (see desktop.py):
+    # page -> (name, path). "desktop" lets the page know (no drop shadows).
+    DESKTOP_PAGES = {
+        "standings": ("Standings", "/standings.html"),
+        "standings_screen": ("Standings (full screen)", "/standings.html?screen=1"),
+        "laps": ("Lap tracker", "/laps.html"),
+        "laps_screen": ("Lap tracker (full screen)", "/laps.html?screen=1"),
+        "sponsors": ("Sponsors", "/sponsors.html"),
+        "board": ("Boards", "/board.html"),
+        "gridwalk": ("Grid walk", "/gridwalk.html"),
+    }
+
+    def _desktop_snapshot(self):
+        d = self.desktop
+        if d is None:
+            return {"available": False, "on_screen": {}, "screens": []}
+        return {"available": True, "on_screen": d.on_screen(), "screens": d.screens()}
+
+    def cmd_desktop_show(self, page, screen=0):
+        """Put an overlay on the user's own screen (``screen``: which monitor)."""
+        if page not in self.DESKTOP_PAGES:
+            raise CommandError("That overlay can't go on screen.")
+        if self.desktop is None:
+            raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
+        name, path = self.DESKTOP_PAGES[page]
+        if not self.desktop.show(page, f"{path}{'&' if '?' in path else '?'}desktop=1", name, int(screen or 0)):
+            raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
+        return {"on_screen": self.desktop.on_screen()}
+
+    def cmd_desktop_hide(self, page=None):
+        """Take an on-screen overlay down (all of them, with no ``page``)."""
+        if self.desktop is not None:
+            self.desktop.hide(page)
+        return {"on_screen": self.desktop.on_screen() if self.desktop else {}}
 
     POPOUT_PAGES = {"timing": "Timing", "boards": "Boards"}
 

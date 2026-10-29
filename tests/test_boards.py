@@ -175,6 +175,48 @@ class BoardTests(unittest.TestCase):
             with self.assertRaises(CommandError):
                 app.command("popout", {"page": "league"})
 
+    def test_overlays_on_the_users_screen(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = App(MockSource(seed=1, clock=lambda: 0.0), dict(DEFAULTS), LeagueStore(tmp))
+            self.assertFalse(app.build_snapshot()["desktop"]["available"])
+            with self.assertRaises(CommandError):  # in a browser: no app window to do it from
+                app.command("desktop_show", {"page": "standings"})
+
+            class Fake:
+                def __init__(self):
+                    self.up = {}
+                    self.urls = []
+
+                def screens(self):
+                    return [{"index": 0, "width": 2560, "height": 1440, "x": 0, "y": 0},
+                            {"index": 1, "width": 1920, "height": 1080, "x": 2560, "y": 0}]
+
+                def show(self, page, path, name, screen):
+                    self.up[page] = screen
+                    self.urls.append(path)
+                    return True
+
+                def hide(self, page=None):
+                    self.up = {} if page is None else {k: v for k, v in self.up.items() if k != page}
+
+                def on_screen(self):
+                    return dict(self.up)
+
+            app.desktop = fake = Fake()
+            app.command("desktop_show", {"page": "standings", "screen": 1})
+            app.command("desktop_show", {"page": "board"})
+            self.assertEqual(fake.urls, ["/standings.html?desktop=1", "/board.html?desktop=1"])
+            d = app.build_snapshot()["desktop"]
+            self.assertEqual((d["available"], d["on_screen"], len(d["screens"])), (True, {"standings": 1, "board": 0}, 2))
+            app.command("desktop_show", {"page": "standings_screen"})
+            self.assertEqual(fake.urls[-1], "/standings.html?screen=1&desktop=1")
+            app.command("desktop_hide", {"page": "board"})
+            self.assertNotIn("board", app.build_snapshot()["desktop"]["on_screen"])
+            app.command("desktop_hide", {})
+            self.assertEqual(app.build_snapshot()["desktop"]["on_screen"], {})
+            with self.assertRaises(CommandError):
+                app.command("desktop_show", {"page": "index"})
+
     def test_round_keeps_calendar_fields(self):
         rd = ch.normalise({"rounds": [{"track": "Spa", "config": "Endurance", "time": "19:30", "length": "90 min"}]})["rounds"][0]
         self.assertEqual((rd["config"], rd["time"], rd["length"]), ("Endurance", "19:30", "90 min"))

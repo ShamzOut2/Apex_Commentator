@@ -106,6 +106,7 @@ function render() {
   renderOverlaySettings(s);
   renderChampLive(s);
   renderBoards(s);
+  renderDesktop(s);
 
   if (!s.connected) {
     $("#session-line").textContent = s.source === "iracing" ? "Waiting for iRacing…" : "Not connected";
@@ -1560,6 +1561,102 @@ document.addEventListener("click", (e) => {
 });
 
 $("#home-obs-url").textContent = `${location.origin}/gridwalk.html`;
+
+// -- overlays straight on the user's screen (app window only) -------------------
+
+const DESK_OK = "apex.desktopOk";  // this PC shows them see-through: no check next time
+const DESK_CHECK_S = 15;
+let deskKey = "";
+let deskCheck = null;  // {page, left, timer} while asking
+
+function screenName(sc, i, all) {
+  return all.length > 1 ? `Screen ${i + 1} · ${sc.width}×${sc.height}` : "";
+}
+
+function renderDesktop(s) {
+  const d = s.desktop || { available: false, on_screen: {}, screens: [] };
+  const key = JSON.stringify(d);
+  if (key === deskKey) return;
+  deskKey = key;
+  document.querySelectorAll("[data-desk]").forEach((el) => {
+    const page = el.dataset.desk;
+    el.hidden = !d.available;
+    if (!d.available) return;
+    const on = d.on_screen[page];
+    const pick = d.screens.length > 1
+      ? `<select data-desk-screen="${page}" aria-label="Which screen">${d.screens.map((sc, i) =>
+        `<option value="${i}" ${(on ?? 0) === i ? "selected" : ""}>${esc(screenName(sc, i, d.screens))}</option>`).join("")}</select>` : "";
+    el.innerHTML = on != null
+      ? `<span class="desk-on">● On your screen</span>${pick}<button class="btn subtle" data-desk-hide="${page}">Remove</button>`
+      : `<button class="btn" data-desk-show="${page}" title="Put it straight on your screen, over the game">Show on my screen</button>${pick}`;
+  });
+  $("#desk-hide-all").hidden = !Object.keys(d.on_screen).length;
+  document.querySelectorAll(".desk-help").forEach((el) => { el.hidden = !d.available; });
+}
+
+async function deskShow(page, screen) {
+  const r = await cmd("desktop_show", { page, screen });
+  if (!r) return;
+  let ok = false;
+  try {
+    ok = localStorage.getItem(DESK_OK) === "1";
+  } catch (e) { /* storage unavailable */ }
+  if (!ok) startDeskCheck(page);
+}
+
+// Can they see through it? If it came up solid instead, it's covering their
+// screen: no answer within DESK_CHECK_S seconds takes it down by itself.
+function startDeskCheck(page) {
+  stopDeskCheck();
+  deskCheck = { page, left: DESK_CHECK_S };
+  const tick = () => {
+    $("#desk-check-text").textContent = `Can you see your screen through the overlay? If not, it goes away by itself in ${deskCheck.left} s.`;
+    if (deskCheck.left-- <= 0) {
+      cmd("desktop_hide", { page });
+      stopDeskCheck();
+      toast("Overlay removed. If it covered your screen, on-screen overlays don't work on this PC: use the OBS or browser link instead.", true);
+    }
+  };
+  deskCheck.timer = setInterval(tick, 1000);
+  tick();
+  $("#desk-check").hidden = false;
+}
+
+function stopDeskCheck() {
+  if (deskCheck) clearInterval(deskCheck.timer);
+  deskCheck = null;
+  $("#desk-check").hidden = true;
+}
+
+$("#desk-check-yes").addEventListener("click", () => {
+  try {
+    localStorage.setItem(DESK_OK, "1");
+  } catch (e) { /* storage unavailable */ }
+  stopDeskCheck();
+  toast("Great: overlays will go straight on screen from now on");
+});
+$("#desk-check-no").addEventListener("click", () => {
+  if (deskCheck) cmd("desktop_hide", { page: deskCheck.page });
+  stopDeskCheck();
+  toast("Removed. Use the OBS or browser link instead.");
+});
+document.addEventListener("click", (e) => {
+  const show = e.target.closest("[data-desk-show]");
+  if (show) {
+    const pick = document.querySelector(`[data-desk-screen="${show.dataset.deskShow}"]`);
+    deskShow(show.dataset.deskShow, pick ? +pick.value : 0);
+  }
+  const hide = e.target.closest("[data-desk-hide]");
+  if (hide) cmd("desktop_hide", { page: hide.dataset.deskHide });
+});
+document.addEventListener("change", (e) => {
+  const pick = e.target.closest("[data-desk-screen]");
+  // Already on screen: move it to the screen picked.
+  if (pick && ui.snap && ui.snap.desktop && ui.snap.desktop.on_screen[pick.dataset.deskScreen] != null) {
+    cmd("desktop_show", { page: pick.dataset.deskScreen, screen: +pick.value });
+  }
+});
+$("#desk-hide-all").addEventListener("click", () => cmd("desktop_hide", {}));
 
 // Pop out: the app opens the page in its own window; in a browser, a new browser window.
 document.addEventListener("click", async (e) => {

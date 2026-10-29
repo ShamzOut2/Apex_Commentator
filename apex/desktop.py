@@ -20,6 +20,13 @@ IS_WINDOWS = sys.platform == "win32"
 _mutex = None
 _main_window = None
 _popouts = {}  # page -> its pop-out window
+_overlays = {}  # overlay page -> (its on-screen window, the screen it's on)
+
+# On-screen overlays: the page's empty (transparent) parts are drawn in this
+# colour, which Windows then leaves out: see-through, and clicks go through.
+SEE_THROUGH = (1, 1, 1)
+GWL_EXSTYLE = -20
+WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE = 0x20, 0x80, 0x80000, 0x8000000
 
 
 def log_to_file():
@@ -116,9 +123,95 @@ def open_popout(key, url, title, width=1280, height=820):
 
 
 def _close_popouts():
-    for window in list(_popouts.values()):
+    for window in list(_popouts.values()) + [w for w, _ in _overlays.values()]:
         try:
             window.destroy()
         except Exception:
             pass
     _popouts.clear()
+    _overlays.clear()
+
+
+# -- on-screen overlays ---------------------------------------------------------
+#
+# An overlay or board straight on the user's screen, instead of in OBS or a
+# browser: a borderless window covering one monitor, always on top, that
+# never takes the keyboard and lets the mouse through to whatever is under it
+# (iRacing, this app). Needs the app window (pywebview, WebView2 on Windows).
+
+def screens():
+    """The monitors: [{index, width, height, x, y}]; [] without the app window."""
+    if _main_window is None:
+        return []
+    try:
+        import webview
+
+        return [{"index": i, "width": s.width, "height": s.height, "x": s.x, "y": s.y}
+                for i, s in enumerate(webview.screens)]
+    except Exception as e:
+        print(f"[apex] couldn't list the screens: {e!r}")
+        return []
+
+
+def show_overlay(key, url, title, screen=0):
+    """Put a page on screen ``screen`` as an overlay (moving it if it's already
+    up). False when there's no app window to do it from."""
+    if _main_window is None:
+        return False
+    import webview
+
+    hide_overlay(key)
+    monitors = webview.screens
+    target = monitors[screen] if 0 <= screen < len(monitors) else None
+    r, g, b = SEE_THROUGH
+    window = webview.create_window(
+        title, url, screen=target, fullscreen=True, frameless=True, on_top=True, focus=False,
+        transparent=True, shadow=False, easy_drag=False, resizable=False,
+        background_color=f"#{r:02x}{g:02x}{b:02x}",
+    )
+    window.events.shown += lambda: _see_through(window)
+    window.events.closed += lambda: _overlays.pop(key, None) if _overlays.get(key, (None,))[0] is window else None
+    _overlays[key] = (window, screen)
+    return True
+
+
+def hide_overlay(key=None):
+    """Take an on-screen overlay down (every one, with no ``key``)."""
+    for k in [key] if key else list(_overlays):
+        window, _ = _overlays.pop(k, (None, None))
+        if window is not None:
+            try:
+                window.destroy()
+            except Exception:
+                pass
+
+
+def overlays_on_screen():
+    """{overlay page: screen index} of what's up."""
+    return {k: screen for k, (_, screen) in _overlays.items()}
+
+
+def _see_through(window):
+    """Make the overlay window see-through where the page is, and let every
+    click through (Windows: a colour-keyed, layered, click-through tool window)."""
+    if not IS_WINDOWS:
+        return
+    try:
+        from System import Func, Type
+        from System.Drawing import Color
+
+        form = window.native
+        user32 = ctypes.windll.user32
+
+        def apply():
+            key = Color.FromArgb(*SEE_THROUGH)
+            form.BackColor = key
+            form.TransparencyKey = key
+            hwnd = form.Handle.ToInt32()
+            style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT
+                                  | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)
+
+        form.Invoke(Func[Type](apply))
+    except Exception as e:  # e.g. an older WebView2: the trial in the app takes it down again
+        print(f"[apex] couldn't make the overlay see-through: {e!r}")

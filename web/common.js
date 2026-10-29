@@ -426,6 +426,9 @@ function fitStage(stage) {
   addEventListener("resize", fit);
   fit();
   if (new URLSearchParams(location.search).has("preview")) document.body.classList.add("preview");
+  // Straight on the user's screen (see desktop.py): no soft shadows, which
+  // can't be see-through there and would show as dark smudges.
+  if (new URLSearchParams(location.search).has("desktop")) document.body.classList.add("desktop");
 }
 
 // Follow the app's live snapshot; reload after an app update so OBS picks up

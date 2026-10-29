@@ -111,6 +111,29 @@ def smoke_test(cfg):
         server.server_close()
 
 
+class OnScreen:
+    """On-screen overlays, for the App (see desktop.py). Screens are listed once
+    (and again when an overlay goes up), not on every snapshot."""
+
+    def __init__(self, base, title):
+        self.base, self.title, self._screens = base, title, None
+
+    def screens(self):
+        if self._screens is None:
+            self._screens = desktop.screens() or None
+        return self._screens or []
+
+    def show(self, page, path, name, screen):
+        self._screens = None
+        return desktop.show_overlay(page, self.base + path, f"{name} – {self.title}", screen)
+
+    def hide(self, page=None):
+        desktop.hide_overlay(page)
+
+    def on_screen(self):
+        return desktop.overlays_on_screen()
+
+
 def main(argv=None):
     desktop.log_to_file()
     args = parse_args(argv)
@@ -150,6 +173,8 @@ def main(argv=None):
     print(f"{title} running at {url}")
 
     app.popout = lambda page, name: desktop.open_popout(page, f"{url}?popout={page}", f"{name} – {title}")
+    if not args.no_window and desktop.window_available():
+        app.desktop = OnScreen(url.rstrip("/"), title)
     try:
         opened = (not args.no_window and desktop.window_available()
                   and desktop.run_window(url, title, restart_requested))
