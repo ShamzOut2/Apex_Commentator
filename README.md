@@ -294,19 +294,21 @@ are kept in `data/overlays.json`.
     the last few (last place included) are added at the bottom, after a
     small gap. 0 turns it off.
   - **Close racing**: with the *Interval* column on, a driver within 0.15 s
-    of the car ahead has their interval in red. It stays red until they get
+    of the car ahead has their interval in red text. It stays red until they get
     past (then whoever is now right behind turns red, if close enough) or
     the gap opens up. It's racing under green only, not behind the safety
     car. Set the threshold, or 0 to turn it off.
   - **Transitions**: drivers slide up and down the tower as they change
     places, with a brief green (gained) or red (lost) glow. New drivers fade
     in. The stopwatch pops in when the fastest lap changes hands. The
-    fastest-lap pill drops in, shines, and fades out.
+    fastest-lap pill drops in saying "NEW FASTEST LAP", then switches to the
+    driver and lap time, and fades out at the end.
   - **Fastest lap**: a purple stopwatch by the holder's name. In Overall it's
     the one fastest driver; in By class, each class's fastest.
   - **New fastest lap flash**: when someone sets a new fastest lap, a purple
-    pill appears at the top middle of the screen with a stopwatch, the driver
-    and the lap time. Set how many seconds it stays. It can also flash each
+    pill appears at the top middle of the screen with a stopwatch. It says
+    "NEW FASTEST LAP" for about two seconds, then shows the driver and the lap
+    time. Set how many seconds it stays (3 or more). It can also flash each
     class's new fastest lap. Races skip the first lap; laps set before the
     app connected don't flash.
 - **Sponsors** (`/sponsors.html`): the active league's sponsor logos (added

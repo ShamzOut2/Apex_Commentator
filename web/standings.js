@@ -80,10 +80,14 @@ function renderFlash(snap, ov) {
   const cls = f.scope === "class" && (snap.classes || []).find((c) => c.key === f.class_key);
   const pill = document.createElement("div");
   pill.className = "fl-pill";
-  pill.innerHTML = `${STOPWATCH}<div class="fl-text">
-      <div class="fl-cap">Fastest lap${cls ? ` · ${esc(cls.name)}` : ""}</div>
-      <div class="fl-name">${esc(f.name)}</div>
-      <div class="fl-time tnum">${fmtLap(f.lap_time)}</div>
+  // "NEW FASTEST LAP" first, then who and the time (in the same spot, see standings.css).
+  pill.innerHTML = `${STOPWATCH}<div class="fl-swap">
+      <div class="fl-intro">New fastest lap${cls ? `<span>${esc(cls.name)}</span>` : ""}</div>
+      <div class="fl-text">
+        <div class="fl-cap">Fastest lap${cls ? ` · ${esc(cls.name)}` : ""}</div>
+        <div class="fl-name">${esc(f.name)}</div>
+        <div class="fl-time tnum">${fmtLap(f.lap_time)}</div>
+      </div>
     </div>`;
   flashBox.appendChild(pill);
 }

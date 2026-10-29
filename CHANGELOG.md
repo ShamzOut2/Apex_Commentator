@@ -56,13 +56,14 @@ pop-up.
     the fastest-lap pill shines on arrival.
 - **Close racing in red** on the standings tower: with the Interval column
   on, a driver within 0.15 s (adjustable) of the car ahead has their
-  interval shown in red until they pass or the gap grows. Green-flag racing
+  interval in red text until they pass or the gap grows. Green-flag racing
   only.
 - **Fastest lap on the standings tower**:
   - A purple stopwatch by the holder's name (each class's holder in By
     class).
   - A new fastest lap flashes a purple pill at the top middle of the screen
-    with a stopwatch, the driver and the lap time, for as long as you set.
+    with a stopwatch. It says "NEW FASTEST LAP" first, then the driver and
+    the lap time, for as long as you set.
   - Each class's new fastest lap can flash too.
 - **Last N drivers** on the Overall tower: when there are more drivers than
   rows, the last few are added at the bottom.

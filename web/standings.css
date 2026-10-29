@@ -62,7 +62,23 @@
 @keyframes fl-in { from { opacity: 0; transform: translateY(-24px) scale(.92); } }
 @keyframes fl-out { to { opacity: 0; transform: translateY(-16px); } }
 .fl-pill .stopwatch { width: 46px; height: 46px; flex: none; }
-.fl-text { display: flex; flex-direction: column; line-height: 1.1; }
+/* The intro ("NEW FASTEST LAP") and the details share one spot: the pill is
+   as wide as the wider of the two; the intro gives way to the details. */
+.fl-swap { display: grid; align-items: center; }
+.fl-swap > * { grid-area: 1 / 1; }
+.fl-intro {
+  display: flex; flex-direction: column; justify-content: center; font-size: 30px; font-weight: 900;
+  letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+  animation: fl-intro 1.9s ease both;
+}
+.fl-intro span { font-size: 15px; letter-spacing: .14em; opacity: .85; }
+@keyframes fl-intro {
+  0% { opacity: 0; transform: scale(.85); }
+  15%, 75% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+.fl-text { display: flex; flex-direction: column; line-height: 1.1; animation: fl-details .5s 1.6s ease both; }
+@keyframes fl-details { from { opacity: 0; transform: translateY(14px); } }
 .fl-cap { font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
 .fl-name { font-size: 26px; font-weight: 900; white-space: nowrap; }
 .fl-time { font-size: 24px; font-weight: 800; }
@@ -85,11 +101,11 @@ body.screen .fl-flash { top: 14px; }
 .fl-pill::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .35) 50%, transparent 65%);
-  transform: translateX(-120%); animation: fl-sweep 1.1s .35s ease-out both;
+  transform: translateX(-120%); animation: fl-sweep 1.1s .25s ease-out both;
 }
 @keyframes fl-sweep { to { transform: translateX(120%); } }
 .fl-pill .stopwatch { animation: fl-tick 1s .2s ease-in-out 2; transform-origin: 50% 55%; }
 @keyframes fl-tick { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
 
 /* Racing within close_s of the car ahead: the interval in red. */
-.srow .c .close { display: inline-block; background: #e8262c; color: #fff; border-radius: 5px; padding: 1px 6px; margin-right: -6px; }
+.srow .c .close { color: #ff3b3b; }

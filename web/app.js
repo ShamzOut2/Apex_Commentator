@@ -1325,7 +1325,7 @@ const OVERLAY_FIELDS = {
     ["show_logo", "Team logos", "bool"],
     ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
     ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
-    ["fl_flash_s", "Fastest lap flash stays for (s)", "number", { min: 1, max: 60, step: 0.5 }],
+    ["fl_flash_s", "Fastest lap flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }],
     ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"],
   ],
   laps: [

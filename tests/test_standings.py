@@ -43,11 +43,11 @@ class StandingsOverlayTests(unittest.TestCase):
         flash = ov["fastest_flash"]
         self.assertIsNotNone(flash)
         self.assertEqual((flash["car_idx"], flash["lap_time"], flash["scope"]), (holders[0]["car_idx"], best, "overall"))
-        app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash_s": 1}})
-        app._fl_flash["at"] -= 2
+        app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash_s": 3}})
+        app._fl_flash["at"] -= 4
         self.assertIsNone(app.build_snapshot()["overlays"]["fastest_flash"])
         app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash": False, "fl_flash_s": 30}})
-        app._fl_flash["at"] += 2
+        app._fl_flash["at"] += 4
         self.assertIsNone(app.build_snapshot()["overlays"]["fastest_flash"])
 
     def test_laps_set_before_the_app_started_dont_flash(self):
