@@ -26,8 +26,9 @@ def archive(version, extra=None, top="ShamzOut2-Apex_Commentator-abc123"):
 class FakeGitHub:
     """Stands in for urllib.request.urlopen."""
 
-    def __init__(self, release=None, tags=(), zip_bytes=b"", fail=None):
+    def __init__(self, release=None, tags=(), zip_bytes=b"", fail=None, releases=None):
         self.release, self.tags, self.zip_bytes, self.fail = release, list(tags), zip_bytes, fail
+        self.releases = releases if releases is not None else ([release] if release else [])
         self.requests = []
 
     def __call__(self, req, timeout=None):
@@ -39,6 +40,8 @@ class FakeGitHub:
             if self.release is None:
                 raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
             return io.BytesIO(json.dumps(self.release).encode())
+        if "/releases?" in url:
+            return io.BytesIO(json.dumps(self.releases).encode())
         if "/tags" in url:
             return io.BytesIO(json.dumps([{"name": t} for t in self.tags]).encode())
         if "zipball" in url or url.endswith(".exe"):
@@ -118,6 +121,26 @@ class UpdaterTests(unittest.TestCase):
         self.assertTrue(s["can_install"])
         u.skip("0.2.0")
         self.assertTrue(u.status()["skipped"])
+
+    def test_skipped_versions_notes_are_all_shown(self):
+        releases = [dict(RELEASE, tag_name="v0.3.0", body="### Fixes\n\n- C"),
+                    dict(RELEASE, tag_name="v0.2.0", body="### New features\n\n- B"),
+                    dict(RELEASE, tag_name="v0.2.1-beta", body="- beta", prerelease=True),
+                    dict(RELEASE, tag_name="v0.1.0", body="- already have this")]
+        s = self.updater(FakeGitHub(release=releases[0], releases=releases)).check()
+        self.assertEqual(s["latest"]["notes"], "## v0.3.0\n\n### Fixes\n\n- C\n\n## v0.2.0\n\n### New features\n\n- B")
+
+    def test_notes_still_shown_if_the_release_list_fails(self):
+        gh = FakeGitHub(release=RELEASE)
+        gh.releases = None
+        real = gh.__call__
+
+        def flaky(req, timeout=None):
+            if "/releases?" in req.full_url:
+                raise urllib.error.URLError("hiccup")
+            return real(req, timeout)
+
+        self.assertEqual(self.updater(flaky).check()["latest"]["notes"], "- New stuff")
 
     def test_same_or_older_is_not_offered(self):
         self.assertFalse(self.updater(FakeGitHub(release=dict(RELEASE, tag_name="v0.1.0"))).check()["available"])

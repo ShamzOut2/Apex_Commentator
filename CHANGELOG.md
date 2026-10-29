@@ -1,123 +1,57 @@
 # Changelog
 
-Release notes for each version. When a version tag is pushed, its section
-here becomes the GitHub release notes, which the app shows in its update
-pop-up.
+What's changed in each version, in plain words. The newest version's notes
+show in the app's update pop-up and in the README's "What's new".
 
-## Unreleased
+How each version's entry is written:
 
-- **Boards**: full-screen championship standings (overall and per class),
-  teams' and manufacturers' championships, the season calendar, and
-  finishing orders (latest round, any round, or live). They're put on screen
-  with buttons in the new Boards tab, and each board's columns, league logo
-  and banner are configurable. Standings can show the points gap to the
-  leader and to the driver ahead. OBS page: `/board.html`.
-- **Car makes**:
-  - 37 manufacturer badges, from the Apex Overlays project; see
-    THIRD_PARTY_NOTICES.md.
-  - A roster *Car* field, worked out from the iRacing car or picked by hand.
-  - Each result keeps its make, for the manufacturers' championship.
-- **Season calendar**:
-  - Rounds get a track and configuration chosen from lists, plus start time
-    and length.
-  - The track list is iRacing's official list when Data API credentials are
-    set (*Fetch official track list*). Otherwise it's a built-in list plus
-    the tracks seen in sessions.
-- **League builder**: a league logo, horizontal and vertical banners, and the
-  league's own calendar image for the boards.
-- **Teams' championship board**: team colour stripe and logo, the drivers who
-  scored, points per round, wins, penalties, and the gap to the leader and to
-  the team ahead (all optional). The Boards tab always shows the Teams
-  button and explains when there's nothing to show yet.
-- **Sponsors**:
-  - Upload sponsor logos in the League builder.
-  - Each board can show them along any edge, choosing which ones, the same
-    way as banners.
-  - A new Sponsors overlay (`/sponsors.html`) shows them over the race. You
-    choose the corner or edge, all together or one at a time, size, caption,
-    panel and which sponsors.
-- **Team logos** are larger on the teams' championship board.
-- **Race gaps no longer stick or lag**:
-  - iRacing's own gap figure only refreshes now and then for other cars, so
-    it could freeze or fall out of step with the running order.
-  - Gaps are now timed by the app. Every ~10 m of track it notes when each
-    car passes, and a gap is how long ago the leader was where the car is now.
-  - They update continuously, keep counting while a car is slow or in the
-    pits, always match the order on track, and stay right in replays.
-  - Cars in the garage show no gap.
-  - Lapped cars show "+1 L", and intervals never go negative.
-- **Transitions**:
-  - Boards crossfade when swapped, their rows sweep in, and they fade out
-    when taken off screen.
-  - On the standings tower, full-screen standings and Timing tab, drivers
-    slide to their new places when positions change, with a brief green /
-    red glow on the tower.
-  - The fastest-lap stopwatch pops in when the record changes hands, and
-    the fastest-lap pill shines on arrival.
-- **Close racing in red** on the standings tower: with the Interval column
-  on, a driver within 0.15 s (adjustable) of the car ahead has their
-  interval in red text until they pass or the gap grows. Green-flag racing
-  only.
-- **Fastest lap on the standings tower**:
-  - A purple stopwatch by the holder's name (each class's holder in By
-    class).
-  - A new fastest lap flashes a purple pill at the top middle of the screen
-    with a stopwatch. It says "NEW FASTEST LAP" first, then the driver and
-    the lap time, for as long as you set.
-  - Each class's new fastest lap can flash too.
-- **Last N drivers** on the Overall tower: when there are more drivers than
-  rows, the last few are added at the bottom.
-- **Contact between cars** in the race log (CONTACT). There are two signs:
-  - the jolt of a hit: a car closing fast on the one ahead that suddenly
-    stops closing within 0.12 s;
-  - a 4x (iRacing's car-contact incident) while another car was right
-    there.
+- A `## vX.Y.Z` heading (`## Unreleased` until it's released).
+- Up to three sections, in this order: `### New features`,
+  `### Improvements` and `### Fixes`. Leave out any that are empty.
+- One short line per change, saying what the commentator will notice, not
+  how it was done. Details belong in the README.
 
-  Both drivers are named, with their incident points.
-- **Spin detection**:
-  - A slowdown is only logged as a **SPIN** when the car also rotates
-    sharply within 0.2 s. For the car driven on your PC, that's its heading
-    (iRacing doesn't send heading for other cars). For every car, it's the
-    steering snapping to opposite lock, or the car going backwards along the
-    track.
-  - Other slowdowns are logged as **SLOW**.
-  - Braking hard for a slow corner no longer counts: a slowdown also has to
-    be well under the usual speed at that point of the track, which the app
-    learns from the cars going through it.
-  - Telemetry is now read 30 times a second (was 10).
-- **Pop out** buttons on the Timing and Boards tabs open that page in a
-  window of its own, without the tabs, for a second monitor. In a browser it
-  opens a browser window instead.
-- **Class and overall championships ("both")**: each standings table says
-  what it adds up (class positions or overall positions, with the points
-  table). Teams now count their drivers' overall points by default; a new
-  rule switches them to class points.
+## v0.4.2
 
-- **Standings header** shows laps or time left: "LAP 5 / 20", "FINAL LAP",
-  "FINISHED" or "12:34 LEFT". Automatic follows how the session is limited,
-  or you can choose.
-- **Fill in as drivers complete a lap**: an option to start each session with
-  only the header. Drivers appear as they cross the line, so the race tower
-  builds up in order at the end of lap 1.
-- **Standings columns to choose from**:
-  - gap and interval;
-  - places gained/lost;
-  - best and last lap;
-  - laps completed, pit stops and the PIT badge.
-- The full-screen standings board shows laps or time left too, and counts
-  laps completed.
-- **By-class standings** have the same small gap between the header and each
-  class, on the tower (each class its own panel) and the full-screen board.
-- **League builder: "Remove driver class in name"** for leagues that tag
-  names like `(P) Dave Price`.
-  - The name without the tag goes in each driver's Nickname, and the
-    overlays use it.
-  - The timing screen and roster keep the full name, so class changes still
-    show.
-- **Classes from name tags**: `(P)`, `(SP)`, `(PA)`, `(AM)`, `(G)`, `(S)`, `(B)` and the like put
-  drivers in the matching league class, by its name, its *iRacing classes*
-  entries or its initials. Numbers and stripes on the overlays take the class
-  colour, and the lap tracker's driver-number badge does too.
+### New features
+
+- **Full-screen boards** with one-click buttons (Boards tab): championship
+  standings (overall and each class), teams' and manufacturers'
+  championships, the season calendar, and finishing orders.
+- **Sponsor logos**: add them in the League builder, show them on any edge
+  of a board, or over the race with the new Sponsors overlay.
+- **League logo, banners and calendar image** in the League builder, for the
+  boards.
+- **Car makes**: manufacturer badges, and a Car field for each driver.
+- **Season calendar** with iRacing's tracks and layouts to pick from.
+- **Fastest lap** on the standings tower: a purple stopwatch by the holder,
+  and a "NEW FASTEST LAP" pill at the top of the screen.
+- **Close racing**: the interval turns red when a driver is within 0.15 s of
+  the car ahead.
+- **Last few drivers** can be added at the bottom of the Overall tower.
+- **Contact between cars** is logged in the race log.
+- **Pop out** the Timing and Boards tabs into their own windows.
+- **"Remove driver class in name"** for leagues that tag names like
+  `(P) Dave Price`, with classes picked up from the tags.
+- **Standings tower options**: laps or time left in the header, choose your
+  columns, and fill the tower in as drivers complete lap 1.
+- **What's new** notes like these in the update pop-up and the README.
+
+### Improvements
+
+- Smooth transitions: boards fade between each other, and drivers slide
+  up and down when they change places.
+- Spins are only called spins when the car actually rotates; hard braking
+  for a slow corner no longer counts.
+- Class and overall championships say what each table is scored on, and
+  teams count overall points (or class points, if you choose).
+- Larger team logos on the teams' board.
+- By-class standings have an even gap between the header and each class.
+
+### Fixes
+
+- Race gaps no longer stick or lag behind the running order. Lapped cars
+  show "+1 L".
 
 ## v0.4.1
 

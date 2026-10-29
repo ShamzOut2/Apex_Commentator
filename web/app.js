@@ -2417,26 +2417,37 @@ function showUpdate(status, force = false) {
   $("#update-modal").hidden = false;
 }
 
-// Just enough markdown for release notes: headings, bullets, **bold**, `code`.
+// Just enough markdown for release notes: headings ("## v1.2.3" versions,
+// "### Fixes" sections), bullets, **bold**, `code`. A wrapped line carries
+// on the bullet or paragraph above it.
 function notesHtml(md) {
   const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
-  const out = [];
-  let list = false;
+  const blocks = [];  // [kind, text]: "ver", "h", "li" or "p"
   for (const raw of md.trim().split(/\r?\n/)) {
     const line = raw.trim();
-    const bullet = line.match(/^[-*]\s+(.*)/);
-    if (list && !bullet) {
-      out.push("</ul>");
-      list = false;
+    const last = blocks[blocks.length - 1];
+    if (!line) {
+      if (last) last.done = true;
+      continue;
     }
-    if (bullet) {
-      if (!list) out.push("<ul>");
-      list = true;
-      out.push(`<li>${inline(bullet[1])}</li>`);
-    } else if (/^#{1,6}\s/.test(line)) out.push(`<h4>${inline(line.replace(/^#+\s*/, ""))}</h4>`);
-    else if (line) out.push(`<p>${inline(line)}</p>`);
+    const bullet = line.match(/^[-*]\s+(.*)/);
+    if (/^#{1,2}\s/.test(line)) blocks.push({ kind: "ver", text: line.replace(/^#+\s*/, ""), done: true });
+    else if (/^#{3,6}\s/.test(line)) blocks.push({ kind: "h", text: line.replace(/^#+\s*/, ""), done: true });
+    else if (bullet) blocks.push({ kind: "li", text: bullet[1] });
+    else if (last && !last.done && (last.kind === "li" || last.kind === "p")) last.text += ` ${line}`;
+    else blocks.push({ kind: "p", text: line });
   }
-  if (list) out.push("</ul>");
+  const out = [];
+  blocks.forEach((b, i) => {
+    const prev = blocks[i - 1];
+    if (b.kind === "li" && (!prev || prev.kind !== "li")) out.push("<ul>");
+    if (b.kind === "ver") out.push(`<h3 class="notes-ver">${inline(b.text)}</h3>`);
+    else if (b.kind === "h") out.push(`<h4>${inline(b.text)}</h4>`);
+    else if (b.kind === "li") out.push(`<li>${inline(b.text)}</li>`);
+    else out.push(`<p>${inline(b.text)}</p>`);
+    const next = blocks[i + 1];
+    if (b.kind === "li" && (!next || next.kind !== "li")) out.push("</ul>");
+  });
   return out.join("");
 }
 
