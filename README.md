@@ -44,6 +44,8 @@ OBS dock.
 - **Show on my screen**: put any overlay or board straight on your monitor,
   over iRacing, instead of using OBS or a browser. Pick the monitor; your
   mouse and keyboard go straight through to the game.
+- **Backgrounds** for every overlay and board: the default look, a solid
+  colour or your own image, each with adjustable opacity.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -369,6 +371,29 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 *Team* column in the League builder is the same thing. **Save** saves the
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
+
+## Backgrounds
+
+Every overlay and board has a **Background** setting:
+- **Overlays tab:** standings, lap tracker and sponsors.
+- **Boards tab:** each board, under *What each board shows*.
+- **Grid walk tab:** the grid walk.
+
+The choices:
+- **Default**: overlays are see-through; boards and the full-screen versions
+  keep their own dark backdrop.
+- **Solid colour**: pick any colour.
+- **Custom image**: upload a picture (PNG, JPG, WebP or SVG, up to 8 MB) or
+  pick one uploaded before. It fills the screen, cropped to fit.
+
+Colour and image both have an **Opacity** slider (0–100%). The background only
+shows while there's something on screen (a board, a visible tower), so an
+empty OBS source stays see-through. Uploaded backgrounds are kept with the app's
+data and can be used by any overlay or board.
+
+On your own screen (*Show on my screen*), a background is either fully there
+or not: only fully see-through parts show what's behind, so a part-opaque
+background shows as solid.
 
 ## Overlays on your own screen (no OBS)
 

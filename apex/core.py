@@ -10,6 +10,7 @@ import time
 from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
+from .backgrounds import Backgrounds
 from .gaps import GapTimer
 from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
@@ -216,6 +217,7 @@ class App:
         self.photobooth = None     # set by __main__ (needs the user data folder)
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
         self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
+        self.backgrounds = Backgrounds()  # __main__ gives it a folder: overlay / board background images
         self.laps = LapTracker()
         self.gaps = GapTimer()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in

@@ -20,6 +20,7 @@ function render(snap) {
   const s = snap.overlays && snap.overlays.settings && snap.overlays.settings.sponsors;
   const logos = chosen((snap.league && snap.league.sponsors) || [], s ? s.sponsor_ids : "");
   const on = s && logos.length && (s.visible || PREVIEW);
+  setBackground(s, !!on);
   const key = JSON.stringify([on, s, logos]);
   if (key === shownKey) return;
   shownKey = key;

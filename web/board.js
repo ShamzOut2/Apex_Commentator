@@ -95,6 +95,7 @@ function calendarHtml(b) {
 
 function render(snap) {
   const b = snap.board;
+  setBackground(b && b.settings, !!b);
   if (!b) {
     if (shown !== "none") {
       leave();  // fade the board out

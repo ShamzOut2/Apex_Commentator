@@ -9,6 +9,11 @@ import re
 import threading
 from pathlib import Path
 
+# Every overlay and board's background: "default" (overlays see-through,
+# boards and full screens their own look), a solid "color" or an uploaded
+# "image" (see backgrounds.py), at bg_opacity percent.
+BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacity": 100}
+
 NAME_FORMATS = ("full", "initial_last", "last_initial", "last", "first", "abbrev", "nickname")
 
 DEFAULTS = {
@@ -42,6 +47,7 @@ DEFAULTS = {
         "fl_flash": True,
         "fl_flash_s": 6.0,
         "fl_flash_classes": False,  # also a new fastest lap in each class, not just overall
+        **BACKGROUND,
     },
     # Sponsor logos on their own (sponsors.html), over the race.
     "sponsors": {
@@ -53,7 +59,10 @@ DEFAULTS = {
         "background": True,       # a dark panel behind the logos
         "title": "",              # a small caption above them, e.g. "Partners"
         "sponsor_ids": "",        # which sponsors, comma separated ("" = all, "none" = none)
+        **BACKGROUND,
     },
+    # The grid walk's own settings are with the grid walk; this is just its background.
+    "gridwalk": dict(BACKGROUND),
     # Full-screen boards (board.html), one section each. Every board has:
     # banner ("none", "top", "bottom", "left", "right"), banner_id (which of
     # the league's banners, "" = the first of the right shape),
@@ -61,27 +70,27 @@ DEFAULTS = {
     # sponsor logos go, the same places as a banner) and sponsor_ids (which,
     # as for the sponsors overlay).
     "board_championship": {
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "",
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_gap": True, "show_ahead": False,  # gap to the leader; gap to the driver ahead
         "show_wins": False, "show_penalty": False,
     },
     "board_teams": {
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "",
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
         "show_drivers": True,  # the drivers who scored for the team, under its name
         "show_gap": True, "show_ahead": False, "show_wins": False, "show_penalty": False,
     },
-    "board_makes": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "rows": 12, "show_logo": True,
+    "board_makes": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND, "rows": 12, "show_logo": True,
                     "show_gap": True, "show_wins": True},
-    "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "",
+    "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
                        "show_winners": True},
     "board_results": {
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "",
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True, "show_status": True,
     },
@@ -99,13 +108,14 @@ DEFAULTS = {
         "show_driver_number": False,
         "show_invalid": False,    # small trackers: also show laps already invalid
         "practice": False,        # also run in practice sessions (it always runs in qualifying)
+        **BACKGROUND,
     },
 }
 
-LIMITS = {"close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
+LIMITS = {"bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
-           "place": PLACES, "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
+           "bg": ("default", "color", "image"), "place": PLACES, "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 
 def normalise(settings):
@@ -126,6 +136,10 @@ def _value(key, value, default):
             lo, hi = LIMITS.get(key, (value, value))
             return min(max(value, lo), hi)
         value = str(value)[:200]
+        if key == "bg_color":
+            return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
+        if key == "bg_image":
+            return value if re.fullmatch(r"(bg-[0-9a-f]{12}\.(png|jpg|webp|svg))?", value) else default
         if key == "sponsor_ids":
             return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
         return value if key not in CHOICES or value in CHOICES[key] else default

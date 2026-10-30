@@ -14,6 +14,7 @@ from pathlib import Path
 
 from . import __version__, desktop
 from .config import ROOT, load_config
+from .backgrounds import Backgrounds
 from .overlays import OverlaySettings
 from .settings import UserSettings
 from .tracks import TrackCatalogue
@@ -61,6 +62,7 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
     app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
     app.settings = UserSettings(ROOT / "data" / "settings.json")
     app.tracks = TrackCatalogue(ROOT / "data" / "tracks.json", client)
+    app.backgrounds = Backgrounds(ROOT / "data" / "backgrounds")
     if mock:
         # The mock "iRacing" writes its screenshots here.
         source.screenshots_dir = ROOT / "data" / "mock-screenshots"

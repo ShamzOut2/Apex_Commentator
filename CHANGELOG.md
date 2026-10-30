@@ -18,6 +18,8 @@ How each version's entry is written:
 - **Show on my screen**: put any overlay or board straight on your monitor,
   over iRacing, instead of using OBS or a browser. Pick the monitor; your
   mouse and keyboard go straight through to the game.
+- **Backgrounds** for every overlay and board: the default look, a solid
+  colour or your own image, each with adjustable opacity.
 
 ## v0.4.2
 

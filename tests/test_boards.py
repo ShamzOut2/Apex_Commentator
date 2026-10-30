@@ -220,3 +220,40 @@ class BoardTests(unittest.TestCase):
     def test_round_keeps_calendar_fields(self):
         rd = ch.normalise({"rounds": [{"track": "Spa", "config": "Endurance", "time": "19:30", "length": "90 min"}]})["rounds"][0]
         self.assertEqual((rd["config"], rd["time"], rd["length"]), ("Endurance", "19:30", "90 min"))
+
+
+class BackgroundTests(unittest.TestCase):
+    def test_uploaded_backgrounds(self):
+        from apex.backgrounds import Backgrounds
+        from apex.league import LeagueError
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Backgrounds(tmp)
+            png = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+            name = store.save(png)
+            self.assertRegex(name, r"^bg-[0-9a-f]{12}\.png$")
+            self.assertEqual(store.save(png), name)  # the same image once
+            self.assertEqual(store.list(), [name])
+            self.assertIsNotNone(store.file(name))
+            self.assertIsNone(store.file("../" + name))
+            with self.assertRaises(LeagueError):
+                store.save(b"not an image")
+
+    def test_every_overlay_and_board_has_a_background(self):
+        settings = overlay_settings({
+            "board_results": {"bg": "image", "bg_image": "bg-0123456789ab.jpg", "bg_opacity": 40},
+            "laps": {"bg": "color", "bg_color": "#FF8800", "bg_opacity": 250},
+            "sponsors": {"bg": "image", "bg_image": "../../secret.png"},
+            "gridwalk": {"bg": "sparkles"},
+        })
+        for section in ("standings", "laps", "sponsors", "gridwalk", "board_championship", "board_teams",
+                        "board_makes", "board_calendar", "board_results"):
+            self.assertIn("bg", settings[section], section)
+        self.assertEqual({k: settings["board_results"][k] for k in ("bg", "bg_image", "bg_opacity")},
+                         {"bg": "image", "bg_image": "bg-0123456789ab.jpg", "bg_opacity": 40})
+        self.assertEqual((settings["laps"]["bg_color"], settings["laps"]["bg_opacity"]), ("#ff8800", 100))
+        self.assertEqual(settings["sponsors"]["bg_image"], "")  # not one of ours
+        self.assertEqual(settings["gridwalk"]["bg"], "default")
+        # The board on screen carries its background settings to the page.
+        b = boards.build(league(), {"kind": "results", "params": {}}, settings)
+        self.assertEqual(b["settings"]["bg_opacity"], 40)

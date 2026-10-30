@@ -1328,6 +1328,7 @@ const OVERLAY_FIELDS = {
     ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
     ["fl_flash_s", "Fastest lap flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }],
     ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"],
+    ["bg", "Background", "background"],
   ],
   laps: [
     ["visible", "On screen", "bool"],
@@ -1343,6 +1344,7 @@ const OVERLAY_FIELDS = {
     ["show_logo", "Team logos", "bool"],
     ["show_invalid", "Track invalid laps too", "bool"],
     ["practice", "Also in practice", "bool"],
+    ["bg", "Background", "background"],
   ],
   sponsors: [
     ["visible", "On screen", "bool"],
@@ -1354,8 +1356,63 @@ const OVERLAY_FIELDS = {
     ["background", "Dark panel behind", "bool"],
     ["title", "Caption above (e.g. Partners)", "text"],
     ["sponsor_ids", "Sponsors", "sponsors"],
+    ["bg", "Background", "background"],
   ],
+  gridwalk: [["bg", "Background", "background"]],
 };
+
+// -- backgrounds: none, a solid colour or an uploaded image, at any opacity --
+
+let bgLibrary = [];
+
+async function loadBackgrounds() {
+  try {
+    bgLibrary = (await api("/api/backgrounds")).backgrounds || [];
+  } catch (e) {
+    bgLibrary = [];
+  }
+  overlayFormKey = "";
+  boardSettingsKey = "";
+  if (ui.snap) render();
+}
+
+// The Background setting's fields; colour / image / opacity only when they apply.
+function backgroundFields(section, v) {
+  const out = [`<label class="ov-field">Background<select data-key="bg" data-kind="select">${[["default", "Default"], ["color", "Solid colour"], ["image", "Custom image"]]
+    .map(([o, l]) => `<option value="${o}" ${v.bg === o ? "selected" : ""}>${l}</option>`).join("")}</select></label>`];
+  if (v.bg === "color") out.push(`<label class="ov-field">Colour<input type="color" data-key="bg_color" data-kind="color" value="${esc(v.bg_color)}"></label>`);
+  if (v.bg === "image") {
+    out.push(`<div class="ov-field bg-pick">Image<div>${bgLibrary.map((name) => `<label class="bg-thumb ${v.bg_image === name ? "on" : ""}" title="Use this image">
+        <input type="radio" name="bg-${section}" data-key="bg_image" data-kind="select" value="${esc(name)}" ${v.bg_image === name ? "checked" : ""}>
+        <img src="/api/backgrounds/${encodeURIComponent(name)}" alt=""></label>`).join("")}
+      <label class="btn subtle bg-upload">Upload…<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-bg-upload="${section}" hidden></label></div></div>`);
+  }
+  if (v.bg !== "default") {
+    out.push(`<label class="ov-field">Opacity: <span class="bg-op">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
+  }
+  return out.join("");
+}
+
+document.addEventListener("input", (e) => {
+  // Show the opacity as the slider moves; it's saved when let go.
+  if (e.target.dataset.key === "bg_opacity") e.target.closest("label").querySelector(".bg-op").textContent = `${e.target.value}%`;
+});
+document.addEventListener("change", async (e) => {
+  const input = e.target.closest("[data-bg-upload]");
+  if (!input || !input.files.length) return;
+  try {
+    const res = await fetch("/api/backgrounds", { method: "POST", headers: { "Content-Type": input.files[0].type || "application/octet-stream" }, body: input.files[0] });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+    bgLibrary = data.backgrounds;
+    await cmd("overlay_settings", { overlay: input.dataset.bgUpload, values: { bg: "image", bg_image: data.name } });
+    overlayFormKey = "";
+    boardSettingsKey = "";
+    toast("Background added");
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
 
 // Tick boxes for which of the league's sponsors to show ("" = all, "none" = none).
 function sponsorPicker(sponsors, value) {
@@ -1391,6 +1448,7 @@ function renderOverlaySettings(s) {
     $(`#ov-${overlay}`).innerHTML = fields.map(([k, label, kind, opts]) => {
       const v = values[k];
       const attrs = `data-key="${k}" data-kind="${kind}"`;
+      if (kind === "background") return backgroundFields(overlay, values);
       if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
       if (kind === "number") {
         return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
@@ -1425,7 +1483,8 @@ const BOARD_LOOK = [["league_logo", "League logo in the header", "bool"],
   ["banner", "Banner", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"],
     ["right", "Down the right"]]], ["banner_id", "Which banner", "banner"],
   ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
-    ["left", "Down the left"], ["right", "Down the right"]]], ["sponsor_ids", "Which sponsors", "sponsors"]];
+    ["left", "Down the left"], ["right", "Down the right"]]], ["sponsor_ids", "Which sponsors", "sponsors"],
+  ["bg", "Background", "background"]];
 
 const BOARD_FIELDS = {
   board_championship: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
@@ -1508,6 +1567,7 @@ function renderBoardSettings(s) {
       if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
       if (kind === "number") return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" value="${v}"></label>`;
       if (kind === "sponsors") return settings[section].sponsors === "none" ? "" : sponsorPicker((s.league && s.league.sponsors) || [], v);
+      if (kind === "background") return backgroundFields(section, settings[section]);
       const choices = kind === "banner"
         ? [["", "The first of the right shape"], ...banners.map((b, i) => [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
         : opts;
@@ -1561,6 +1621,7 @@ document.addEventListener("click", (e) => {
 });
 
 $("#home-obs-url").textContent = `${location.origin}/gridwalk.html`;
+loadBackgrounds();
 
 // -- overlays straight on the user's screen (app window only) -------------------
 

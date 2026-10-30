@@ -174,7 +174,10 @@ function render() {
   const ov = snap && snap.overlays;
   if (!ov) return;
   renderFlash(snap, ov);
-  if (SCREEN) return renderScreen(snap, ov);
+  if (SCREEN) {
+    setBackground(ov.settings.standings, true);
+    return renderScreen(snap, ov);
+  }
   const entries = ov.standings;
   // No logo column when no team has a logo.
   const cfg = { ...ov.settings.standings };
@@ -221,6 +224,7 @@ function render() {
     </div>${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
   tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("hidden", !visible);
+  setBackground(cfg, visible);
   tower.style.width = `${width}px`;
   tower.style.setProperty("--grid", grid);
   if (visible && html !== shown) {

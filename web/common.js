@@ -431,6 +431,32 @@ function fitStage(stage) {
   if (new URLSearchParams(location.search).has("desktop")) document.body.classList.add("desktop");
 }
 
+// The page's Background setting (overlays and boards): nothing, a solid
+// colour or an uploaded image, at the opacity set. It fills the whole page
+// behind everything, and only while there's something on screen (pass
+// visible), so an empty overlay stays see-through. Boards and full-screen
+// pages drop their own backdrop for it (body.custom-bg, overlay.css).
+let pageBg = null;
+
+function setBackground(cfg, visible) {
+  const mode = cfg ? cfg.bg : "default";
+  const custom = mode === "color" || (mode === "image" && cfg.bg_image);
+  if (!pageBg) {
+    if (!custom) return;
+    pageBg = document.createElement("div");
+    pageBg.className = "page-bg";
+    Object.assign(pageBg.style, { position: "fixed", inset: "0", zIndex: "-1", pointerEvents: "none", opacity: "0",
+      transition: "opacity .5s ease", backgroundPosition: "center", backgroundSize: "cover", backgroundRepeat: "no-repeat" });
+    document.body.prepend(pageBg);
+  }
+  document.body.classList.toggle("custom-bg", !!custom);
+  if (custom) {
+    pageBg.style.backgroundColor = mode === "color" ? cfg.bg_color : "transparent";
+    pageBg.style.backgroundImage = mode === "image" ? `url("/api/backgrounds/${encodeURIComponent(cfg.bg_image)}")` : "none";
+  }
+  pageBg.style.opacity = custom && visible ? String((cfg.bg_opacity ?? 100) / 100) : "0";
+}
+
 // Follow the app's live snapshot; reload after an app update so OBS picks up
 // new graphics.
 function followSnapshots(onSnap) {
