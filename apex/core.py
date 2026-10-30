@@ -674,13 +674,20 @@ class App:
         entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
         # Standings: race order in a race; otherwise fastest clean lap, and
         # only drivers who have set one (blank at the start of qualifying).
-        # With "reveal", a driver only appears once they've completed a lap:
-        # the tower fills up as the field crosses the line.
+        # With "reveal", a race shows just the header (session, laps / time
+        # left) until the green, then each driver appears once they've done a
+        # full lap of the race (they're on lap 2): the tower fills up as the
+        # field crosses the line at the end of lap 1.
         reveal = settings["standings"]["reveal"]
+        started = frame.session_state >= STATE_RACING
+
+        def lap_done(r):
+            return started and (r["lap"] or 0) >= 2 and (r["laps_completed"] or 0) >= 1
+
         standings = []
         if is_race:
             for r in rows:
-                if r["pos"] is not None and (not reveal or (r["laps_completed"] or 0) >= 1):
+                if r["pos"] is not None and (not reveal or lap_done(r)):
                     standings.append(dict(entries[r["car_idx"]], pos=r["pos"], class_pos=r["class_pos"],
                                           time=r["gap"], pos_change=r["pos_change"]))
         else:

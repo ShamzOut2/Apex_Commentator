@@ -1311,7 +1311,7 @@ const OVERLAY_FIELDS = {
     ["name_format", "Names", "select", NAME_FORMATS],
     ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
       ["time", "Time left"], ["none", "Nothing"]]],
-    ["reveal", "Fill in as drivers complete a lap (header only at the start)", "bool"],
+    ["reveal", "Race start: only the header until each driver completes lap 1 (they appear from the start of lap 2)", "bool"],
     ["show_gap", "Gap to leader / pole", "bool"],
     ["show_interval", "Interval to car ahead", "bool"],
     ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }],

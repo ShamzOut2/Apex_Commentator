@@ -47,6 +47,12 @@ OBS dock.
 - **Backgrounds** for every overlay and board: the default look, a solid
   colour or your own image, each with adjustable opacity.
 
+### Improvements
+
+- The standings tower starts each race with just the header (laps or time
+  left). Each driver appears as they finish lap 1, and nobody shows before
+  the green. This is now on by default.
+
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
 
@@ -290,11 +296,12 @@ are kept in `data/overlays.json`.
   - **Header**: the session, with laps or time left. *Automatic* follows how
     the session is limited ("LAP 5 / 20", then "FINAL LAP" and
     "FINISHED"; or "12:34 LEFT"). You can also pick laps, time or nothing.
-  - **Fill in as drivers complete a lap**: at the start of any session, only
-    the header shows. Each driver appears as they cross the line to start
-    their next lap, so in a race the tower builds up in order at the end of
-    lap 1. In qualifying, a driver with a lap done but no clean time yet is
-    listed at the bottom.
+  - **Fill in as drivers complete a lap** (on by default): at the start of
+    any session, only the header shows (session, and laps or time left). In a
+    race, nobody shows before the green, and each driver appears once they've
+    done a full lap, as they start lap 2, so the tower builds up in order at
+    the end of lap 1. In qualifying, a driver with a lap done but no clean
+    time yet is listed at the bottom.
   - **Columns** (each on or off):
     - gap to the leader (or to pole);
     - interval to the car ahead;

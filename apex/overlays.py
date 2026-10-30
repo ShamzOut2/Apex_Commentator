@@ -38,7 +38,7 @@ DEFAULTS = {
         "show_pit_status": True,  # "PIT" while on pit road
         # Start of a session: only the header (session, laps / time left), and
         # each driver appears once they've completed a lap.
-        "reveal": False,
+        "reveal": True,
         "header_info": "auto",    # "auto" (laps or time, whichever the session is limited by), "laps", "time", "none"
         # Fastest lap: a purple stopwatch by the holder's name (each class's
         # holder in "class" mode), and a purple pill at the top middle of the
