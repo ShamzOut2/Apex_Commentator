@@ -82,3 +82,13 @@
 .empty-board { margin: auto; font-size: 30px; color: var(--muted); font-weight: 700; }
 .preview-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--muted); }
 .board.steady { animation: none; }
+
+/* Background setting (a colour or image, setPanels in common.js): the board is
+   a panel of it, and the rest of the screen stays see-through. */
+.board.panelled { background: none; }
+.board.panelled .main { flex: 0 1 auto; background: var(--panel); border-radius: 16px; padding: 24px 32px; position: relative; isolation: isolate; }
+.board.panelled .bbody { flex: 0 1 auto; }
+body.panel-image .board.panelled .main::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
+}

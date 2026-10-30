@@ -123,13 +123,14 @@ def open_popout(key, url, title, width=1280, height=820):
 
 
 def _close_popouts():
-    for window in list(_popouts.values()) + [w for w, _ in _overlays.values()]:
+    for window in list(_popouts.values()) + list(_windows.values()):
         try:
             window.destroy()
         except Exception:
             pass
     _popouts.clear()
     _overlays.clear()
+    _windows.clear()
 
 
 # -- on-screen overlays ---------------------------------------------------------
@@ -138,6 +139,34 @@ def _close_popouts():
 # browser: a borderless window covering one monitor, always on top, that
 # never takes the keyboard and lets the mouse through to whatever is under it
 # (iRacing, this app). Needs the app window (pywebview, WebView2 on Windows).
+#
+# The page's see-through parts show the window's background colour,
+# SEE_THROUGH, which Windows is told to leave out (and pass clicks through).
+# Opening and closing run one at a time on their own thread, so a slow window
+# never holds up the app, and each waits for the last to finish.
+
+_jobs = None  # queue of overlay jobs, and the thread working through it
+WM_CLOSE, SW_HIDE = 0x10, 0
+
+
+def _run(job):
+    global _jobs
+    if _jobs is None:
+        import queue
+
+        _jobs = queue.Queue()
+
+        def work():
+            while True:
+                fn = _jobs.get()
+                try:
+                    fn()
+                except Exception as e:
+                    print(f"[apex] on-screen overlay: {e!r}")
+
+        threading.Thread(target=work, name="on-screen-overlays", daemon=True).start()
+    _jobs.put(job)
+
 
 def screens():
     """The monitors: [{index, width, height, x, y}]; [] without the app window."""
@@ -158,37 +187,76 @@ def show_overlay(key, url, title, screen=0):
     up). False when there's no app window to do it from."""
     if _main_window is None:
         return False
-    import webview
-
-    hide_overlay(key)
-    monitors = webview.screens
-    target = monitors[screen] if 0 <= screen < len(monitors) else None
-    r, g, b = SEE_THROUGH
-    window = webview.create_window(
-        title, url, screen=target, fullscreen=True, frameless=True, on_top=True, focus=False,
-        transparent=True, shadow=False, easy_drag=False, resizable=False,
-        background_color=f"#{r:02x}{g:02x}{b:02x}",
-    )
-    window.events.shown += lambda: _see_through(window)
-    window.events.closed += lambda: _overlays.pop(key, None) if _overlays.get(key, (None,))[0] is window else None
-    _overlays[key] = (window, screen)
+    _overlays[key] = (None, screen)  # on its way: shown as up straight away
+    _run(lambda: _show(key, url, title, screen))
     return True
 
 
 def hide_overlay(key=None):
     """Take an on-screen overlay down (every one, with no ``key``)."""
-    for k in [key] if key else list(_overlays):
-        window, _ = _overlays.pop(k, (None, None))
-        if window is not None:
-            try:
-                window.destroy()
-            except Exception:
-                pass
+    keys = [key] if key else list(_overlays)
+    for k in keys:
+        _overlays.pop(k, None)
+    _run(lambda: [_close(k) for k in keys])
 
 
 def overlays_on_screen():
     """{overlay page: screen index} of what's up."""
     return {k: screen for k, (_, screen) in _overlays.items()}
+
+
+_windows = {}  # overlay page -> its window, while it's open (the worker's own record)
+_hwnds = {}    # window -> its native handle, to close it by hand if need be
+
+
+def _show(key, url, title, screen):
+    import webview
+
+    _close(key)  # moving screens, or shown again: the old one goes first
+    if key not in _overlays:
+        return  # taken down again before it got here
+    monitors = webview.screens
+    r, g, b = SEE_THROUGH
+    window = webview.create_window(
+        title, url, screen=monitors[screen] if 0 <= screen < len(monitors) else None,
+        fullscreen=True, frameless=True, on_top=True, focus=False, shadow=False, easy_drag=False,
+        resizable=False, background_color=f"#{r:02x}{g:02x}{b:02x}",
+    )
+    _windows[key] = window
+    _overlays[key] = (window, screen)
+
+    def closed():
+        # Closed some other way (e.g. Alt+F4): no longer up.
+        if _windows.get(key) is window:
+            _windows.pop(key, None)
+            if _overlays.get(key, (None,))[0] is window:
+                _overlays.pop(key, None)
+
+    window.events.closed += closed
+    # Windows opened once the app is running are made there and then; if not
+    # yet, as soon as it's shown.
+    if window.native is not None:
+        _see_through(window)
+    else:
+        window.events.shown += lambda: _see_through(window)
+
+
+def _close(key):
+    """Close a page's overlay window and wait for it to go (by hand if it won't)."""
+    window = _windows.pop(key, None)
+    if window is None:
+        return
+    try:
+        window.destroy()
+    except Exception as e:
+        print(f"[apex] couldn't close the overlay window: {e!r}")
+    if not window.events.closed.wait(3) and IS_WINDOWS:
+        hwnd = _hwnds.get(window)
+        if hwnd:
+            print("[apex] overlay window didn't close: closing it by hand")
+            ctypes.windll.user32.ShowWindow(hwnd, SW_HIDE)
+            ctypes.windll.user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+    _hwnds.pop(window, None)
 
 
 def _see_through(window):
@@ -208,6 +276,7 @@ def _see_through(window):
             form.BackColor = key
             form.TransparencyKey = key
             hwnd = form.Handle.ToInt32()
+            _hwnds[window] = hwnd
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT
                                   | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)

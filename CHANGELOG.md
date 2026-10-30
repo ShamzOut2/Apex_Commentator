@@ -15,9 +15,14 @@ How each version's entry is written:
 
 ### Fixes
 
-- An overlay's background now only colours the overlay itself (the tower,
-  the lap trackers, the sponsors panel, the grid walk cards), not the whole
-  screen.
+- An overlay's or board's background now only colours the overlay or board
+  itself (the tower, the lap trackers, the sponsors panel, the grid walk
+  cards, the board), not the whole screen.
+- Buttons and settings stopped responding once several tabs, pop-outs or
+  on-screen overlays were open. That's why changing things during a session
+  and after an update often didn't work. They now always respond.
+- "Show on my screen", **Remove** and **Remove all from my screen** work
+  reliably.
 
 ## v0.4.3
 

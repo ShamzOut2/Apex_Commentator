@@ -6,6 +6,7 @@ out from iRacing's car name and path, e.g. "Porsche 911 GT3 R (992)" ->
 Porsche, "Corvette C8.R" -> Chevrolet.
 """
 
+import functools
 import re
 import unicodedata
 
@@ -44,8 +45,9 @@ def make_for(car_name, car_path=""):
     return ""
 
 
+@functools.lru_cache(maxsize=1)
 def badge_files():
-    """{slug: file name} of the badges that ship with the app."""
+    """{slug: file name} of the badges that ship with the app (they don't change while it runs)."""
     folder = WEB_DIR / "makes"
     return {p.stem: p.name for p in folder.glob("*.png")} if folder.is_dir() else {}
 

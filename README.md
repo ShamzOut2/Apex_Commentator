@@ -41,9 +41,14 @@ OBS dock.
 
 ### Fixes
 
-- An overlay's background now only colours the overlay itself (the tower,
-  the lap trackers, the sponsors panel, the grid walk cards), not the whole
-  screen.
+- An overlay's or board's background now only colours the overlay or board
+  itself (the tower, the lap trackers, the sponsors panel, the grid walk
+  cards, the board), not the whole screen.
+- Buttons and settings stopped responding once several tabs, pop-outs or
+  on-screen overlays were open. That's why changing things during a session
+  and after an update often didn't work. They now always respond.
+- "Show on my screen", **Remove** and **Remove all from my screen** work
+  reliably.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -395,10 +400,11 @@ What it colours depends on what it is:
   walk cards), the setting is the overlay's own panels: their background
   takes the colour, or shows the image inside them, behind the text. The
   rest of the screen stays see-through, so the race is never covered.
-- **On a board or a full-screen version** (full-screen standings or lap
-  tracker), which is a whole screen, it's that screen's backdrop. It only
-  shows while a board is on screen, so an empty board source stays
-  see-through.
+- **On a board**, it's the board's own panel: the board sits on a rounded
+  panel of that colour or image, sized to its contents, and the rest of the
+  screen stays see-through.
+- **On a full-screen version** (full-screen standings or lap tracker), which
+  is a whole screen, it's that screen's backdrop.
 
 Uploaded backgrounds are kept with the app's data and can be used by any
 overlay or board.

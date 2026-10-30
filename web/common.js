@@ -484,15 +484,36 @@ function setBackground(cfg, visible) {
   pageBg.style.opacity = custom && visible ? String((cfg.bg_opacity ?? 100) / 100) : "0";
 }
 
+// The app's live snapshots: onSnap(snapshot) for each, onDown() when the app
+// can't be reached (it retries by itself). Pages in the same browser share one
+// connection (stream-worker.js): a browser allows only 6 to the same address,
+// and clicks need one too. Where shared workers aren't available, the page
+// has its own.
+function liveStream(onSnap, onDown = () => {}) {
+  if (typeof SharedWorker === "function") {
+    try {
+      const worker = new SharedWorker("/stream-worker.js", { name: "apex-live" });
+      worker.port.onmessage = (m) => {
+        if (m.data.type === "snapshot") onSnap(JSON.parse(m.data.data));
+        else onDown();
+      };
+      worker.port.start();
+      addEventListener("pagehide", () => worker.port.postMessage("bye"));
+      return;
+    } catch (e) { /* not allowed here: a stream of its own */ }
+  }
+  const stream = new EventSource("/api/stream");
+  stream.onmessage = (m) => onSnap(JSON.parse(m.data));
+  stream.onerror = onDown;
+}
+
 // Follow the app's live snapshot; reload after an app update so OBS picks up
 // new graphics.
 function followSnapshots(onSnap) {
-  const stream = new EventSource("/api/stream");
   let version = null;
-  stream.onmessage = (msg) => {
-    const snap = JSON.parse(msg.data);
+  liveStream((snap) => {
     if (version && snap.version && snap.version !== version) return location.reload();
     version = version || snap.version;
     onSnap(snap);
-  };
+  });
 }
