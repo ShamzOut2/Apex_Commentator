@@ -101,8 +101,12 @@ function update(entry, item, cfg, classes, nsec) {
 function render() {
   const ov = snap && snap.overlays;
   if (!ov) return;
-  if (SCREEN) return renderScreen(ov);
+  if (SCREEN) {
+    setBackground(ov.settings.laps, true);
+    return renderScreen(ov);
+  }
   const cfg = ov.settings.laps;
+  setBackground(cfg, snap.connected && cfg.visible && ov.laps.active);
   const laps = ov.laps;
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const want = new Map();

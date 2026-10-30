@@ -37,47 +37,23 @@ OBS dock.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.2**
+**v0.4.3**
 
 ### New features
 
-- **Full-screen boards** with one-click buttons (Boards tab): championship
-  standings (overall and each class), teams' and manufacturers'
-  championships, the season calendar, and finishing orders.
-- **Sponsor logos**: add them in the League builder, show them on any edge
-  of a board, or over the race with the new Sponsors overlay.
-- **League logo, banners and calendar image** in the League builder, for the
-  boards.
-- **Car makes**: manufacturer badges, and a Car field for each driver.
-- **Season calendar** with iRacing's tracks and layouts to pick from.
-- **Fastest lap** on the standings tower: a purple stopwatch by the holder,
-  and a "NEW FASTEST LAP" pill at the top of the screen.
-- **Close racing**: the interval turns red when a driver is within 0.15 s of
-  the car ahead.
-- **Last few drivers** can be added at the bottom of the Overall tower.
-- **Contact between cars** is logged in the race log.
-- **Pop out** the Timing and Boards tabs into their own windows.
-- **"Remove driver class in name"** for leagues that tag names like
-  `(P) Dave Price`, with classes picked up from the tags.
-- **Standings tower options**: laps or time left in the header, choose your
-  columns, and fill the tower in as drivers complete lap 1.
-- **What's new** notes like these in the update pop-up and the README.
+- **Show on my screen**: put any overlay or board straight on your monitor,
+  over iRacing, instead of using OBS or a browser. Pick the monitor; your
+  mouse and keyboard go straight through to the game.
+- **Backgrounds** for every overlay and board: the default look, a solid
+  colour or your own image, each with adjustable opacity.
 
 ### Improvements
 
-- Smooth transitions: boards fade between each other, and drivers slide
-  up and down when they change places.
-- Spins are only called spins when the car actually rotates; hard braking
-  for a slow corner no longer counts.
-- Class and overall championships say what each table is scored on, and
-  teams count overall points (or class points, if you choose).
-- Larger team logos on the teams' board.
-- By-class standings have an even gap between the header and each class.
-
-### Fixes
-
-- Race gaps no longer stick or lag behind the running order. Lapped cars
-  show "+1 L".
+- The standings tower starts each race with just the header (laps or time
+  left). Each driver appears as they finish lap 1, and nobody shows before
+  the green. This is now on by default.
+- When a race goes green, the standings header flashes green five times
+  with a light sweep, then stops.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -322,11 +298,15 @@ are kept in `data/overlays.json`.
   - **Header**: the session, with laps or time left. *Automatic* follows how
     the session is limited ("LAP 5 / 20", then "FINAL LAP" and
     "FINISHED"; or "12:34 LEFT"). You can also pick laps, time or nothing.
-  - **Fill in as drivers complete a lap**: at the start of any session, only
-    the header shows. Each driver appears as they cross the line to start
-    their next lap, so in a race the tower builds up in order at the end of
-    lap 1. In qualifying, a driver with a lap done but no clean time yet is
-    listed at the bottom.
+  - **Fill in as drivers complete a lap** (on by default): at the start of
+    any session, only the header shows (session, and laps or time left). In a
+    race, nobody shows before the green, and each driver appears once they've
+    done a full lap, as they start lap 2, so the tower builds up in order at
+    the end of lap 1. In qualifying, a driver with a lap done but no clean
+    time yet is listed at the bottom.
+  - **Green flag**: when a race goes green, the header (tower and full
+    screen) flashes green five times with a light sweeping across it, then
+    stops. Races only, and only if the overlay was open for the start.
   - **Columns** (each on or off):
     - gap to the leader (or to pole);
     - interval to the car ahead;
@@ -403,6 +383,52 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 *Team* column in the League builder is the same thing. **Save** saves the
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
+
+## Backgrounds
+
+Every overlay and board has a **Background** setting:
+- **Overlays tab:** standings, lap tracker and sponsors.
+- **Boards tab:** each board, under *What each board shows*.
+- **Grid walk tab:** the grid walk.
+
+The choices:
+- **Default**: overlays are see-through; boards and the full-screen versions
+  keep their own dark backdrop.
+- **Solid colour**: pick any colour.
+- **Custom image**: upload a picture (PNG, JPG, WebP or SVG, up to 8 MB) or
+  pick one uploaded before. It fills the screen, cropped to fit.
+
+Colour and image both have an **Opacity** slider (0–100%). The background only
+shows while there's something on screen (a board, a visible tower), so an
+empty OBS source stays see-through. Uploaded backgrounds are kept with the app's
+data and can be used by any overlay or board.
+
+On your own screen (*Show on my screen*), a background is either fully there
+or not: only fully see-through parts show what's behind, so a part-opaque
+background shows as solid.
+
+## Overlays on your own screen (no OBS)
+
+Every overlay and board can also go straight on your monitor instead of into
+OBS or a browser. In the app window, press **Show on my screen** under its
+link: the Overlays tab for the standings tower, lap tracker (and their full
+screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
+
+- It sits over whatever is on that monitor, always on top. Run iRacing in
+  **windowed or borderless** mode: a game in exclusive full screen covers it.
+- It never takes the keyboard, and your mouse goes straight through to the
+  game or the app underneath.
+- With more than one monitor, pick which one; changing it moves the overlay.
+- **Remove** takes it down; *Remove all from my screen* clears everything.
+  They also close with the app.
+- The first time, the app asks whether you can see your screen through it.
+  If you don't answer within 15 seconds it takes the overlay down by itself
+  (in case it came up solid and covered your screen). From then on it just
+  appears.
+
+This needs the app window (it isn't available when the app runs in a browser).
+Soft drop shadows are left out on screen, since only fully see-through parts
+can show the game behind.
 
 ## Boards (full-screen championship, calendar and results)
 

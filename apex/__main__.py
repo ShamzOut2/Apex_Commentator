@@ -14,6 +14,7 @@ from pathlib import Path
 
 from . import __version__, desktop
 from .config import ROOT, load_config
+from .backgrounds import Backgrounds
 from .overlays import OverlaySettings
 from .settings import UserSettings
 from .tracks import TrackCatalogue
@@ -61,6 +62,7 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
     app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
     app.settings = UserSettings(ROOT / "data" / "settings.json")
     app.tracks = TrackCatalogue(ROOT / "data" / "tracks.json", client)
+    app.backgrounds = Backgrounds(ROOT / "data" / "backgrounds")
     if mock:
         # The mock "iRacing" writes its screenshots here.
         source.screenshots_dir = ROOT / "data" / "mock-screenshots"
@@ -111,6 +113,29 @@ def smoke_test(cfg):
         server.server_close()
 
 
+class OnScreen:
+    """On-screen overlays, for the App (see desktop.py). Screens are listed once
+    (and again when an overlay goes up), not on every snapshot."""
+
+    def __init__(self, base, title):
+        self.base, self.title, self._screens = base, title, None
+
+    def screens(self):
+        if self._screens is None:
+            self._screens = desktop.screens() or None
+        return self._screens or []
+
+    def show(self, page, path, name, screen):
+        self._screens = None
+        return desktop.show_overlay(page, self.base + path, f"{name} – {self.title}", screen)
+
+    def hide(self, page=None):
+        desktop.hide_overlay(page)
+
+    def on_screen(self):
+        return desktop.overlays_on_screen()
+
+
 def main(argv=None):
     desktop.log_to_file()
     args = parse_args(argv)
@@ -150,6 +175,8 @@ def main(argv=None):
     print(f"{title} running at {url}")
 
     app.popout = lambda page, name: desktop.open_popout(page, f"{url}?popout={page}", f"{name} – {title}")
+    if not args.no_window and desktop.window_available():
+        app.desktop = OnScreen(url.rstrip("/"), title)
     try:
         opened = (not args.no_window and desktop.window_available()
                   and desktop.run_window(url, title, restart_requested))

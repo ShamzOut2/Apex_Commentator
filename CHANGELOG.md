@@ -11,6 +11,24 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.4.3
+
+### New features
+
+- **Show on my screen**: put any overlay or board straight on your monitor,
+  over iRacing, instead of using OBS or a browser. Pick the monitor; your
+  mouse and keyboard go straight through to the game.
+- **Backgrounds** for every overlay and board: the default look, a solid
+  colour or your own image, each with adjustable opacity.
+
+### Improvements
+
+- The standings tower starts each race with just the header (laps or time
+  left). Each driver appears as they finish lap 1, and nobody shows before
+  the green. This is now on by default.
+- When a race goes green, the standings header flashes green five times
+  with a light sweep, then stops.
+
 ## v0.4.2
 
 ### New features

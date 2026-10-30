@@ -134,6 +134,8 @@ class QualifyingOverlayTests(unittest.TestCase):
         self.t = 0.0
         self.source = MockSource(seed=3, session="qualify", clock=lambda: self.t)
         self.app = App(self.source, dict(DEFAULTS), LeagueStore(self.tmp.name))
+        # Timed drivers only (no "fill in as drivers complete a lap").
+        self.app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": False}})
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -180,6 +182,7 @@ class QualifyingOverlayTests(unittest.TestCase):
 
     def test_race_has_no_lap_tracker(self):
         app = App(MockSource(seed=3, clock=lambda: self.t), dict(DEFAULTS), LeagueStore(self.tmp.name))
+        app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": False}})
         app.tick()
         ov = app.build_snapshot()["overlays"]
         self.assertFalse(ov["laps"]["active"])

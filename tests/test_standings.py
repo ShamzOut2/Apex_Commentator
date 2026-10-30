@@ -81,8 +81,64 @@ class StandingsOverlayTests(unittest.TestCase):
         self.assertEqual([e["pos"] for e in shown], list(range(1, len(shown) + 1)))
         self.assertEqual(app.build_snapshot()["overlays"]["progress"]["lap"], 2)
 
+    def test_race_start_shows_only_the_header_until_lap_2(self):
+        app, source = self.app(race_laps=5)  # reveal is on by default
+        real = source.read
+        state = {"green": False}
+
+        def read():
+            f = real()
+            if not state["green"]:
+                f.session_state = 3  # pace laps: lap counters may already move
+                f.laps_completed = [max(n, 1) for n in f.laps_completed]
+            return f
+
+        source.read = read
+        self.run_for(app, 30)
+        ov = app.build_snapshot()["overlays"]
+        self.assertEqual(ov["standings"], [])  # before the green: header only
+        self.assertEqual(ov["progress"]["mode"], "laps")
+        state["green"] = True
+        self.run_for(app, 30)
+        self.assertEqual(app.build_snapshot()["overlays"]["standings"], [])  # green, but still on lap 1
+        for _ in range(3000):
+            self.t += 0.1
+            app.tick()
+            if any((r or 0) >= 2 for r in app._frame.lap):
+                break
+        shown = app.build_snapshot()["overlays"]["standings"]
+        self.assertTrue(shown)
+        lap = {r["car_idx"]: r["lap"] for r in app.build_snapshot()["drivers"]}
+        self.assertTrue(all(lap[e["car_idx"]] >= 2 for e in shown))
+
+    def test_race_start_is_marked_for_the_green_flash(self):
+        app, source = self.app(race_laps=5)
+        real = source.read
+        state = {"green": False}
+
+        def read():
+            f = real()
+            if not state["green"]:
+                f.session_state = 3  # pace laps
+            return f
+
+        source.read = read
+        self.run_for(app, 10)
+        self.assertIsNone(app.build_snapshot()["overlays"]["since_green"])
+        state["green"] = True
+        self.run_for(app, 2)
+        self.assertAlmostEqual(app.build_snapshot()["overlays"]["since_green"], 2.0, delta=0.15)
+        # Joining a race already under way: no start to flash.
+        late, src = self.app(race_laps=5)
+        for _ in range(600):  # the session runs a minute before the app joins it
+            self.t += 0.1
+            src.read()
+        late.tick()
+        self.assertIsNone(late.build_snapshot()["overlays"]["since_green"])
+
     def test_without_reveal_the_race_shows_everyone(self):
         app, source = self.app(race_laps=5)
+        app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": False}})
         self.run_for(app, 5)
         self.assertEqual(len(app.build_snapshot()["overlays"]["standings"]), source.num_cars)
 
@@ -134,6 +190,7 @@ class ClassTagTests(unittest.TestCase):
             source.drivers[1]["UserName"] = "(P) Ayrton Vale"
             source.drivers[2]["UserName"] = "(SP) Owen Price"
             app = App(source, dict(DEFAULTS), LeagueStore(tmp))
+            app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": False}})  # everyone, from the start
             app.tick()
             from apex.league import profile_from_session
             prof = profile_from_session(app.build_snapshot()["drivers"], "Tagged")

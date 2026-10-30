@@ -9,6 +9,8 @@
 * ``POST /api/leagues/<id>/images?target=...``     upload a class/team/car/helmet image
 * ``GET  /api/logos/<id>/<file>``  serve a class logo
 * ``GET  /api/logo-library``     the built-in class logos (``web/logos/``)
+* ``GET  /api/backgrounds``      uploaded overlay / board backgrounds; ``POST`` uploads one (raw image body)
+* ``GET  /api/backgrounds/<file>``  serve one
 * ``GET  /api/update``           update status; ``POST /api/update/{check,skip,install}``
 """
 
@@ -92,6 +94,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json({"tracks": self.app.tracks.grouped(), **self.app.tracks.status()})
         if path == "/api/makes":
             return self._send_json({"makes": makes_catalogue()})
+        if path == "/api/backgrounds":
+            return self._send_json({"backgrounds": self.app.backgrounds.list()})
+        if path.startswith("/api/backgrounds/"):
+            return self._image_file(self.app.backgrounds.file(path.rsplit("/", 1)[1]))
         if path == "/api/logo-library":
             return self._send_json({"logos": logo_library()})
         if path.startswith("/api/logos/"):
@@ -119,6 +125,8 @@ class Handler(BaseHTTPRequestHandler):
         parts = path.split("/")
         if len(parts) == 7 and parts[:3] == ["", "api", "leagues"] and parts[4] == "classes" and parts[6] == "logo":
             return self._upload_image(parts[3], f"class:{parts[5]}")
+        if path == "/api/backgrounds":
+            return self._upload_background()
         if len(parts) == 5 and parts[:3] == ["", "api", "leagues"] and parts[4] == "images":
             target = parse_qs(urlparse(self.path).query).get("target", [""])[0]
             return self._upload_image(parts[3], target)
@@ -257,9 +265,22 @@ class Handler(BaseHTTPRequestHandler):
         self.app.publish()
         return self._send_json({"ok": True, "league": league})
 
+    def _upload_background(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        if not 0 < length <= MAX_IMAGE_BYTES:
+            return self._error("Image must be between 1 byte and 8 MB")
+        try:
+            name = self.app.backgrounds.save(self.rfile.read(length))
+        except (LeagueError, OSError) as e:
+            return self._error(str(e))
+        return self._send_json({"ok": True, "name": name, "backgrounds": self.app.backgrounds.list()})
+
     def _logo(self, path):
         parts = path.split("/")
-        target = self.app.leagues.logo_file(parts[3], parts[4]) if len(parts) == 5 else None
+        return self._image_file(self.app.leagues.logo_file(parts[3], parts[4]) if len(parts) == 5 else None)
+
+    def _image_file(self, target):
+        """Send a stored image (logo or background), or 404."""
         if target is None:
             return self._error("Not found", HTTPStatus.NOT_FOUND)
         data = target.read_bytes()

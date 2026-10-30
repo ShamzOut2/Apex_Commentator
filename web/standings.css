@@ -109,3 +109,21 @@ body.screen .fl-flash { top: 14px; }
 
 /* Racing within close_s of the car ahead: the interval in red. */
 .srow .c .close { color: #ff3b3b; }
+
+/* The race goes green: the header flashes green five times, with a light
+   sweeping across it each time, then stops (goFlash in standings.js). */
+.tower-head.go, .screen-head.go { position: relative; overflow: hidden; animation: go-flash .55s ease-in-out 5 both; animation-delay: var(--go-delay, 0s); }
+@keyframes go-flash {
+  0%, 100% { background-color: var(--panel); }
+  35%, 65% { background-color: #16b455; box-shadow: inset 0 0 28px rgba(255, 255, 255, .35); }
+}
+.screen-head.go { animation-name: go-flash-screen; }
+@keyframes go-flash-screen { 35%, 65% { background-color: #16b455; box-shadow: inset 0 0 40px rgba(255, 255, 255, .3); } }
+.tower-head.go::after, .screen-head.go::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .6) 50%, transparent 70%);
+  transform: translateX(-120%); animation: go-sweep .55s ease-in-out 5 both; animation-delay: var(--go-delay, 0s);
+}
+@keyframes go-sweep { 60%, 100% { transform: translateX(120%); } }
+.tower-head.go .t3 { animation: go-text .55s ease-in-out 5 both; animation-delay: var(--go-delay, 0s); }
+@keyframes go-text { 35%, 65% { color: #fff; } }

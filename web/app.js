@@ -106,6 +106,7 @@ function render() {
   renderOverlaySettings(s);
   renderChampLive(s);
   renderBoards(s);
+  renderDesktop(s);
 
   if (!s.connected) {
     $("#session-line").textContent = s.source === "iracing" ? "Waiting for iRacing…" : "Not connected";
@@ -1310,7 +1311,7 @@ const OVERLAY_FIELDS = {
     ["name_format", "Names", "select", NAME_FORMATS],
     ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
       ["time", "Time left"], ["none", "Nothing"]]],
-    ["reveal", "Fill in as drivers complete a lap (header only at the start)", "bool"],
+    ["reveal", "Race start: only the header until each driver completes lap 1 (they appear from the start of lap 2)", "bool"],
     ["show_gap", "Gap to leader / pole", "bool"],
     ["show_interval", "Interval to car ahead", "bool"],
     ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }],
@@ -1327,6 +1328,7 @@ const OVERLAY_FIELDS = {
     ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
     ["fl_flash_s", "Fastest lap flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }],
     ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"],
+    ["bg", "Background", "background"],
   ],
   laps: [
     ["visible", "On screen", "bool"],
@@ -1342,6 +1344,7 @@ const OVERLAY_FIELDS = {
     ["show_logo", "Team logos", "bool"],
     ["show_invalid", "Track invalid laps too", "bool"],
     ["practice", "Also in practice", "bool"],
+    ["bg", "Background", "background"],
   ],
   sponsors: [
     ["visible", "On screen", "bool"],
@@ -1353,8 +1356,63 @@ const OVERLAY_FIELDS = {
     ["background", "Dark panel behind", "bool"],
     ["title", "Caption above (e.g. Partners)", "text"],
     ["sponsor_ids", "Sponsors", "sponsors"],
+    ["bg", "Background", "background"],
   ],
+  gridwalk: [["bg", "Background", "background"]],
 };
+
+// -- backgrounds: none, a solid colour or an uploaded image, at any opacity --
+
+let bgLibrary = [];
+
+async function loadBackgrounds() {
+  try {
+    bgLibrary = (await api("/api/backgrounds")).backgrounds || [];
+  } catch (e) {
+    bgLibrary = [];
+  }
+  overlayFormKey = "";
+  boardSettingsKey = "";
+  if (ui.snap) render();
+}
+
+// The Background setting's fields; colour / image / opacity only when they apply.
+function backgroundFields(section, v) {
+  const out = [`<label class="ov-field">Background<select data-key="bg" data-kind="select">${[["default", "Default"], ["color", "Solid colour"], ["image", "Custom image"]]
+    .map(([o, l]) => `<option value="${o}" ${v.bg === o ? "selected" : ""}>${l}</option>`).join("")}</select></label>`];
+  if (v.bg === "color") out.push(`<label class="ov-field">Colour<input type="color" data-key="bg_color" data-kind="color" value="${esc(v.bg_color)}"></label>`);
+  if (v.bg === "image") {
+    out.push(`<div class="ov-field bg-pick">Image<div>${bgLibrary.map((name) => `<label class="bg-thumb ${v.bg_image === name ? "on" : ""}" title="Use this image">
+        <input type="radio" name="bg-${section}" data-key="bg_image" data-kind="select" value="${esc(name)}" ${v.bg_image === name ? "checked" : ""}>
+        <img src="/api/backgrounds/${encodeURIComponent(name)}" alt=""></label>`).join("")}
+      <label class="btn subtle bg-upload">Upload…<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-bg-upload="${section}" hidden></label></div></div>`);
+  }
+  if (v.bg !== "default") {
+    out.push(`<label class="ov-field">Opacity: <span class="bg-op">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
+  }
+  return out.join("");
+}
+
+document.addEventListener("input", (e) => {
+  // Show the opacity as the slider moves; it's saved when let go.
+  if (e.target.dataset.key === "bg_opacity") e.target.closest("label").querySelector(".bg-op").textContent = `${e.target.value}%`;
+});
+document.addEventListener("change", async (e) => {
+  const input = e.target.closest("[data-bg-upload]");
+  if (!input || !input.files.length) return;
+  try {
+    const res = await fetch("/api/backgrounds", { method: "POST", headers: { "Content-Type": input.files[0].type || "application/octet-stream" }, body: input.files[0] });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+    bgLibrary = data.backgrounds;
+    await cmd("overlay_settings", { overlay: input.dataset.bgUpload, values: { bg: "image", bg_image: data.name } });
+    overlayFormKey = "";
+    boardSettingsKey = "";
+    toast("Background added");
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
 
 // Tick boxes for which of the league's sponsors to show ("" = all, "none" = none).
 function sponsorPicker(sponsors, value) {
@@ -1390,6 +1448,7 @@ function renderOverlaySettings(s) {
     $(`#ov-${overlay}`).innerHTML = fields.map(([k, label, kind, opts]) => {
       const v = values[k];
       const attrs = `data-key="${k}" data-kind="${kind}"`;
+      if (kind === "background") return backgroundFields(overlay, values);
       if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
       if (kind === "number") {
         return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
@@ -1424,7 +1483,8 @@ const BOARD_LOOK = [["league_logo", "League logo in the header", "bool"],
   ["banner", "Banner", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"],
     ["right", "Down the right"]]], ["banner_id", "Which banner", "banner"],
   ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
-    ["left", "Down the left"], ["right", "Down the right"]]], ["sponsor_ids", "Which sponsors", "sponsors"]];
+    ["left", "Down the left"], ["right", "Down the right"]]], ["sponsor_ids", "Which sponsors", "sponsors"],
+  ["bg", "Background", "background"]];
 
 const BOARD_FIELDS = {
   board_championship: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
@@ -1507,6 +1567,7 @@ function renderBoardSettings(s) {
       if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
       if (kind === "number") return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" value="${v}"></label>`;
       if (kind === "sponsors") return settings[section].sponsors === "none" ? "" : sponsorPicker((s.league && s.league.sponsors) || [], v);
+      if (kind === "background") return backgroundFields(section, settings[section]);
       const choices = kind === "banner"
         ? [["", "The first of the right shape"], ...banners.map((b, i) => [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
         : opts;
@@ -1560,6 +1621,103 @@ document.addEventListener("click", (e) => {
 });
 
 $("#home-obs-url").textContent = `${location.origin}/gridwalk.html`;
+loadBackgrounds();
+
+// -- overlays straight on the user's screen (app window only) -------------------
+
+const DESK_OK = "apex.desktopOk";  // this PC shows them see-through: no check next time
+const DESK_CHECK_S = 15;
+let deskKey = "";
+let deskCheck = null;  // {page, left, timer} while asking
+
+function screenName(sc, i, all) {
+  return all.length > 1 ? `Screen ${i + 1} · ${sc.width}×${sc.height}` : "";
+}
+
+function renderDesktop(s) {
+  const d = s.desktop || { available: false, on_screen: {}, screens: [] };
+  const key = JSON.stringify(d);
+  if (key === deskKey) return;
+  deskKey = key;
+  document.querySelectorAll("[data-desk]").forEach((el) => {
+    const page = el.dataset.desk;
+    el.hidden = !d.available;
+    if (!d.available) return;
+    const on = d.on_screen[page];
+    const pick = d.screens.length > 1
+      ? `<select data-desk-screen="${page}" aria-label="Which screen">${d.screens.map((sc, i) =>
+        `<option value="${i}" ${(on ?? 0) === i ? "selected" : ""}>${esc(screenName(sc, i, d.screens))}</option>`).join("")}</select>` : "";
+    el.innerHTML = on != null
+      ? `<span class="desk-on">● On your screen</span>${pick}<button class="btn subtle" data-desk-hide="${page}">Remove</button>`
+      : `<button class="btn" data-desk-show="${page}" title="Put it straight on your screen, over the game">Show on my screen</button>${pick}`;
+  });
+  $("#desk-hide-all").hidden = !Object.keys(d.on_screen).length;
+  document.querySelectorAll(".desk-help").forEach((el) => { el.hidden = !d.available; });
+}
+
+async function deskShow(page, screen) {
+  const r = await cmd("desktop_show", { page, screen });
+  if (!r) return;
+  let ok = false;
+  try {
+    ok = localStorage.getItem(DESK_OK) === "1";
+  } catch (e) { /* storage unavailable */ }
+  if (!ok) startDeskCheck(page);
+}
+
+// Can they see through it? If it came up solid instead, it's covering their
+// screen: no answer within DESK_CHECK_S seconds takes it down by itself.
+function startDeskCheck(page) {
+  stopDeskCheck();
+  deskCheck = { page, left: DESK_CHECK_S };
+  const tick = () => {
+    $("#desk-check-text").textContent = `Can you see your screen through the overlay? If not, it goes away by itself in ${deskCheck.left} s.`;
+    if (deskCheck.left-- <= 0) {
+      cmd("desktop_hide", { page });
+      stopDeskCheck();
+      toast("Overlay removed. If it covered your screen, on-screen overlays don't work on this PC: use the OBS or browser link instead.", true);
+    }
+  };
+  deskCheck.timer = setInterval(tick, 1000);
+  tick();
+  $("#desk-check").hidden = false;
+}
+
+function stopDeskCheck() {
+  if (deskCheck) clearInterval(deskCheck.timer);
+  deskCheck = null;
+  $("#desk-check").hidden = true;
+}
+
+$("#desk-check-yes").addEventListener("click", () => {
+  try {
+    localStorage.setItem(DESK_OK, "1");
+  } catch (e) { /* storage unavailable */ }
+  stopDeskCheck();
+  toast("Great: overlays will go straight on screen from now on");
+});
+$("#desk-check-no").addEventListener("click", () => {
+  if (deskCheck) cmd("desktop_hide", { page: deskCheck.page });
+  stopDeskCheck();
+  toast("Removed. Use the OBS or browser link instead.");
+});
+document.addEventListener("click", (e) => {
+  const show = e.target.closest("[data-desk-show]");
+  if (show) {
+    const pick = document.querySelector(`[data-desk-screen="${show.dataset.deskShow}"]`);
+    deskShow(show.dataset.deskShow, pick ? +pick.value : 0);
+  }
+  const hide = e.target.closest("[data-desk-hide]");
+  if (hide) cmd("desktop_hide", { page: hide.dataset.deskHide });
+});
+document.addEventListener("change", (e) => {
+  const pick = e.target.closest("[data-desk-screen]");
+  // Already on screen: move it to the screen picked.
+  if (pick && ui.snap && ui.snap.desktop && ui.snap.desktop.on_screen[pick.dataset.deskScreen] != null) {
+    cmd("desktop_show", { page: pick.dataset.deskScreen, screen: +pick.value });
+  }
+});
+$("#desk-hide-all").addEventListener("click", () => cmd("desktop_hide", {}));
 
 // Pop out: the app opens the page in its own window; in a browser, a new browser window.
 document.addEventListener("click", async (e) => {

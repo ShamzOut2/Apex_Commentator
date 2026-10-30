@@ -79,3 +79,11 @@ body.screen { background: #0b0d12; }
 .screen-table .slower { color: var(--red); }
 .screen-table .invalid { color: var(--muted); text-decoration: line-through; }
 .screen-table .state { font-size: .7em; font-weight: 800; letter-spacing: .06em; color: var(--muted); }
+
+/* On the user's own screen (?desktop=1): only fully see-through pixels are left
+   out, so soft shadows would show as dark smudges. */
+body.desktop *, body.desktop *::before, body.desktop *::after { box-shadow: none !important; text-shadow: none !important; }
+
+/* A custom Background (colour or image, see setBackground in common.js) takes
+   the place of the boards' and full screens' own backdrop. */
+body.custom-bg .board, body.custom-bg .screen-page { background: none; }

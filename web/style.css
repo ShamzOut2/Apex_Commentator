@@ -510,3 +510,30 @@ a.btn { color: inherit; text-decoration: none; }
 /* Timing table: a driver joining the list fades in (rows slide via flipRows). */
 #standings-rows tr.row-enter { animation: row-enter .35s ease both; }
 @keyframes row-enter { from { opacity: 0; } }
+
+/* "Show on my screen" next to each overlay's OBS link. */
+.desk { display: inline-flex; align-items: center; gap: 6px; }
+.obs-url.desk-line { margin-top: -6px; }
+.obs-url.desk-line:has(.desk[hidden]) { display: none; }
+p.hint .desk { margin-left: 6px; }
+.desk[hidden] { display: none; }
+.desk select { padding: 3px 6px; }
+.desk-on { color: var(--good); font-weight: 700; font-size: 12px; }
+.desk-help { margin-top: -4px; }
+/* The first time: is it see-through? Pinned at the top, over everything. */
+.desk-check {
+  position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 1000;
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius);
+  background: var(--panel-2); border: 1px solid var(--accent); box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+}
+.desk-check[hidden] { display: none; }
+
+/* Background setting: pick an uploaded image (or upload one). */
+.ov-form .bg-pick { grid-column: 1 / -1; }
+.bg-pick > div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 3px; }
+.bg-thumb { position: relative; width: 96px; height: 54px; border-radius: 6px; overflow: hidden; border: 2px solid var(--line); cursor: pointer; }
+.bg-thumb.on { border-color: var(--accent); }
+.bg-thumb input { position: absolute; opacity: 0; }
+.bg-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ov-form input[type="color"] { width: 64px; height: 30px; padding: 2px; }
+.ov-form input[type="range"] { width: 100%; }

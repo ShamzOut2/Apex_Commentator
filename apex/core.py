@@ -10,6 +10,7 @@ import time
 from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
+from .backgrounds import Backgrounds
 from .gaps import GapTimer
 from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
@@ -207,6 +208,8 @@ class App:
         self._grid_order = []      # car_idx in starting order
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
+        self._green = {}           # race session number -> session time it went green (the header flash)
+        self._last_state = {}      # session number -> session state last seen
         self._fl_session = None    # fastest laps: the session they're for,
         self._fl_records = {}      # "overall" / class key -> fastest lap so far,
         self._fl_flash = None      # and the newest one, for the flash on stream
@@ -215,6 +218,8 @@ class App:
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
         self.photobooth = None     # set by __main__ (needs the user data folder)
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
+        self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
+        self.backgrounds = Backgrounds()  # __main__ gives it a folder: overlay / board background images
         self.laps = LapTracker()
         self.gaps = GapTimer()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
@@ -288,6 +293,13 @@ class App:
         timeline_frame = replace(frame, session_num=num, session_time=t)
         self.detector.update(timeline_frame, self._drivers, self._track_m, self._is_race(timeline_frame))
         if self._is_race(timeline_frame):
+            # The green: racing now, and before the race (or the very start
+            # of the session, when the app was there from the beginning).
+            was = self._last_state.get(num)
+            if frame.session_state == STATE_RACING and num not in self._green and (
+                    (was is not None and was < STATE_RACING) or (was is None and t < 5.0)):
+                self._green[num] = t
+            self._last_state[num] = frame.session_state
             self._race.update(timeline_frame)
             self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
         self.laps.green_s = self.overlays.get()["laps"]["green_s"]
@@ -382,6 +394,7 @@ class App:
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                     "photobooth": self.photobooth.status() if self.photobooth else None,
+                    "desktop": self._desktop_snapshot(),
                     **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
                                  "laps": {"active": False, "camera": None, "trackers": [], "all": [],
@@ -471,6 +484,7 @@ class App:
                 "photobooth": self.photobooth.status() if self.photobooth else None,
                 "classes": self._ordered_classes(classes),
                 "events": events[-200:],
+                "desktop": self._desktop_snapshot(),
                 "league": self._league_summary(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
@@ -669,13 +683,20 @@ class App:
         entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
         # Standings: race order in a race; otherwise fastest clean lap, and
         # only drivers who have set one (blank at the start of qualifying).
-        # With "reveal", a driver only appears once they've completed a lap:
-        # the tower fills up as the field crosses the line.
+        # With "reveal", a race shows just the header (session, laps / time
+        # left) until the green, then each driver appears once they've done a
+        # full lap of the race (they're on lap 2): the tower fills up as the
+        # field crosses the line at the end of lap 1.
         reveal = settings["standings"]["reveal"]
+        started = frame.session_state >= STATE_RACING
+
+        def lap_done(r):
+            return started and (r["lap"] or 0) >= 2 and (r["laps_completed"] or 0) >= 1
+
         standings = []
         if is_race:
             for r in rows:
-                if r["pos"] is not None and (not reveal or (r["laps_completed"] or 0) >= 1):
+                if r["pos"] is not None and (not reveal or lap_done(r)):
                     standings.append(dict(entries[r["car_idx"]], pos=r["pos"], class_pos=r["class_pos"],
                                           time=r["gap"], pos_change=r["pos_change"]))
         else:
@@ -720,6 +741,9 @@ class App:
             "session_kind": "race" if is_race else ("qualify" if "qualify" in kind else (kind or "practice")),
             # Racing under green: close intervals mean something (not behind the safety car).
             "green": is_race and frame.session_state == STATE_RACING and not frame.session_flags & CAUTION_FLAGS,
+            # Seconds since the race went green (the header flashes green at the start), or None.
+            "since_green": round(frame.timeline()[1] - self._green[frame.timeline()[0]], 2)
+            if is_race and frame.timeline()[0] in self._green else None,
             "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
             "fastest_flash": flash,
@@ -943,12 +967,47 @@ class App:
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "board_", "popout")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "board_", "popout", "desktop_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
         self.publish()
         return result or {}
+
+    # Overlays that can go straight on the user's screen (see desktop.py):
+    # page -> (name, path). "desktop" lets the page know (no drop shadows).
+    DESKTOP_PAGES = {
+        "standings": ("Standings", "/standings.html"),
+        "standings_screen": ("Standings (full screen)", "/standings.html?screen=1"),
+        "laps": ("Lap tracker", "/laps.html"),
+        "laps_screen": ("Lap tracker (full screen)", "/laps.html?screen=1"),
+        "sponsors": ("Sponsors", "/sponsors.html"),
+        "board": ("Boards", "/board.html"),
+        "gridwalk": ("Grid walk", "/gridwalk.html"),
+    }
+
+    def _desktop_snapshot(self):
+        d = self.desktop
+        if d is None:
+            return {"available": False, "on_screen": {}, "screens": []}
+        return {"available": True, "on_screen": d.on_screen(), "screens": d.screens()}
+
+    def cmd_desktop_show(self, page, screen=0):
+        """Put an overlay on the user's own screen (``screen``: which monitor)."""
+        if page not in self.DESKTOP_PAGES:
+            raise CommandError("That overlay can't go on screen.")
+        if self.desktop is None:
+            raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
+        name, path = self.DESKTOP_PAGES[page]
+        if not self.desktop.show(page, f"{path}{'&' if '?' in path else '?'}desktop=1", name, int(screen or 0)):
+            raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
+        return {"on_screen": self.desktop.on_screen()}
+
+    def cmd_desktop_hide(self, page=None):
+        """Take an on-screen overlay down (all of them, with no ``page``)."""
+        if self.desktop is not None:
+            self.desktop.hide(page)
+        return {"on_screen": self.desktop.on_screen() if self.desktop else {}}
 
     POPOUT_PAGES = {"timing": "Timing", "boards": "Boards"}
 
