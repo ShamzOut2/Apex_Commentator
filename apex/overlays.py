@@ -61,6 +61,16 @@ DEFAULTS = {
         "sponsor_ids": "",        # which sponsors, comma separated ("" = all, "none" = none)
         **BACKGROUND,
     },
+    # "Who's this": a board at the bottom centre for the driver on camera (driver.html).
+    "driver": {
+        "visible": True,
+        "hide_s": 8.0,            # seconds it stays up after the camera moves to someone (0 = while they're on camera)
+        "name_format": "full",
+        "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
+        "show_class": True,       # the class, in multiclass races
+        "show_position": True,    # P3 (and P1 in class, in multiclass races)
+        **BACKGROUND,
+    },
     # The grid walk's own settings are with the grid walk; this is just its background.
     "gridwalk": dict(BACKGROUND),
     # Full-screen boards (board.html), one section each. Every board has:

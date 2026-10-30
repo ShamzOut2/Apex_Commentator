@@ -11,6 +11,14 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- **Driver on camera**: a small board at the bottom centre names the driver
+  you're spectating (position, number, name, team and car). It slides in each
+  time the camera moves to someone, and can hide itself after a few seconds.
+
 ## v0.4.4
 
 ### Fixes

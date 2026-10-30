@@ -747,11 +747,23 @@ class App:
             "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
             "fastest_flash": flash,
+            # The driver on camera, for the "who's this" board (driver.html).
+            "driver": self._camera_driver(frame, rows, entries, is_race),
             # "all": every driver, for the full-screen timing page (timed
             # drivers by lap time, then the rest).
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
                      "all": sorted(everyone, key=lambda x: (x["pos"] or 10_000, x["name"].lower()))},
         }
+
+    @staticmethod
+    def _camera_driver(frame, rows, entries, is_race):
+        """Who the camera is on: their overlay details and where they are, or None."""
+        idx = frame.cam_car_idx
+        row = next((r for r in rows if r["car_idx"] == idx), None)
+        if row is None or idx not in entries or not row["in_world"]:
+            return None
+        return dict(entries[idx], pos=row["pos"], class_pos=row["class_pos"],
+                    pos_change=row.get("pos_change") if is_race else None)
 
     def _add_start_positions(self, rows, is_race):
         """Grid position (overall and in class) and places gained since, in races."""
@@ -984,6 +996,7 @@ class App:
         "sponsors": ("Sponsors", "/sponsors.html"),
         "board": ("Boards", "/board.html"),
         "gridwalk": ("Grid walk", "/gridwalk.html"),
+        "driver": ("Driver on camera", "/driver.html"),
     }
 
     def _desktop_snapshot(self):

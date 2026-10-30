@@ -1357,6 +1357,18 @@ const OVERLAY_FIELDS = {
     ["bg", "Background", "background"],
   ],
   gridwalk: [["bg", "Background", "background"]],
+  driver: [
+    ["visible", "On screen", "bool"],
+    ["hide_s", "Hide after (s; 0 = while they're on camera)", "number", { min: 0, max: 60, step: 1 }],
+    ["name_format", "Names", "select", NAME_FORMATS],
+    ["show_position", "Position (and in class)", "bool"],
+    ["show_number", "Car number", "bool"],
+    ["show_team", "Team", "bool"],
+    ["show_logo", "Team logo", "bool"],
+    ["show_make", "Car badge", "bool"],
+    ["show_class", "Class (multiclass)", "bool"],
+    ["bg", "Background", "background"],
+  ],
 };
 
 // -- backgrounds: none, a solid colour or an uploaded image, at any opacity --
@@ -1610,6 +1622,7 @@ $("#board-settings").addEventListener("change", (e) => {
 });
 $("#url-board").textContent = `${location.origin}/board.html`;
 $("#url-sponsors").textContent = `${location.origin}/sponsors.html`;
+$("#url-driver").textContent = `${location.origin}/driver.html`;
 
 for (const page of ["standings", "laps"]) {
   $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;

@@ -136,6 +136,20 @@ class StandingsOverlayTests(unittest.TestCase):
         late.tick()
         self.assertIsNone(late.build_snapshot()["overlays"]["since_green"])
 
+    def test_driver_on_camera(self):
+        app, source = self.app()
+        self.run_for(app, 20)
+        app.command("watch", {"car_idx": 5})
+        self.run_for(app, 1)
+        snap = app.build_snapshot()
+        d = snap["overlays"]["driver"]
+        row = next(r for r in snap["drivers"] if r["car_idx"] == 5)
+        self.assertEqual((d["car_idx"], d["number"], d["pos"], d["class_pos"]), (5, row["number"], row["pos"], row["class_pos"]))
+        self.assertIn("team_logo", d)
+        source.cam_car_idx = 999  # on nobody (e.g. a scenic camera)
+        self.run_for(app, 1)
+        self.assertIsNone(app.build_snapshot()["overlays"]["driver"])
+
     def test_without_reveal_the_race_shows_everyone(self):
         app, source = self.app(race_laps=5)
         app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": False}})

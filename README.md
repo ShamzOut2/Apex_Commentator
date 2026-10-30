@@ -37,18 +37,13 @@ OBS dock.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.4**
+**Coming in the next update**
 
-### Fixes
+### New features
 
-- An overlay's or board's background now only colours the overlay or board
-  itself (the tower, the lap trackers, the sponsors panel, the grid walk
-  cards, the board), not the whole screen.
-- Buttons and settings stopped responding once several tabs, pop-outs or
-  on-screen overlays were open. That's why changing things during a session
-  and after an update often didn't work. They now always respond.
-- "Show on my screen", **Remove** and **Remove all from my screen** work
-  reliably.
+- **Driver on camera**: a small board at the bottom centre names the driver
+  you're spectating (position, number, name, team and car). It slides in each
+  time the camera moves to someone, and can hide itself after a few seconds.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -334,6 +329,16 @@ are kept in `data/overlays.json`.
     time. Set how many seconds it stays (3 or more). It can also flash each
     class's new fastest lap. Races skip the first lap; laps set before the
     app connected don't flash.
+- **Driver on camera** (`/driver.html`): a small board at the bottom centre
+  naming the driver the camera is on. It shows their position (and in class,
+  in multiclass races), car number in the class colour, name, class, team and
+  logo, and car badge.
+  - When the camera moves to someone else, the old board slides away and the
+    new one slides up, opening from the middle with a light sweep.
+  - **Hide after**: how many seconds it stays up after each camera change
+    (0 keeps it up while that driver is on camera).
+  - Choose the details shown, the name style and the panel background. It
+    only shows when the camera is on a driver, not on scenic cameras.
 - **Sponsors** (`/sponsors.html`): the active league's sponsor logos (added
   in the League builder) over the race. Choose a corner or the middle of an
   edge, all together or one at a time (and how long each shows), the size,
@@ -803,6 +808,7 @@ web/           the overlay UI (plain HTML/CSS/JS, no build step)
   gridwalk.html  grid walk broadcast graphic for OBS (gridwalk.js)
   standings.html, laps.html  standings tower and qualifying lap tracker for OBS
   sponsors.html  sponsor logos for OBS
+  driver.html  the driver on camera, for OBS
   common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos
 packaging/     PyInstaller recipe (apex.spec) and Inno Setup installer script
