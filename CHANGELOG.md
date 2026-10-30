@@ -11,6 +11,14 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- An overlay's background now only colours the overlay itself (the tower,
+  the lap trackers, the sponsors panel, the grid walk cards), not the whole
+  screen.
+
 ## v0.4.3
 
 ### New features

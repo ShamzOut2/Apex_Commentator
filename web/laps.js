@@ -106,7 +106,7 @@ function render() {
     return renderScreen(ov);
   }
   const cfg = ov.settings.laps;
-  setBackground(cfg, snap.connected && cfg.visible && ov.laps.active);
+  setPanels(cfg);
   const laps = ov.laps;
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const want = new Map();
