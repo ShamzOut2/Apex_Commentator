@@ -37,7 +37,7 @@ OBS dock.
 ## What's new
 
 <!-- whats-new:start -->
-**Coming in the next update**
+**v0.4.4**
 
 ### Fixes
 
