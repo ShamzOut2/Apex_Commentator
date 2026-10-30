@@ -240,7 +240,7 @@ function render() {
     </div>${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
   tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("hidden", !visible);
-  setBackground(cfg, visible);
+  setPanels(cfg);
   tower.style.width = `${width}px`;
   tower.style.setProperty("--grid", grid);
   if (visible && html !== shown) {

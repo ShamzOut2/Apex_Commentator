@@ -181,3 +181,11 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
   filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)); animation: label-in .6s .35s both; }
 .track-logo.front { right: 70px; top: 300px; }
 .track-logo.rear { left: 70px; bottom: 190px; }
+
+/* Background setting on overlays: an uploaded image inside each panel, under
+   its contents, at the opacity set (setPanels in common.js). */
+body.panel-image .walk-title, body.panel-image .card { isolation: isolate; }
+body.panel-image .walk-title::before, body.panel-image .card::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
+}

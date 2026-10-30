@@ -14,6 +14,10 @@ const fmtPts = (v) => (v == null ? "" : Number.isInteger(v) ? String(v) : v.toFi
 const makeChip = (m) => (m ? `<span class="make">${m.logo ? `<img src="${esc(m.logo)}" alt="${esc(m.name)}">` : ""}</span>${m.withName ? `<span class="make-name">${esc(m.name)}</span>` : ""}` : "");
 const ROW_SPACE = 820;  // px for table rows under the header (less with a horizontal banner)
 
+// A Background colour or image: the board becomes a panel of that, and the
+// rest of the screen stays see-through (board.css).
+const panelled = (b) => b.settings.bg === "color" || (b.settings.bg === "image" && !!b.settings.bg_image);
+
 // The car number, in the driver's class colour.
 const numberChip = (r) => (r.number ? `<span class="num" style="${r.class_color ? `background:${esc(r.class_color)};color:${inkFor(r.class_color)}` : ""}">${esc(r.number)}</span>` : "");
 
@@ -95,7 +99,6 @@ function calendarHtml(b) {
 
 function render(snap) {
   const b = snap.board;
-  setBackground(b && b.settings, !!b);
   if (!b) {
     if (shown !== "none") {
       leave();  // fade the board out
@@ -111,7 +114,7 @@ function render(snap) {
   else if (!b.rows.length) body = '<div class="empty-board">Nothing to show yet: no results in this championship.</div>';
   else {
     // Long lists go into two columns rather than shrinking past readable.
-    const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
+    const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0) - (panelled(b) ? 56 : 0)
       - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? 110 : 0);
     const cols = columns(b);
     const split = b.rows.length > 20 ? 2 : 1;
@@ -138,7 +141,8 @@ function render(snap) {
   const key = [b.kind, b.title, b.subtitle].join("|");
   const steady = key === boardKey;
   boardKey = key;
-  const html = `<div class="board ${b.kind}" style="${b.accent ? `--accent-c:${esc(b.accent)}` : ""}">
+  setPanels(b.settings);
+  const html = `<div class="board ${b.kind} ${panelled(b) ? "panelled" : ""}" style="${b.accent ? `--accent-c:${esc(b.accent)}` : ""}">
     ${edge("left")}
     <div class="center">
       ${edge("top")}

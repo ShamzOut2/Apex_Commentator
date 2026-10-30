@@ -73,19 +73,17 @@ function saveSettings() {
 // ---------------------------------------------------------------------------
 
 function connectStream() {
-  const es = new EventSource("/api/stream");
-  es.onmessage = (msg) => {
-    ui.snap = JSON.parse(msg.data);
+  liveStream((snap) => {
+    ui.snap = snap;
     // After an update the server restarts on the new version: load its UI.
     if (ui.version && ui.snap.version && ui.snap.version !== ui.version) return location.reload();
     ui.version = ui.version || ui.snap.version;
     $(".brand").title = `Apex Commentator v${ui.snap.version}`;
     render();
-  };
-  es.onerror = () => {
+  }, () => {
     $("#status-dot").classList.remove("on");
     $("#session-line").textContent = "Overlay server not reachable, retrying…";
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1377,8 +1375,12 @@ async function loadBackgrounds() {
 }
 
 // The Background setting's fields; colour / image / opacity only when they apply.
+// On an overlay it's the overlay's own panels; a board (a whole screen) and
+// the full-screen versions fill their screen.
 function backgroundFields(section, v) {
-  const out = [`<label class="ov-field">Background<select data-key="bg" data-kind="select">${[["default", "Default"], ["color", "Solid colour"], ["image", "Custom image"]]
+  const label = section.startsWith("board") ? "Board background"
+    : section === "standings" || section === "laps" ? "Panel background (full screen: the whole screen)" : "Panel background";
+  const out = [`<label class="ov-field">${label}<select data-key="bg" data-kind="select">${[["default", "Default"], ["color", "Solid colour"], ["image", "Custom image"]]
     .map(([o, l]) => `<option value="${o}" ${v.bg === o ? "selected" : ""}>${l}</option>`).join("")}</select></label>`];
   if (v.bg === "color") out.push(`<label class="ov-field">Colour<input type="color" data-key="bg_color" data-kind="color" value="${esc(v.bg_color)}"></label>`);
   if (v.bg === "image") {

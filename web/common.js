@@ -431,11 +431,38 @@ function fitStage(stage) {
   if (new URLSearchParams(location.search).has("desktop")) document.body.classList.add("desktop");
 }
 
-// The page's Background setting (overlays and boards): nothing, a solid
-// colour or an uploaded image, at the opacity set. It fills the whole page
-// behind everything, and only while there's something on screen (pass
-// visible), so an empty overlay stays see-through. Boards and full-screen
-// pages drop their own backdrop for it (body.custom-bg, overlay.css).
+// The Background setting (a solid colour or an uploaded image, at the opacity
+// set) means two things:
+// - overlays (tower, lap tracker, sponsors, grid walk): the overlay's own
+//   panels, nothing else (setPanels);
+// - boards and full-screen pages, which are a whole screen: that screen's
+//   backdrop (setBackground), shown only while there's something on screen.
+
+// Overlays: their panels take the colour, or show the image inside them
+// (overlay.css / gridwalk.css: body.panel-image). Everything else stays
+// see-through.
+function setPanels(cfg) {
+  const mode = cfg ? cfg.bg : "default";
+  const st = document.body.style;
+  const op = (cfg && cfg.bg_opacity != null ? cfg.bg_opacity : 100) / 100;
+  const image = mode === "image" && cfg.bg_image;
+  document.body.classList.toggle("custom-panels", mode === "color" || !!image);
+  document.body.classList.toggle("panel-image", !!image);
+  if (mode === "color") {
+    const [r, g, b] = hexToRgb(cfg.bg_color);
+    st.setProperty("--panel", `rgba(${r}, ${g}, ${b}, ${op})`);
+  } else if (image) {
+    st.setProperty("--panel", "transparent");
+    st.setProperty("--panel-image", `url("/api/backgrounds/${encodeURIComponent(cfg.bg_image)}")`);
+    st.setProperty("--panel-opacity", String(op));
+  } else {
+    st.removeProperty("--panel");
+  }
+}
+
+// Boards and full-screen pages: the whole page's backdrop. Only while there's
+// something on screen (visible), so an empty board source stays see-through.
+// They drop their own backdrop for it (body.custom-bg, overlay.css).
 let pageBg = null;
 
 function setBackground(cfg, visible) {
@@ -457,15 +484,36 @@ function setBackground(cfg, visible) {
   pageBg.style.opacity = custom && visible ? String((cfg.bg_opacity ?? 100) / 100) : "0";
 }
 
+// The app's live snapshots: onSnap(snapshot) for each, onDown() when the app
+// can't be reached (it retries by itself). Pages in the same browser share one
+// connection (stream-worker.js): a browser allows only 6 to the same address,
+// and clicks need one too. Where shared workers aren't available, the page
+// has its own.
+function liveStream(onSnap, onDown = () => {}) {
+  if (typeof SharedWorker === "function") {
+    try {
+      const worker = new SharedWorker("/stream-worker.js", { name: "apex-live" });
+      worker.port.onmessage = (m) => {
+        if (m.data.type === "snapshot") onSnap(JSON.parse(m.data.data));
+        else onDown();
+      };
+      worker.port.start();
+      addEventListener("pagehide", () => worker.port.postMessage("bye"));
+      return;
+    } catch (e) { /* not allowed here: a stream of its own */ }
+  }
+  const stream = new EventSource("/api/stream");
+  stream.onmessage = (m) => onSnap(JSON.parse(m.data));
+  stream.onerror = onDown;
+}
+
 // Follow the app's live snapshot; reload after an app update so OBS picks up
 // new graphics.
 function followSnapshots(onSnap) {
-  const stream = new EventSource("/api/stream");
   let version = null;
-  stream.onmessage = (msg) => {
-    const snap = JSON.parse(msg.data);
+  liveStream((snap) => {
     if (version && snap.version && snap.version !== version) return location.reload();
     version = version || snap.version;
     onSnap(snap);
-  };
+  });
 }

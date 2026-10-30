@@ -190,7 +190,7 @@ function render() {
   const pair = entries.slice(g.index, g.index + 2);
   progress = { elapsed: g.elapsed, interval: g.interval, running: g.running && g.visible, at: performance.now() };
   const show = g.visible && pair.length > 0;
-  setBackground(snap.overlays && snap.overlays.settings.gridwalk, show);
+  setPanels(snap.overlays && snap.overlays.settings.gridwalk);
   // Only rebuild when what is on screen changes, so animations play once.
   const key = JSON.stringify([show, g.style, g.index, pair, pair.map((e) => classes.get(e.class_key) || null),
     entries.length, snap.league, snap.session && snap.session.track]);
@@ -215,12 +215,8 @@ function tickProgress() {
 requestAnimationFrame(tickProgress);
 
 stage.classList.add("hidden");
-const stream = new EventSource("/api/stream");
-let version = null;
-stream.onmessage = (msg) => {
-  snap = JSON.parse(msg.data);
-  // After an app update, reload so OBS picks up the new graphics.
-  if (version && snap.version && snap.version !== version) return location.reload();
-  version = version || snap.version;
+// After an app update, reload so OBS picks up the new graphics (followSnapshots).
+followSnapshots((s) => {
+  snap = s;
   render();
-};
+});

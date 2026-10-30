@@ -87,3 +87,14 @@ body.desktop *, body.desktop *::before, body.desktop *::after { box-shadow: none
 /* A custom Background (colour or image, see setBackground in common.js) takes
    the place of the boards' and full screens' own backdrop. */
 body.custom-bg .board, body.custom-bg .screen-page { background: none; }
+
+/* Background setting on overlays: an uploaded image inside each panel, under
+   its contents, at the opacity set (setPanels in common.js). */
+body.panel-image .head-box, body.panel-image .block, body.panel-image .empty, body.panel-image .tracker, body.panel-image .sp.panel { isolation: isolate; }
+body.panel-image .head-box, body.panel-image .block, body.panel-image .empty, body.panel-image .tracker { position: relative; }
+body.panel-image .head-box::before, body.panel-image .block::before, body.panel-image .empty::before, body.panel-image .tracker::before, body.panel-image .sp.panel::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
+}
+/* Sponsors: a colour or image setting gives the logos a panel to sit on. */
+body.custom-panels .sp.panel { background: var(--panel); }

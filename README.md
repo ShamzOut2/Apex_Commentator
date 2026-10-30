@@ -37,23 +37,18 @@ OBS dock.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.3**
+**v0.4.4**
 
-### New features
+### Fixes
 
-- **Show on my screen**: put any overlay or board straight on your monitor,
-  over iRacing, instead of using OBS or a browser. Pick the monitor; your
-  mouse and keyboard go straight through to the game.
-- **Backgrounds** for every overlay and board: the default look, a solid
-  colour or your own image, each with adjustable opacity.
-
-### Improvements
-
-- The standings tower starts each race with just the header (laps or time
-  left). Each driver appears as they finish lap 1, and nobody shows before
-  the green. This is now on by default.
-- When a race goes green, the standings header flashes green five times
-  with a light sweep, then stops.
+- An overlay's or board's background now only colours the overlay or board
+  itself (the tower, the lap trackers, the sponsors panel, the grid walk
+  cards, the board), not the whole screen.
+- Buttons and settings stopped responding once several tabs, pop-outs or
+  on-screen overlays were open. That's why changing things during a session
+  and after an update often didn't work. They now always respond.
+- "Show on my screen", **Remove** and **Remove all from my screen** work
+  reliably.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -386,26 +381,36 @@ drivers their own number; the lap tracker can show it.
 
 ## Backgrounds
 
-Every overlay and board has a **Background** setting:
+Every overlay and board has a background setting:
 - **Overlays tab:** standings, lap tracker and sponsors.
 - **Boards tab:** each board, under *What each board shows*.
 - **Grid walk tab:** the grid walk.
 
 The choices:
-- **Default**: overlays are see-through; boards and the full-screen versions
-  keep their own dark backdrop.
+- **Default**: the normal dark panels on overlays, and the boards' own
+  backdrop.
 - **Solid colour**: pick any colour.
 - **Custom image**: upload a picture (PNG, JPG, WebP or SVG, up to 8 MB) or
-  pick one uploaded before. It fills the screen, cropped to fit.
+  pick one uploaded before.
 
-Colour and image both have an **Opacity** slider (0–100%). The background only
-shows while there's something on screen (a board, a visible tower), so an
-empty OBS source stays see-through. Uploaded backgrounds are kept with the app's
-data and can be used by any overlay or board.
+Colour and image both have an **Opacity** slider (0–100%).
 
-On your own screen (*Show on my screen*), a background is either fully there
-or not: only fully see-through parts show what's behind, so a part-opaque
-background shows as solid.
+What it colours depends on what it is:
+- **On an overlay** (the standings tower, lap trackers, sponsors panel, grid
+  walk cards), the setting is the overlay's own panels: their background
+  takes the colour, or shows the image inside them, behind the text. The
+  rest of the screen stays see-through, so the race is never covered.
+- **On a board**, it's the board's own panel: the board sits on a rounded
+  panel of that colour or image, sized to its contents, and the rest of the
+  screen stays see-through.
+- **On a full-screen version** (full-screen standings or lap tracker), which
+  is a whole screen, it's that screen's backdrop.
+
+Uploaded backgrounds are kept with the app's data and can be used by any
+overlay or board.
+
+On your own screen (*Show on my screen*), a part-opaque colour or image shows
+as solid: only fully see-through parts can show what's behind.
 
 ## Overlays on your own screen (no OBS)
 
