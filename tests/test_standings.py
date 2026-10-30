@@ -111,6 +111,31 @@ class StandingsOverlayTests(unittest.TestCase):
         lap = {r["car_idx"]: r["lap"] for r in app.build_snapshot()["drivers"]}
         self.assertTrue(all(lap[e["car_idx"]] >= 2 for e in shown))
 
+    def test_race_start_is_marked_for_the_green_flash(self):
+        app, source = self.app(race_laps=5)
+        real = source.read
+        state = {"green": False}
+
+        def read():
+            f = real()
+            if not state["green"]:
+                f.session_state = 3  # pace laps
+            return f
+
+        source.read = read
+        self.run_for(app, 10)
+        self.assertIsNone(app.build_snapshot()["overlays"]["since_green"])
+        state["green"] = True
+        self.run_for(app, 2)
+        self.assertAlmostEqual(app.build_snapshot()["overlays"]["since_green"], 2.0, delta=0.15)
+        # Joining a race already under way: no start to flash.
+        late, src = self.app(race_laps=5)
+        for _ in range(600):  # the session runs a minute before the app joins it
+            self.t += 0.1
+            src.read()
+        late.tick()
+        self.assertIsNone(late.build_snapshot()["overlays"]["since_green"])
+
     def test_without_reveal_the_race_shows_everyone(self):
         app, source = self.app(race_laps=5)
         app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": False}})

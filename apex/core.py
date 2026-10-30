@@ -208,6 +208,8 @@ class App:
         self._grid_order = []      # car_idx in starting order
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
+        self._green = {}           # race session number -> session time it went green (the header flash)
+        self._last_state = {}      # session number -> session state last seen
         self._fl_session = None    # fastest laps: the session they're for,
         self._fl_records = {}      # "overall" / class key -> fastest lap so far,
         self._fl_flash = None      # and the newest one, for the flash on stream
@@ -291,6 +293,13 @@ class App:
         timeline_frame = replace(frame, session_num=num, session_time=t)
         self.detector.update(timeline_frame, self._drivers, self._track_m, self._is_race(timeline_frame))
         if self._is_race(timeline_frame):
+            # The green: racing now, and before the race (or the very start
+            # of the session, when the app was there from the beginning).
+            was = self._last_state.get(num)
+            if frame.session_state == STATE_RACING and num not in self._green and (
+                    (was is not None and was < STATE_RACING) or (was is None and t < 5.0)):
+                self._green[num] = t
+            self._last_state[num] = frame.session_state
             self._race.update(timeline_frame)
             self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
         self.laps.green_s = self.overlays.get()["laps"]["green_s"]
@@ -732,6 +741,9 @@ class App:
             "session_kind": "race" if is_race else ("qualify" if "qualify" in kind else (kind or "practice")),
             # Racing under green: close intervals mean something (not behind the safety car).
             "green": is_race and frame.session_state == STATE_RACING and not frame.session_flags & CAUTION_FLAGS,
+            # Seconds since the race went green (the header flashes green at the start), or None.
+            "since_green": round(frame.timeline()[1] - self._green[frame.timeline()[0]], 2)
+            if is_race and frame.timeline()[0] in self._green else None,
             "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
             "fastest_flash": flash,

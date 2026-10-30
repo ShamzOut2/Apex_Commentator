@@ -59,6 +59,22 @@ function moveOf(car) {
   return { cls: m.up ? "moved-up" : "moved-down", style };
 }
 
+// Race start: the header flashes green GO_FLASHES times as the race goes
+// green, then stops (only if this page saw the start, not when opened later).
+const GO_FLASH_MS = 550;
+const GO_FLASHES = 5;
+let goAt = -1e9;
+
+function goFlash(ov) {
+  const since = ov.since_green;
+  if (ov.session_kind === "race" && since != null && since >= 0 && since * 1000 < GO_FLASH_MS * GO_FLASHES) {
+    goAt = performance.now() - since * 1000;
+  }
+  const style = ongoing(goAt, GO_FLASH_MS * GO_FLASHES);
+  // The header, its light sweep and its text all run off the same clock.
+  return style ? ` go" style="--go-delay:${style.split(":")[1]}` : "";
+}
+
 // The purple stopwatch by the fastest lap's holder: overall, or each class's in "by class".
 function fastestIcon(e, cfg, classMode) {
   if (!cfg.show_fastest_icon || !(classMode ? e.class_fastest : e.fastest)) return "";
@@ -218,7 +234,7 @@ function render() {
   const width = 430 + cols.reduce((n, c) => n + parseInt(c[1], 10) + 8, 0) - (cols.length ? 60 : 0);
   // The header (with the column labels) is one panel; the drivers follow it,
   // joined on (overall) or as a separate panel per class, evenly spaced.
-  const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head">
+  const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head${goFlash(ov)}">
       <div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
       ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}
     </div>${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
@@ -348,7 +364,7 @@ function renderScreen(snap, ov) {
   const session = snap.session || {};
   const sub = [snap.league && snap.league.name, [session.track, session.track_config].filter(Boolean).join(" – ")].filter(Boolean).join(" · ");
   const html = `<div class="screen-page" style="--row-h:${rowH}px;--row-font:${Math.round(rowH * 0.55)}px">
-    <div class="screen-head"><span class="t1">${esc(snap.connected ? sessionTitle(snap, ov) : "STANDINGS")}</span><span class="t2">${esc(sub)}</span>
+    <div class="screen-head${goFlash(ov)}"><span class="t1">${esc(snap.connected ? sessionTitle(snap, ov) : "STANDINGS")}</span><span class="t2">${esc(sub)}</span>
       <span class="t3">${snap.connected ? esc(progressText(ov) || sessionClock(snap, ov)) : ""}</span></div>
     ${body}</div>`;
   if (html !== shown) {

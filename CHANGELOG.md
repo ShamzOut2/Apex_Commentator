@@ -26,6 +26,8 @@ How each version's entry is written:
 - The standings tower starts each race with just the header (laps or time
   left). Each driver appears as they finish lap 1, and nobody shows before
   the green. This is now on by default.
+- When a race goes green, the standings header flashes green five times
+  with a light sweep, then stops.
 
 ## v0.4.2
 

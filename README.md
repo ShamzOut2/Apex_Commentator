@@ -52,6 +52,8 @@ OBS dock.
 - The standings tower starts each race with just the header (laps or time
   left). Each driver appears as they finish lap 1, and nobody shows before
   the green. This is now on by default.
+- When a race goes green, the standings header flashes green five times
+  with a light sweep, then stops.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -302,6 +304,9 @@ are kept in `data/overlays.json`.
     done a full lap, as they start lap 2, so the tower builds up in order at
     the end of lap 1. In qualifying, a driver with a lap done but no clean
     time yet is listed at the bottom.
+  - **Green flag**: when a race goes green, the header (tower and full
+    screen) flashes green five times with a light sweeping across it, then
+    stops. Races only, and only if the overlay was open for the start.
   - **Columns** (each on or off):
     - gap to the leader (or to pole);
     - interval to the car ahead;
