@@ -63,6 +63,9 @@ walk, Overlays, Boards and Race control.
 
 ### Improvements
 
+- Round results can be imported from iRacing's own event result export
+  (.csv): positions, laps, fastest laps, incidents, gaps and DNF / DNS, with
+  the track and date for the round.
 - Per-column opacity is now each column's background (with a colour of your
   own), not its text.
 - Team logo and team name are columns of their own on the tower, the full
@@ -618,7 +621,7 @@ made.
 | Teams (names, short names, colours, logos, who drives for whom) | Teams | **Export teams** (.json) | **Import teams…**: teams with the same name are replaced, drivers join their team |
 | Championship (points rules, calendar, every round's results, penalties) | Championship | **Export championship** (.json) | **Import championship…**: replaces this league's championship |
 | Championship standings (every table, round by round) | Championship | **Standings (CSV)** | |
-| One round's results | Championship → Calendar & results → open a round | **Export** (.json) or **CSV** | **Import…**: from a round export or a CSV with the same columns; replaces that round's results |
+| One round's results | Championship → Calendar & results → open a round | **Export** (.json) or **CSV** | **Import…**: from iRacing's own event result export (the .csv from the session's results page), a round export, or a CSV with the same columns; replaces that round's results |
 | Every overlay's and board's settings, with background images | Overlays | **Export settings** (.json) | **Import settings…**: replaces your settings |
 
 **Where exports go:** `Documents\Apex Commentator\Exports` on the PC the
@@ -690,6 +693,16 @@ overlay or board.
 On your own screen (*Show on my screen*), the background only fills the
 overlay's own panels, like everywhere else; the rest of the screen is never
 touched.
+
+**iRacing's event result export** (the .csv downloaded from a session's
+results page, starting with the event's start time and track) imports into a
+round as it is: finishing positions, starting positions, laps, laps led,
+fastest laps, incidents, the gap to the winner (or laps down), and DNF / DNS
+(a car out with no laps done is a DNS) from iRacing's "Out" column. Drivers
+are matched to the roster by customer ID, and each gets their class in the
+league (their own pick, name tag or iRacing car class). A driver with no
+class (a safety car, say) is left out, as for results saved from the sim. A
+round without a track or date gets the event's.
 
 ## Overlays on your own screen (no OBS)
 

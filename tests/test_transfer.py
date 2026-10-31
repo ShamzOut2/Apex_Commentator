@@ -82,6 +82,44 @@ class TransferTests(unittest.TestCase):
         with self.assertRaises(transfer.TransferError):
             transfer.expect(transfer.export_teams(self.store, self.league), "championship")
 
+    def test_iracing_event_result_export(self):
+        # iRacing's own export: the event above the results table.
+        text = (
+            'Start Time,Track,Series,Hosted Session Name\n'
+            '"2026-10-08T18:00:29Z","Fuji International Speedway - No Chicane","Hosted iRacing","Sunday Cup"\n\n\n'
+            '"League Name","League ID"\n"Sunday Cup","7015"\n\n'
+            '"Fin Pos","Car ID","Car","Car Class ID","Car Class","Team ID","Cust ID","Name","Start Pos","Car #","Out ID",'
+            '"Out","Interval","Laps Led","Qualify Time","Average Lap Time","Fastest Lap Time","Fast Lap#","Laps Comp","Inc"\n'
+            '"1","156","Mercedes-AMG GT3 2020","4091","PRO","2","2","Bo Kim","2","8","0","Running","-00.000","13","",'
+            '"1:35.101","1:34.597","9","13","3"\n'
+            '"2","206","Aston Martin Vantage GT3 EVO","4091","GT3 2025","1","1","Ann Lee","1","7","0","Running","-1:03.689","0","",'
+            '"1:35.139","1:34.535","5","13","0"\n'
+            '"3","132","BMW M4 GT3 EVO","4091","GT3 2025","9","9","Lapped Larry","3","9","0","Running","-1 L","0","",'
+            '"1:43.842","1:36.171","4","12","12"\n'
+            '"4","192","Supercars Chevrolet Camaro Gen 3","4070","Supercars","99","99","Safety Car","4","999","0","Running","-13 L","0","",'
+            '"00.000","","","0","0"\n'
+            '"5","132","BMW M4 GT3 EVO","4091","GT3 2025","3","3","Gone Early","5","10","32","Disconnected","-13 L","0","",'
+            '"00.000","","","0","4"\n')
+        drivers = [dict(d, class_id="pro") if d["cust_id"] == 2 else d for d in self.league["drivers"]]
+        league = self.store.save(dict(self.league, classes=self.league["classes"] + [
+            {"id": "gt3", "name": "GT3", "match": ["GT3 2025"]}],
+            drivers=drivers + [{"cust_id": 3, "name": "Gone Early", "class_id": "am"}]))
+        fmt, rows = transfer.expect(text.encode(), "round", csv_ok=True)
+        profile, info = transfer.import_round(self.store, league, "r2", fmt, rows)
+        rd = profile["championship"]["rounds"][1]
+        got = [(r["driver"], r["position"], r["class_id"], r["laps"], r["fastest_lap"], r["status"], r["gap"], r["incidents"], r["make"])
+               for r in rd["results"]]
+        self.assertEqual(got, [
+            ("cust:2", 1, "pro", 13, 94.597, "finished", 0.0, 3, "Mercedes-AMG"),     # the class picked for them
+            ("cust:1", 2, "gt3", 13, 94.535, "finished", 63.689, 0, "Aston Martin"),  # by the class's iRacing classes
+            ("cust:9", 3, "gt3", 12, 96.171, "finished", None, 12, "BMW"),             # not in the roster: its car class
+            ("cust:3", 5, "am", 0, None, "dns", None, 4, "BMW")])  # the safety car (no class) left out
+        self.assertEqual(info["results"], 4)
+        self.assertEqual((rd["track"], rd["config"]), ("Monza", ""))  # the round's own track kept
+        empty = self.store.save(dict(profile, championship=dict(profile["championship"], rounds=[{"id": "r9", "name": "New"}])))
+        rd9 = transfer.import_round(self.store, empty, "r9", fmt, rows)[0]["championship"]["rounds"][0]
+        self.assertEqual((rd9["track"], rd9["config"], rd9["date"]), ("Fuji International Speedway", "No Chicane", "2026-10-08"))
+
     def test_standings_and_roster_csv(self):
         text = transfer.standings_csv(self.league).decode("utf-8-sig")
         self.assertIn("PRO championship", text)

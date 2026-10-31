@@ -31,6 +31,9 @@ How each version's entry is written:
 
 ### Improvements
 
+- Round results can be imported from iRacing's own event result export
+  (.csv): positions, laps, fastest laps, incidents, gaps and DNF / DNS, with
+  the track and date for the round.
 - Per-column opacity is now each column's background (with a colour of your
   own), not its text.
 - Team logo and team name are columns of their own on the tower, the full
