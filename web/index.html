@@ -113,7 +113,7 @@
           <button class="btn" data-cmd="watch_special" data-mode="leader">Leader</button>
           <button class="btn" data-cmd="watch_special" data-mode="exciting" title="iRacing picks the most exciting car">Exciting</button>
           <button class="btn" data-cmd="watch_special" data-mode="incident" title="iRacing's incident camera">Incident cam</button>
-          <button class="btn subtle" id="btn-hotkeys" title="Set a keyboard shortcut for each camera">⌨ Hotkeys</button>
+          <button class="btn subtle" id="btn-hotkeys" data-open-hotkeys title="Keyboard shortcuts for cameras, overlays and boards">⌨ Hotkeys</button>
           <button class="btn subtle" data-popout="timing" title="Open the timing screen in a window of its own">⧉ Pop out</button>
         </div>
       </div>
@@ -378,7 +378,8 @@
 
     <section id="tab-overlays" class="panel">
       <div class="home">
-        <h2>Overlays</h2>
+        <div class="row teams-head"><h2>Overlays</h2><span class="grow"></span>
+          <button class="btn subtle" data-open-hotkeys title="Keys to turn each overlay on and off">⌨ Hotkeys</button></div>
         <p class="hint">Each has two versions. The <b>overlay</b> goes over the race in OBS (Browser Source at 1920×1080,
           transparent background); <b>Preview ↗</b> opens one in a window of its own to have a look. The <b>full screen</b> version is a complete screen of its own, with a background and every
           driver, to cut to on stream or show on a monitor (Open, then F11). Changes here show straight away.</p>
@@ -447,6 +448,7 @@
           <h2>Boards</h2>
           <span id="board-onair" class="hint"></span>
           <span class="grow"></span>
+          <button class="btn subtle" data-open-hotkeys title="Keys to put each board on screen and take it off">⌨ Hotkeys</button>
           <button class="btn subtle" data-popout="boards" title="Open the boards in a window of its own">⧉ Pop out</button>
           <button id="btn-board-hide" class="btn danger">Take off screen</button>
         </div>
@@ -545,13 +547,14 @@
 
   <div id="hotkey-modal" class="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="hotkey-title">
-      <h2 id="hotkey-title">Camera hotkeys</h2>
-      <p class="hint">Click a camera, then press the key you want for it. <kbd>Backspace</kbd> clears it.
-        L, R and the arrow keys are taken (live, rewind, car ahead/behind).</p>
-      <div id="hotkey-list" class="hotkey-list"></div>
+      <h2 id="hotkey-title">Hotkeys</h2>
+      <p class="hint">Click something, then press the key you want for it. <kbd>Backspace</kbd> clears it. A key does one
+        thing: giving it to something else takes it off the first. L, R and the arrow keys are taken (live, rewind, car
+        ahead/behind). Keys work in any Apex Commentator window (pop-outs too) when it's the one in front.</p>
+      <div id="hotkey-list" class="hotkey-sections"></div>
       <p id="hotkey-prompt" class="hint"></p>
       <div class="modal-actions">
-        <button class="btn subtle" id="hotkey-reset">Reset to 1–9</button>
+        <button class="btn subtle" id="hotkey-reset">Cameras back to 1–9</button>
         <button class="btn primary" id="hotkey-done">Done</button>
       </div>
     </div>

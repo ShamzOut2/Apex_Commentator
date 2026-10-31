@@ -39,6 +39,12 @@ OBS dock.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- **Hotkeys for overlays and boards**: a key for each overlay (on / off),
+  the grid walk and every board (on screen, and off again), set in the
+  Hotkeys window, now also on the Overlays and Boards tabs.
+
 ### Improvements
 
 - Driver on camera: swap the team and the car badge (badge under the name,
@@ -139,9 +145,25 @@ shows something else. Camera hotkeys work in whichever window has focus.
 | Key | Action |
 | --- | --- |
 | `1`–`9` (or your own) | Camera hotkeys |
+| your own | Overlays on / off, grid walk, boards (see below) |
 | `L` | Back to live |
 | `R` | Rewind the car on camera (by the rewind setting) |
 | `↑` / `↓` | Watch the car ahead / behind |
+
+**Hotkeys for overlays and boards.** *⌨ Hotkeys* (on the Timing, Overlays and
+Boards tabs) also sets keys for:
+- each overlay: the standings tower, lap tracker, driver on camera and
+  sponsors, on and off;
+- the grid walk: on / off (starting from P1), and the next pair;
+- every board in the Boards tab (each class's standings, teams',
+  manufacturers', the calendar, finishing orders), and taking the board off
+  screen. A board's key puts it on screen; pressed again while it's up, it
+  takes it off.
+
+A key does one thing: giving it to something else takes it off the first
+(cameras included). Board keys show on the board buttons. Like the camera
+keys, they work in any Apex Commentator window (pop-outs too) when it's the
+window in front, and they're kept per PC.
 
 ## How replays work
 

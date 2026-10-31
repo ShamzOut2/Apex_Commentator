@@ -52,7 +52,7 @@ const ui = {
 // Per-PC preferences for the timing screen.
 const SETTINGS_KEY = "apex.timing";
 const settings = Object.assign(
-  { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null },
+  { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null, actionKeys: {} },
   (() => {
     try {
       return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
@@ -762,20 +762,69 @@ $("#battle-color").addEventListener("input", (e) => {
   saveSettings();
 });
 
-// -- camera hotkeys --------------------------------------------------------------------
+// -- hotkeys: cameras, overlays, the grid walk and boards -----------------------------
+// Cameras keep their own map (settings.hotkeys, by camera name; 1-9 until set
+// by hand); everything else is settings.actionKeys, by action id. A key does
+// one thing, and works in any app window (pop-outs too) when it's in front.
 
-let hotkeyTarget = null;   // camera group name waiting for a key
+let hotkeyTarget = null;   // {kind: "cam" | "act", id, label} waiting for a key
+
+const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"]];
+const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
+
+// What a key can do besides cameras: [[section, [[id, label, run]]]], from
+// the snapshot (the boards there are, what's on).
+function hotkeyActions(s = ui.snap || {}) {
+  const ov = (s.overlays && s.overlays.settings) || {};
+  const opts = s.board_options || { groups: [] };
+  const groups = opts.groups || [];
+  const boards = [["board:off", "Take the board off screen", () => cmd("board_hide", {}, "Board off screen")]];
+  const add = (kind, group, label) => boards.push([`board:${kind}:${group}`, label, () => toggleBoard(kind, group)]);
+  groups.forEach((g) => add("championship", g.key, `Standings · ${g.name}`));
+  if (opts.teams) add("teams", "", "Teams' championship");
+  groups.forEach((g) => add("makes", g.key, `Manufacturers · ${g.name}`));
+  add("calendar", "", "Season calendar");
+  [{ key: "overall", name: "Overall" }, ...groups.filter((g) => g.key !== "overall")]
+    .forEach((g) => add("results", g.key, `Finishing order · ${g.name}`));
+  const on = (k) => !!(ov[k] && ov[k].visible);
+  return [
+    ["Overlays (on / off)", OVERLAY_TOGGLES.map(([k, label]) => [`ov:${k}`, label,
+      () => cmd("overlay_settings", { overlay: k, values: { visible: !on(k) } }, `${label} ${on(k) ? "off" : "on"}`)])],
+    ["Grid walk", [
+      ["gw:toggle", "On / off (starts from P1)", () => (s.gridwalk && s.gridwalk.visible
+        ? cmd("gridwalk_hide", {}, "Grid walk off") : cmd("gridwalk_start", { index: 0 }, "Grid walk on"))],
+      ["gw:next", "Next pair", () => cmd("gridwalk_next", {})],
+    ]],
+    ["Boards (press again: off screen)", boards],
+  ];
+}
+
+// A board's key: on screen, or off if it's the one up already.
+async function toggleBoard(kind, group) {
+  if (ui.boardOn && ui.boardOn.kind === kind && ui.boardOn.group === group) return cmd("board_hide", {}, "Board off screen");
+  const params = { kind, group };
+  if (kind === "results") params.round = boardRound;
+  const r = await cmd("board_show", params);
+  if (r) ui.boardOn = { kind, group };
+  boardButtonsKey = "";
+  return r;
+}
 
 function renderHotkeyList() {
   const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
-  const keys = hotkeys(groups);
-  $("#hotkey-list").innerHTML = groups.length ? groups.map((g) => `<button class="btn hk ${hotkeyTarget === g.name ? "primary" : ""}"
-      data-hk="${esc(g.name)}">${esc(g.name)} <kbd>${keys[g.name] ? esc(keyLabel(keys[g.name])) : "–"}</kbd></button>`).join("")
-    : '<p class="hint">Cameras appear once iRacing is connected.</p>';
-  $("#hotkey-prompt").textContent = hotkeyTarget ? `Press a key for ${hotkeyTarget}…` : "";
+  const cams = hotkeys(groups);
+  const acts = settings.actionKeys || {};
+  const btn = (kind, id, label, key) => `<button class="btn hk ${hotkeyTarget && hotkeyTarget.kind === kind && hotkeyTarget.id === id ? "primary" : ""}"
+      data-hk-kind="${kind}" data-hk="${esc(id)}" data-hk-label="${esc(label)}">${esc(label)} <kbd>${key ? esc(keyLabel(key)) : "–"}</kbd></button>`;
+  const sections = [["Cameras", groups.length ? groups.map((g) => btn("cam", g.name, g.name, cams[g.name])).join("")
+    : '<p class="hint">Cameras appear once iRacing is connected.</p>'],
+  ...hotkeyActions().map(([title, items]) => [title, items.map(([id, label]) => btn("act", id, label, acts[id])).join("")])];
+  $("#hotkey-list").innerHTML = sections.map(([title, html]) => `<h4 class="hk-section">${esc(title)}</h4><div class="hotkey-list">${html}</div>`).join("");
+  $("#hotkey-prompt").textContent = hotkeyTarget ? `Press a key for ${hotkeyTarget.label}…` : "";
 }
 
-$("#btn-hotkeys").addEventListener("click", () => {
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("[data-open-hotkeys]")) return;
   hotkeyTarget = null;
   renderHotkeyList();
   $("#hotkey-modal").hidden = false;
@@ -783,13 +832,14 @@ $("#btn-hotkeys").addEventListener("click", () => {
 $("#hotkey-list").addEventListener("click", (e) => {
   const b = e.target.closest("[data-hk]");
   if (!b) return;
-  hotkeyTarget = b.dataset.hk;
+  hotkeyTarget = { kind: b.dataset.hkKind, id: b.dataset.hk, label: b.dataset.hkLabel };
   renderHotkeyList();
 });
 $("#hotkey-done").addEventListener("click", () => {
   hotkeyTarget = null;
   $("#hotkey-modal").hidden = true;
   camKey = "";
+  boardButtonsKey = "";
   if (ui.snap && ui.snap.connected) renderCamButtons(ui.snap.camera);
 });
 $("#hotkey-reset").addEventListener("click", () => {
@@ -800,25 +850,30 @@ $("#hotkey-reset").addEventListener("click", () => {
 
 function captureHotkey(e) {
   const key = e.key.toLowerCase();
+  const t = hotkeyTarget;
   if (key === "escape") {
     hotkeyTarget = null;
-  } else {
-    const groups = ui.snap.camera.groups;
-    const map = { ...hotkeys(groups) };
-    if (key === "backspace" || key === "delete") {
-      delete map[hotkeyTarget];
-    } else if (RESERVED_KEYS.has(key)) {
-      $("#hotkey-prompt").textContent = `${keyLabel(key)} is taken. Pick another key for ${hotkeyTarget}.`;
-      return;
-    } else {
-      // A key belongs to one camera.
-      for (const [name, k] of Object.entries(map)) if (k === key) delete map[name];
-      map[hotkeyTarget] = key;
-    }
-    settings.hotkeys = map;
-    saveSettings();
-    hotkeyTarget = null;
+    return renderHotkeyList();
   }
+  if (NOT_KEYS.has(key)) return;  // a modifier on its own: wait for the key
+  const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
+  const cams = { ...hotkeys(groups) };
+  const acts = { ...(settings.actionKeys || {}) };
+  const mine = t.kind === "cam" ? cams : acts;
+  if (key === "backspace" || key === "delete") {
+    delete mine[t.id];
+  } else if (RESERVED_KEYS.has(key)) {
+    $("#hotkey-prompt").textContent = `${keyLabel(key)} is taken. Pick another key for ${t.label}.`;
+    return;
+  } else {
+    // A key does one thing.
+    for (const map of [cams, acts]) for (const [id, k] of Object.entries(map)) if (k === key) delete map[id];
+    mine[t.id] = key;
+  }
+  settings.hotkeys = cams;
+  settings.actionKeys = acts;
+  saveSettings();
+  hotkeyTarget = null;
   renderHotkeyList();
 }
 
@@ -830,6 +885,13 @@ document.addEventListener("keydown", (e) => {
   if (e.target.closest("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
   if (!$("#hotkey-modal").hidden || !$("#update-modal").hidden) return;
   const key = e.key.toLowerCase();
+  const act = Object.entries(settings.actionKeys || {}).find(([, k]) => k === key);
+  const action = act && hotkeyActions().flatMap(([, items]) => items).find(([id]) => id === act[0]);
+  if (action) {
+    e.preventDefault();
+    action[2]();
+    return;
+  }
   const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
   const camName = Object.entries(hotkeys(groups)).find(([, k]) => k === key);
   const cam = camName && groups.find((g) => g.name === camName[0]);
@@ -2246,8 +2308,9 @@ let boardRound = "latest";
 function boardButton(label, kind, group = "", color = null, extra = {}) {
   const b = ui.snap && ui.snap.board;
   const on = b && ui.boardOn && ui.boardOn.kind === kind && ui.boardOn.group === group;
+  const key = (settings.actionKeys || {})[`board:${kind}:${group}`];
   return `<button class="btn board-btn ${on ? "on-air" : ""}" data-board="${kind}" data-group="${esc(group)}"
-    ${extra.round ? `data-round="${esc(extra.round)}"` : ""} style="${color ? `--cls:${esc(color)}` : ""}">${color ? '<span class="swatch"></span>' : ""}${esc(label)}</button>`;
+    ${extra.round ? `data-round="${esc(extra.round)}"` : ""} style="${color ? `--cls:${esc(color)}` : ""}">${color ? '<span class="swatch"></span>' : ""}${esc(label)}${key ? `<kbd>${esc(keyLabel(key))}</kbd>` : ""}</button>`;
 }
 
 function renderBoards(s) {
@@ -2255,7 +2318,7 @@ function renderBoards(s) {
   ui.boardOn = s.board ? { kind: s.board.kind, group: s.board.group } : null;
   $("#board-onair").textContent = s.board ? `On screen: ${s.board.title}${s.board.subtitle ? ` · ${s.board.subtitle}` : ""}` : "Nothing on screen";
   $("#btn-board-hide").disabled = !s.board;
-  const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, !!s.board]);
+  const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, !!s.board, settings.actionKeys]);
   if (key !== boardButtonsKey) {
     boardButtonsKey = key;
     const groups = opts.groups;

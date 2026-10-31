@@ -13,6 +13,12 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- **Hotkeys for overlays and boards**: a key for each overlay (on / off),
+  the grid walk and every board (on screen, and off again), set in the
+  Hotkeys window, now also on the Overlays and Boards tabs.
+
 ### Improvements
 
 - Driver on camera: swap the team and the car badge (badge under the name,
