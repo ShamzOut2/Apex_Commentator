@@ -274,64 +274,84 @@
           <ul id="league-list" class="league-list"></ul>
         </aside>
         <div class="league-editor" id="league-editor" hidden>
-          <div class="row">
+          <div class="row league-head">
             <input id="edit-name" class="grow" placeholder="League name" aria-label="League name">
             <input id="edit-league-id" class="narrow" placeholder="League ID" aria-label="iRacing League ID">
-            <label class="field" title="For leagues that put the driver's class in front of their name, e.g. (P) Dave Price. The control panel keeps the full name; the overlays show it without the tag (via the Nickname).">
-              <input type="checkbox" id="edit-strip-class"> Remove driver class in name</label>
             <button id="btn-save-league" class="btn primary">Save</button>
             <button id="btn-activate-league" class="btn">Use in overlay</button>
-          </div>
-          <div class="row transfer-row">
-            <span class="hint">Export / import:</span>
             <button class="btn subtle" data-export="league" title="Everything about this league, images included, to import on this PC or another">⤓ Export league</button>
-            <button class="btn subtle" data-export="drivers" title="The roster as a spreadsheet (CSV)">⤓ Roster (CSV)</button>
-            <label class="btn subtle">⤒ Import roster (CSV)…<input type="file" accept=".csv,text/csv" data-import="drivers" hidden></label>
           </div>
-          <h3 class="section-title">Classes</h3>
-          <p class="hint">Each class gets its own colour and header in the driver list. Drivers join a class by their iRacing car class (the "iRacing classes" field) or by picking it in the roster below. A logo's background is recoloured to the class colour.</p>
-          <div id="class-list" class="class-list"></div>
-          <button id="btn-add-class" class="btn subtle">+ Add class</button>
-          <h3 class="section-title">Teams</h3>
-          <p class="hint">Team names, logos and colours, and which drivers are in each team, are set in the team builder. The roster's Team column is the same thing.</p>
-          <button class="btn subtle" data-goto="teams">Open the team builder</button>
-          <h3 class="section-title">Season calendar</h3>
-          <p class="hint">The season's rounds (track, layout, date, time, length) are set up with the championship; the
-            standings, results and calendar board all come from them. If the league has made its own calendar graphic, add it
-            here and the calendar board can show it instead.</p>
-          <div class="row">
-            <button class="btn subtle" data-goto="championship" data-champ-goto="rounds">Open the season calendar</button>
+          <div class="row league-tabs">
+            <div class="chips">
+              <button class="chip active" data-ltab="drivers">Drivers <span class="count" id="ltab-drivers"></span></button>
+              <button class="chip" data-ltab="classes">Classes <span class="count" id="ltab-classes"></span></button>
+              <button class="chip" data-ltab="looks">Logos, banners &amp; sponsors</button>
+            </div>
+            <span class="grow"></span>
+            <button class="btn subtle" data-goto="teams" title="Team names, logos, colours and line-ups">Teams ↗</button>
+            <button class="btn subtle" data-goto="championship" data-champ-goto="rounds" title="The season's rounds, results and points">Season &amp; points ↗</button>
           </div>
-          <div id="calendar-image-slot" class="image-slot"></div>
-          <h3 class="section-title">League logo</h3>
-          <p class="hint">Shown in the header of the full-screen boards (each board can turn it off).</p>
-          <div id="league-logo-slot" class="image-slot"></div>
-          <h3 class="section-title">League banners</h3>
-          <p class="hint">Logos and banners for the full-screen boards (championship, calendar, results). Upload a wide one for
-            across the top or bottom, and a tall one for the side; each board picks which to show.</p>
-          <div id="banner-list" class="banner-list"></div>
-          <div class="row">
-            <label class="btn subtle">+ Horizontal banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="horizontal" hidden></label>
-            <label class="btn subtle">+ Vertical banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="vertical" hidden></label>
+
+          <div class="ltab" data-ltab-panel="drivers">
+            <p class="hint">Nicknames, teams and notes show next to drivers in the overlays. Drivers are matched by iRacing customer
+              ID, or by car number when there is no ID. Click a column heading to sort.</p>
+            <div class="roster-scroll">
+            <table class="grid roster">
+              <thead id="roster-head"><tr><th data-sort="name">Driver</th><th class="c-id" data-sort="cust_id">Cust ID</th><th class="c-num" data-sort="car_number" title="Car number">Car #</th><th class="c-num" data-sort="driver_number" title="Driver's own number, if the league uses one">Driver #</th><th data-sort="nickname">Nickname</th><th data-sort="team">Team</th><th data-sort="notes">Notes</th><th class="c-class" data-sort="class_id" title="The class shown on the overlays">Class</th><th class="c-class c-class2" data-sort="class2_id" title="A secondary class: its own championship, never on the overlays">2nd class</th><th class="c-make" data-sort="car_make" title="The car's manufacturer: for badges and the manufacturers' championship. Auto uses the car they drive in iRacing.">Car</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
+              <tbody id="roster-rows"></tbody>
+            </table>
+            </div>
+            <div class="row transfer-row">
+              <button id="btn-add-driver" class="btn subtle">+ Add driver</button>
+              <button id="btn-import-session" class="btn subtle" title="Add the drivers in the current iRacing session to this league">⤓ Add drivers from session</button>
+              <span class="grow"></span>
+              <button class="btn subtle" data-export="drivers" title="The roster as a spreadsheet (CSV)">⤓ Roster (CSV)</button>
+              <label class="btn subtle">⤒ Import roster (CSV)…<input type="file" accept=".csv,text/csv" data-import="drivers" hidden></label>
+            </div>
           </div>
-          <h3 class="section-title">Sponsors</h3>
-          <p class="hint">Sponsor logos. Each board can show them along an edge (Boards tab), and the Sponsors overlay shows them
-            over the race (Overlays tab). Transparent PNG or SVG logos look best.</p>
-          <div id="sponsor-list" class="sponsor-list"></div>
-          <div class="row">
-            <label class="btn subtle">+ Add sponsor logos<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-sponsor-upload multiple hidden></label>
+
+          <div class="ltab" data-ltab-panel="classes" hidden>
+            <p class="hint"><b>Main classes</b> are what the overlays show: each gets its own colour and header. Drivers join one by
+              their iRacing car class (the "iRacing classes" field), by a class tag in front of their name, or by picking it in the
+              Drivers list. A logo's background is recoloured to the class colour.</p>
+            <p class="hint"><b>Secondary classes</b> (e.g. a Rookie Cup or Pro-Am trophy) work in the background: pick a driver's in
+              the <i>2nd class</i> column and they score in that class's own championship as well, ranked against the other
+              drivers in it, without changing anything on the overlays. How the points add up is under <i>Season &amp; points</i>.</p>
+            <label class="field" title="For leagues that put the driver's class in front of their name, e.g. (P) Dave Price. The control panel keeps the full name; the overlays show it without the tag (via the Nickname).">
+              <input type="checkbox" id="edit-strip-class"> Hide the class tag in front of names on the overlays, e.g. <i>(P) Dave Price</i></label>
+            <div id="class-list" class="class-list"></div>
+            <button id="btn-add-class" class="btn subtle">+ Add class</button>
           </div>
-          <h3 class="section-title">Drivers</h3>
-          <p class="hint">Nicknames, teams and notes show next to drivers in the overlay. Drivers are matched by iRacing customer ID, or by car number when there is no ID.</p>
-          <div class="roster-scroll">
-          <table class="grid roster">
-            <thead id="roster-head"><tr><th data-sort="name">Driver</th><th class="c-id" data-sort="cust_id">Cust ID</th><th class="c-num" data-sort="car_number" title="Car number">Car #</th><th class="c-num" data-sort="driver_number" title="Driver's own number, if the league uses one">Driver #</th><th data-sort="nickname">Nickname</th><th data-sort="team">Team</th><th data-sort="notes">Notes</th><th class="c-class" data-sort="class_id">Class</th><th class="c-make" data-sort="car_make" title="The car's manufacturer: for badges and the manufacturers' championship. Auto uses the car they drive in iRacing.">Car</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
-            <tbody id="roster-rows"></tbody>
-          </table>
-          </div>
-          <div class="row">
-            <button id="btn-add-driver" class="btn subtle">+ Add driver</button>
-            <button id="btn-import-session" class="btn subtle" title="Add the drivers in the current iRacing session to this league">⤓ Add drivers from session</button>
+
+          <div class="ltab" data-ltab-panel="looks" hidden>
+            <div class="looks-grid">
+              <div>
+                <h3 class="section-title">League logo</h3>
+                <p class="hint">Shown in the header of the full-screen boards (each board can turn it off).</p>
+                <div id="league-logo-slot" class="image-slot"></div>
+              </div>
+              <div>
+                <h3 class="section-title">Calendar image</h3>
+                <p class="hint">The league's own calendar graphic, if it has one: the calendar board can show it instead of the
+                  one built from the rounds.</p>
+                <div id="calendar-image-slot" class="image-slot"></div>
+              </div>
+            </div>
+            <h3 class="section-title">Banners</h3>
+            <p class="hint">For the full-screen boards. Upload a wide one for across the top or bottom, and a tall one for the side;
+              each board picks which to show.</p>
+            <div id="banner-list" class="banner-list"></div>
+            <div class="row">
+              <label class="btn subtle">+ Horizontal banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="horizontal" hidden></label>
+              <label class="btn subtle">+ Vertical banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="vertical" hidden></label>
+            </div>
+            <h3 class="section-title">Sponsors</h3>
+            <p class="hint">Each board can show them along an edge (Boards tab), and the Sponsors overlay shows them over the race
+              (Overlays tab). Transparent PNG or SVG logos look best.</p>
+            <div id="sponsor-list" class="sponsor-list"></div>
+            <div class="row">
+              <label class="btn subtle">+ Add sponsor logos<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-sponsor-upload multiple hidden></label>
+            </div>
           </div>
         </div>
       </div>

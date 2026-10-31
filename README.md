@@ -41,6 +41,13 @@ OBS dock.
 
 ### New features
 
+- **Secondary classes**: a driver can be in a second class as well as their
+  main one (e.g. a Rookie Cup or Pro-Am trophy). It works in the background:
+  the overlays show the main class, and the secondary class gets its own
+  championship, standings, results and board.
+- **Class and overall points added together**: a new way to score, where
+  each driver gets the points for their class position plus the points for
+  their overall position. Any class can also have its own points table.
 - **Driver on camera**: a small board at the bottom centre names the driver
   you're spectating (position, number, name, team and car). It slides in each
   time the camera moves to someone, and can hide itself after a few seconds.
@@ -55,6 +62,9 @@ OBS dock.
 
 ### Improvements
 
+- The League builder is tidier: its settings are on three tabs (Drivers,
+  Classes, and Logos, banners & sponsors), with shortcuts to Teams and the
+  season. The driver list has room for full names and teams.
 - Overlay and board settings are tidier: each is split into short sections
   (What it shows, Header, Columns, Drivers…) that open and close, and the app
   remembers which you left open. Settings that depend on another (like the
@@ -655,6 +665,18 @@ standings update from what's saved.
       Example (class points 10, 6, 4; overall 20, 15, 10, 5): a PRO driver
       who finishes 3rd overall and 2nd in PRO scores 10 towards Overall and
       6 towards PRO.
+    - *Added together*: every result scores once, as its class position's
+      points plus its overall position's points (the overall points table
+      can be its own). Bonuses count once. Each class's table and the
+      overall table rank the same totals. Same example: the PRO driver
+      scores 6 + 10 = 16, in both PRO and Overall.
+  - **Different points for a class**: any class (a secondary one too) can
+    have its own points table; leave it empty for the usual one.
+  - **Secondary classes** (set up in the League builder) always have their
+    own championship, whichever option above is picked. Their drivers are
+    ranked by where they finished among each other: with a Rookie Cup of
+    drivers who finish 4th, 9th and 12th overall, the 4th-placed one wins
+    the Rookie Cup. Their main class and overall points don't change.
   - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
   - The fastest-lap bonus can be limited to the top N finishers.
@@ -664,7 +686,7 @@ standings update from what's saved.
   - Whether DNFs score for where they're classified.
   - **Team championship**: count every driver, or each team's best N per
     round. With *Both*, teams count their drivers' overall points, or class
-    points if you choose.
+    points if you choose. Secondary classes never count for teams.
   - **Bonus points**: pole, fastest lap, led a lap, each lap led, most laps
     led, most places gained, clean race (no incidents), finished, started, and
     race win. Use 0 for bonuses you don't award; negative values take points
@@ -714,6 +736,10 @@ Open the **League builder** tab.
    drivers in the session you are in.
 3. **Blank league**: type it in by hand.
 
+The league's settings are on three tabs: **Drivers** (the roster),
+**Classes**, and **Logos, banners & sponsors**. *Teams ↗* and *Season &
+points ↗* jump to the team builder and the championship.
+
 Edit nicknames, teams and notes (for example "Championship leader" or a
 pronunciation hint), **Save**, then **Use in overlay**. Drivers are matched by
 iRacing customer ID, or by car number for hand-added entries without one.
@@ -727,7 +753,7 @@ session fills it in, and each championship result keeps the car driven that
 round.
 
 **Sorting the drivers**: click a column heading in the driver list (Driver,
-Cust ID, Car #, Driver #, Nickname, Team, Notes, Class, Car) to sort by it, A
+Cust ID, Car #, Driver #, Nickname, Team, Notes, Class, 2nd class, Car) to sort by it, A
 to Z. Click again for Z to A, and a third time for the order they were added.
 Numbers sort as numbers (2 before 10) and blanks go last. Only the list on
 screen is sorted; the app remembers your choice.
@@ -751,9 +777,9 @@ length (e.g. "60 min").
   is used, plus every track the app has seen in a session. A track not in
   the lists can be typed in.
 
-**Remove driver class in name**: some leagues put the class in front of
+**Hide the class tag in front of names**: some leagues put the class in front of
 driver names, like `(P) Dave Price` or `(PA) Mat Gatter`. Tick this box
-(next to the league name) and:
+(on the Classes tab) and:
 - Every driver with a tag like that gets the name without it, minus the
   space, as their **Nickname** (`Dave Price`). Nicknames you've already typed
   are kept. Drivers added later (from the session or a re-fetch) get one when
@@ -788,6 +814,19 @@ A driver's class comes from:
 2. the first class whose **iRacing classes** list contains their car class
    (e.g. `GT3`), or otherwise
 3. their iRacing car class as-is.
+
+**Main and secondary classes.** Each class is one or the other (its
+**Kind**):
+- **Main class** (the usual kind): what the overlays, timing screen and grid
+  walk show. A driver is in one, found as above.
+- **Secondary class**: works in the background, e.g. a Rookie Cup or a
+  Pro-Am trophy that runs across the main classes. Pick a driver's in the
+  roster's **2nd class** column (it appears once the league has a secondary
+  class). The driver keeps their main class everywhere on screen, and also
+  scores in the secondary class's own championship, which has its own
+  standings, results and board. Secondary classes are never picked by car
+  class or name tag. Switching a class's Kind moves the drivers picked for
+  it to the other column.
 
 On the **Timing** screen, each driver's class position is underlined and
 their car number edged in the class colour, and the class chips above the

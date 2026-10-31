@@ -181,7 +181,24 @@ main.fixed { overflow: hidden; }
 .league-editor { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
 .league-editor > .row { flex-wrap: wrap; }
 .roster-scroll { overflow-x: auto; }
+/* League editor: name and actions, then its tabs. */
+.league-head { padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.league-tabs { margin: 10px 0 4px; flex-wrap: wrap; }
+.league-tabs .chip .count { color: inherit; opacity: .7; margin-left: 2px; }
+.ltab[hidden] { display: none; }
+.ltab > .hint:first-child { margin-top: 4px; }
+.roster.no-class2 .c-class2 { display: none; }
+.class-card.secondary { border-style: dashed; }
+.looks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 24px; }
 .roster { min-width: 760px; }
+/* Names and teams wide enough to read; the list scrolls sideways if it has to. */
+.roster td:first-child input { min-width: 160px; }
+.roster input[data-field="team"] { min-width: 140px; }
+.roster input[data-field="nickname"], .roster input[data-field="notes"] { min-width: 110px; }
+.roster input[data-field="cust_id"] { min-width: 84px; }
+.roster input[data-field="car_number"], .roster input[data-field="driver_number"] { min-width: 52px; }
+.roster select[data-field="class_id"], .roster select[data-field="class2_id"] { min-width: 120px; }
+.roster select[data-field="car_make"] { min-width: 110px; }
 .roster input { width: 100%; padding: 4px 6px; }
 .roster th { background: var(--panel); }
 
@@ -463,6 +480,8 @@ kbd {
 .results-table { margin-top: 8px; }
 .champ-rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 16px; }
 .champ-rules .wide { grid-column: 1 / -1; }
+.class-points > summary { cursor: pointer; font-weight: 600; }
+.class-points-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 16px; }
 .obs-kind { min-width: 80px; font-size: 12px; color: var(--muted); font-weight: 600; }
 
 /* --- updates (Home) ----------------------------------------------------------- */

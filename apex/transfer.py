@@ -183,7 +183,7 @@ def round_csv(profile, round_id):
     return _csv_bytes(rows)
 
 
-DRIVER_COLUMNS = ["Name", "Cust ID", "Car #", "Driver #", "Nickname", "Team", "Notes", "Class", "Car"]
+DRIVER_COLUMNS = ["Name", "Cust ID", "Car #", "Driver #", "Nickname", "Team", "Notes", "Class", "Secondary class", "Car"]
 
 
 def drivers_csv(profile):
@@ -191,7 +191,8 @@ def drivers_csv(profile):
     for d in profile.get("drivers", []):
         rows.append([d.get("name", ""), d.get("cust_id") if d.get("cust_id") is not None else "", d.get("car_number", ""),
                      d.get("driver_number", ""), d.get("nickname", ""), d.get("team", ""), d.get("notes", ""),
-                     _class_name(profile, d.get("class_id", "")), d.get("car_make", "")])
+                     _class_name(profile, d.get("class_id", "")), _class_name(profile, d.get("class2_id", "")),
+                     d.get("car_make", "")])
     return _csv_bytes(rows)
 
 
@@ -315,6 +316,8 @@ def import_championship(store, profile, obj):
     for rd in champ["rounds"]:
         for r in rd["results"]:
             r["class_id"] = ids.get(r["class_id"], r["class_id"])
+    rules = champ["rules"]
+    rules["class_points"] = {ids.get(k, k): v for k, v in rules["class_points"].items()}
     profile["championship"] = champ
     return store.save(profile), {"rounds": len(champ["rounds"])}
 
@@ -398,6 +401,8 @@ def import_drivers_csv(store, profile, rows):
             d["cust_id"] = cust
         if row.get("class"):
             d["class_id"] = classes.get(row["class"].lower(), d.get("class_id", ""))
+        if row.get("secondary class"):
+            d["class2_id"] = classes.get(row["secondary class"].lower(), d.get("class2_id", ""))
     return store.save(profile), {"added": added, "updated": updated}
 
 

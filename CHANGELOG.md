@@ -15,6 +15,13 @@ How each version's entry is written:
 
 ### New features
 
+- **Secondary classes**: a driver can be in a second class as well as their
+  main one (e.g. a Rookie Cup or Pro-Am trophy). It works in the background:
+  the overlays show the main class, and the secondary class gets its own
+  championship, standings, results and board.
+- **Class and overall points added together**: a new way to score, where
+  each driver gets the points for their class position plus the points for
+  their overall position. Any class can also have its own points table.
 - **Driver on camera**: a small board at the bottom centre names the driver
   you're spectating (position, number, name, team and car). It slides in each
   time the camera moves to someone, and can hide itself after a few seconds.
@@ -29,6 +36,9 @@ How each version's entry is written:
 
 ### Improvements
 
+- The League builder is tidier: its settings are on three tabs (Drivers,
+  Classes, and Logos, banners & sponsors), with shortcuts to Teams and the
+  season. The driver list has room for full names and teams.
 - Overlay and board settings are tidier: each is split into short sections
   (What it shows, Header, Columns, Drivers…) that open and close, and the app
   remembers which you left open. Settings that depend on another (like the

@@ -88,7 +88,7 @@ class TransferTests(unittest.TestCase):
         self.assertIn("Ann Lee", text)
         roster = transfer.drivers_csv(self.league).decode("utf-8-sig")
         self.assertTrue(roster.startswith("Name,Cust ID,Car #"))
-        rows = transfer.read((roster + "New Guy,3,12,,Newbie,Green,,AM,Ford\n").encode())[2]
+        rows = transfer.read((roster + "New Guy,3,12,,Newbie,Green,,AM,,Ford\n").encode())[2]
         profile, info = transfer.import_drivers_csv(self.store, self.league, rows)
         self.assertEqual((info["added"], info["updated"]), (1, 2))
         new = next(d for d in profile["drivers"] if d["cust_id"] == 3)

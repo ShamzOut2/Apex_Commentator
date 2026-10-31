@@ -132,6 +132,54 @@ class ScoringTests(unittest.TestCase):
         p["championship"]["rules"]["team_points"] = "class"
         self.assertEqual({t["team"]: t["points"] for t in ch.standings(p)["teams"]}, {"Red": 31, "Blue": 33})
 
+    def test_secondary_class_has_its_own_championship(self):
+        classes = [{"id": "pro", "name": "Pro"}, {"id": "am", "name": "Am"},
+                   {"id": "rookie", "name": "Rookie Cup", "role": "secondary"}]
+        drivers = [{"cust_id": i, "name": n, "class2_id": c2} for i, n, c2 in
+                   ((1, "A", ""), (2, "B", "rookie"), (3, "C", ""), (4, "D", "rookie"))]
+        rounds = [{"id": "r1", "results": [res("cust:1", 1, "pro"), res("cust:2", 2, "am"),
+                                           res("cust:3", 3, "pro"), res("cust:4", 4, "pro")]}]
+        # Whatever the scoring, the rookies are ranked among themselves (B 1st, D 2nd).
+        for scoring, names in (("class", ["Pro", "Am", "Rookie Cup"]), ("overall", ["Overall", "Rookie Cup"])):
+            p = profile({"points": [10, 5], "scoring": scoring, "classified_pct": 0}, rounds, classes=classes, drivers=drivers)
+            st = ch.standings(p)
+            self.assertEqual([g["name"] for g in st["groups"]], names)
+            rookie = st["groups"][-1]
+            self.assertTrue(rookie["secondary"])
+            self.assertEqual([(r["driver"], r["points"]) for r in rookie["drivers"]], [("cust:2", 10), ("cust:4", 5)])
+            self.assertIn("among its drivers", rookie["basis"])
+        # The main class standings don't change: D still scores in Pro.
+        pts = {g["name"]: {r["driver"]: r["points"] for r in g["drivers"]} for g in ch.standings(
+            profile({"points": [10, 5, 2]}, rounds, classes=classes, drivers=drivers))["groups"]}
+        self.assertEqual(pts["Pro"], {"cust:1": 10, "cust:3": 5, "cust:4": 2})
+        # Round results and the calendar know the secondary class's winner.
+        p = profile({"points": [10, 5]}, rounds, classes=classes, drivers=drivers)
+        rows = ch.round_results(p, p["championship"]["rounds"][0], "rookie")
+        self.assertEqual([(r["driver"], r["rank"], r["points"]) for r in rows], [("cust:2", 1, 10), ("cust:4", 2, 5)])
+        self.assertIn("rookie", [w["group"] for w in ch.calendar(p)[0]["winners"]])
+
+    def test_sum_adds_class_and_overall_points(self):
+        classes = [{"id": "pro", "name": "Pro"}, {"id": "am", "name": "Am"}]
+        rules = {"scoring": "sum", "points": [10, 5], "overall_points": [4, 3, 2, 1], "classified_pct": 0,
+                 "bonuses": {"fastest_lap": 1}}
+        rounds = [{"id": "r1", "multiplier": 2, "results": [
+            res("a", 1, "pro"), res("b", 2, "am", fl=80), res("c", 3, "pro"), res("d", 4, "am")]}]
+        st = ch.standings(profile(rules, rounds, classes=classes))
+        pts = {g["name"]: {r["driver"]: r["points"] for r in g["drivers"]} for g in st["groups"]}
+        # (class points + bonus + overall points) x 2: a (10+4), b (10+1+3), c (5+2), d (5+1).
+        self.assertEqual(pts["Overall"], {"a": 28, "b": 28, "c": 14, "d": 12})
+        self.assertEqual(pts["Pro"], {"a": 28, "c": 14})
+        self.assertEqual(pts["Am"], {"b": 28, "d": 12})
+        self.assertIn("+ overall points (4, 3, 2, 1)", st["groups"][1]["basis"])
+
+    def test_class_points_table(self):
+        classes = [{"id": "pro", "name": "Pro"}, {"id": "am", "name": "Am"}]
+        rules = {"points": [10, 5], "class_points": {"am": "3, 2", "pro": ""}}
+        rounds = [{"id": "r1", "results": [res("a", 1, "pro"), res("b", 2, "am"), res("c", 3, "pro"), res("d", 4, "am")]}]
+        rows, _ = table(profile(rules, rounds, classes=classes))
+        self.assertEqual([rows[d]["points"] for d in "abcd"], [10, 3, 5, 2])
+        self.assertEqual(ch.normalise_rules(rules)["class_points"], {"am": [3, 2]})
+
     def test_old_saves_without_new_rules_still_score(self):
         p = {"name": "Old", "drivers": [], "classes": [], "championship": {
             "rules": {"points": [5]}, "rounds": [{"id": "r1", "results": [res("a", 1)]}], "penalties": []}}

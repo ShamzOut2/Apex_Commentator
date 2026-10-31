@@ -12,17 +12,24 @@ A league profile is a small JSON file in ``data/leagues/``::
       "classes": [
         {"id": "pro", "name": "Pro", "color": "#e8463c", "match": ["GT3"],
          "logo": "pro-1a2b3c4d.png", "logo_bg": "auto", "logo_tolerance": 18,
-         "logo_fill": "edges"}
+         "logo_fill": "edges", "role": "main"},
+        {"id": "rookie", "name": "Rookie Cup", "color": "#2f80ed", "match": [],
+         "logo": null, "logo_bg": "auto", "logo_tolerance": 18,
+         "logo_fill": "edges", "role": "secondary"}
       ],
       "drivers": [
         {"cust_id": 123456, "name": "Jane Doe", "nickname": "JD",
          "car_number": "7", "team": "Apex Racing", "notes": "Leads the title",
-         "class_id": "pro"}
+         "class_id": "pro", "class2_id": "rookie"}
       ]
     }
 
 A driver's class is their ``class_id`` when set, otherwise the first class
-whose ``match`` list contains their iRacing car class name. A class logo is
+whose ``match`` list contains their iRacing car class name. That's their
+main class: the one the overlays show. A driver can also be in one
+secondary class (``class2_id``, picked by hand): it works in the background,
+with a championship of its own (see championship.py), and never shows on the
+overlays. A class logo is
 either uploaded (stored in ``data/leagues/logos/<league>/``) or picked from
 the built-in library in ``web/logos/`` (``"logo": "lib:pro.svg"``).
 
@@ -63,7 +70,7 @@ UPLOADED_LOGO = re.compile(r"[a-z0-9-]+\.(png|jpg|webp|svg)")
 LIBRARY_LOGO = re.compile(r"lib:([a-z0-9-]+\.svg)")
 TOKEN_URL = "https://oauth.iracing.com/oauth2/token"
 DATA_URL = "https://members-ng.iracing.com/data"
-EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "car_image", "helmet_image", "driver_number", "car_make")
+EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "class2_id", "car_image", "helmet_image", "driver_number", "car_make")
 DRIVER_IMAGES = ("car_image", "helmet_image")
 # Distinct defaults handed to new classes, in order.
 CLASS_PALETTE = ["#e8463c", "#2f80ed", "#27ae60", "#f2c94c", "#9b51e0", "#f2994a", "#56ccf2", "#eb5ea8"]
@@ -439,8 +446,16 @@ def normalise_classes(classes):
             # "edges": recolour background connected to the logo's border;
             # "all": also enclosed areas of the same colour (e.g. inside an "O").
             "logo_fill": "all" if c.get("logo_fill") == "all" else "edges",
+            # "main": shown on the overlays, joined by car class or name tag;
+            # "secondary": picked by hand, only for its own championship.
+            "role": "secondary" if c.get("role") == "secondary" else "main",
         })
     return out
+
+
+def main_classes(classes):
+    """The classes the overlays show (not the secondary ones)."""
+    return [c for c in classes or [] if c.get("role") != "secondary"]
 
 
 def normalise_profile(profile):
@@ -459,7 +474,8 @@ def normalise_profile(profile):
         except (TypeError, ValueError) as e:
             raise LeagueError("League ID must be a number.") from e
     classes = normalise_classes(profile.get("classes"))
-    class_ids = {c["id"] for c in classes}
+    class_ids = {c["id"] for c in main_classes(classes)}
+    secondary_ids = {c["id"] for c in classes} - class_ids
     drivers = []
     for d in profile.get("drivers") or []:
         if not isinstance(d, dict):
@@ -478,6 +494,8 @@ def normalise_profile(profile):
             entry[key] = str(d.get(key) or "").strip()
         if entry["class_id"] not in class_ids:
             entry["class_id"] = ""
+        if entry["class2_id"] not in secondary_ids:
+            entry["class2_id"] = ""
         for key in DRIVER_IMAGES:
             if not UPLOADED_LOGO.fullmatch(entry[key]):
                 entry[key] = ""
@@ -756,7 +774,7 @@ class LeagueStore:
         profile = profile or self._active
         if not profile:
             return None
-        classes = profile.get("classes", [])
+        classes = main_classes(profile.get("classes", []))
         if entry and entry.get("class_id"):
             for c in classes:
                 if c["id"] == entry["class_id"]:
