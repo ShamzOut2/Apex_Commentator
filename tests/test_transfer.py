@@ -116,6 +116,7 @@ class TransferTests(unittest.TestCase):
             ("cust:9", 3, "gt3", 12, 96.171, "finished", None, 12, "BMW"),             # not in the roster: its car class
             ("cust:3", 5, "am", 0, None, "dns", None, 4, "BMW")])  # the safety car (no class) left out
         self.assertEqual(info["results"], 4)
+        self.assertAlmostEqual(rd["results"][0]["race_time"], 95.101 * 13, places=2)  # average lap x laps
         self.assertEqual((rd["track"], rd["config"]), ("Monza", ""))  # the round's own track kept
         empty = self.store.save(dict(profile, championship=dict(profile["championship"], rounds=[{"id": "r9", "name": "New"}])))
         rd9 = transfer.import_round(self.store, empty, "r9", fmt, rows)[0]["championship"]["rounds"][0]

@@ -2385,6 +2385,11 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
   if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v, k, label);
   if (kind === "color") return `<label class="ov-field">${label}<input type="color" ${attrs} value="${esc(v)}"></label>`;
+  if (kind === "swatches") {
+    // Colours from the background image (filled in by fillSwatches once it's loaded).
+    return `<div class="ov-field wide swatch-field"><span>${label}</span><div class="swatches" data-swatch-key="${k}"
+      data-swatch-img="/api/backgrounds/${encodeURIComponent(values.bg_image)}"></div></div>`;
+  }
   if (kind === "class" && values.mode !== "class") return "";
   const options = kind === "class" ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
     : kind === "banner" ? [["", "The first of the right shape"], ...((s.league && s.league.banners) || []).map((b, i) =>
@@ -2393,6 +2398,72 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   return `<label class="ov-field">${label}<select ${attrs}>${options.map(([o, l]) =>
     `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
 }
+
+// The main colours of a background image, to pick an accent colour from:
+// the image drawn small, its colours rounded and counted, the most common
+// (the colourful ones a little ahead) that differ enough from each other.
+const swatchCache = new Map();
+function imagePalette(url) {
+  if (swatchCache.has(url)) return swatchCache.get(url);
+  const done = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = 80;
+      c.height = 45;
+      const g = c.getContext("2d");
+      g.drawImage(img, 0, 0, c.width, c.height);
+      let data;
+      try {
+        data = g.getImageData(0, 0, c.width, c.height).data;
+      } catch (e) {
+        return resolve([]);
+      }
+      const buckets = new Map();
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 128) continue;
+        const key = (data[i] >> 4) << 8 | (data[i + 1] >> 4) << 4 | (data[i + 2] >> 4);
+        const b = buckets.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+        b.n += 1; b.r += data[i]; b.g += data[i + 1]; b.b += data[i + 2];
+        buckets.set(key, b);
+      }
+      const colours = [...buckets.values()].map((b) => {
+        const [r, gg, bb] = [b.r / b.n, b.g / b.n, b.b / b.n];
+        const sat = (Math.max(r, gg, bb) - Math.min(r, gg, bb)) / 255;
+        return { r, g: gg, b: bb, score: b.n * (0.35 + sat) };
+      }).sort((a, b) => b.score - a.score);
+      const picked = [];
+      for (const col of colours) {
+        if (picked.every((p) => Math.hypot(p.r - col.r, p.g - col.g, p.b - col.b) > 60)) picked.push(col);
+        if (picked.length === 8) break;
+      }
+      resolve(picked.map((p) => `#${[p.r, p.g, p.b].map((x) => Math.round(x).toString(16).padStart(2, "0")).join("")}`));
+    };
+    img.onerror = () => resolve([]);
+    img.src = url;
+  });
+  swatchCache.set(url, done);
+  return done;
+}
+
+function fillSwatches(root = document) {
+  root.querySelectorAll(".swatches[data-swatch-img]:not([data-filled])").forEach(async (el) => {
+    el.dataset.filled = "1";
+    const colours = await imagePalette(el.dataset.swatchImg);
+    el.innerHTML = colours.length ? colours.map((c) => `<button type="button" class="swatch" data-swatch="${c}" style="background:${c}" title="${c}"></button>`).join("")
+      : '<span class="hint">No colours found in the image.</span>';
+  });
+}
+new MutationObserver(() => fillSwatches()).observe(document.body, { childList: true, subtree: true });
+document.addEventListener("click", (e) => {
+  const sw = e.target.closest("[data-swatch]");
+  if (!sw) return;
+  const form = sw.closest(".ov-form");
+  const key = sw.closest("[data-swatch-key]").dataset.swatchKey;
+  overlayFormKey = "";
+  boardSettingsKey = "";
+  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [key]: sw.dataset.swatch, accent: "color" } }, `Accent colour ${sw.dataset.swatch}`);
+});
 
 // A slider for each column's opacity (percent; 100 = as normal).
 function opacityField(key, label, value, cols) {
@@ -2513,7 +2584,14 @@ const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
     ["left", "Down the left"], ["right", "Down the right"]]],
   iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"]),
-  ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"]];
+  ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"],
+  ["show_league", "League name in the header", "bool"],
+  ["accent", "Accent colour (the line under the header…)", "select", [["default", "The championship's class colour (else orange)"],
+    ["color", "A colour of my own"]]],
+  iff((v) => v.accent === "color", ["accent_color", "Accent colour", "color"]),
+  iff((v) => v.accent === "color" && v.bg === "image" && v.bg_image, ["accent_color", "Or pick one from the background", "swatches"]),
+  iff((v) => !("style" in v), ["podium", "Gold, silver and bronze for places 1–3", "bool"]),
+  iff((v) => !("style" in v), ["keep_leader", "The leader at the top of every page (the rest carry on under them)", "bool"])];
 const cards = (v) => v.style === "cards";
 
 const BOARD_FIELDS = {
@@ -2548,7 +2626,10 @@ const BOARD_FIELDS = {
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names (a column)", "bool"], ["show_logo", "Team logos (a column)", "bool"],
     iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
-    ["show_gap", "Gap to the winner (DNF / DNS / DSQ show here)", "bool"], ["show_interval", "Interval to the car ahead", "bool"],
+    ["show_gap", "Gap to the winner (DNF / DNS / DSQ show here)", "bool"],
+    iff((v) => v.show_gap, ["winner_gap", "The winner's Gap shows", "select", [["laps", "Their laps (13 Laps)"],
+      ["time", "Their race time (where it's known; else their laps)"], ["none", "Nothing"]]]),
+    ["show_interval", "Interval to the car ahead", "bool"],
     ["show_points", "Points scored", "bool"],
     ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
       ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["gap", "Gap"], ["interval", "Interval"], ["points", "Points"]])],

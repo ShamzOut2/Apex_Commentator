@@ -675,6 +675,7 @@ class App:
                 "incidents": incidents or 0, "status": status,
                 "make": (entry or {}).get("car_make") or r.get("make", ""),
                 "gap": self._result_gap(off, won, r, checkered),
+                "race_time": off.get("Time") if checkered and isinstance(off.get("Time"), (int, float)) and off.get("Time") > 0 else None,
             }))
         return results, added
 

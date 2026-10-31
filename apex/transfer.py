@@ -385,6 +385,8 @@ def _result_from_csv(profile, row, store=None):
             "fastest_lap": _laptime(row.get("fastest lap time")), "incidents": _num(row.get("inc")) or 0,
             "status": status, "make": (roster or {}).get("car_make") or make_for(row.get("car", ""), ""),
             "gap": gap, "has_main": cls is not None,
+            # iRacing's average lap is their race time over their laps.
+            "race_time": round(_laptime(row.get("average lap time")) * laps, 3) if laps and _laptime(row.get("average lap time")) else None,
         }
     cls = row.get("class", "")
     class_id = next((c["id"] for c in profile.get("classes", []) if c["name"].lower() == cls.lower() or c["id"] == cls), cls)

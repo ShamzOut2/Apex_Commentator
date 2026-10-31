@@ -21,8 +21,13 @@ BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacit
 # Overlays and boards with columns can dim each column on its own:
 # col_opacity "gap:60,laps:40" (percent; columns left out are 100), used
 # while col_opacity_on is ticked.
-# Every board: "Page 2 / 3" in its header when it runs to more than one page.
-PAGING = {"page_number": True}
+# Every board: "Page 2 / 3" in its header when it runs to more than one page;
+# its accent colour (the line under the header...: "default" = the class
+# colour, or "color" = accent_color); gold, silver and bronze for places 1-3
+# (podium); the league's name in the header (show_league); and keep_leader:
+# the leader / winner at the top of every page.
+PAGING = {"page_number": True, "accent": "default", "accent_color": "#ff7a1a", "podium": True, "show_league": True,
+          "keep_leader": True}
 COLUMN_OPACITY = {"col_opacity_on": False, "col_opacity": "", "col_bg_color": "#0e1015"}
 
 NAME_FORMATS = ("full", "initial_last", "last_initial", "last", "first", "abbrev", "nickname")
@@ -213,6 +218,7 @@ DEFAULTS = {
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True,
         # Gap to the winner and to the car ahead (a DNF / DNS / DSQ shows there instead).
         "show_gap": True, "show_interval": True,
+        "winner_gap": "laps",  # the winner's Gap cell: "laps" (13 laps), "time" (their race time, else laps) or "none"
     },
     "laps": {
         "visible": True,
@@ -237,7 +243,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "who": ("all", "camera"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "who": ("all", "camera"), "winner_gap": ("laps", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 

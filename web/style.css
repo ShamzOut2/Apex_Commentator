@@ -669,3 +669,8 @@ p.hint .desk { margin-left: 6px; }
   background: var(--panel-2); color: var(--text); font-size: 12px; cursor: pointer; }
 .hk-chip kbd { min-width: 22px; text-align: center; }
 .hk-chip:hover { border-color: var(--accent); }
+
+/* Colours from a background image, to pick from. */
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.swatch { width: 30px; height: 30px; border-radius: 6px; border: 2px solid var(--line); cursor: pointer; padding: 0; }
+.swatch:hover { border-color: #fff; transform: scale(1.08); }

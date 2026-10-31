@@ -13,6 +13,15 @@ How each version's entry is written:
 
 ## Unreleased
 
+### Improvements
+
+- Boards: gold, silver and bronze for places 1–3; an accent colour of your
+  own, which you can pick from the colours of the board's background image;
+  the league name in the header can be turned off; the Wins column is
+  centred; the leader stays at the top of every page, the rest carrying on
+  under them.
+- Finishing order: the winner's Gap shows their laps or their race time.
+
 ### Fixes
 
 - Overlays in a session outside the league (practice, testing) no longer go

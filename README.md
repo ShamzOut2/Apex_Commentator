@@ -45,6 +45,15 @@ walk, Overlays, Boards and Race control.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### Improvements
+
+- Boards: gold, silver and bronze for places 1–3; an accent colour of your
+  own, which you can pick from the colours of the board's background image;
+  the league name in the header can be turned off; the Wins column is
+  centred; the leader stays at the top of every page, the rest carrying on
+  under them.
+- Finishing order: the winner's Gap shows their laps or their race time.
+
 ### Fixes
 
 - Overlays in a session outside the league (practice, testing) no longer go
@@ -752,6 +761,16 @@ Under *What each board shows*, every board can be set up separately:
   race times once the race is over, and live timing while it's on; practice
   and qualifying show the gaps between best laps;
 - how many drivers (or teams, manufacturers, race meetings) a page.
+- the board's look: **gold, silver and bronze** for places 1–3 (else the
+  accent colour), an **accent colour** of its own (the line under the
+  header, the page number…), which you can also pick from the main colours
+  of the board's background image, and whether the **league name** shows in
+  the header;
+- **the leader at the top of every page**: page 2 starts with the leader,
+  then carries on from where page 1 stopped;
+- the finishing order's **winner's Gap**: their laps (13 Laps), their race
+  time (from iRacing's results, or the average lap × laps of an imported
+  iRacing results file), or nothing.
 
 **Pages.** A board with more than that runs onto further pages: **Next ▶**
 and **◀ Prev** by *Take off screen* go through them (positions carry on, so
