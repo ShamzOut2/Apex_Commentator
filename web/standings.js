@@ -365,6 +365,8 @@ function progressText(ov) {
     if (pr.laps_total && pr.lap >= pr.laps_total) return "FINAL LAP";
     return `LAP ${pr.lap}${pr.laps_total ? ` / ${pr.laps_total}` : ""}`;
   }
+  // The clock has run out: the last lap, until the chequered flag.
+  if (pr.time_up) return "LAST LAP";
   if (pr.time_remain == null) return "";
   return `${fmtClock(pr.time_remain)}${left}`;
 }

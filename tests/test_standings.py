@@ -199,6 +199,19 @@ class StandingsOverlayTests(unittest.TestCase):
         self.assertEqual(pr["mode"], "time")
         self.assertAlmostEqual(pr["time_remain"], 1190, delta=2)
 
+    def test_timed_session_says_last_lap_once_the_clock_runs_out(self):
+        from dataclasses import replace
+
+        from apex.core import STATE_CHECKERED, STATE_RACING
+        app, _ = self.app(session="qualify")
+        self.run_for(app, 2)
+        session = {"SessionTime": "1200.0000 sec", "SessionLaps": "unlimited"}
+        frame = replace(app._frame, session_time_remain=0.0, session_state=STATE_RACING)
+        self.assertTrue(app._session_progress(frame, session, [])["time_up"])
+        # Still time on the clock, or the chequered flag out: not the last lap.
+        self.assertFalse(app._session_progress(replace(frame, session_time_remain=30.0), session, [])["time_up"])
+        self.assertFalse(app._session_progress(replace(frame, session_state=STATE_CHECKERED), session, [])["time_up"])
+
     def test_reveal_in_qualifying_lists_drivers_without_a_time_last(self):
         app, source = self.app(session="qualify")
         app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": True}})

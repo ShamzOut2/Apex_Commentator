@@ -904,9 +904,14 @@ class App:
         time_remain = remain if remain is not None and 0 <= remain < 604000 else None
         finished = frame.session_state >= STATE_CHECKERED
         lap = min(lead + 1, int(laps_total)) if laps_total else lead + 1
+        # A timed session whose clock has run out, the chequered flag not out
+        # yet: the leader's on their last lap (the header says LAST LAP).
+        time_up = (bool(time_total) and frame.session_state == STATE_RACING
+                   and remain is not None and remain <= 0.05)
         return {
             "mode": mode,
             "finished": finished,
+            "time_up": time_up,
             "lap": lap if frame.session_state >= STATE_RACING else 0,
             "laps_total": int(laps_total) if laps_total else None,
             "time_remain": round(time_remain, 1) if time_remain is not None else None,

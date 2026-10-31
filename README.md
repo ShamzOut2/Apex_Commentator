@@ -83,6 +83,8 @@ walk, Overlays, Boards and Race control.
 - **Team logo size** for every overlay and board with team logos.
 - Timing tower: **driver name column width** of your own (0 = automatic).
 - Season calendar: tick which classes' winners show under past races.
+- Timing tower: in a timed session, once the clock runs out the header shows
+  LAST LAP (instead of going blank) until the chequered flag.
 
 ### Improvements
 
@@ -431,7 +433,8 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     shows just one class.
   - **Header**: the session, with laps or time left. *Automatic* follows how
     the session is limited ("LAP 5 / 20", then "FINAL LAP" and
-    "FINISHED"; or "12:34 LEFT"). You can also pick laps, time or nothing.
+    "FINISHED"; or "12:34 LEFT", then "LAST LAP" once the clock has run out,
+    until the chequered flag). You can also pick laps, time or nothing.
   - **Fill in as drivers complete a lap** (on by default): at the start of
     any session, only the header shows (session, and laps or time left). In a
     race, nobody shows before the green, and each driver appears once they've

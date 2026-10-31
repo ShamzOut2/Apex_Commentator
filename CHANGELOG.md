@@ -50,6 +50,8 @@ How each version's entry is written:
 - **Team logo size** for every overlay and board with team logos.
 - Timing tower: **driver name column width** of your own (0 = automatic).
 - Season calendar: tick which classes' winners show under past races.
+- Timing tower: in a timed session, once the clock runs out the header shows
+  LAST LAP (instead of going blank) until the chequered flag.
 
 ### Improvements
 
