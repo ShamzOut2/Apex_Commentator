@@ -188,8 +188,9 @@ function leaderInterval(e, cfg) {
 
 // The car number: on a background in the driver's class colour, or just the number (Overlays tab).
 function numberChip(e, cls, cfg) {
-  return cfg.color_number
-    ? `<span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span>`
+  const color = paintFor(e, cls, cfg.class_colors);
+  return cfg.color_number && color
+    ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(e.number)}</span>`
     : `<span class="num plain">${esc(e.number)}</span>`;
 }
 
@@ -279,7 +280,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
   // The cells in the order rowSpec gives: the team logo and the team name are columns of their own.
   const cell = {
     pos: () => `<span class="p tnum" data-opcol="pos">${pos}</span>`,
-    stripe: () => `<span class="stripe" style="${cfg.show_stripe ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : cls.color)}` : ""}"></span>`,
+    stripe: () => `<span class="stripe" style="${cfg.show_stripe && paintFor(e, cls, cfg.class_colors) ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : paintFor(e, cls, cfg.class_colors))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
     logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
     name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
@@ -490,7 +491,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     ? `<td class="lg c" data-opcol="logo">${e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}</td>`
     : `<td class="team" data-opcol="team">${esc(e.team || "")}</td>`)).join("");
   const cells = [
-    `<td class="stripe" style="${cfg.show_stripe ? `background:${esc(classMode && e.team_color ? e.team_color : cls.color)}` : "background:none"}"></td>`,
+    `<td class="stripe" style="${cfg.show_stripe && paintFor(e, cls, cfg.class_colors) ? `background:${esc(classMode && e.team_color ? e.team_color : paintFor(e, cls, cfg.class_colors))}` : "background:none"}"></td>`,
     `<td class="p r" data-opcol="pos">${pos}</td>`,
     race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
     `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,

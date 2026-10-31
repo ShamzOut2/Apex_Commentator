@@ -658,3 +658,7 @@ p.hint .desk { margin-left: 6px; }
 .rc-log h3 { margin: 0 0 6px; }
 .rc-log ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .rc-log code { display: block; opacity: .75; }
+
+/* Import from a spreadsheet: which column is which. */
+.csv-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 14px; margin: 8px 0 12px; }
+#csv-modal .modal { max-width: 780px; }

@@ -413,6 +413,15 @@ function carSvg(design, number, { mirror = false } = {}) {
 // ---------------------------------------------------------------------------
 
 // Driver name in one of the overlay formats (see apex/overlays.py).
+// The colour a driver is shown in (car number, bar, card): with a league
+// active, their main or secondary class's (``which``, the overlay's
+// class_colors setting), or null (no colour: a plain number, no bar) when
+// they have none; without a league, the iRacing class colour.
+function paintFor(e, cls, which) {
+  if (!e || !e.paint) return cls.color;
+  return (which === "secondary" ? e.paint.secondary : e.paint.main) || null;
+}
+
 function formatName(e, format) {
   const full = String(e.name || "").trim();
   const parts = full.split(/\s+/);

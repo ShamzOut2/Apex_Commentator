@@ -20,6 +20,9 @@ How each version's entry is written:
   using your own car pictures: point the app at a folder of pictures named
   `iRacingID.Carname` (e.g. `123456.Porsche 911 GT3 R (992).png`) and each
   driver gets the right car and livery.
+- **Import a sign-up sheet**: drivers, teams and classes from any spreadsheet
+  (CSV): iRacing ID, name, car number, team and class are found by
+  themselves, and you can check which column is which before importing.
 
 ### Improvements
 
@@ -34,6 +37,11 @@ How each version's entry is written:
 - Timing tower: hotkeys for the sponsor bar and for overall / by class; the
   chequered flag header has one dark plate behind all its text.
 - League builder: duplicate a league; change the order of sponsor logos.
+- Standings and driver on camera: class colours from the driver's main or
+  secondary class; a driver without one shows no colour (a plain number, no
+  bar, no card background).
+- Driver on camera: just the overall position (the class position is an
+  option).
 - The photo booth (taking car photos in iRacing) and the grid map and head
   to head grid walk styles are gone; the grid walk uses your own pictures.
 

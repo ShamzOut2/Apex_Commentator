@@ -475,7 +475,7 @@ class App:
                 surface = _at(frame.surface, idx, TRK_NOT_IN_WORLD)
                 row = dict(d)
                 league = self.leagues.lookup(d["cust_id"], d["number"])
-                row["league"] = {k: league.get(k, "") for k in ("nickname", "team", "notes", "driver_number")} if league else None
+                row["league"] = {k: league.get(k, "") for k in ("nickname", "team", "notes", "driver_number", "class2_id")} if league else None
                 # The car as logged in the league wins over iRacing's car name.
                 row["make"] = (league or {}).get("car_make") or d["make"]
                 row["make_logo"] = make_logo(row["make"])
@@ -761,6 +761,21 @@ class App:
             return (nickname or strip_class_prefix(name)), ""
         return name, nickname
 
+    @staticmethod
+    def _paint(r, active_league):
+        """The colours a driver can be shown in, with a league active:
+        {"main": their main class's colour, "secondary": their secondary
+        class's} (None where they have none: shown without a colour). None
+        without a league (the iRacing class colours are used then)."""
+        if not active_league:
+            return None
+        classes = {c["id"]: c for c in active_league.get("classes", [])}
+        key = r.get("class_key") or ""
+        main = classes.get(key[len("league:"):]) if key.startswith("league:") else None
+        second = classes.get(((r.get("league") or {}).get("class2_id")) or "")
+        return {"main": main.get("color") if main else None,
+                "secondary": second.get("color") if second and second.get("role") == "secondary" else None}
+
     def _overlay_entry(self, r, active_league):
         """Who a driver is, for the stream overlays: league details win."""
         lg = r["league"] or {}
@@ -774,6 +789,7 @@ class App:
             "team": team_name, "team_short": (team or {}).get("short", ""), "team_color": (team or {}).get("color", ""),
             "team_logo": logo_url(pid, team.get("logo")) if team and pid else None,
             "class_key": r["class_key"], "car": r["car"], "on_pit": r["on_pit"], "in_world": r["in_world"],
+            "paint": self._paint(r, active_league),
             # For the full-screen versions.
             "make": r["make"], "make_logo": r["make_logo"],
             "lap": r["lap"], "last_lap": r["last_lap"], "best_lap": r["best_lap"], "pit_stops": r["pit_stops"],

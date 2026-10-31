@@ -166,6 +166,10 @@ class Handler(BaseHTTPRequestHandler):
                 profile = self.app.leagues.set_active(body.get("id") or None)
                 self.app.publish()
                 return self._send_json({"ok": True, "active": profile["id"] if profile else None})
+            if path == "/api/csv/preview":
+                return self._csv_preview(body)
+            if path.startswith("/api/leagues/") and path.endswith("/import-csv"):
+                return self._csv_import(path.split("/")[3], body)
             if path.startswith("/api/leagues/") and path.endswith("/duplicate"):
                 league = self.app.leagues.duplicate(path.split("/")[3], body.get("name"))
                 return self._send_json({"ok": True, "league": league})
@@ -434,6 +438,41 @@ class Handler(BaseHTTPRequestHandler):
     def _logo(self, path):
         parts = path.split("/")
         return self._image_file(self.app.leagues.logo_file(parts[3], parts[4]) if len(parts) == 5 else None)
+
+    def _csv_preview(self, body):
+        """A spreadsheet's columns and the guess at which is which (csvimport.py)."""
+        from . import csvimport
+
+        try:
+            headers, rows = csvimport.read(body.get("text"))
+        except csvimport.CsvError as e:
+            raise LeagueError(str(e)) from None
+        mapping = csvimport.guess(headers, rows)
+        ci = mapping.get("class")
+        classes = sorted({r[ci].strip() for r in rows if r[ci].strip()}) if ci is not None else []
+        return self._send_json({"headers": headers, "mapping": mapping, "rows": len(rows), "sample": rows[:4],
+                                "fields": list(csvimport.FIELDS), "classes": classes})
+
+    def _csv_import(self, profile_id, body):
+        """Drivers, teams and classes from a spreadsheet into a league, saved."""
+        from . import csvimport
+
+        profile = self.app.leagues.get(profile_id)
+        if profile is None:
+            return self._error("League not found", HTTPStatus.NOT_FOUND)
+        try:
+            headers, rows = csvimport.read(body.get("text"))
+        except csvimport.CsvError as e:
+            raise LeagueError(str(e)) from None
+        given = body.get("mapping")
+        mapping = {f: int(i) for f, i in (given.items() if isinstance(given, dict) else [])
+                   if f in csvimport.FIELDS and str(i).lstrip("-").isdigit() and 0 <= int(i) < len(headers)}
+        if not given:
+            mapping = csvimport.guess(headers, rows)
+        summary = csvimport.apply(profile, rows, mapping, body.get("class_role") or "main")
+        league = self.app.leagues.save(profile)
+        self.app.publish()
+        return self._send_json({"ok": True, "league": league, "summary": summary})
 
     def _thumb(self, name):
         """A grid walk car picture from the user's thumbnails folder (thumbnails.py)."""

@@ -55,6 +55,10 @@ DEFAULTS = {
         "show_logo": True,
         "team_logo_side": "first",  # the team logo column before the driver / team name ("first") or after it ("last")
         "team_name_place": "under",  # tower: the team name under the driver's name ("under") or a column of its own ("column")
+        # The car number's background and the bar by each driver: the colour of
+        # the driver's "main" or "secondary" class (none, a plain number and no
+        # bar, for a driver without one; with no league, iRacing's class colours).
+        "class_colors": "main",
         "show_number": True,
         "show_stripe": True,      # the coloured bar by each driver (class or team colour)
         "show_col_labels": True,  # the column headings (GAP, INT...) under the header
@@ -127,7 +131,9 @@ DEFAULTS = {
         "name_format": "full",
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_class": True,       # the class, in multiclass races
-        "show_position": True,    # P3 (and P1 in class, in multiclass races)
+        "show_position": True,    # P3 (their place overall)
+        "show_class_pos": False,  # and under it their place in class (P1 GT3), in multiclass races
+        "class_colors": "main",   # colours from the driver's main or secondary class (see standings)
         "team_place": "under",    # "under": the team logo by the team name, the car badge at the end; "end": those two swapped
         "team_logo_side": "first",  # the team logo before ("first") or after ("last") the team name
         **BACKGROUND, **OFFSET,
@@ -217,7 +223,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 

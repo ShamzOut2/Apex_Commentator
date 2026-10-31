@@ -2115,6 +2115,8 @@ const OVERLAY_FIELDS = {
       ["name_format", "Names", "select", NAME_FORMATS],
       ["show_number", "Car numbers", "bool"],
       iff((v) => v.show_number, ["color_number", "Car number background, in the driver's class colour (off: just the number)", "bool"]),
+      ["class_colors", "Class colours (car number, bar) from", "select", [["main", "The driver's main class"],
+        ["secondary", "The driver's secondary class"]]],
       ["show_stripe", "Coloured bar by each driver", "bool"],
       ["show_team", "Team names (a column of their own)", "bool"],
       iff((v) => v.show_team, ["team_name_place", "Team name on the tower", "select", [["under", "Under the driver's name"],
@@ -2191,7 +2193,9 @@ const OVERLAY_FIELDS = {
       ["stay", "Stay up for as long as they're on camera", "bool"],
       iff((v) => !v.stay, ["hide_s", "Card stays on screen for (seconds; a new driver resets it)", "number", { min: 1, max: 120, step: 1 }]),
       ["name_format", "Names", "select", NAME_FORMATS],
-      ["show_position", "Position (and in class)", "bool"],
+      ["show_position", "Position (overall)", "bool"],
+      iff((v) => v.show_position, ["show_class_pos", "Also their position in class, under it (multiclass)", "bool"]),
+      ["class_colors", "Class colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]],
       ["show_number", "Car number", "bool"],
       ["show_team", "Team", "bool"],
       iff((v) => v.show_team, ["show_logo", "Team logo", "bool"]),
@@ -3201,6 +3205,61 @@ async function renderLeaguePickers() {
   renderTeams();
   renderChampionship();
 }
+
+// -- drivers, teams and classes from a spreadsheet (csvimport.py) ----------
+
+const CSV_FIELDS = [["cust_id", "iRacing (customer) ID"], ["name", "Full name"], ["first", "First name"], ["last", "Last name"],
+  ["number", "Car number"], ["team", "Team"], ["team_color", "Team colour"], ["class", "Class"], ["nickname", "Nickname"]];
+let csvText = "";
+let csvPreview = null;
+
+document.addEventListener("change", async (e) => {
+  const input = e.target.closest && e.target.closest("[data-csv]");
+  if (!input || !input.files.length) return;
+  const file = input.files[0];
+  input.value = "";
+  if (!ui.editing) return toast("Open a league first (League builder)", true);
+  try {
+    csvText = await file.text();
+    csvPreview = await api("/api/csv/preview", { method: "POST", body: { text: csvText } });
+    openCsv(csvPreview);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
+function openCsv(p) {
+  const first = p.sample[0] || [];
+  $("#csv-count").textContent = `${p.rows} row${p.rows === 1 ? "" : "s"} in the sheet, going into ${ui.editing.name || "this league"}.`;
+  $("#csv-map").innerHTML = CSV_FIELDS.map(([f, label]) => `<label class="ov-field">${esc(label)}<select data-csv-field="${f}">
+    <option value="">— not in the sheet —</option>${p.headers.map((h, i) => `<option value="${i}" ${p.mapping[f] === i ? "selected" : ""}>${esc(h || `Column ${i + 1}`)}${first[i] ? ` (e.g. ${esc(first[i].slice(0, 24))})` : ""}</option>`).join("")}
+  </select></label>`).join("");
+  const hasSecondary = (ui.editing.classes || []).some((c) => c.role === "secondary");
+  $("#csv-role").value = hasSecondary ? "secondary" : "main";
+  $("#csv-classes").textContent = p.classes.length ? `Classes in the sheet: ${p.classes.join(", ")}.` : "";
+  $("#csv-modal").hidden = false;
+}
+
+$("#csv-cancel").addEventListener("click", () => { $("#csv-modal").hidden = true; });
+$("#csv-go").addEventListener("click", async () => {
+  const mapping = {};
+  document.querySelectorAll("[data-csv-field]").forEach((sel) => {
+    if (sel.value !== "") mapping[sel.dataset.csvField] = +sel.value;
+  });
+  if (mapping.name == null && mapping.first == null && mapping.cust_id == null) return toast("Pick the column with the names or iRacing IDs", true);
+  try {
+    const saved = await saveEditor();
+    const r = await api(`/api/leagues/${encodeURIComponent(saved.id)}/import-csv`, {
+      method: "POST", body: { text: csvText, mapping: Object.keys(mapping).length ? mapping : { name: -1 }, class_role: $("#csv-role").value },
+    });
+    $("#csv-modal").hidden = true;
+    openEditor(r.league);
+    const m = r.summary;
+    toast(`${m.added} added, ${m.updated} updated${m.teams ? `, ${m.teams} new team${m.teams === 1 ? "" : "s"}` : ""}${m.classes ? `, ${m.classes} new class${m.classes === 1 ? "" : "es"}` : ""}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
 
 async function openLeague(id) {
   const league = await api(`/api/leagues/${encodeURIComponent(id)}`);

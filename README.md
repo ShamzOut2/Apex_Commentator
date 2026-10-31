@@ -52,6 +52,9 @@ walk, Overlays, Boards and Race control.
   using your own car pictures: point the app at a folder of pictures named
   `iRacingID.Carname` (e.g. `123456.Porsche 911 GT3 R (992).png`) and each
   driver gets the right car and livery.
+- **Import a sign-up sheet**: drivers, teams and classes from any spreadsheet
+  (CSV): iRacing ID, name, car number, team and class are found by
+  themselves, and you can check which column is which before importing.
 
 ### Improvements
 
@@ -66,6 +69,11 @@ walk, Overlays, Boards and Race control.
 - Timing tower: hotkeys for the sponsor bar and for overall / by class; the
   chequered flag header has one dark plate behind all its text.
 - League builder: duplicate a league; change the order of sponsor logos.
+- Standings and driver on camera: class colours from the driver's main or
+  secondary class; a driver without one shows no colour (a plain number, no
+  bar, no card background).
+- Driver on camera: just the overall position (the class position is an
+  option).
 - The photo booth (taking car photos in iRacing) and the grid map and head
   to head grid walk styles are gone; the grid walk uses your own pictures.
 
@@ -396,6 +404,11 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     and *Car number background* can each be turned off. The background is in
     the driver's class colour; with it off, just the number shows. Both the
     tower and the full-screen version follow these.
+  - **Class colours from**: the driver's **main** class or their
+    **secondary** class (League builder). A driver without one (no main
+    class in the league, say, only a secondary one) shows no colour: just
+    the number, with no background, and no bar. With no league active, the
+    iRacing class colours are used.
   - **Time left**: "12:34 LEFT", or just "12:34" with *"LEFT" after the
     time left* off.
   - **Accent colour**: the colour of the time or lap in the header, the bar
@@ -480,9 +493,11 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   once the championship has standings: after the first results, or live
   during a race.
 - **Driver on camera** (`/driver.html`): a small board at the bottom centre
-  naming the driver the camera is on. It shows their position (and in class,
-  in multiclass races), car number in the class colour, name, class, team and
-  logo, and car badge.
+  naming the driver the camera is on. It shows their position overall (and,
+  if you tick it, their position in class under it), car number in the class
+  colour, name, class, team and logo, and car badge. *Class colour from*: the
+  main or the secondary class, as for the standings; a driver without one
+  gets no colour: no background behind the position or number, white text.
   - When the camera moves to someone else, the old board slides away and the
     new one slides up, opening from the middle with a light sweep.
   - **Card stays on screen for**: how many seconds it stays up (1 to 120).
@@ -569,7 +584,8 @@ made.
 | What | Where | Export | Import |
 | --- | --- | --- | --- |
 | A whole league (classes, teams, drivers, championship, logos, banners, sponsors, photos) | League builder | **Export league** (.json) | **Import league…** (left side): added as a new league, never over one you have |
-| Driver roster | League builder | **Roster (CSV)** | **Import roster (CSV)…**: drivers matched by customer ID (else name) are updated, new ones added |
+| Driver roster | League builder | **Roster (CSV)** | **Import roster (this app's CSV)…**: drivers matched by customer ID (else name) are updated, new ones added |
+| Drivers, teams and classes from any spreadsheet (a sign-up sheet) | — | — | **Import a sign-up sheet (CSV)…** (League builder → Drivers, or Teams): see below |
 | Teams (names, short names, colours, logos, who drives for whom) | Teams | **Export teams** (.json) | **Import teams…**: teams with the same name are replaced, drivers join their team |
 | Championship (points rules, calendar, every round's results, penalties) | Championship | **Export championship** (.json) | **Import championship…**: replaces this league's championship |
 | Championship standings (every table, round by round) | Championship | **Standings (CSV)** | |
@@ -894,6 +910,19 @@ No iRacing login is needed for any of it.
 The league's settings are on three tabs: **Drivers** (the roster),
 **Classes**, and **Logos, banners & sponsors**. *Teams ↗* and *Season &
 points ↗* jump to the team builder and the championship.
+
+**Import a sign-up sheet (CSV)…** (Drivers tab, or the Teams tab) reads any
+spreadsheet saved as CSV, e.g. a league's sign-up sheet. It works out which
+column is which (iRacing customer ID, full name or first and last name, car
+number, team, team colour, class, nickname) and shows its guess to check or
+change: the class column is found by its heading, or without one by its
+values (a column of a few repeated words such as GOLD / SILVER / BRONZE).
+Pick whether the classes are **main** classes (shown on the overlays) or
+**secondary** ones. Then **Import**: drivers already in the league (same
+iRacing ID, else the same name) get the sheet's details, everyone else is
+added, and any team or class the league doesn't have is made (Gold, Silver,
+Bronze get their usual colours). Car numbers keep their leading zeros
+("021"). The league is saved.
 
 **⧉** by a saved league duplicates it: drivers, classes, teams,
 championship and images, as "<name> (copy)", to rename and change (a new

@@ -283,9 +283,10 @@
             <div class="row transfer-row">
               <button id="btn-add-driver" class="btn subtle">+ Add driver</button>
               <button id="btn-import-session" class="btn subtle" title="Add the drivers in the current iRacing session to this league">⤓ Add drivers from session</button>
+              <label class="btn subtle" title="Drivers, teams and classes from any spreadsheet, e.g. a sign-up sheet: iRacing ID, name, car number, team, class">⤒ Import a sign-up sheet (CSV)…<input type="file" accept=".csv,text/csv,.txt" data-csv hidden></label>
               <span class="grow"></span>
               <button class="btn subtle" data-export="drivers" title="The roster as a spreadsheet (CSV)">⤓ Roster (CSV)</button>
-              <label class="btn subtle">⤒ Import roster (CSV)…<input type="file" accept=".csv,text/csv" data-import="drivers" hidden></label>
+              <label class="btn subtle" title="A roster exported from this app (⤓ Roster)">⤒ Import roster (this app's CSV)…<input type="file" accept=".csv,text/csv" data-import="drivers" hidden></label>
             </div>
           </div>
 
@@ -343,6 +344,7 @@
           <span class="grow"></span>
           <button class="btn subtle" data-export="teams" title="Teams, their logos and who drives for each">⤓ Export teams</button>
           <label class="btn subtle">⤒ Import teams…<input type="file" accept=".json,application/json" data-import="teams" hidden></label>
+          <label class="btn subtle" title="Drivers, teams and classes from any spreadsheet, e.g. a sign-up sheet: iRacing ID, name, car number, team, class">⤒ Import a sign-up sheet (CSV)…<input type="file" accept=".csv,text/csv,.txt" data-csv hidden></label>
           <button id="btn-add-team" class="btn subtle">+ Add team</button>
           <button id="btn-save-teams" class="btn primary">Save</button>
         </div>
@@ -573,6 +575,25 @@
       </div>
     </section>
   </main>
+
+  <div id="csv-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="csv-title">
+      <h2 id="csv-title">Import from a spreadsheet</h2>
+      <p class="hint">Which column is which (the app's guess; change any). Drivers already in the league (same iRacing ID,
+        else the same name) get the sheet's details; everyone else is added. Teams and classes the league doesn't have yet
+        are made.</p>
+      <p id="csv-count" class="hint"></p>
+      <div id="csv-map" class="csv-map"></div>
+      <label class="ov-field">The class column is each driver's
+        <select id="csv-role"><option value="main">Main class (shown on the overlays)</option>
+          <option value="secondary">Secondary class (its own championship)</option></select></label>
+      <p id="csv-classes" class="hint"></p>
+      <div class="modal-actions">
+        <button class="btn subtle" id="csv-cancel">Cancel</button>
+        <button class="btn primary" id="csv-go">Import</button>
+      </div>
+    </div>
+  </div>
 
   <div id="hotkey-modal" class="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="hotkey-title">
