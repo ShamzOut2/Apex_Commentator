@@ -520,6 +520,7 @@ const DESK_PARTS = {
   "/gridwalk.html": ".gw-title, .gw-track, .gw-info",
   "/board.html": "#stage > *",
   "/battle.html": ".battle:not(.out)",
+  "/pits.html": ".pit-card",
 };
 
 function reportDeskParts(page) {

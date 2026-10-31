@@ -708,7 +708,7 @@ $("#battle-color").addEventListener("input", (e) => {
 let hotkeyTarget = null;   // {kind: "cam" | "act", id, label} waiting for a key
 
 const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"],
-  ["battle", "Championship battle"]];
+  ["battle", "Championship battle"], ["pits", "Pit stops"]];
 const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
 
 // What a key can do besides cameras: [[section, [[id, label, run]]]], from
@@ -2173,6 +2173,23 @@ const OVERLAY_FIELDS = {
     ]],
   ],
   gridwalk: [["Car pictures", [["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
+  pits: [
+    ["What it shows", [
+      ["who", "Show", "select", [["all", "Every car in the pit lane (the one on camera first)"], ["camera", "Only the car on camera"]]],
+      iff((v) => v.who === "all", ["count", "Most cards at once", "number", { min: 1, max: 12, step: 1 }]),
+      ["hold_s", "Stays after the pit exit line, with the final times (seconds)", "number", { min: 0, max: 60, step: 1 }],
+      ["race_only", "Races only", "bool"],
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_position", "Position", "bool"],
+      ["show_number", "Car number", "bool"],
+      ["show_team", "Team name", "bool"],
+      ["show_logo", "Team logo", "bool"],
+      ["class_colors", "Class colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]],
+    ]],
+    OVERLAY_LOOK,
+  ],
   battle: [
     ["What it shows", [
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
@@ -2605,6 +2622,7 @@ $("#url-board").textContent = `${location.origin}/board.html`;
 $("#url-sponsors").textContent = `${location.origin}/sponsors.html`;
 $("#url-driver").textContent = `${location.origin}/driver.html`;
 $("#url-battle").textContent = `${location.origin}/battle.html`;
+$("#url-pits").textContent = `${location.origin}/pits.html`;
 
 for (const page of ["standings", "laps"]) {
   $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;

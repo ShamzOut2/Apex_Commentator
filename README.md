@@ -47,6 +47,9 @@ walk, Overlays, Boards and Race control.
 
 ### New features
 
+- **Pit stops overlay**: when a car comes into the pit lane in a race, a card
+  with its pit lane time (entry line to exit line) and its time in the pit
+  box, ticking, and the final times for a few seconds after it leaves.
 - **New grid walk**: a track across the screen with the two cars of each
   row in their staggered grid boxes and the drivers' details beside them,
   using your own car pictures: point the app at a folder of pictures named
@@ -186,7 +189,7 @@ shows something else. Camera hotkeys work in whichever window has focus.
 **Hotkeys for overlays and boards.** *⌨ Hotkeys* (on the Timing, Overlays and
 Boards tabs) also sets keys for:
 - each overlay: the standings tower, lap tracker, driver on camera,
-  sponsors and championship battle, on and off;
+  sponsors, championship battle and pit stops, on and off;
 - the timing tower: its sponsor bar under the header on and off, and
   overall / by class;
 - the championship battle's quick picks (the car on camera and the one
@@ -496,6 +499,19 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   heading, name format, place, size and background can be set. It shows
   once the championship has standings: after the first results, or live
   during a race.
+- **Pit stops** (`/pits.html`): a card for a car in the pit lane, with two
+  clocks:
+  - **Pit lane**: from the moment it crosses the pit lane entry line to the
+    exit line;
+  - **In box**: the time it spends in its pit box (added up if it moves in
+    and out), lit up while it's stopped; "—" for a drive-through.
+  The tag says *PIT LANE*, *STOPPED* or *OUT*. After the exit line the card
+  keeps the final times for a few seconds (*Stays after the pit exit line*),
+  then slides away. **Show**: every car in the pit lane (the one on camera
+  first, at most the number set) or only the car on camera. Races only,
+  unless you untick it. Position, car number (in its class colour), name,
+  team name and logo can each be turned off. The clocks are the sim's own,
+  so they're right in replays too (paused with the replay).
 - **Driver on camera** (`/driver.html`): a small board at the bottom centre
   naming the driver the camera is on. It shows their position overall (and,
   if you tick it, their position in class under it), car number in the class

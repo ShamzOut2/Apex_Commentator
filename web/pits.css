@@ -1,0 +1,47 @@
+/* Pit stops: a stack of cards, in a corner or along an edge. */
+.pits { position: absolute; display: flex; flex-direction: column; gap: 10px; zoom: var(--ov-size, 1); }
+.pits.top-left { top: 40px; left: 40px; }
+.pits.top { top: 40px; left: 50%; translate: -50% 0; }
+.pits.top-right { top: 40px; right: 40px; align-items: flex-end; }
+.pits.left { left: 40px; top: 50%; translate: 0 -50%; }
+.pits.right { right: 40px; top: 50%; translate: 0 -50%; align-items: flex-end; }
+.pits.bottom-left { bottom: 40px; left: 40px; flex-direction: column-reverse; }
+.pits.bottom { bottom: 40px; left: 50%; translate: -50% 0; flex-direction: column-reverse; }
+.pits.bottom-right { bottom: 40px; right: 40px; align-items: flex-end; flex-direction: column-reverse; }
+
+.pit-card {
+  width: 470px; border-radius: 12px; overflow: hidden; background: var(--panel);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .45); border-left: 6px solid var(--cls, var(--accent));
+  animation: pit-in .45s cubic-bezier(.2, .9, .25, 1) both;
+}
+body.panel-image .pit-card { isolation: isolate; position: relative; }
+body.panel-image .pit-card::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
+}
+@keyframes pit-in { from { opacity: 0; transform: translateX(30px); } }
+.pit-card.leaving { animation: pit-out .4s ease-in both; }
+@keyframes pit-out { to { opacity: 0; transform: translateX(30px); } }
+.pits.left .pit-card, .pits.top-left .pit-card, .pits.bottom-left .pit-card { animation-name: pit-in-left; }
+@keyframes pit-in-left { from { opacity: 0; transform: translateX(-30px); } }
+
+.pit-who { display: flex; align-items: center; gap: 12px; padding: 10px 14px 8px; }
+.pit-who .pos { font-size: 24px; font-weight: 900; min-width: 46px; }
+.pit-who .num { height: 32px; font-size: 19px; }
+.pit-who .names { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.pit-who .name { font-size: 22px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pit-who .team { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pit-who .logo { height: 30px; max-width: 70px; object-fit: contain; }
+.pit-tag { font-size: 13px; font-weight: 900; letter-spacing: .1em; padding: 3px 8px; border-radius: 5px; background: var(--yellow); color: #111; }
+.pit-tag.out { background: var(--green); }
+
+.pit-times { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
+.pit-time { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 8px 14px 10px; }
+.pit-time + .pit-time { border-left: 1px solid var(--line); }
+.pit-time .lbl { font-size: 12px; font-weight: 800; letter-spacing: .12em; color: var(--muted); }
+.pit-time .val { font-size: 28px; font-weight: 900; font-variant-numeric: tabular-nums; }
+/* In the box now: its clock lit up. */
+.pit-time.live.box { background: rgba(255, 210, 63, .12); }
+.pit-time.live.box .val { color: var(--yellow); }
+.pit-time.done .val { color: var(--ink); }
+.pit-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; opacity: .6; font-size: 28px; text-align: center; padding: 0 200px; }

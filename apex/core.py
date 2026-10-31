@@ -13,6 +13,7 @@ from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
 from .thumbnails import Thumbnails
+from .pits import PitTracker
 from .backgrounds import Backgrounds
 from .gaps import GapTimer
 from .laps import LapTracker, group_sectors, sector_starts
@@ -42,6 +43,7 @@ from .sources import (
     STATE_CHECKERED,
     STATE_COOLDOWN,
     STATE_RACING,
+    TRK_IN_PIT_STALL,
     TRK_NOT_IN_WORLD,
 )
 
@@ -226,6 +228,7 @@ class App:
         self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
         self.backgrounds = Backgrounds()  # __main__ gives it a folder: overlay / board background images
         self.laps = LapTracker()
+        self.pits = PitTracker()
         self.gaps = GapTimer()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
         self.settings = UserSettings()     # settings changed in the app (likewise)
@@ -322,6 +325,10 @@ class App:
             self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
         self.laps.green_s = self.overlays.get()["laps"]["green_s"]
         self.laps.update(timeline_frame, self._lap_class)
+        # Pit stops (the pit stop overlay): on pit road, in the pit box.
+        self.pits.update(num, t, [(idx, bool(_at(frame.on_pit, idx, False)),
+                                   _at(frame.surface, idx, TRK_NOT_IN_WORLD) == TRK_IN_PIT_STALL,
+                                   _at(frame.surface, idx, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD) for idx in self._drivers])
         self._logged_until[num] = t
         self.detection = "live" if frame.is_live else "replay"
 
@@ -968,6 +975,8 @@ class App:
             "fastest_flash": flash,
             # The driver on camera, for the "who's this" board (driver.html).
             "driver": self._camera_driver(frame, rows, entries, is_race, self._camera_picks),
+            # Cars in the pit lane, with their pit lane and pit box times (pits.html).
+            "pits": self._pits_snapshot(frame, rows, entries, is_race),
             # "all": every driver, for the full-screen timing page (timed
             # drivers by lap time, then the rest).
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
@@ -985,6 +994,28 @@ class App:
             return None
         return dict(entries[idx], pos=row["pos"], class_pos=row["class_pos"],
                     pos_change=row.get("pos_change") if is_race else None, pick=picks)
+
+    def _pits_snapshot(self, frame, rows, entries, is_race):
+        """The pit stops to show (see pits.py): the car on camera first, then
+        in the order they came in, at most ``count``. ``speed``: how fast
+        their clocks run (the replay's speed; 0 paused)."""
+        cfg = self.overlays.get()["pits"]
+        speed = frame.replay_speed if isinstance(frame.replay_speed, (int, float)) else 1
+        if cfg["race_only"] and not is_race:
+            return {"stops": [], "speed": speed}
+        _, t = frame.timeline()
+        place = {r["car_idx"]: r for r in rows}
+        stops = []
+        for s in self.pits.state(t, cfg["hold_s"]):
+            e, r = entries.get(s["car_idx"]), place.get(s["car_idx"])
+            if e is None or r is None:  # not on the overlays (no class), or gone
+                continue
+            on_camera = s["car_idx"] == frame.cam_car_idx
+            if cfg["who"] == "camera" and not on_camera:
+                continue
+            stops.append(dict(e, **s, pos=r["pos"], class_pos=r["class_pos"], camera=on_camera))
+        stops.sort(key=lambda x: not x["camera"])
+        return {"stops": stops[:max(1, cfg["count"])], "speed": speed}
 
     def _add_start_positions(self, rows, is_race):
         """Grid position (overall and in class) and places gained since, in races."""
@@ -1248,6 +1279,7 @@ class App:
         "gridwalk": ("Grid walk", "/gridwalk.html"),
         "driver": ("Driver on camera", "/driver.html"),
         "battle": ("Championship battle", "/battle.html"),
+        "pits": ("Pit stops", "/pits.html"),
     }
 
     def _desktop_snapshot(self):

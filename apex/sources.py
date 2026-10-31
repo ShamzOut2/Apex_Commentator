@@ -344,6 +344,7 @@ class MockSource:
         self.spin_at = [None] * n   # when the car's current moment is a spin
         self.moment_at = [None] * n  # when the car's current moment (off / spin) began
         self.pit_until = [0.0] * n
+        self.pit_from = [0.0] * n  # when the car came into the pit lane (it stops in its box half way)
         self.incidents = [0] * n
         self.lap_noise = [[1.0] * len(self.SECTOR_STARTS) for _ in range(n)]
         self.black_flag = [False] * n
@@ -450,7 +451,7 @@ class MockSource:
             if self.moment_at[i] is not None:
                 pace *= self._moment_pace(i, t)
             if t < self.pit_until[i]:
-                pace *= 0.35
+                pace *= 0.0 if self._in_box(i, t) else 0.35
             prev = self.progress[i]
             self.progress[i] += dt / self.base_lap[i] * pace
             if self.session_kind == "qualify" and prev < 0 <= self.progress[i]:
@@ -479,9 +480,11 @@ class MockSource:
                 if self.black_flag[i] and not self.served[i]:
                     # Serve the drive-through.
                     self.pit_until[i] = t + 18
+                    self.pit_from[i] = -1e9  # a drive-through: no stop in the box
                     self.served[i] = True
                 elif rng.random() < 0.04 and t > 120:
                     self.pit_until[i] = t + 22
+                    self.pit_from[i] = t
             # Random off-track moment: ~once every 7 minutes per car.
             if t > 15 and t > self.slow_until[i] + 10 and rng.random() < dt / 420.0:
                 self.offtrack_until[i] = t + 2.5
@@ -564,7 +567,7 @@ class MockSource:
                 # Qualifying starts with an out lap from the pit lane.
                 on_pit[idx] = t < self.pit_until[i] or (self.session_kind == "qualify" and p < -0.9)
                 if on_pit[idx]:
-                    surface[idx] = TRK_APPROACHING_PITS
+                    surface[idx] = TRK_IN_PIT_STALL if self._in_box(i, t) else TRK_APPROACHING_PITS
                 elif t < self.offtrack_until[i]:
                     surface[idx] = TRK_OFF_TRACK
                 else:
@@ -692,6 +695,10 @@ class MockSource:
         with self._lock:
             self.commands.append(("cam_set_state", state))
             self.cam_state = state
+
+    def _in_box(self, i, t):
+        """A pit stop: 7 s down the pit lane, 8 s in the box, 7 s out."""
+        return self.pit_from[i] + 7 <= t < self.pit_until[i] - 7
 
     def send_chat(self, text):
         """Race control's lines, as iRacing's chat would get them (kept in ``chat``)."""
