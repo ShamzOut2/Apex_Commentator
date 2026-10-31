@@ -192,6 +192,7 @@ function render() {
   renderFlash(snap, ov);
   if (SCREEN) {
     setBackground(ov.settings.standings, true);
+    setSize(ov.settings.standings, true);
     return renderScreen(snap, ov);
   }
   const entries = ov.standings;
@@ -241,6 +242,7 @@ function render() {
   tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("hidden", !visible);
   setPanels(cfg);
+  setSize(cfg);
   tower.style.width = `${width}px`;
   tower.style.setProperty("--grid", grid);
   if (visible && html !== shown) {

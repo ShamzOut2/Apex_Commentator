@@ -50,6 +50,9 @@ OBS dock.
   where each one went, with a button to open the folder. Standings, results
   and the roster also export as spreadsheets (CSV).
 
+- **Size** for every overlay and board (50–200%). An overlay grows or
+  shrinks from where it sits; a board from the middle of the screen.
+
 ### Improvements
 
 - The Sponsors overlay's panel sits closer around the logos. In "one at a
@@ -428,6 +431,22 @@ images inside them). **.csv** files open in Excel or Google Sheets; round
 results and the roster can be edited there and imported back. Classes are
 matched by name, so a league with the same class names picks results up
 directly.
+
+## Size
+
+Every overlay and board has a **Size** slider (50–200%, 100% as designed):
+- **Overlays tab:** standings, lap tracker, driver on camera and sponsors.
+- **Boards tab:** each board.
+- **Grid walk tab:** the grid walk.
+
+An overlay grows or shrinks from where it sits:
+- **Standings tower:** from its top-left corner.
+- **Lap trackers:** from the bottom.
+- **Sponsors:** from their corner or edge.
+- **Driver board:** from the bottom centre.
+
+Boards, the grid walk and the full-screen versions grow or shrink around the
+middle of the screen. Changes show straight away, in OBS and on screen.
 
 ## Backgrounds
 

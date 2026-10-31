@@ -28,6 +28,7 @@ function render(snap) {
   if (!ov || !ov.settings.driver) return;
   const cfg = ov.settings.driver;
   setPanels(cfg);
+  setSize(cfg);
   const d = snap.connected && cfg.visible ? ov.driver : null;
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const multiclass = (snap.classes || []).length > 1;

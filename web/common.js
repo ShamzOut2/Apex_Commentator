@@ -417,12 +417,19 @@ function ongoing(since, ms) {
 // A stopwatch icon (fastest lap), coloured by CSS (currentColor).
 const STOPWATCH = '<svg class="stopwatch" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 1h6v2H9zm10.03 6.39 1.42-1.42-1.41-1.41-1.42 1.42A8.96 8.96 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61zM12 20a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm-1-12h2v6h-2z"/></svg>';
 
-// Fixed 1920x1080 stage, scaled to fit the browser source.
+// Fixed 1920x1080 stage, scaled to fit the browser source. setStageSize()
+// then makes the whole stage bigger or smaller around the middle (boards,
+// full screens, the grid walk).
+let fitNow = () => {};
+let stageSize = 1;
+
 function fitStage(stage) {
   const fit = () => {
     const s = Math.min(innerWidth / 1920, innerHeight / 1080);
-    stage.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
+    stage.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`
+      + (stageSize !== 1 ? ` translate(960px, 540px) scale(${stageSize}) translate(-960px, -540px)` : "");
   };
+  fitNow = fit;
   addEventListener("resize", fit);
   fit();
   if (new URLSearchParams(location.search).has("preview")) document.body.classList.add("preview");
@@ -437,6 +444,19 @@ function fitStage(stage) {
 //   panels, nothing else (setPanels);
 // - boards and full-screen pages, which are a whole screen: that screen's
 //   backdrop (setBackground), shown only while there's something on screen.
+
+// The Size setting (scale, percent). Overlays: their own elements grow or
+// shrink from where they sit (CSS zoom via --ov-size, in each page's CSS).
+// Boards and full screens: the whole stage, around the middle.
+function setSize(cfg, whole = false) {
+  const k = ((cfg && cfg.scale) || 100) / 100;
+  document.body.style.setProperty("--ov-size", String(whole ? 1 : k));
+  const stage = whole ? k : 1;
+  if (stage !== stageSize) {
+    stageSize = stage;
+    fitNow();
+  }
+}
 
 // Overlays: their panels take the colour, or show the image inside them
 // (overlay.css / gridwalk.css: body.panel-image). Everything else stays

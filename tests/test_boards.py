@@ -254,6 +254,10 @@ class BackgroundTests(unittest.TestCase):
         self.assertEqual((settings["laps"]["bg_color"], settings["laps"]["bg_opacity"]), ("#ff8800", 100))
         self.assertEqual(settings["sponsors"]["bg_image"], "")  # not one of ours
         self.assertEqual(settings["gridwalk"]["bg"], "default")
+        # Size: every overlay and board, 50-200 %.
+        sized = overlay_settings({"standings": {"scale": 140}, "driver": {"scale": 10}, "board_teams": {"scale": 900}})
+        self.assertEqual((sized["standings"]["scale"], sized["driver"]["scale"], sized["board_teams"]["scale"],
+                          sized["laps"]["scale"]), (140, 50, 200, 100))
         # The board on screen carries its background settings to the page.
         b = boards.build(league(), {"kind": "results", "params": {}}, settings)
         self.assertEqual(b["settings"]["bg_opacity"], 40)

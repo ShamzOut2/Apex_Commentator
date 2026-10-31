@@ -4,14 +4,7 @@
 // control panel and any number of OBS sources stay in step.
 
 const stage = $("#stage");
-if (new URLSearchParams(location.search).has("preview")) document.body.classList.add("preview");
-
-function fit() {
-  const s = Math.min(innerWidth / 1920, innerHeight / 1080);
-  stage.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
-}
-addEventListener("resize", fit);
-fit();
+fitStage(stage);
 
 let snap = null;
 let shownKey = "";
@@ -191,6 +184,7 @@ function render() {
   progress = { elapsed: g.elapsed, interval: g.interval, running: g.running && g.visible, at: performance.now() };
   const show = g.visible && pair.length > 0;
   setPanels(snap.overlays && snap.overlays.settings.gridwalk);
+  setSize(snap.overlays && snap.overlays.settings.gridwalk, true);
   // Only rebuild when what is on screen changes, so animations play once.
   const key = JSON.stringify([show, g.style, g.index, pair, pair.map((e) => classes.get(e.class_key) || null),
     entries.length, snap.league, snap.session && snap.session.track]);

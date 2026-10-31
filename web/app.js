@@ -1331,7 +1331,7 @@ const OVERLAY_FIELDS = {
     ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
     ["fl_flash_s", "Fastest lap flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }],
     ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"],
-    ["bg", "Background", "background"],
+    ["scale", "Size", "size"], ["bg", "Background", "background"],
   ],
   laps: [
     ["visible", "On screen", "bool"],
@@ -1347,7 +1347,7 @@ const OVERLAY_FIELDS = {
     ["show_logo", "Team logos", "bool"],
     ["show_invalid", "Track invalid laps too", "bool"],
     ["practice", "Also in practice", "bool"],
-    ["bg", "Background", "background"],
+    ["scale", "Size", "size"], ["bg", "Background", "background"],
   ],
   sponsors: [
     ["visible", "On screen", "bool"],
@@ -1359,9 +1359,9 @@ const OVERLAY_FIELDS = {
     ["background", "Dark panel behind", "bool"],
     ["title", "Caption above (e.g. Partners)", "text"],
     ["sponsor_ids", "Sponsors", "sponsors"],
-    ["bg", "Background", "background"],
+    ["scale", "Size", "size"], ["bg", "Background", "background"],
   ],
-  gridwalk: [["bg", "Background", "background"]],
+  gridwalk: [["scale", "Size", "size"], ["bg", "Background", "background"]],
   driver: [
     ["visible", "On screen", "bool"],
     ["hide_s", "Hide after (s; 0 = while they're on camera)", "number", { min: 0, max: 60, step: 1 }],
@@ -1372,7 +1372,7 @@ const OVERLAY_FIELDS = {
     ["show_logo", "Team logo", "bool"],
     ["show_make", "Car badge", "bool"],
     ["show_class", "Class (multiclass)", "bool"],
-    ["bg", "Background", "background"],
+    ["scale", "Size", "size"], ["bg", "Background", "background"],
   ],
 };
 
@@ -1391,6 +1391,12 @@ async function loadBackgrounds() {
   if (ui.snap) render();
 }
 
+// The Size setting: a slider, 50-200 %, showing its value as it moves.
+function sizeField(v) {
+  return `<label class="ov-field">Size: <span class="rng-val">${v}%</span>
+    <input type="range" min="50" max="200" step="5" data-key="scale" data-kind="number" value="${v}"></label>`;
+}
+
 // The Background setting's fields; colour / image / opacity only when they apply.
 // On an overlay it's the overlay's own panels; a board (a whole screen) and
 // the full-screen versions fill their screen.
@@ -1407,14 +1413,15 @@ function backgroundFields(section, v) {
       <label class="btn subtle bg-upload">Upload…<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-bg-upload="${section}" hidden></label></div></div>`);
   }
   if (v.bg !== "default") {
-    out.push(`<label class="ov-field">Opacity: <span class="bg-op">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
+    out.push(`<label class="ov-field">Opacity: <span class="rng-val">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
   }
   return out.join("");
 }
 
 document.addEventListener("input", (e) => {
-  // Show the opacity as the slider moves; it's saved when let go.
-  if (e.target.dataset.key === "bg_opacity") e.target.closest("label").querySelector(".bg-op").textContent = `${e.target.value}%`;
+  // Show a slider's value (size, opacity) as it moves; it's saved when let go.
+  const shown = e.target.type === "range" && e.target.closest("label") && e.target.closest("label").querySelector(".rng-val");
+  if (shown) shown.textContent = `${e.target.value}%`;
 });
 document.addEventListener("change", async (e) => {
   const input = e.target.closest("[data-bg-upload]");
@@ -1468,6 +1475,7 @@ function renderOverlaySettings(s) {
       const v = values[k];
       const attrs = `data-key="${k}" data-kind="${kind}"`;
       if (kind === "background") return backgroundFields(overlay, values);
+      if (kind === "size") return sizeField(v);
       if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
       if (kind === "number") {
         return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
@@ -1503,7 +1511,7 @@ const BOARD_LOOK = [["league_logo", "League logo in the header", "bool"],
     ["right", "Down the right"]]], ["banner_id", "Which banner", "banner"],
   ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
     ["left", "Down the left"], ["right", "Down the right"]]], ["sponsor_ids", "Which sponsors", "sponsors"],
-  ["bg", "Background", "background"]];
+  ["scale", "Size", "size"], ["bg", "Background", "background"]];
 
 const BOARD_FIELDS = {
   board_championship: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
@@ -1587,6 +1595,7 @@ function renderBoardSettings(s) {
       if (kind === "number") return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" value="${v}"></label>`;
       if (kind === "sponsors") return settings[section].sponsors === "none" ? "" : sponsorPicker((s.league && s.league.sponsors) || [], v);
       if (kind === "background") return backgroundFields(section, settings[section]);
+      if (kind === "size") return sizeField(v);
       const choices = kind === "banner"
         ? [["", "The first of the right shape"], ...banners.map((b, i) => [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
         : opts;

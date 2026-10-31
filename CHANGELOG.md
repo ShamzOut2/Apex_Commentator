@@ -24,6 +24,9 @@ How each version's entry is written:
   where each one went, with a button to open the folder. Standings, results
   and the roster also export as spreadsheets (CSV).
 
+- **Size** for every overlay and board (50–200%). An overlay grows or
+  shrinks from where it sits; a board from the middle of the screen.
+
 ### Improvements
 
 - The Sponsors overlay's panel sits closer around the logos. In "one at a
