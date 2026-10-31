@@ -20,13 +20,14 @@
 
   <nav class="tabs" role="tablist">
     <button class="tab" data-tab="home">Home</button>
-    <button class="tab" data-tab="timing">Timing</button>
-    <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
     <button class="tab" data-tab="league">League builder</button>
     <button class="tab" data-tab="teams">Teams</button>
+    <button class="tab" data-tab="championship">Championship</button>
+    <button class="tab" data-tab="timing">Timing</button>
+    <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
     <button class="tab" data-tab="overlays">Overlays</button>
     <button class="tab" data-tab="boards">Boards</button>
-    <button class="tab" data-tab="championship">Championship</button>
+    <button class="tab" data-tab="racecontrol">Race control</button>
   </nav>
 
   <main id="main">
@@ -483,6 +484,40 @@
         </div>
         <h3 class="section-title">What each board shows</h3>
         <div id="board-settings" class="board-settings"></div>
+      </div>
+    </section>
+
+    <section id="tab-racecontrol" class="panel">
+      <div class="home wide">
+        <div class="row teams-head"><h2>Race control</h2><span id="rc-status" class="hint"></span></div>
+        <p class="hint">Penalties and race commands go to iRacing as its admin chat commands (<code>!black</code>, <code>!clear</code>…):
+          you need to be an admin of the session in iRacing. They're typed into the sim's chat for you.</p>
+        <div class="rc-bar">
+          <button class="btn danger" id="rc-clear-all" title="Clear every driver's penalties (!clearall)">Clear all penalties</button>
+          <span class="rc-group">
+            <label>Grid time <input type="number" id="rc-grid-min" min="1" max="60" step="1" value="5" aria-label="Grid time in minutes"> min</label>
+            <button class="btn" id="rc-grid" title="Start the race after this many minutes, not when everyone's on the grid (!gridset)">Set grid time</button>
+          </span>
+          <button class="btn primary" id="rc-start" title="Start the race now, whatever the grid time (!gridstart)">Start race</button>
+          <span class="rc-group rc-msg">
+            <input id="rc-message" maxlength="200" placeholder="Message to all drivers" aria-label="Message to all drivers">
+            <button class="btn" id="rc-send">Send to all</button>
+          </span>
+        </div>
+        <div class="rc-body">
+          <div class="rc-drivers">
+            <div class="row rc-tools"><input id="rc-filter" placeholder="Find a driver or car number" aria-label="Find a driver"></div>
+            <div class="table-scroll"><table class="grid rc-table">
+              <thead><tr><th class="r">Pos</th><th>#</th><th>Driver</th><th>Penalties</th><th>Stop &amp; hold</th></tr></thead>
+              <tbody id="rc-rows"></tbody>
+            </table></div>
+            <p id="rc-empty" class="hint">No drivers yet: they show once iRacing is connected.</p>
+          </div>
+          <div class="rc-log">
+            <h3>Sent</h3>
+            <ol id="rc-log"></ol>
+          </div>
+        </div>
       </div>
     </section>
 

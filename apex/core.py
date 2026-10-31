@@ -240,6 +240,7 @@ class App:
         self._board_cache = (None, None)
         self._today = date.today  # the day it is, for a heat event's rounds (tests set their own)
         self._board_pages = 1  # how many pages the board on screen runs to
+        self.rc_log = []  # race control: what's been sent to iRacing
         self._class_of = {}        # car_idx -> class key, from the last snapshot
         self._track_sectors = self.laps.starts  # the track's own split points
         self._race = RaceProgress()
@@ -415,9 +416,9 @@ class App:
         return {num: (i + 1, rounds[i]) for num, i in heats.match_rounds(races, rounds, self._today()).items()}
 
     def _round_title(self, league, session_num):
-        style = self.overlays.get()["standings"]["round_titles"]
-        matched = self._meeting(league).get(session_num) if style != "off" else None
-        return heats.round_title(matched[0], matched[1]["name"], style) if matched else ""
+        on = self.overlays.get()["standings"]["round_titles"] != "off"
+        matched = self._meeting(league).get(session_num) if on else None
+        return heats.round_title(matched[0], matched[1]["name"]) if matched else ""
 
     def _live_round(self, champ, league, key):
         """The round the race ``key`` (subsession:session) counts as, or None:
@@ -447,6 +448,7 @@ class App:
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                     "photobooth": self._photobooth_snapshot(),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
+                "race_control": {"log": self.rc_log[-50:]},
                 "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
                             "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else []},
                     "desktop": self._desktop_snapshot(),
@@ -527,7 +529,7 @@ class App:
                     "track": self._session_meta.get("track", ""),
                     "track_config": self._session_meta.get("track_config", ""),
                     # Heat racing: "heat", "consolation" or "feature" (heats.race_kind), and the
-                    # name of the league's round this race is (Round 2 - Heat), if matched.
+                    # name of the league's round this race is (as named in the rounds), if matched.
                     "kind": heats.race_kind(session),
                     "round_title": self._round_title(active_league, frame.session_num),
                 },
@@ -542,6 +544,7 @@ class App:
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
                 "photobooth": self._photobooth_snapshot(),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
+                "race_control": {"log": self.rc_log[-50:]},
                 "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
                             "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else []},
                 "classes": self._ordered_classes(classes),
@@ -1233,6 +1236,76 @@ class App:
         if mode not in modes:
             raise CommandError(f"Unknown mode '{mode}'")
         self.source.cam_switch_pos(modes[mode], self._group(group), 0)
+
+    # -- race control (the Race control tab): iRacing's admin chat commands --
+
+    PENALTIES = {"clear": "Penalties cleared", "drive_through": "Drive-through", "stop_go": "Stop & go",
+                 "stop_hold": "Stop & hold"}
+    HOLD_UNITS = {"seconds": 1, "minutes": 60, "laps": None}
+
+    def _race_control(self, line, label):
+        """Send ``line`` to iRacing's chat and keep it in the race control log."""
+        try:
+            self.source.send_chat(line)
+        except Exception as e:
+            raise CommandError(str(e)) from None
+        self.rc_log.append({"at": time.strftime("%H:%M:%S"), "line": line, "label": label})
+        del self.rc_log[:-50]
+        return {"sent": line}
+
+    def cmd_rc_penalty(self, car_idx, kind, amount=None, unit="seconds"):
+        """A penalty for one driver (or clear theirs): ``kind`` "clear",
+        "drive_through", "stop_go" or "stop_hold" (``amount`` of ``unit``:
+        "seconds", "minutes" or "laps")."""
+        d = self._drivers.get(int(car_idx))
+        if d is None:
+            raise CommandError("That driver isn't in the session")
+        if kind not in self.PENALTIES:
+            raise CommandError(f"Unknown penalty '{kind}'")
+        who = f"#{d['number']}" if d.get("number") else f'"{d["name"]}"'
+        label = self.PENALTIES[kind]
+        if kind == "clear":
+            line = f"!clear {who}"
+        elif kind == "drive_through":
+            line = f"!black {who} D"
+        elif kind == "stop_go":
+            line = f"!black {who}"
+        else:
+            if unit not in self.HOLD_UNITS:
+                raise CommandError(f"Unknown unit '{unit}'")
+            try:
+                n = int(float(amount))
+            except (TypeError, ValueError):
+                n = 0
+            if n < 1 or n > (99 if unit == "laps" else 600 if unit == "seconds" else 60):
+                raise CommandError("How long to hold them: a whole number (up to 600 seconds, 60 minutes or 99 laps)")
+            line = f"!black {who} L{n}" if unit == "laps" else f"!black {who} {n * self.HOLD_UNITS[unit]}"
+            label = f"Stop & hold, {n} {unit if n != 1 else unit[:-1]}"
+        return self._race_control(line, f"{label}: #{d['number']} {d['name']}")
+
+    def cmd_rc_clear_all(self):
+        return self._race_control("!clearall", "All penalties cleared")
+
+    def cmd_rc_grid(self, minutes):
+        """The grid timer: the race starts after ``minutes`` (instead of when everyone's on the grid)."""
+        try:
+            n = int(float(minutes))
+        except (TypeError, ValueError):
+            n = 0
+        if not 1 <= n <= 60:
+            raise CommandError("Grid time: a whole number of minutes, 1 to 60")
+        return self._race_control(f"!gridset {n}", f"Grid time set: {n} min")
+
+    def cmd_rc_start(self):
+        """Start the race now, whatever the grid timer says."""
+        return self._race_control("!gridstart", "Race started")
+
+    def cmd_rc_message(self, text):
+        """A message to every driver (iRacing's chat)."""
+        text = " ".join(str(text or "").split())[:200]
+        if not text:
+            raise CommandError("Type a message first")
+        return self._race_control(text, "Message to all")
 
     def cmd_camera_group(self, group):
         frame = self._frame

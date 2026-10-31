@@ -15,6 +15,10 @@ How each version's entry is written:
 
 ### New features
 
+- **Race control tab**: give any driver a drive-through, stop & go or stop
+  & hold (seconds, minutes or laps), clear one driver's or everyone's
+  penalties, set the grid time, start the race and message every driver,
+  straight to iRacing (you need to be a session admin).
 - **Hotkeys that work from anywhere**: give a camera, overlay, board or the
   grid walk a key with Ctrl or Alt (e.g. Ctrl+Alt+1) and it works whichever
   program is in front, iRacing and OBS included. Plain keys still work in
@@ -34,9 +38,11 @@ How each version's entry is written:
 - Standings (tower and full screen): the leader's interval can show
   "Leader" or the lap they're on, like the gap column.
 - Heat racing: heats, the consolation and the feature are recognised, can
-  have names of your own, and on the day of a heat event each race is named
-  after its league round for that date (e.g. "Round 2 - Heat"), with its
-  results saved to that round.
+  have names of your own, and on the day of a heat event each race takes the
+  name of its league round for that date, with its results saved to that
+  round.
+- The tabs are in a new order: Home, League builder, Teams, Championship,
+  Timing, Grid walk, Overlays, Boards, Race control.
 - Finishing order: a button for every class of the league, secondary
   classes and classes without points of their own included.
 - The finishing order board can show any session of the event in iRacing:

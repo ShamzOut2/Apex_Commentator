@@ -9,7 +9,6 @@ of race first), so the overlays can name each race after its round and its
 results go to that round.
 """
 
-import re
 from datetime import timedelta
 
 HEAT_KINDS = ("heat", "consolation", "feature")
@@ -62,9 +61,6 @@ def match_rounds(races, rounds, today):
     return out
 
 
-def round_title(number, name, style="both"):
-    """A race's name from its round: "Round 2 - Heat" ("both") or "Heat" ("name")."""
-    name = str(name or "").strip()
-    if not name or (style == "both" and re.match(r"round\s*\d", name, re.I)):
-        return name or f"Round {number}"
-    return f"Round {number} - {name}" if style == "both" else name
+def round_title(number, name):
+    """A race's name from its round: the round's own name (Round 2 if it has none)."""
+    return str(name or "").strip() or f"Round {number}"

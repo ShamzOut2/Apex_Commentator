@@ -110,6 +110,7 @@ function render() {
   renderResultsAuto(s.results_auto);
   renderOverlaySettings(s);
   renderBattlePick(s);
+  renderRaceControl(s);
   renderChampLive(s);
   renderBoards(s);
   renderDesktop(s);
@@ -834,6 +835,107 @@ function hotkeyActions(s = ui.snap || {}) {
       () => cmd("battle_pick", { mode }, "Championship battle on")])],
   ];
 }
+
+// ---------------------------------------------------------------------------
+// race control: penalties and race commands, sent as iRacing admin chat commands
+// ---------------------------------------------------------------------------
+
+const rcHold = {};  // car_idx -> {amount, unit}: each driver's stop & hold box, kept through redraws
+let rcKey = "";
+let rcLogKey = "";
+
+function renderRaceControl(s) {
+  const classes = new Map((s.classes || []).map((c) => [c.key, c]));
+  const filter = $("#rc-filter").value.trim().toLowerCase();
+  const drivers = (s.connected ? s.drivers || [] : [])
+    .filter((d) => !filter || `${d.number} ${d.name}`.toLowerCase().includes(filter))
+    .sort((a, b) => (a.pos || 999) - (b.pos || 999) || String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
+  $("#rc-status").textContent = s.connected ? `${(s.drivers || []).length} drivers` : "Not connected to iRacing";
+  ["#rc-clear-all", "#rc-grid", "#rc-start", "#rc-send"].forEach((id) => { $(id).disabled = !s.connected; });
+  const key = JSON.stringify([drivers.map((d) => [d.car_idx, d.pos, d.number, d.name, d.class_key, d.in_world]), [...classes.keys()]]);
+  const table = $("#rc-rows");
+  // Not while something in the list is being typed in or picked.
+  if (key !== rcKey && !(table.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName))) {
+    rcKey = key;
+    table.innerHTML = drivers.map((d) => {
+      const cls = classes.get(d.class_key);
+      const hold = rcHold[d.car_idx] || { amount: "", unit: "seconds" };
+      return `<tr data-car="${d.car_idx}" class="${d.in_world ? "" : "rc-out"}">
+        <td class="r">${d.pos || "–"}</td>
+        <td><span class="num" style="${cls ? `background:${esc(cls.color)};color:${inkFor(cls.color)}` : ""}">${esc(d.number)}</span></td>
+        <td class="rc-name">${esc(d.name)}${d.in_world ? "" : ' <span class="hint">(not in the car)</span>'}</td>
+        <td class="rc-pen">
+          <button class="btn subtle" data-rc="clear" title="Clear their penalties (!clear)">Clear</button>
+          <button class="btn" data-rc="drive_through" title="Drive-through (!black D)">Drive-through</button>
+          <button class="btn" data-rc="stop_go" title="Stop & go (!black)">Stop &amp; go</button>
+        </td>
+        <td class="rc-hold">
+          <input type="number" min="1" step="1" data-rc-amount value="${esc(hold.amount)}" placeholder="0" aria-label="How long">
+          <select data-rc-unit aria-label="Seconds, minutes or laps">${[["seconds", "Seconds"], ["minutes", "Minutes"], ["laps", "Laps"]].map(([v, l]) =>
+            `<option value="${v}" ${hold.unit === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+          <button class="btn" data-rc="stop_hold" title="Stop and hold for this long (!black with a time or laps)">Stop &amp; hold</button>
+        </td></tr>`;
+    }).join("");
+  }
+  $("#rc-empty").hidden = drivers.length > 0;
+  const log = (s.race_control && s.race_control.log) || [];
+  const logKey = JSON.stringify(log);
+  if (logKey !== rcLogKey) {
+    rcLogKey = logKey;
+    $("#rc-log").innerHTML = log.length ? [...log].reverse().map((l) => `<li><span class="hint">${esc(l.at)}</span> ${esc(l.label)}
+      <code>${esc(l.line)}</code></li>`).join("") : '<li class="hint">Nothing sent yet.</li>';
+  }
+}
+
+$("#rc-filter").addEventListener("input", () => { rcKey = ""; renderRaceControl(ui.snap); });
+$("#rc-rows").addEventListener("input", (e) => {
+  const row = e.target.closest("tr[data-car]");
+  if (!row) return;
+  rcHold[row.dataset.car] = { amount: row.querySelector("[data-rc-amount]").value, unit: row.querySelector("[data-rc-unit]").value };
+});
+$("#rc-rows").addEventListener("change", (e) => {
+  const row = e.target.closest("tr[data-car]");
+  if (row) rcHold[row.dataset.car] = { amount: row.querySelector("[data-rc-amount]").value, unit: row.querySelector("[data-rc-unit]").value };
+});
+$("#rc-rows").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-rc]");
+  if (!btn) return;
+  const row = btn.closest("tr[data-car]");
+  const params = { car_idx: +row.dataset.car, kind: btn.dataset.rc };
+  if (params.kind === "stop_hold") {
+    params.amount = row.querySelector("[data-rc-amount]").value;
+    params.unit = row.querySelector("[data-rc-unit]").value;
+  }
+  btn.blur();
+  const r = await cmd("rc_penalty", params);
+  if (r) toast(`Sent: ${r.sent}`);
+});
+$("#rc-clear-all").addEventListener("click", async () => {
+  if (!confirm("Clear every driver's penalties?")) return;
+  const r = await cmd("rc_clear_all");
+  if (r) toast("All penalties cleared");
+});
+$("#rc-grid").addEventListener("click", async () => {
+  const r = await cmd("rc_grid", { minutes: $("#rc-grid-min").value });
+  if (r) toast(`Grid time set: ${$("#rc-grid-min").value} min`);
+});
+$("#rc-start").addEventListener("click", async () => {
+  if (!confirm("Start the race now?")) return;
+  const r = await cmd("rc_start");
+  if (r) toast("Race start sent");
+});
+async function rcSend() {
+  const box = $("#rc-message");
+  const r = await cmd("rc_message", { text: box.value });
+  if (r) {
+    toast("Message sent to all");
+    box.value = "";
+  }
+}
+$("#rc-send").addEventListener("click", rcSend);
+$("#rc-message").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") rcSend();
+});
 
 // The championship battle's quick picks (cmd_battle_pick).
 const BATTLE_PICKS = [["ahead", "The car on camera and the one ahead"], ["around", "The car on camera and the cars either side"],
@@ -2055,8 +2157,8 @@ const OVERLAY_FIELDS = {
       ["title_heat", "Heat race name (blank = iRacing's, e.g. HEAT 1; a number is added for several)", "text"],
       ["title_consolation", "Consolation race name (blank = iRacing's)", "text"],
       ["title_feature", "Feature race name (blank = iRacing's)", "text"],
-      ["round_titles", "Heat events: name each race after its league round (by today's date)", "select",
-        [["both", "Round 2 - Heat"], ["name", "Just the round's name (Heat)"], ["off", "No"]]],
+      ["round_titles", "Heat events: name each race as its round is named in the Championship tab (by today's date)", "select",
+        [["name", "Yes"], ["off", "No"]]],
       ["title_wrap", "Wrap a long session name onto two lines (off: one line, the tower widens for it)", "bool"],
       ["show_col_labels", "Column headings (GAP, INT…)", "bool"],
     ]],

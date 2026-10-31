@@ -648,3 +648,26 @@ p.hint .desk { margin-left: 6px; }
 .bp-chip button:hover { opacity: 1; }
 .bp-chips select { max-width: 260px; }
 .bp-quick { flex-wrap: wrap; gap: 6px; }
+
+/* Race control. */
+.rc-bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 10px 12px;
+  margin: 8px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.rc-group { display: inline-flex; align-items: center; gap: 8px; }
+.rc-group label { display: inline-flex; align-items: center; gap: 6px; }
+.rc-group input[type=number] { width: 64px; }
+.rc-msg { flex: 1; min-width: 280px; }
+.rc-msg input { flex: 1; }
+.rc-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .rc-body { grid-template-columns: 1fr; } }
+.rc-tools { margin-bottom: 8px; }
+.rc-tools input { width: 280px; }
+.rc-table td { vertical-align: middle; }
+.rc-table .rc-name { font-weight: 600; white-space: nowrap; }
+.rc-table .rc-pen, .rc-table .rc-hold { white-space: nowrap; }
+.rc-table .rc-pen .btn, .rc-table .rc-hold .btn { padding: 3px 9px; }
+.rc-table .rc-hold input { width: 64px; }
+.rc-table tr.rc-out { opacity: .6; }
+.rc-log { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; max-height: 70vh; overflow: auto; }
+.rc-log h3 { margin: 0 0 6px; }
+.rc-log ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.rc-log code { display: block; opacity: .75; }

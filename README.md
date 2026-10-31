@@ -31,6 +31,12 @@ OBS dock.
   drop rounds, class and team championships and post-race penalties. Results
   can be imported from the session, and live standings show the championship
   as if the race finished now.
+- **Race control**: penalties for any driver (drive-through, stop & go,
+  stop & hold, clear), the grid timer, starting the race and messages to
+  every driver, sent to iRacing as its admin commands.
+
+The tabs, in order: Home, League builder, Teams, Championship, Timing, Grid
+walk, Overlays, Boards and Race control.
 
 ![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.png)
 
@@ -41,6 +47,10 @@ OBS dock.
 
 ### New features
 
+- **Race control tab**: give any driver a drive-through, stop & go or stop
+  & hold (seconds, minutes or laps), clear one driver's or everyone's
+  penalties, set the grid time, start the race and message every driver,
+  straight to iRacing (you need to be a session admin).
 - **Hotkeys that work from anywhere**: give a camera, overlay, board or the
   grid walk a key with Ctrl or Alt (e.g. Ctrl+Alt+1) and it works whichever
   program is in front, iRacing and OBS included. Plain keys still work in
@@ -60,9 +70,11 @@ OBS dock.
 - Standings (tower and full screen): the leader's interval can show
   "Leader" or the lap they're on, like the gap column.
 - Heat racing: heats, the consolation and the feature are recognised, can
-  have names of your own, and on the day of a heat event each race is named
-  after its league round for that date (e.g. "Round 2 - Heat"), with its
-  results saved to that round.
+  have names of your own, and on the day of a heat event each race takes the
+  name of its league round for that date, with its results saved to that
+  round.
+- The tabs are in a new order: Home, League builder, Teams, Championship,
+  Timing, Grid walk, Overlays, Boards, Race control.
 - Finishing order: a button for every class of the league, secondary
   classes and classes without points of their own included.
 - The finishing order board can show any session of the event in iRacing:
@@ -199,6 +211,32 @@ shown in red: pick another. Letters, numbers, the number pad and F1–F24 can
 be used this way. (On keyboards where Ctrl+Alt is AltGr, a Ctrl+Alt key
 can't be typed in other programs while the app is running; Ctrl+Shift
 combinations avoid that.)
+
+## Race control
+
+The **Race control** tab runs the session from the app. Everything goes to
+iRacing as its admin chat commands, typed into the sim's chat for you, so
+you need to be an admin of the session in iRacing (the host, or promoted by
+the host). iRacing must be open on this PC.
+
+Along the top:
+- **Clear all penalties** (`!clearall`), after a check that you mean it.
+- **Grid time**: type the minutes (1 to 60) and **Set grid time**
+  (`!gridset 5`): the race starts after that long instead of when everyone's
+  on the grid.
+- **Start race** (`!gridstart`): starts it now, whatever the grid time.
+- **Message to all drivers**: type it and **Send to all** (or Enter).
+
+Below, every driver in the session (find one by name or number), with:
+- **Clear**: clears their penalties (`!clear #10`);
+- **Drive-through** (`!black #10 D`);
+- **Stop & go** (`!black #10`);
+- **Stop & hold**: type how long and pick **Seconds**, **Minutes** or
+  **Laps**, then press it (`!black #10 30`, minutes sent as seconds, or
+  `!black #10 L2` for laps).
+
+**Sent** on the right lists what's gone to iRacing, newest first. If nothing
+happens in the sim, check you're an admin of the session.
 
 ## How replays work
 
@@ -426,16 +464,13 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     and a feature is recognised from iRacing's session names. *Heat race
     name*, *Consolation race name* and *Feature race name* replace iRacing's
     names for those (several heats keep their number: "Qualifying Heat 2").
-    On the day of a heat event, each race is named after the league's round
-    for it instead: the rounds dated today (Championship → Calendar &
-    results) go with the races in order, a round called "Heat",
-    "Consolation" or "Feature" going with that kind of race first. So on 5
-    November, with rounds 2–4 that day named Heat, Consolation and Feature,
-    the header reads "Round 2 - Heat", "Round 3 - Consolation" and
-    "Round 4 - Feature". *Heat events: name each race after its league
-    round* chooses "Round 2 - Heat", just "Heat", or not at all. The live
-    championship and the results saved after each race go to that round
-    too. (Just after midnight, the day before still counts.)
+    On the day of a heat event, each race takes the name of the league's
+    round for it instead, exactly as it's named in the Championship tab: the
+    rounds dated today (Championship → Calendar & results) go with the
+    races in order. *Heat events: name each race as its round is named*
+    turns this off. The live championship and the results saved after each
+    race go to that round too. (Just after midnight, the day before still
+    counts.)
   - *Wrap a long session name* puts a long name on two lines in the
     tower; off, it stays on one line and the tower widens for it (or ends in
     "…" if you've set the width).

@@ -53,10 +53,8 @@ class MatchTests(unittest.TestCase):
         self.assertEqual(heats.match_rounds(races, plain, DAY), {3: 0, 4: 1})
 
     def test_titles(self):
-        self.assertEqual(heats.round_title(2, "Heat"), "Round 2 - Heat")
-        self.assertEqual(heats.round_title(2, "Heat", "name"), "Heat")
-        self.assertEqual(heats.round_title(2, "Round 2"), "Round 2")
-        self.assertEqual(heats.round_title(2, ""), "Round 2")
+        self.assertEqual(heats.round_title(2, "Spa Heat A"), "Spa Heat A")  # just the round's own name
+        self.assertEqual(heats.round_title(2, " "), "Round 2")
 
 
 class HeatEventTests(unittest.TestCase):
@@ -72,22 +70,20 @@ class HeatEventTests(unittest.TestCase):
             league = profile_from_session(app.build_snapshot()["drivers"], "Heats")
             league["championship"] = {"rounds": [
                 {"id": "r1", "name": "Opener", "date": "2026-10-29"},
-                {"id": "r2", "name": "Heat", "date": "2026-11-05"},
-                {"id": "r3", "name": "Consolation", "date": "2026-11-05"},
-                {"id": "r4", "name": "Feature", "date": "2026-11-05"}]}
+                {"id": "r2", "name": "Spa Night - Race 1", "date": "2026-11-05"},
+                {"id": "r3", "name": "Spa Night - Race 2", "date": "2026-11-05"},
+                {"id": "r4", "name": "Spa Night - Race 3", "date": "2026-11-05"}]}
             league = app.leagues.save(league)
             app.leagues.set_active(league["id"])
             snap = app.build_snapshot()
-            self.assertEqual((snap["session"]["kind"], snap["session"]["round_title"]), ("heat", "Round 2 - Heat"))
+            self.assertEqual((snap["session"]["kind"], snap["session"]["round_title"]), ("heat", "Spa Night - Race 1"))
             # The live championship counts this race as round 2, not the empty round 1.
-            self.assertEqual(snap["championship"]["round"], "Heat")
-            app.command("overlay_settings", {"overlay": "standings", "values": {"round_titles": "name"}})
-            self.assertEqual(app.build_snapshot()["session"]["round_title"], "Heat")
+            self.assertEqual(snap["championship"]["round"], "Spa Night - Race 1")
             app.command("overlay_settings", {"overlay": "standings", "values": {"round_titles": "off"}})
             self.assertEqual(app.build_snapshot()["session"]["round_title"], "")
             # Another day: no rounds that day, iRacing's name stands.
             app._today = lambda: date(2026, 12, 1)
-            app.command("overlay_settings", {"overlay": "standings", "values": {"round_titles": "both"}})
+            app.command("overlay_settings", {"overlay": "standings", "values": {"round_titles": "name"}})
             self.assertEqual(app.build_snapshot()["session"]["round_title"], "")
             # Its results go to its round.
             app._today = lambda: DAY

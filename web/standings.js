@@ -388,7 +388,7 @@ const ROW_BUDGET = 850;  // px of the 1080 stage left for table rows under the h
 function sessionTitle(snap, ov) {
   const session = snap.session || {};
   const cfg = ov.settings.standings;
-  // A heat event's race: its league round's name (Round 2 - Heat), else the
+  // A heat event's race: its league round's name (as set in the rounds), else the
   // name set for heats / the consolation / the feature, else iRacing's.
   if (session.round_title) return session.round_title;
   if (["heat", "consolation", "feature"].includes(session.kind)) {

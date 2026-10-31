@@ -9,6 +9,8 @@ A source exposes one small interface used by the rest of the app:
 * broadcast commands      ``cam_switch_num``, ``cam_switch_pos``,
                           ``replay_search``, ``replay_search_session_time``,
                           ``replay_set_play_speed``
+* ``send_chat(text)``     type a line into iRacing's chat (race control's
+                          admin commands, messages to everyone)
 
 ``IRacingSource`` talks to the real sim through pyirsdk (Windows only).
 ``MockSource`` simulates a race so the overlay can be developed and demoed
@@ -22,6 +24,7 @@ import time
 from dataclasses import dataclass, field
 
 # Values mirrored from the iRacing SDK so this module imports on any OS.
+CHAT_BEGIN = 1  # irsdk ChatCommandMode.begin_chat: open a new chat line
 TRK_NOT_IN_WORLD = -1
 TRK_OFF_TRACK = 0
 TRK_IN_PIT_STALL = 1
@@ -230,6 +233,45 @@ class IRacingSource:
         with self._lock:
             self.ir.video_capture(VIDEO_SCREENSHOT)
 
+    # -- chat (race control) -------------------------------------------------
+
+    CHAT_WINDOW = "iRacing.com Simulator"
+    WM_CHAR = 0x0102
+
+    def send_chat(self, text):
+        """Type ``text`` into iRacing's chat and send it: the SDK opens the chat
+        box, then the letters go to the sim's window. Admin commands
+        (!black, !clear...) only work for an admin of the session. Lines go
+        out one at a time, in order, on a thread of their own."""
+        import ctypes
+
+        hwnd = ctypes.windll.user32.FindWindowW(None, self.CHAT_WINDOW)
+        if not hwnd:
+            raise RuntimeError("Couldn't find the iRacing window: is the sim open?")
+        if not hasattr(self, "_chat"):
+            import queue
+
+            self._chat = queue.Queue()
+            threading.Thread(target=self._chat_loop, name="chat", daemon=True).start()
+        self._chat.put((hwnd, text))
+
+    def _chat_loop(self):
+        import ctypes
+
+        post = ctypes.windll.user32.PostMessageW
+        while True:
+            hwnd, text = self._chat.get()
+            try:
+                with self._lock:
+                    self.ir.chat_command(CHAT_BEGIN)
+                time.sleep(0.15)  # the chat box opening
+                for ch in text + "\r":
+                    post(hwnd, self.WM_CHAR, ord(ch), 0)
+                    time.sleep(0.004)
+                time.sleep(0.25)  # before the next line opens the box again
+            except Exception as e:  # the sim closing mid-line, say
+                print(f"[apex] couldn't send to iRacing's chat: {e}")
+
 
 # ---------------------------------------------------------------------------
 # Mock source
@@ -290,6 +332,7 @@ class MockSource:
         self.replay_time = None
         self.replay_speed = 1
         self.commands = []  # log of received commands (used by tests)
+        self.chat = []      # lines sent to the chat (race control)
         self.cam_state = 0
         self.screenshots_dir = None  # where screenshot() writes, like iRacing's folder
         n = self.num_cars
@@ -656,6 +699,12 @@ class MockSource:
         with self._lock:
             self.commands.append(("cam_set_state", state))
             self.cam_state = state
+
+    def send_chat(self, text):
+        """Race control's lines, as iRacing's chat would get them (kept in ``chat``)."""
+        with self._lock:
+            self.commands.append(("chat", text))
+            self.chat.append(text)
 
     def screenshot(self):
         """Write a picture of the car on camera, as iRacing's screenshot key would."""
