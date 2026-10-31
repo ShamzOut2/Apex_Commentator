@@ -144,6 +144,20 @@ function columnsFor(cfg, race) {
   return COLUMNS.filter(([key, , , , when]) => cfg[key] && (!when || when(race)));
 }
 
+// The extra drivers under the top of the order. "rotate": the rest of the field
+// cfg.rows_last at a time, the next set every rows_extra_s seconds and then
+// round again (by the clock, so every copy of the overlay is on the same set);
+// "last": the last ones.
+function extraDrivers(entries, cfg) {
+  const n = cfg.rows_last;
+  if (!n || entries.length <= cfg.rows + n) return [];
+  if (cfg.rows_extra_mode === "last") return entries.slice(-n);
+  const rest = entries.slice(cfg.rows);
+  const sets = Math.ceil(rest.length / n);
+  const set = Math.floor(Date.now() / 1000 / cfg.rows_extra_s) % sets;
+  return rest.slice(set * n, set * n + n);
+}
+
 // Position, stripe, number and logo: the same size whatever the width.
 function fixedParts(cfg) {
   return ["40px", "6px", cfg.show_number ? "50px" : null, cfg.show_logo ? "30px" : null].filter(Boolean);
@@ -282,11 +296,13 @@ function render() {
       return `<div class="block">${classHeaderHtml(cls, "", rerender)}${rows(list, cls)}</div>`;
     }).join("");
   } else {
-    // More drivers than rows: the top of the order, then (if asked) the last few.
-    const tail = cfg.rows_last && entries.length > cfg.rows + cfg.rows_last ? entries.slice(-cfg.rows_last) : [];
+    // More drivers than rows: the top of the order, then (if asked) a few more
+    // after a small gap: the rest of the field a set at a time, or the last ones.
+    const tail = extraDrivers(entries, cfg);
     const top = tail.length ? entries.slice(0, cfg.rows) : entries.slice(0, cfg.rows + cfg.rows_last);
+    const dim = cfg.rows_extra_opacity < 100 ? ` style="opacity:${cfg.rows_extra_opacity / 100}"` : "";
     body = entries.length
-      ? `<div class="block">${rows(top)}${tail.length ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div>${rows(tail)}` : ""}</div>` : "";
+      ? `<div class="block">${rows(top)}${tail.length ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div><div class="extra"${dim}>${rows(tail)}</div>` : ""}</div>` : "";
   }
   const session = snap.session || {};
   const title = sessionTitle(snap, ov);

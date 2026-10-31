@@ -24,7 +24,14 @@ DEFAULTS = {
         "mode": "overall",        # "overall" or "class"
         "class_key": "",          # "class" mode: one class only ("" = every class, one block each)
         "rows": 20,               # most drivers shown (per class in "class" mode)
-        "rows_last": 0,           # "overall": when there are more drivers, also the last N (last place included)
+        # "overall", more drivers than rows: rows_last more under the top of the
+        # order, after a small gap. "rotate": the rest of the field, that many at
+        # a time, a new set every rows_extra_s (then back to the first);
+        # "last": always the last ones (last place included).
+        "rows_last": 0,
+        "rows_extra_mode": "rotate",
+        "rows_extra_s": 6.0,
+        "rows_extra_opacity": 100,
         "width": 0,               # tower width in px; 0 = automatic (each column fits what's in it)
         "name_format": "last_initial",
         "show_team": True,
@@ -137,11 +144,11 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
+LIMITS = {"rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
-           "round_title": ("both", "name", "number"),
+           "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 

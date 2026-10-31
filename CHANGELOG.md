@@ -33,6 +33,9 @@ How each version's entry is written:
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- The extra drivers under the Overall tower's top rows can rotate through
+  the rest of the field, a few at a time on a timer, then start again. They
+  can also be dimmed with their own opacity.
 - The standings header (tower and full screen) can hide the series name
   and/or the track name, and the session names can be your own (e.g.
   "FEATURE RACE" instead of "RACE"). A long session name can wrap onto two

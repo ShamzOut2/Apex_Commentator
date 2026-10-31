@@ -59,6 +59,9 @@ OBS dock.
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- The extra drivers under the Overall tower's top rows can rotate through
+  the rest of the field, a few at a time on a timer, then start again. They
+  can also be dimmed with their own opacity.
 - The standings header (tower and full screen) can hide the series name
   and/or the track name, and the session names can be your own (e.g.
   "FEATURE RACE" instead of "RACE"). A long session name can wrap onto two
@@ -362,9 +365,17 @@ are kept in `data/overlays.json`.
     narrows once there's clearly room to spare, so it doesn't twitch as
     numbers change. With a width set, the name column takes what the other
     columns leave, and long names end in "…".
-  - **Last N drivers** (Overall view): when there are more drivers than rows,
-    the last few (last place included) are added at the bottom, after a
-    small gap. 0 turns it off.
+  - **Extra drivers** (Overall view): when there are more drivers than
+    rows, a few more go under the top of the order, after a small "• • •"
+    gap. *Extra drivers show*:
+    - **The rest of the field, a set at a time** (default): with 20 rows and
+      3 extra, P21–23, then P24–26, and so on to the end, then back to
+      P21–23. *Seconds per set* sets how long each set stays. Every copy
+      of the overlay changes set at the same moment.
+    - **The last ones**: always the last few, last place included.
+
+    *Extra drivers' opacity* dims them (10–100%). 0 extra drivers turns it
+    off.
   - **Close racing**: with the *Interval* column on, a driver within 0.15 s
     of the car ahead has their interval in red text. It stays red until they get
     past (then whoever is now right behind turns red, if close enough) or
