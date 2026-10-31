@@ -15,6 +15,9 @@ How each version's entry is written:
 
 ### Improvements
 
+- Turn rounds into race meetings (and back) on the fly: one round at a
+  time, or every round at once, e.g. after building the season from a
+  calendar. A round's results stay with the meeting's first race.
 - Leagues are set up by hand or from the session you're in: the iRacing
   login (loading a league by its League ID, building rounds from the
   iRacing season, fetching the official track list) is gone, and with it

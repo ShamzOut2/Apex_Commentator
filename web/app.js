@@ -1074,6 +1074,7 @@ function renderChampRounds() {
         <span class="sub">${(rd.results || []).length ? `${rd.results.length} results` : "No results"}</span>
         <button class="btn" data-round-toggle="${esc(rd.id)}">${open ? "Close" : "Results"}</button>
         <button class="btn" data-round-import="${i}" title="Fill this round with the results of the race session you're in">⤓ Import from session</button>
+        ${rd.event ? "" : `<button class="btn subtle" data-round-meeting="${i}" title="Make this round a race meeting of several races (heat races, say), each a round of its own. Its results stay with the first race.">⇉ Race meeting</button>`}
         <button class="btn icon danger" data-round-delete="${i}" title="Delete round">✕</button>
       </div>
       ${open ? `<div class="row transfer-row"><span class="hint">This round's results:</span>
@@ -1123,6 +1124,7 @@ function meetingHtml(first, last, inner) {
       <span class="grow"></span>
       <button class="btn" data-meeting-import="${first}" title="Each race session of the event you're in (heats, then the feature...) into these races, in order">⤓ Import every race from session</button>
       <button class="btn subtle" data-meeting-add="${last}">+ Add a race</button>
+      <button class="btn subtle" data-meeting-split="${first}" title="Its races become separate rounds again">Separate rounds</button>
     </div>
     ${inner}
   </div>`;
@@ -1330,6 +1332,16 @@ $("#tab-championship").addEventListener("click", async (e) => {
     return importRound(c.rounds[+d.roundImport]);
   } else if (d.meetingImport != null) {
     return importMeeting(meetingRounds(+d.meetingImport));
+  } else if (d.roundMeeting != null) {
+    const races = askRaces();
+    if (!races) return;
+    toMeeting(c, +d.roundMeeting, races);
+  } else if (d.meetingSplit != null) {
+    const ev = c.rounds[+d.meetingSplit].event;
+    for (const rd of meetingRounds(+d.meetingSplit)) {
+      rd.name = `${ev} · ${rd.name}`;
+      rd.event = "";
+    }
   } else if (d.meetingAdd != null) {
     const last = c.rounds[+d.meetingAdd];
     const n = meetingRounds(c.rounds.findIndex((r) => r.event === last.event)).length;
@@ -1345,6 +1357,58 @@ $("#btn-add-round").addEventListener("click", () => {
   c.rounds.push({ id: newId(), name: `Round ${c.rounds.length + 1}`, track: "", date: "", multiplier: 1, no_drop: false, results: [] });
   markChampDirty();
   renderChampionship();
+});
+
+// How many races at a race meeting (null: cancelled).
+function askRaces() {
+  const n = parseInt(prompt("How many races at the meeting? Each race is a round of its own.", "3"), 10);
+  return n >= 2 && n <= 10 ? n : null;
+}
+
+// A name for a new race meeting made from round ``i``: the round's own name,
+// unless it's just "Round 3" (each race is a round, so that would confuse):
+// "Event 3", by where it is in the calendar (a meeting counts once).
+function meetingName(c, i) {
+  const used = new Set(c.rounds.filter((r) => r.event).map((r) => r.event));
+  const own = String(c.rounds[i].name || "").trim();
+  if (own && !/^round \d+$/i.test(own) && !used.has(own)) return own;
+  let n = 1;
+  for (let k = 0; k < i; k++) if (!c.rounds[k].event || c.rounds[k].event !== (c.rounds[k + 1] || {}).event) n++;
+  while (used.has(`Event ${n}`)) n++;
+  return `Event ${n}`;
+}
+
+// Round ``i`` becomes the first race of a meeting of ``races`` races (it keeps
+// its results, penalties and session); the rest are new rounds after it, at
+// the same track, date and time.
+function toMeeting(c, i, races) {
+  const rd = c.rounds[i];
+  if (!rd.event) {
+    rd.event = meetingName(c, i);
+    rd.name = "Race 1";
+  }
+  const more = [];
+  for (let k = 2; k <= races; k++) more.push({ ...rd, id: newId(), name: `Race ${k}`, results: [], session: "" });
+  c.rounds.splice(i + 1, 0, ...more);
+}
+
+$("#btn-all-meetings").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  const c = champData();
+  const single = c.rounds.map((rd, i) => [rd, i]).filter(([rd]) => !rd.event);
+  if (!single.length) return toast("Every round is a race meeting already");
+  const races = askRaces();
+  if (!races) return;
+  // Named in order (Event 1, Event 2...), then filled in from the end so the
+  // rounds still to fill keep their places.
+  for (const [rd, i] of single) {
+    rd.event = meetingName(c, i);
+    rd.name = "Race 1";
+  }
+  for (const [, i] of single.reverse()) toMeeting(c, i, races);
+  markChampDirty();
+  renderChampionship();
+  toast(`${single.length} round${single.length === 1 ? "" : "s"} made race meetings of ${races} races. Save to keep them.`);
 });
 
 $("#btn-add-meeting").addEventListener("click", () => {

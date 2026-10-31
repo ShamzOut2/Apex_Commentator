@@ -41,6 +41,9 @@ OBS dock.
 
 ### Improvements
 
+- Turn rounds into race meetings (and back) on the fly: one round at a
+  time, or every round at once, e.g. after building the season from a
+  calendar. A round's results stay with the meeting's first race.
 - Leagues are set up by hand or from the session you're in: the iRacing
   login (loading a league by its League ID, building rounds from the
   iRacing season, fetching the official track list) is gone, and with it
@@ -668,6 +671,11 @@ standings update from what's saved.
     its own for the points; the meeting groups them. Make them with *Races at
     each* when building from a calendar (each entry becomes a meeting of that
     many races, called Race or Heat 1, 2…), or with **+ Add race meeting**.
+    Rounds already made can be changed on the fly: **⇉ Race meeting** on a
+    round makes it the first race of a meeting (its results stay with that
+    race) and adds the others after it, at the same track, date and time;
+    **Make every round a race meeting…** does that for every round at once.
+    **Separate rounds** on a meeting turns its races back into rounds.
     **Import every race from session** fills a meeting's races from the race
     sessions of the event you're in, in order (heat 1 into the first race,
     and so on), including races that already finished: those come from
