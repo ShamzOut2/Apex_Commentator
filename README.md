@@ -1100,7 +1100,6 @@ defaults:
 | `poll_hz` | `30` | Telemetry samples per second (spin detection needs 20 or more) |
 | `event_cooldown_s` | `8` | Minimum gap between incidents logged for the same car |
 | `gridwalk_interval_s` | `8` | Grid walk: seconds each pair stays on screen |
-| `gridwalk_style` | `"track"` | Grid walk style: `"track"`, `"grid"` or `"h2h"` |
 | `update_check` | `true` | Check GitHub for new versions and offer them in the app |
 | `update_repo` | `"ShamzOut2/Apex_Commentator"` | Where releases are published |
 | `github_token` | `""` | Only needed if that repository is private (or set `APEX_GITHUB_TOKEN`) |
