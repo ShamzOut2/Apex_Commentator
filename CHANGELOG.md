@@ -11,6 +11,62 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.4.8
+
+### New features
+
+- **Pit stops overlay**: when a car comes into the pit lane in a race, a card
+  with its pit lane time (entry line to exit line) and its time in the pit
+  box, ticking, and the final times for a few seconds after it leaves. Set
+  how many drivers it shows at once, how long each driver's card stays up,
+  and how long it stays after the exit line.
+- **New grid walk**: a track across the screen with the two cars of each
+  row in their staggered grid boxes and the drivers' details beside them,
+  using your own car pictures: point the app at a folder of pictures named
+  `iRacingID.Carname` (e.g. `123456.Porsche 911 GT3 R (992).png`) and each
+  driver gets the right car and livery.
+- **Import a sign-up sheet**: drivers, teams and classes from any spreadsheet
+  (CSV): iRacing ID, name, car number, team and class are found by
+  themselves, and you can check which column is which before importing.
+
+### Improvements
+
+- Round results can be imported from iRacing's own event result export
+  (.csv): positions, laps, fastest laps, incidents, gaps and DNF / DNS, with
+  the track and date for the round.
+- Per-column opacity is now each column's background (with a colour of your
+  own), not its text.
+- Team logo and team name are columns of their own on the tower, the full
+  screen and the boards, each on or off, the logo before or after the name.
+- Driver on camera: the swap now swaps just the team logo and the car
+  badge; the team name stays under the driver's name.
+- Timing screen: a battle lights up steadily in your colour, and only the
+  driver within the gap, not the car ahead.
+- Timing tower: hotkeys for the sponsor bar and for overall / by class; the
+  chequered flag header has one dark plate behind all its text.
+- League builder: duplicate a league; change the order of sponsor logos.
+- Standings and driver on camera: class colours from the driver's main or
+  secondary class; a driver without one shows no colour (a plain number, no
+  bar, no card background).
+- Driver on camera: just the overall position (the class position is an
+  option).
+- Drivers with no class in the league (neither main nor secondary, e.g. a
+  safety car) are left off every overlay and out of the results.
+- Standings by class: the extra drivers show under each class.
+- League builder and Teams: the arrow keys move between the boxes.
+- The photo booth (taking car photos in iRacing) and the grid map and head
+  to head grid walk styles are gone; the grid walk uses your own pictures.
+
+### Fixes
+
+- Lap tracker (qualifying and practice): laps are timed again in real
+  sessions. A car's position stepping back a hair (iRacing smooths other
+  cars' positions) dropped its lap, leaving it on "OUT LAP" with empty
+  sectors.
+- The timing tower's sponsor bar no longer flashes; it fades only when the
+  next logo comes up.
+- The tower's team logo is the same size before or after the name.
+
 ## v0.4.7
 
 ### New features

@@ -188,19 +188,30 @@ function leaderInterval(e, cfg) {
 
 // The car number: on a background in the driver's class colour, or just the number (Overlays tab).
 function numberChip(e, cls, cfg) {
-  return cfg.color_number
-    ? `<span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span>`
+  const color = paintFor(e, cls, cfg.class_colors);
+  return cfg.color_number && color
+    ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(e.number)}</span>`
     : `<span class="num plain">${esc(e.number)}</span>`;
 }
 
-// Position, stripe, number and logo: the same size whatever the width.
-function fixedParts(cfg) {
-  return ["40px", "6px", cfg.show_number ? "50px" : null, cfg.logo_col ? "30px" : null].filter(Boolean);
+// The row's columns, in order: [part, width, fits its contents]. Position,
+// stripe, number and team logo are the same size whatever the width; the
+// driver's name takes the room left; the team name (its own column, when
+// it's not under the driver's name) and the columns picked fit what's in them.
+// The team logo goes before the driver or after the team (team_logo_side).
+function rowSpec(cfg, cols) {
+  const spec = [["pos", "40px", false], ["stripe", "6px", false]];
+  if (cfg.show_number) spec.push(["number", "50px", false]);
+  if (cfg.logo_col && !cfg.logo_last) spec.push(["logo", "34px", false]);
+  spec.push(["name", "minmax(60px, 1fr)", true]);
+  if (cfg.team_col) spec.push(["team", "minmax(60px, .6fr)", true]);
+  if (cfg.logo_col && cfg.logo_last) spec.push(["logo", "34px", false]);
+  return spec.concat(cols.map((c) => [c[0], c[1], true]));
 }
 
 // A width set by hand: the name takes what the other columns leave.
 function gridFor(cfg, cols) {
-  return [...fixedParts(cfg), "minmax(60px, 1fr)", ...cols.map((c) => c[1])].join(" ");
+  return rowSpec(cfg, cols).map((c) => c[1]).join(" ");
 }
 
 // Automatic width: each column (name included) as wide as its widest entry
@@ -222,36 +233,38 @@ function contentWidth(el) {
 }
 
 function autoFit(cfg, cols) {
-  const fixed = fixedParts(cfg);
-  const flexible = 1 + cols.length;  // the name, then the columns picked
+  const spec = rowSpec(cfg, cols);
   const rows = [...tower.querySelectorAll(".srow:not(.skip)")];
   if (!rows.length) return;
   // On-screen px back to the tower's own (it may be zoomed, and the stage scaled).
   const scale = rows[0].getBoundingClientRect().width / (rows[0].offsetWidth || 1) || 1;
-  const need = Array(flexible).fill(0);
+  const need = spec.map(() => 0);
   for (const row of rows) {
-    for (let i = 0; i < flexible; i++) {
-      const cell = row.children[fixed.length + i];
-      if (!cell) continue;
+    spec.forEach(([part, , fits], i) => {
+      const cell = row.children[i];
+      if (!fits || !cell) return;
       // The name cell holds the name line and the team line: the wider one.
-      const parts = i === 0 && cell.children.length ? [...cell.children] : [cell];
+      const parts = part === "name" && cell.children.length ? [...cell.children] : [cell];
       need[i] = Math.max(need[i], ...parts.map((el) => contentWidth(el) / scale));
-    }
+    });
   }
-  const key = JSON.stringify([fixed, cols.map((c) => c[0])]);
+  const key = JSON.stringify(spec.map((c) => c[0]));
   if (key !== fit.key) {
     fit.key = key;
     fit.widths = [];
   }
-  fit.widths = need.map((w, i) => {
-    const want = Math.ceil(Math.max(i === 0 ? 60 : 24, w + (i === 0 ? 12 : 4)));
+  // With a background per column the cells carry their own padding (standings.css), and the last one more.
+  const colBg = document.body.classList.contains("col-bg");
+  fit.widths = spec.map(([part, width, fits], i) => {
+    if (!fits) return parseFloat(width);
+    const pad = colBg ? (i === spec.length - 1 ? 16 : 8) : 0;
+    const want = Math.ceil(Math.max(part === "name" ? 60 : 24, need[i] + (part === "name" ? 12 : 4) + pad));
     const was = fit.widths[i];
     return was && want <= was && want > was - 14 ? was : want;
   });
   // The name column takes any spare room (when the header needs more width than the columns).
-  tower.style.setProperty("--grid", [...fixed, ...fit.widths.map((w, i) => (i === 0 ? `minmax(${w}px, 1fr)` : `${w}px`))].join(" "));
-  const total = fixed.reduce((n, w) => n + parseFloat(w), 0) + fit.widths.reduce((n, w) => n + w, 0)
-    + ROW_GAP * (fixed.length + flexible - 1) + ROW_PAD;
+  tower.style.setProperty("--grid", fit.widths.map((w, i) => (spec[i][0] === "name" ? `minmax(${w}px, 1fr)` : `${w}px`)).join(" "));
+  const total = fit.widths.reduce((n, w) => n + w, 0) + (colBg ? 0 : ROW_GAP * (spec.length - 1) + ROW_PAD);
   // Room for the header too: the session name and laps / time left side by
   // side, unless the name may wrap onto two lines.
   const h1 = tower.querySelector(".tower-head .h1");
@@ -262,17 +275,19 @@ function autoFit(cfg, cols) {
 
 function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) {
   const pos = classMode ? e.class_pos : e.pos;
-  // The team logo after the team name (or the driver's, with no team line); else in its own column before.
-  const logoAfter = cfg.logo_inline && e.team_logo ? `<img class="tm-logo" src="${esc(e.team_logo)}" alt="">` : "";
-  const team = cfg.show_team && e.team ? `<span class="tm">${esc(e.team)}${logoAfter}</span>` : "";
   const pit = cfg.show_pit_status && e.on_pit ? '<span class="pitb">PIT</span>' : "";
   const move = moveOf(e.car_idx);
+  // The cells in the order rowSpec gives: the team logo and the team name are columns of their own.
+  const cell = {
+    pos: () => `<span class="p tnum" data-opcol="pos">${pos}</span>`,
+    stripe: () => `<span class="stripe" style="${cfg.show_stripe && paintFor(e, cls, cfg.class_colors) ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : paintFor(e, cls, cfg.class_colors))}` : ""}"></span>`,
+    number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
+    logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
+    name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
+    team: () => `<span class="tmc" data-opcol="team">${esc(e.team || "")}</span>`,
+  };
   return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
-    <span class="p tnum" data-opcol="pos">${pos}</span>
-    <span class="stripe" style="${cfg.show_stripe ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : cls.color)}` : ""}"></span>
-    ${cfg.show_number ? `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>` : ""}
-    ${cfg.logo_col ? `<span data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
-    <span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}${team ? "" : logoAfter}</span>${team}</span>
+    ${rowSpec(cfg, []).map(([k]) => cell[k]()).join("")}
     ${cols.map((c) => `<span class="c tnum" data-opcol="${c[0].replace(/^show_/, "")}">${c[3](e, race, classMode, cfg, green)}</span>`).join("")}
   </div>`;
 }
@@ -303,20 +318,38 @@ function setAccent(cfg, ov) {
 }
 
 // The sponsor bar under the tower's header: one logo, several taking turns.
-function sponsorBarHtml(snap, cfg) {
-  if (!cfg.sponsor_bar) return "";
+// It's one element kept from redraw to redraw (placeSponsor), so the logo
+// only changes, with a fade, when it's the next one's turn.
+function sponsorLogo(snap, cfg) {
+  if (!cfg.sponsor_bar) return null;
   const all = (snap.league && snap.league.sponsors) || [];
   const ids = cfg.sponsor_bar_ids && cfg.sponsor_bar_ids !== "none" ? new Set(cfg.sponsor_bar_ids.split(",")) : null;
   const logos = cfg.sponsor_bar_ids === "none" ? [] : all.filter((l) => !ids || ids.has(l.id));
-  if (!logos.length) return "";
-  const logo = logos[Math.floor(Date.now() / 1000 / cfg.sponsor_bar_s) % logos.length];
-  return `<div class="tower-sponsor" style="--sb-h:${cfg.sponsor_bar_size}px"><img src="${esc(logo.url)}" alt="${esc(logo.name || "")}"></div>`;
+  if (!logos.length) return null;
+  return logos[Math.floor(Date.now() / 1000 / cfg.sponsor_bar_s) % logos.length];
+}
+
+const sponsorBar = document.createElement("div");
+sponsorBar.className = "tower-sponsor";
+let sponsorShown = "";
+function placeSponsor(logo, cfg) {
+  const slot = tower.querySelector(".tower-sponsor-slot");
+  if (slot) slot.replaceWith(sponsorBar);
+  if (!logo) return;
+  sponsorBar.style.setProperty("--sb-h", `${cfg.sponsor_bar_size}px`);
+  if (logo.url === sponsorShown) return;
+  const first = !sponsorShown;
+  sponsorShown = logo.url;
+  const img = document.createElement("img");
+  img.src = logo.url;
+  img.alt = logo.name || "";
+  sponsorBar.replaceChildren(img);
+  if (!first) img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: "ease" });
 }
 
 function headRowHtml(cfg, cols) {
   if (!cols.length || !cfg.show_col_labels) return "";
-  return `<div class="srow shead">
-    <span></span><span></span>${cfg.show_number ? "<span></span>" : ""}${cfg.logo_col ? "<span></span>" : ""}<span></span>
+  return `<div class="srow shead">${rowSpec(cfg, []).map(() => "<span></span>").join("")}
     ${cols.map((c) => `<span class="c">${c[2]}</span>`).join("")}</div>`;
 }
 
@@ -335,9 +368,11 @@ function render() {
   const entries = ov.standings;
   // No logo column when no team has a logo.
   const cfg = { ...ov.settings.standings };
-  cfg.show_logo = cfg.show_logo && entries.some((e) => e.team_logo);
-  cfg.logo_col = cfg.show_logo && cfg.team_logo_side !== "last";
-  cfg.logo_inline = cfg.show_logo && cfg.team_logo_side === "last";
+  // Team logo and team name, each a column of its own (the name can sit under the driver's instead).
+  cfg.logo_col = cfg.show_logo && entries.some((e) => e.team_logo);
+  cfg.logo_last = cfg.team_logo_side === "last";
+  cfg.team_under = cfg.show_team && cfg.team_name_place !== "column";
+  cfg.team_col = cfg.show_team && cfg.team_name_place === "column" && entries.some((e) => e.team);
   const race = ov.session_kind === "race";
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const multiclass = new Set(entries.map((e) => e.class_key)).size > 1;
@@ -351,11 +386,17 @@ function render() {
   let body;
   if (classMode) {
     const keys = cfg.class_key ? [cfg.class_key] : (snap.classes || []).map((c) => c.key);
+    // Each class: its top drivers, then (if asked) a few more of the rest of
+    // the class after a small gap, as overall does for the whole field.
+    const dim = cfg.rows_extra_opacity < 100 ? ` style="opacity:${cfg.rows_extra_opacity / 100}"` : "";
     body = keys.map((k) => {
-      const list = entries.filter((e) => e.class_key === k).slice(0, cfg.rows);
-      if (!list.length) return "";
+      const all = entries.filter((e) => e.class_key === k);
+      if (!all.length) return "";
+      const tail = extraDrivers(all, cfg);
+      const list = tail.length ? all.slice(0, cfg.rows) : all.slice(0, cfg.rows + cfg.rows_last);
       const cls = classes.get(k) || DEFAULT_CLASS;
-      return `<div class="block">${classHeaderHtml(cls, "", rerender)}${rows(list, cls)}</div>`;
+      return `<div class="block">${classHeaderHtml(cls, "", rerender)}${rows(list, cls)}${tail.length
+        ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div><div class="extra"${dim}>${rows(tail, cls)}</div>` : ""}</div>`;
     }).join("");
   } else {
     // More drivers than rows: the top of the order, then (if asked) a few more
@@ -370,15 +411,16 @@ function render() {
   const title = sessionTitle(snap, ov);
   const sub = headerSub(snap, cfg, false);
   const progress = progressText(ov);
+  const sponsor = sponsorLogo(snap, cfg);
   // Hidden until someone qualifies for a row, unless "reveal" is on: then
   // the header shows from the start and drivers join as they cross the line.
   const visible = snap.connected && cfg.visible && (entries.length > 0 || cfg.reveal);
   // The header (with the column labels) is one panel; the drivers follow it,
   // joined on (overall) or as a separate panel per class, evenly spaced.
-  const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head${goFlash(ov)}">
+  const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head${goFlash(ov)}"><div class="head-text">
       <div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
       ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}
-    </div>${sponsorBarHtml(snap, cfg)}${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
+    </div></div>${sponsor ? '<div class="tower-sponsor-slot"></div>' : ""}${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
   tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("wrap-title", !!cfg.title_wrap);
   tower.classList.toggle("hidden", !visible);
@@ -396,9 +438,11 @@ function render() {
     fitMode = mode;
     flipRows(tower, ".srow[data-key]", () => {
       tower.innerHTML = html;
+      placeSponsor(sponsor, cfg);
       if (auto) autoFit(cfg, cols);
     });
   }
+  placeSponsor(sponsor, cfg);
 }
 
 // -- full-screen board --------------------------------------------------------
@@ -448,15 +492,17 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   const interval = classMode ? e.class_interval : e.interval;
   const first = pos === 1;
   const change = race && e.pos_change ? `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>` : "";
-  const logo = cfg.show_logo && e.team_logo ? `<img src="${esc(e.team_logo)}" alt="" class="${cfg.team_logo_side === "last" ? "after" : ""}">` : "";
-  const team = e.team ? (cfg.team_logo_side === "last" ? `${esc(e.team)}${logo}` : `${logo}${esc(e.team)}`) : "";
+  // The team logo and the team name: columns of their own, in the order picked.
+  const teamCells = screenTeamParts(cfg, compact).map((p) => (p === "logo"
+    ? `<td class="lg c" data-opcol="logo">${e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}</td>`
+    : `<td class="team" data-opcol="team">${esc(e.team || "")}</td>`)).join("");
   const cells = [
-    `<td class="stripe" style="${cfg.show_stripe ? `background:${esc(classMode && e.team_color ? e.team_color : cls.color)}` : "background:none"}"></td>`,
+    `<td class="stripe" style="${cfg.show_stripe && paintFor(e, cls, cfg.class_colors) ? `background:${esc(classMode && e.team_color ? e.team_color : paintFor(e, cls, cfg.class_colors))}` : "background:none"}"></td>`,
     `<td class="p r" data-opcol="pos">${pos}</td>`,
     race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
     `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,
     `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
-    compact ? "" : `<td class="team" data-opcol="team">${team}</td>`,
+    teamCells,
   ];
   const down = classMode ? e.class_laps_down : e.laps_down;
   const cell = {
@@ -489,11 +535,19 @@ function screenColumns(cfg, race, compact) {
   return order.filter((k) => SCREEN_LABELS[k] && keep(k));
 }
 
+// The full screen's team columns, in order: the logo (also when two tables
+// share the screen) and the name (not then), each if switched on.
+function screenTeamParts(cfg, compact) {
+  const parts = [cfg.show_logo ? "logo" : null, cfg.show_team && !compact ? "team" : null].filter(Boolean);
+  return cfg.team_logo_side === "last" ? parts.reverse() : parts;
+}
+
 function screenHead(cfg, race, compact) {
-  const cols = [["", "stripe"], ["Pos", "r"], race ? ["", "c"] : null, ["#", "c"], ["Driver", ""], compact ? null : ["Team", ""]];
+  const cols = [["", "stripe"], ["Pos", "r"], race ? ["", "c"] : null, ["#", "c"], ["Driver", ""],
+    ...screenTeamParts(cfg, compact).map((p) => (p === "logo" ? ["", "lg"] : ["Team", ""]))];
   cols.push(...screenColumns(cfg, race, compact).map((k) => [SCREEN_LABELS[k], "r"]));
   const widths = { "": "", Pos: "70px", "#": "70px", Laps: "70px", Pits: "60px", Gap: "120px", Int: "110px", Last: "130px", Best: "130px" };
-  return `<colgroup>${cols.filter(Boolean).map(([l, c]) => `<col style="width:${c === "stripe" ? "6px" : c === "c" && !l ? "78px" : widths[l] || "auto"}">`).join("")}</colgroup>
+  return `<colgroup>${cols.filter(Boolean).map(([l, c]) => `<col style="width:${c === "stripe" ? "6px" : c === "lg" ? "64px" : c === "c" && !l ? "78px" : widths[l] || "auto"}">`).join("")}</colgroup>
     <thead><tr>${cols.filter(Boolean).map(([l, c]) => `<th class="${c === "stripe" ? "stripe" : c}">${l}</th>`).join("")}</tr></thead>`;
 }
 
@@ -547,8 +601,8 @@ function renderScreen(snap, ov) {
   const session = snap.session || {};
   const sub = headerSub(snap, cfg, true);
   const html = `<div class="screen-page" style="--row-h:${rowH}px;--row-font:${Math.round(rowH * 0.55)}px">
-    <div class="screen-head${goFlash(ov)}"><span class="t1">${esc(snap.connected ? sessionTitle(snap, ov) : "STANDINGS")}</span><span class="t2">${esc(sub)}</span>
-      <span class="t3">${snap.connected ? esc(progressText(ov) || sessionClock(snap, ov)) : ""}</span></div>
+    <div class="screen-head${goFlash(ov)}"><div class="head-text"><span class="t1">${esc(snap.connected ? sessionTitle(snap, ov) : "STANDINGS")}</span><span class="t2">${esc(sub)}</span>
+      <span class="t3">${snap.connected ? esc(progressText(ov) || sessionClock(snap, ov)) : ""}</span></div></div>
     ${body}</div>`;
   if (html !== shown) {
     shown = html;

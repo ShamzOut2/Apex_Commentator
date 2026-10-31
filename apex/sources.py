@@ -55,7 +55,6 @@ RPY_SRCH_PREV_INCIDENT = 8
 RPY_SRCH_NEXT_INCIDENT = 9
 
 CAM_UI_HIDDEN = 0x0008
-VIDEO_SCREENSHOT = 0
 
 CS_AT_INCIDENT = -3
 CS_AT_LEADER = -2
@@ -228,11 +227,6 @@ class IRacingSource:
         with self._lock:
             self.ir.cam_set_state(state)
 
-    def screenshot(self):
-        """Ask iRacing to save a screenshot (needs Video and Screen Capture enabled)."""
-        with self._lock:
-            self.ir.video_capture(VIDEO_SCREENSHOT)
-
     # -- chat (race control) -------------------------------------------------
 
     CHAT_WINDOW = "iRacing.com Simulator"
@@ -334,7 +328,6 @@ class MockSource:
         self.commands = []  # log of received commands (used by tests)
         self.chat = []      # lines sent to the chat (race control)
         self.cam_state = 0
-        self.screenshots_dir = None  # where screenshot() writes, like iRacing's folder
         n = self.num_cars
         # Every third car is a slower GT4 so the mock race is multiclass.
         self.base_lap = [88.0 + self.rng.uniform(0, 4) + (5.0 if self._is_gt4(i) else 0.0) for i in range(n)]
@@ -351,6 +344,7 @@ class MockSource:
         self.spin_at = [None] * n   # when the car's current moment is a spin
         self.moment_at = [None] * n  # when the car's current moment (off / spin) began
         self.pit_until = [0.0] * n
+        self.pit_from = [0.0] * n  # when the car came into the pit lane (it stops in its box half way)
         self.incidents = [0] * n
         self.lap_noise = [[1.0] * len(self.SECTOR_STARTS) for _ in range(n)]
         self.black_flag = [False] * n
@@ -457,7 +451,7 @@ class MockSource:
             if self.moment_at[i] is not None:
                 pace *= self._moment_pace(i, t)
             if t < self.pit_until[i]:
-                pace *= 0.35
+                pace *= 0.0 if self._in_box(i, t) else 0.35
             prev = self.progress[i]
             self.progress[i] += dt / self.base_lap[i] * pace
             if self.session_kind == "qualify" and prev < 0 <= self.progress[i]:
@@ -486,9 +480,11 @@ class MockSource:
                 if self.black_flag[i] and not self.served[i]:
                     # Serve the drive-through.
                     self.pit_until[i] = t + 18
+                    self.pit_from[i] = -1e9  # a drive-through: no stop in the box
                     self.served[i] = True
                 elif rng.random() < 0.04 and t > 120:
                     self.pit_until[i] = t + 22
+                    self.pit_from[i] = t
             # Random off-track moment: ~once every 7 minutes per car.
             if t > 15 and t > self.slow_until[i] + 10 and rng.random() < dt / 420.0:
                 self.offtrack_until[i] = t + 2.5
@@ -571,7 +567,7 @@ class MockSource:
                 # Qualifying starts with an out lap from the pit lane.
                 on_pit[idx] = t < self.pit_until[i] or (self.session_kind == "qualify" and p < -0.9)
                 if on_pit[idx]:
-                    surface[idx] = TRK_APPROACHING_PITS
+                    surface[idx] = TRK_IN_PIT_STALL if self._in_box(i, t) else TRK_APPROACHING_PITS
                 elif t < self.offtrack_until[i]:
                     surface[idx] = TRK_OFF_TRACK
                 else:
@@ -700,58 +696,12 @@ class MockSource:
             self.commands.append(("cam_set_state", state))
             self.cam_state = state
 
+    def _in_box(self, i, t):
+        """A pit stop: 7 s down the pit lane, 8 s in the box, 7 s out."""
+        return self.pit_from[i] + 7 <= t < self.pit_until[i] - 7
+
     def send_chat(self, text):
         """Race control's lines, as iRacing's chat would get them (kept in ``chat``)."""
         with self._lock:
             self.commands.append(("chat", text))
             self.chat.append(text)
-
-    def screenshot(self):
-        """Write a picture of the car on camera, as iRacing's screenshot key would."""
-        with self._lock:
-            self.commands.append(("screenshot",))
-            if self.screenshots_dir is None:
-                return
-            driver = self.drivers[self.cam_car_idx] if 0 <= self.cam_car_idx < len(self.drivers) else None
-        from pathlib import Path
-        folder = Path(self.screenshots_dir)
-        folder.mkdir(parents=True, exist_ok=True)
-        name = f"mock_{time.strftime('%Y%m%d_%H%M%S')}_{len(self.commands)}.png"
-        (folder / name).write_bytes(mock_screenshot(driver))
-
-
-def mock_screenshot(driver):
-    """A stand-in for an iRacing screenshot: the camera car side-on, on track."""
-    import io
-    from PIL import Image, ImageDraw
-
-    colors = ["#c0392b", "#f4f6f7", "#111111"]
-    number = "?"
-    if driver:
-        parts = str(driver.get("CarDesignStr", "")).split(",")[1:4]
-        colors = [f"#{c}" for c in parts if len(c) == 6] or colors
-        number = str(driver.get("CarNumber", "?"))
-    colors += ["#f4f6f7", "#111111"]
-    img = Image.new("RGB", (1600, 900), "#9ec3e6")
-    d = ImageDraw.Draw(img)
-    d.rectangle([0, 200, 1600, 300], fill="#6d8f4e")
-    d.rectangle([0, 300, 1600, 900], fill="#4a4d52")
-    for x in range(0, 1600, 100):
-        d.rectangle([x, 300, x + 50, 318], fill="#d7263d")
-    # A neighbouring car at the left edge, then the camera car in the middle.
-    for x0, scale, body in ((-360, 0.75, "#1b76d1"), (380, 1.0, colors[0])):
-        def P(x, y):
-            return (x0 + x * scale, 330 + y * scale)
-        d.polygon([P(0, 260), P(30, 150), P(250, 120), P(380, 40), P(640, 40), P(760, 130), P(860, 170), P(880, 260)],
-                  fill=body, outline="#0b0b0b", width=6)
-        d.polygon([P(400, 60), P(620, 60), P(700, 125), P(330, 125)], fill="#1d2633")
-        d.rectangle([P(0, 200), P(880, 225)], fill=colors[1])
-        for wx in (170, 700):
-            cx, cy = P(wx, 265)
-            d.ellipse([cx - 62 * scale, cy - 62 * scale, cx + 62 * scale, cy + 62 * scale], fill="#121212")
-            d.ellipse([cx - 32 * scale, cy - 32 * scale, cx + 32 * scale, cy + 32 * scale], fill="#7d838c")
-    d.ellipse([780, 470, 880, 570], fill="#ffffff", outline="#111111", width=4)
-    d.text((812, 505), number, fill="#111111")
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue()

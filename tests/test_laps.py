@@ -79,6 +79,23 @@ class LapTrackerTests(unittest.TestCase):
         # Hidden after 5 s: then the new lap shows.
         self.assertEqual(lt.state(0, t + 6)["state"], "running")
 
+    def test_a_hair_backwards_doesnt_lose_the_lap(self):
+        # iRacing's position for other cars can step back a little now and then
+        # (its smoothing of their position over the network), also at the line.
+        lt = LapTracker()
+        t, pct, step = 0.0, 0.95, 0.1 / 90
+        jitter = 0
+        while pct < 3.2:
+            jitter += 1
+            back = 0.003 if jitter % 7 == 0 else 0.0  # a step back from the last position
+            lt.update(F(t, [(pct - back) % 1.0]), lambda i: "A")
+            t += 0.1
+            pct += step
+        car = lt.cars[0]
+        self.assertEqual(car.laps, 2)  # both full laps timed
+        self.assertAlmostEqual(car.best_lap, 90.0, delta=0.1)
+        self.assertEqual(lt.state(0, t + 10)["state"], "running")  # and the third under way
+
     def test_faster_lap_is_purple_with_negative_delta(self):
         lt = LapTracker()
         drive(lt, 1, sector_s=(30.0, 30.0, 30.0))

@@ -6,7 +6,7 @@ OBS dock.
 
 - **Timing screen**: one screen for the race. Live standings with overall
   and class position, places gained or lost, gap and interval, flags and
-  penalties. **Battles** (cars within 0.15 s) flash in a colour you choose.
+  penalties. **Battles** (a car within 0.15 s of the one ahead) light up in a colour you choose.
   Click a driver to put the camera on them. A **race log** records
   overtakes, offs, spins, places lost, pit stops, penalties and fastest laps:
   pick a line and replay it from 5 to 30 seconds before. Camera buttons with
@@ -17,9 +17,9 @@ OBS dock.
   logos, notes and car and helmet photos. Define **classes** with your own
   names, colours and logos.
 - **Grid walk**: an on-stream graphic that walks the starting grid two drivers
-  at a time, with livery, helmet, name, team and team logo. It's shown as cars
-  standing on the grid, on a grid map or as a head-to-head, and advances on a
-  timer you set. The **photo booth** photographs every car in iRacing for it.
+  at a time: a track across the screen, each car in its grid box (your own
+  car pictures, matched to each driver and car) with the driver's details
+  beside it. It advances on a timer you set.
 - **Standings overlay**: a timing tower for stream, overall or by class. In
   qualifying it starts empty and fills as drivers set clean laps.
 - **Qualifying lap tracker**: live sector bars (purple, green, yellow) and lap
@@ -43,62 +43,61 @@ walk, Overlays, Boards and Race control.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.7**
+**v0.4.8**
 
 ### New features
 
-- **Move any overlay**: every overlay has Move right / Move down, to keep
-  them clear of each other and fit your layout.
-- **Sponsor logo bar** under the timing tower's header.
-- **Race control tab**: give any driver a drive-through, stop & go or stop
-  & hold (seconds, minutes or laps), clear one driver's or everyone's
-  penalties, set the grid time, start the race and message every driver,
-  straight to iRacing (you need to be a session admin).
-- **Hotkeys that work from anywhere**: give a camera, overlay, board or the
-  grid walk a key with Ctrl or Alt (e.g. Ctrl+Alt+1) and it works whichever
-  program is in front, iRacing and OBS included. Plain keys still work in
-  the app's own windows.
-- **Hotkeys for overlays and boards**: a key for each overlay (on / off),
-  the grid walk and every board (on screen, and off again), set in the
-  Hotkeys window, now also on the Overlays and Boards tabs.
-- **Championship battle overlay**: pick two to six drivers (or the car on
-  camera and the cars around it, or the top 3) in any championship, overall
-  or a class, and show their places, points and the gaps between them; live
-  during a race, with the points this race would give them.
-- **Board pages**: set how many drivers each board shows a page, and go
-  through the rest with Next / Prev (or hotkeys) until the end.
+- **Pit stops overlay**: when a car comes into the pit lane in a race, a card
+  with its pit lane time (entry line to exit line) and its time in the pit
+  box, ticking, and the final times for a few seconds after it leaves. Set
+  how many drivers it shows at once, how long each driver's card stays up,
+  and how long it stays after the exit line.
+- **New grid walk**: a track across the screen with the two cars of each
+  row in their staggered grid boxes and the drivers' details beside them,
+  using your own car pictures: point the app at a folder of pictures named
+  `iRacingID.Carname` (e.g. `123456.Porsche 911 GT3 R (992).png`) and each
+  driver gets the right car and livery.
+- **Import a sign-up sheet**: drivers, teams and classes from any spreadsheet
+  (CSV): iRacing ID, name, car number, team and class are found by
+  themselves, and you can check which column is which before importing.
 
 ### Improvements
 
-- Finishing order: Gap and Interval columns; DNF, DNS and DSQ show there
-  instead of a column of their own.
-- Board backgrounds: an image fills the whole screen at its own size again,
-  whatever the board's size.
-- Timing tower and full screen: "LEFT" after the time left can be turned
-  off, and the accent colour (time / lap, the header's bar and line) can be
-  your own or follow the session: white practice, purple qualifying, red
-  race.
-- Standings (tower and full screen): the leader's interval can show
-  "Leader" or the lap they're on, like the gap column.
-- Heat racing: heats, the consolation and the feature are recognised, can
-  have names of your own, and on the day of a heat event each race takes the
-  name of its league round for that date, with its results saved to that
-  round.
-- The tabs are in a new order: Home, League builder, Teams, Championship,
-  Timing, Grid walk, Overlays, Boards, Race control.
-- Finishing order: a button for every class of the league, secondary
-  classes and classes without points of their own included.
-- The finishing order board can show any session of the event in iRacing:
-  practice, qualifying, warm-up, each heat or the race (practice and
-  qualifying by best lap, without points).
-- Standings (tower and full screen): put the team logo before or after the
-  team name.
-- Driver on camera: swap the team and the car badge (badge under the name,
-  team at the end), and put the team logo before or after the team name.
-- Driver on camera: set how long the card stays on screen (1 to 120
-  seconds), or keep it up while they're on camera. A new driver replaces the
-  card and starts the time again, picking the same driver again in the app
-  brings their card back, and it now goes on time even with iRacing paused.
+- Round results can be imported from iRacing's own event result export
+  (.csv): positions, laps, fastest laps, incidents, gaps and DNF / DNS, with
+  the track and date for the round.
+- Per-column opacity is now each column's background (with a colour of your
+  own), not its text.
+- Team logo and team name are columns of their own on the tower, the full
+  screen and the boards, each on or off, the logo before or after the name.
+- Driver on camera: the swap now swaps just the team logo and the car
+  badge; the team name stays under the driver's name.
+- Timing screen: a battle lights up steadily in your colour, and only the
+  driver within the gap, not the car ahead.
+- Timing tower: hotkeys for the sponsor bar and for overall / by class; the
+  chequered flag header has one dark plate behind all its text.
+- League builder: duplicate a league; change the order of sponsor logos.
+- Standings and driver on camera: class colours from the driver's main or
+  secondary class; a driver without one shows no colour (a plain number, no
+  bar, no card background).
+- Driver on camera: just the overall position (the class position is an
+  option).
+- Drivers with no class in the league (neither main nor secondary, e.g. a
+  safety car) are left off every overlay and out of the results.
+- Standings by class: the extra drivers show under each class.
+- League builder and Teams: the arrow keys move between the boxes.
+- The photo booth (taking car photos in iRacing) and the grid map and head
+  to head grid walk styles are gone; the grid walk uses your own pictures.
+
+### Fixes
+
+- Lap tracker (qualifying and practice): laps are timed again in real
+  sessions. A car's position stepping back a hair (iRacing smooths other
+  cars' positions) dropped its lap, leaving it on "OUT LAP" with empty
+  sectors.
+- The timing tower's sponsor bar no longer flashes; it fades only when the
+  next logo comes up.
+- The tower's team logo is the same size before or after the name.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -171,8 +170,8 @@ shows something else. Camera hotkeys work in whichever window has focus.
   them. The class chips show one class at a time, with gaps and places within
   it.
 - **Battles**: a driver within the battle gap of the car ahead (0.15 s by
-  default) flashes along with that car, in the colour you pick. Both settings
-  sit above the standings.
+  default) is lit up, steadily, in the colour you pick: just that driver,
+  not the car they're closing on. Both settings sit above the standings.
 - **Race log**: everything that happens, newest first, filterable: overtakes,
   off tracks, spins, incident points, places lost after an off, pit in/out
   (with stop time and places lost), penalties and class fastest laps. **Click
@@ -199,7 +198,9 @@ shows something else. Camera hotkeys work in whichever window has focus.
 **Hotkeys for overlays and boards.** *⌨ Hotkeys* (on the Timing, Overlays and
 Boards tabs) also sets keys for:
 - each overlay: the standings tower, lap tracker, driver on camera,
-  sponsors and championship battle, on and off;
+  sponsors, championship battle and pit stops, on and off;
+- the timing tower: its sponsor bar under the header on and off, and
+  overall / by class;
 - the championship battle's quick picks (the car on camera and the one
   ahead, the cars either side, the top 3), which also put it on screen;
 - the grid walk: on / off (starting from P1), and the next pair;
@@ -288,11 +289,35 @@ Things to know:
 
 ## Grid walk
 
-![grid walk: cars standing in their grid boxes](docs/gridwalk-track.png)
+![grid walk: two cars in their grid boxes on a track across the screen](docs/gridwalk-track.png)
 
 The **Grid walk** tab runs a broadcast graphic that goes through the whole
-field, front to back, two drivers at a time:
+field, front to back, two drivers at a time. A stretch of track runs across
+the screen; the front car of the row stands in its painted grid box on the
+upper lane, further up the road, and the second one in the box staggered
+behind it below, as on a real grid. Beside each car are the driver's
+details: grid position (and class position in multiclass races), car
+number in the class colour, class badge, car badge, name, nickname, team and
+team logo, and their qualifying time (the class pole's lap, the gap to it
+for everyone else).
 
+- **Car pictures**: you make them, the app puts them in the right place.
+  Put them in one folder and point *Car pictures → Folder* at it. Name each
+  picture **`iRacingID.Carname`**, e.g. `123456.Porsche 911 GT3 R (992).png`
+  (PNG, JPG or WebP):
+  - the **iRacing ID** is the driver's customer ID;
+  - the **car name** is the car they're driving: iRacing's name for it
+    (`Porsche 911 GT3 R (992)`), its short name (`Porsche 911 GT3 R`) or its
+    folder name (`porsche992rgt3`) all work, in any case.
+  Each driver in the session is matched by ID and the car they're in, so a
+  driver with a picture for each of several cars gets the right one; a
+  driver with only one picture gets it whatever the car. Pictures with a
+  see-through background and the car pointing right look best (*Flip the
+  car pictures* turns pictures of cars pointing left around). New or
+  changed pictures in the folder show up by themselves. The grid list shows
+  who has a picture, and what to call the missing ones (hover *No
+  picture*). A driver without one gets the league's car photo if they have
+  one, else a car drawn in their iRacing paint colours.
 - **Order**: the grid comes from qualifying. If there are no qualifying
   results yet, the latest qualifying session's results are used, then current
   positions, then car number. Every driver entered in the session is included,
@@ -301,89 +326,16 @@ field, front to back, two drivers at a time:
   hand (inverted grids, penalties), and **Reset order** to go back.
   *League drivers not in session* adds the active league's remaining roster at
   the back.
-- **Each driver** shows grid position (and class position in multiclass
-  races), car number in the class colour, class logo, name, nickname, team,
-  team logo, car livery and helmet. *Grid on track* also paints each slot's
-  qualifying time on the tarmac: the lap time for the class pole, and the gap
-  to it for everyone else.
-- **Photos**: upload a car livery photo and a helmet photo per driver in the
-  league builder (**Photos** column), and team logos in the **Teams**
-  section. For *Grid on track*, the ideal car image is a **transparent PNG
-  render** of the car in 3/4 view, nose pointing right, so it stands in the
-  grid box like a TV grid walk. A driver without photos gets a car and helmet
-  drawn in their actual iRacing paint colours (from the sim's design
-  strings), so nobody shows up blank.
 - **Controls**: *Start from P1*, *Pause/Resume*, *Prev/Next* pair, *Show*
   on any driver to jump to their pair, and *Hide* to take it off screen.
   *Seconds per pair* sets the timer, and *Loop* restarts from the front.
   Without Loop, the graphic leaves the screen after the last pair.
-- **Style**:
-  - *Grid on track* (default): the pair stands in painted, staggered grid
-    boxes on an angled stretch of track, with slot numbers and qualifying
-    gaps on the tarmac. Name, number and team go in opposite corners with
-    the team logos. It's a full-frame scene with its own background.
-  - *Grid map* draws the whole grid with the current pair lit up, and the
-    two driver cards in their boxes.
-  - *Head to head* puts the pair side by side.
-
-| Grid map | Head to head |
-| --- | --- |
-| ![grid map](docs/gridwalk-grid.png) | ![head to head](docs/gridwalk-h2h.png) |
 
 **On stream**: in OBS add a **Browser Source** of 1920×1080 pointing at
-`http://localhost:8180/gridwalk.html`. The *Grid map* and *Head to head*
-styles have a transparent background, so they sit over your game feed. The walk runs on the server, so the OBS source, the
-preview in the tab, and any other copy all stay in step. Add `?preview=1` to
-the URL to view it on a backdrop in a normal browser.
-
-### Photo booth: real car photos from iRacing
-
-The **Photo booth** in the Grid walk tab takes each driver's car photo
-inside iRacing itself, so it shows their real livery, whether that's a
-Trading Paints paint or an iRacing paint-shop design. For every car loaded
-into the session, it points the chosen camera at the car, hides iRacing's
-on-screen panels, takes iRacing's screenshot, then puts your camera and panels
-back. Each shot is then **cut out** with an AI background-removal model (the
-open IS-Net model, about 170 MB, downloaded the first time you use it), cropped
-to the car, and saved as that driver's car photo in the active league. The
-grid walk uses it straight away. 📷 on a driver's row retakes just that car.
-
-- **Turn on screenshots in iRacing first**: *Settings → Interface → Camera &
-  Screen Capture → Video and Screen Capture*, then restart iRacing. The app
-  looks in `Documents\iRacing\screenshots`. If yours are saved elsewhere,
-  set the **Screenshots folder** under the photo booth.
-- **Moved your iRacing documents folder?** If `Documents\iRacing` is a
-  junction (a folder link) to another drive, newer Windows 11 builds refuse
-  to open it through the link ("WinError 448: untrusted mount point"). The
-  app follows the link to the real folder itself. If it still can't, set
-  the **Screenshots folder** to the real one (e.g. `D:\iRacing\screenshots`).
-- **When**: it takes over the camera for about 2 seconds per car, so run it
-  before you go live. The cut-outs are made afterwards, in the background.
-- **Only cars without a photo yet**: tick it and *Photograph the grid* skips
-  drivers who already have a car photo, so you can press it again as people
-  join and it only takes the new ones.
-- **Photograph drivers as they load in**: with it on, each driver without a
-  car photo is photographed automatically a few seconds after their car
-  loads into the session (cars that load in together are taken in one go),
-  with the camera and cut-out setting picked above. It never runs during a
-  race once it's green, and tries each driver once a session: one that fails
-  can be retaken with 📷. It stays on until you turn it off, even after a
-  restart. Photos are kept in the league, so a photo taken in practice is
-  used on race day.
-- **A front three-quarter view**: the app can pick a camera but can't move
-  one. Make one in iRacing's camera tool (Ctrl+F12): take a camera fixed to
-  the car (e.g. *Chase*), move it ahead of the car and to one side, turn it
-  back to face the car's front corner and save the camera set. Then pick it
-  in the *Camera* list.
-- **Cars spread out make better photos**: the cut-out keeps the car in the
-  middle of the shot and drops cars that merely touch it. A car that
-  overlaps another in the frame can't be separated, so practice and
-  qualifying, when cars are apart, are a better time than the grid. Try
-  cameras such as *Chase*, *Rear Chase* or a TV camera, and retake any that
-  come out wrong.
-- Cars not loaded into the session can't be photographed. They keep their
-  uploaded or drawn car. Untick *Cut out background* to keep the track behind
-  the car. Raw shots are kept in `data\photobooth\raw`.
+`http://localhost:8180/gridwalk.html`. Everything but the title, the track
+and the drivers' panels is see-through. The walk runs on the server, so the
+OBS source, the preview in the tab, and any other copy all stay in step. Add
+`?preview=1` to the URL to view it on a backdrop in a normal browser.
 
 ## Stream overlays
 
@@ -441,15 +393,19 @@ when another is on, like the fastest lap flash timer, appear once it's on.
 
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
-    team names and team logos. **Team logo**: before the team name (on the
-    tower, a column of its own before the driver) or after it (on the tower,
-    at the end of the team line, or after the driver's name with team names
-    off). The full-screen standings follow the same choice.
+    team names and team logos. The team logo and the team name are columns
+    of their own, each turned on and off by itself: **Team logo column**
+    before or after the driver / team name (the same size either way), and
+    on the tower the **team name** under the driver's name or in a column of
+    its own. The full-screen standings follow the same choices.
   - **Column headings** (the small GAP, INT… row) can be turned off.
-  - **Custom opacity per column**: tick it and set each column's opacity
-    (position, car number, driver, +/−, gap, interval…), for the tower and
-    the full-screen standings. The championship, teams', manufacturers' and
-    results boards have the same option for their own columns.
+  - **A background of its own for each column**: tick it, pick the column
+    background colour and set each column's background opacity (position,
+    car number, team logo, driver, team name, +/−, gap, interval…); the text
+    stays as it is. On the tower the columns then make the panel. For the
+    tower and the full-screen standings; the championship, teams',
+    manufacturers' and results boards have the same option for their own
+    columns.
   - **Column order**: drag the columns into the order you want (or use their
     arrows), separately for the tower and the full-screen standings. Columns
     that are switched off keep their place for when they're on. The full
@@ -464,6 +420,11 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     and *Car number background* can each be turned off. The background is in
     the driver's class colour; with it off, just the number shows. Both the
     tower and the full-screen version follow these.
+  - **Class colours from**: the driver's **main** class or their
+    **secondary** class (League builder). A driver without one (no main
+    class in the league, say, only a secondary one) shows no colour: just
+    the number, with no background, and no bar. With no league active, the
+    iRacing class colours are used.
   - **Time left**: "12:34 LEFT", or just "12:34" with *"LEFT" after the
     time left* off.
   - **Accent colour**: the colour of the time or lap in the header, the bar
@@ -501,9 +462,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     narrows once there's clearly room to spare, so it doesn't twitch as
     numbers change. With a width set, the name column takes what the other
     columns leave, and long names end in "…".
-  - **Extra drivers** (Overall view): when there are more drivers than
-    rows, a few more go under the top of the order, after a small "• • •"
-    gap. *Extra drivers show*:
+  - **Extra drivers**: when there are more drivers than rows, a few more go
+    under the top of the order, after a small "• • •" gap; in the By class
+    view, under the top of each class, from that class. *Extra drivers show*:
     - **The rest of the field, a set at a time** (default): with 20 rows and
       3 extra, P21–23, then P24–26, and so on to the end, then back to
       P21–23. *Seconds per set* sets how long each set stays. Every copy
@@ -547,10 +508,28 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   heading, name format, place, size and background can be set. It shows
   once the championship has standings: after the first results, or live
   during a race.
+- **Pit stops** (`/pits.html`): a card for a car in the pit lane, with two
+  clocks:
+  - **Pit lane**: from the moment it crosses the pit lane entry line to the
+    exit line;
+  - **In box**: the time it spends in its pit box (added up if it moves in
+    and out), lit up while it's stopped; "—" for a drive-through.
+  The tag says *PIT LANE*, *STOPPED* or *OUT*. **Show**: every car in the
+  pit lane (the one on camera first) or only the car on camera, and **how
+  many drivers at once** (the most cards on screen). **Each driver's card
+  goes after** a number of seconds in the pit lane, if you set one (0: it
+  stays until they leave); a card gone that way stays off until their next
+  stop. **Card stays after they cross the pit exit line**: how many seconds
+  it keeps the final times (0: it goes at once). Races only,
+  unless you untick it. Position, car number (in its class colour), name,
+  team name and logo can each be turned off. The clocks are the sim's own,
+  so they're right in replays too (paused with the replay).
 - **Driver on camera** (`/driver.html`): a small board at the bottom centre
-  naming the driver the camera is on. It shows their position (and in class,
-  in multiclass races), car number in the class colour, name, class, team and
-  logo, and car badge.
+  naming the driver the camera is on. It shows their position overall (and,
+  if you tick it, their position in class under it), car number in the class
+  colour, name, class, team and logo, and car badge. *Class colour from*: the
+  main or the secondary class, as for the standings; a driver without one
+  gets no colour: no background behind the position or number, white text.
   - When the camera moves to someone else, the old board slides away and the
     new one slides up, opening from the middle with a light sweep.
   - **Card stays on screen for**: how many seconds it stays up (1 to 120).
@@ -561,10 +540,11 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     iRacing paused.
   - **Stay up for as long as they're on camera**: no timer; it changes when
     the camera does.
-  - **Team and car badge**: the team under the driver's name with the car
-    badge at the end of the card, or swapped (the car badge under the name,
-    the team at the end, bigger). **Team logo**: before or after the team
-    name.
+  - **Team logo and car badge**: the team name is always under the driver's
+    name. Next to it goes the team logo, with the car badge at the end of
+    the card; or swapped: the car badge next to the team name and the team
+    logo at the end. **By the team name**: the logo (or badge) before or
+    after the team name.
   - Choose the details shown, the name style and the panel background. It
     only shows when the camera is on a driver, not on scenic cameras.
 - **Sponsors** (`/sponsors.html`): the active league's sponsor logos (added
@@ -636,11 +616,12 @@ made.
 | What | Where | Export | Import |
 | --- | --- | --- | --- |
 | A whole league (classes, teams, drivers, championship, logos, banners, sponsors, photos) | League builder | **Export league** (.json) | **Import league…** (left side): added as a new league, never over one you have |
-| Driver roster | League builder | **Roster (CSV)** | **Import roster (CSV)…**: drivers matched by customer ID (else name) are updated, new ones added |
+| Driver roster | League builder | **Roster (CSV)** | **Import roster (this app's CSV)…**: drivers matched by customer ID (else name) are updated, new ones added |
+| Drivers, teams and classes from any spreadsheet (a sign-up sheet) | — | — | **Import a sign-up sheet (CSV)…** (League builder → Drivers, or Teams): see below |
 | Teams (names, short names, colours, logos, who drives for whom) | Teams | **Export teams** (.json) | **Import teams…**: teams with the same name are replaced, drivers join their team |
 | Championship (points rules, calendar, every round's results, penalties) | Championship | **Export championship** (.json) | **Import championship…**: replaces this league's championship |
 | Championship standings (every table, round by round) | Championship | **Standings (CSV)** | |
-| One round's results | Championship → Calendar & results → open a round | **Export** (.json) or **CSV** | **Import…**: from a round export or a CSV with the same columns; replaces that round's results |
+| One round's results | Championship → Calendar & results → open a round | **Export** (.json) or **CSV** | **Import…**: from iRacing's own event result export (the .csv from the session's results page), a round export, or a CSV with the same columns; replaces that round's results |
 | Every overlay's and board's settings, with background images | Overlays | **Export settings** (.json) | **Import settings…**: replaces your settings |
 
 **Where exports go:** `Documents\Apex Commentator\Exports` on the PC the
@@ -696,8 +677,8 @@ The choices:
 Colour and image both have an **Opacity** slider (0–100%).
 
 What it colours depends on what it is:
-- **On an overlay** (the standings tower, lap trackers, sponsors panel, grid
-  walk cards), the setting is the overlay's own panels: their background
+- **On an overlay** (the standings tower, lap trackers, sponsors panel, the
+  grid walk's title and driver panels), the setting is the overlay's own panels: their background
   takes the colour, or shows the image inside them, behind the text. The
   rest of the screen stays see-through, so the race is never covered.
 - **On a board**, it's the whole screen behind the board: an image shows at
@@ -712,6 +693,16 @@ overlay or board.
 On your own screen (*Show on my screen*), the background only fills the
 overlay's own panels, like everywhere else; the rest of the screen is never
 touched.
+
+**iRacing's event result export** (the .csv downloaded from a session's
+results page, starting with the event's start time and track) imports into a
+round as it is: finishing positions, starting positions, laps, laps led,
+fastest laps, incidents, the gap to the winner (or laps down), and DNF / DNS
+(a car out with no laps done is a DNS) from iRacing's "Out" column. Drivers
+are matched to the roster by customer ID, and each gets their class in the
+league (their own pick, name tag or iRacing car class). A driver with no
+class (a safety car, say) is left out, as for results saved from the sim. A
+round without a track or date gets the event's.
 
 ## Overlays on your own screen (no OBS)
 
@@ -962,6 +953,38 @@ The league's settings are on three tabs: **Drivers** (the roster),
 **Classes**, and **Logos, banners & sponsors**. *Teams ↗* and *Season &
 points ↗* jump to the team builder and the championship.
 
+**Arrow keys** move between the boxes in the Drivers list, the classes and
+the team cards: up and down to the same box in the row (or card) above or
+below, left and right along the row. As in a spreadsheet, a box's text is
+selected when you arrive, so left and right go straight on; once you click
+in it or type, they move through the text first.
+
+**Drivers with no class**: in a league with classes, a driver with neither
+a main nor a secondary class (a safety car, say) is left off every overlay
+(standings, lap tracker, driver on camera, grid walk) and out of the
+results, so they're on no board either. The Timing tab still lists them,
+tagged *NO CLASS*. Untick *Drivers with no class … on no overlay* under
+**Classes** to show everyone.
+
+**Import a sign-up sheet (CSV)…** (Drivers tab, or the Teams tab) reads any
+spreadsheet saved as CSV, e.g. a league's sign-up sheet. It works out which
+column is which (iRacing customer ID, full name or first and last name, car
+number, team, team colour, class, nickname) and shows its guess to check or
+change: the class column is found by its heading, or without one by its
+values (a column of a few repeated words such as GOLD / SILVER / BRONZE).
+Pick whether the classes are **main** classes (shown on the overlays) or
+**secondary** ones. Then **Import**: drivers already in the league (same
+iRacing ID, else the same name) get the sheet's details, everyone else is
+added, and any team or class the league doesn't have is made (Gold, Silver,
+Bronze get their usual colours). Car numbers keep their leading zeros
+("021"). The league is saved.
+
+**⧉** by a saved league duplicates it: drivers, classes, teams,
+championship and images, as "<name> (copy)", to rename and change (a new
+season, say). Under *Logos, banners & sponsors*, **◀ ▶** on a sponsor change
+the order they're shown in everywhere (boards, the sponsors overlay, the
+tower's sponsor bar); save to keep it.
+
 Edit nicknames, teams and notes (for example "Championship leader" or a
 pronunciation hint), **Save**, then **Use in overlay**. Drivers are matched by
 iRacing customer ID, or by car number for hand-added entries without one.
@@ -1059,7 +1082,7 @@ A driver's class comes from:
 
 On the **Timing** screen, each driver's class position is underlined and
 their car number edged in the class colour, and the class chips above the
-standings show one class at a time. Class logos head the grid walk cards.
+standings show one class at a time. Class logos show by the drivers in the grid walk.
 
 **Built-in logos.** The league's tier logos ship with the app as layered
 SVGs in `web/logos/`: PRO, SEMI-PRO, PRO-AM, AM, GOLD, SILVER and BRONZE.
@@ -1191,7 +1214,6 @@ defaults:
 | `poll_hz` | `30` | Telemetry samples per second (spin detection needs 20 or more) |
 | `event_cooldown_s` | `8` | Minimum gap between incidents logged for the same car |
 | `gridwalk_interval_s` | `8` | Grid walk: seconds each pair stays on screen |
-| `gridwalk_style` | `"track"` | Grid walk style: `"track"`, `"grid"` or `"h2h"` |
 | `update_check` | `true` | Check GitHub for new versions and offer them in the app |
 | `update_repo` | `"ShamzOut2/Apex_Commentator"` | Where releases are published |
 | `github_token` | `""` | Only needed if that repository is private (or set `APEX_GITHUB_TOKEN`) |

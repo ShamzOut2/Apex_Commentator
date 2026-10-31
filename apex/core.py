@@ -7,10 +7,13 @@ import threading
 from dataclasses import replace
 import time
 from datetime import date
+from urllib.parse import quote
 
 from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
+from .thumbnails import Thumbnails
+from .pits import PitTracker
 from .backgrounds import Backgrounds
 from .gaps import GapTimer
 from .laps import LapTracker, group_sectors, sector_starts
@@ -40,6 +43,7 @@ from .sources import (
     STATE_CHECKERED,
     STATE_COOLDOWN,
     STATE_RACING,
+    TRK_IN_PIT_STALL,
     TRK_NOT_IN_WORLD,
 )
 
@@ -206,7 +210,8 @@ class App:
         self._frame = None
         self._return_timer = None
         self._last_push = 0.0
-        self.gridwalk = GridWalk(cfg.get("gridwalk_interval_s", 8), cfg.get("gridwalk_style", "track"))
+        self.gridwalk = GridWalk(cfg.get("gridwalk_interval_s", 8))
+        self.thumbnails = Thumbnails()  # the grid walk's car pictures (a folder the user picks)
         self._grid_order = []      # car_idx in starting order
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
@@ -219,17 +224,14 @@ class App:
         self._logged_until = {}    # session num -> race time logged so far
         self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
-        self.photobooth = None     # set by __main__ (needs the user data folder)
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
         self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
         self.backgrounds = Backgrounds()  # __main__ gives it a folder: overlay / board background images
         self.laps = LapTracker()
+        self.pits = PitTracker()
         self.gaps = GapTimer()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
         self.settings = UserSettings()     # settings changed in the app (likewise)
-        # Automatic photos (cmd_photobooth_auto): cars waiting {car: since}, and
-        # drivers already tried this session.
-        self._auto_seen, self._auto_tried, self._auto_session, self._auto_error = {}, set(), None, ""
         # Race results saved by themselves (_auto_results): the race being
         # watched, the sessions already saved, and the last one saved.
         self._results_watch, self._results_saved, self._results_notice = None, set(), None
@@ -288,7 +290,6 @@ class App:
                 self.detector.update_incidents(frame, self._drivers)
             self._frame = frame
             self._detect(frame)
-            self._auto_photos(frame)
             self._auto_results(frame)
         return True
 
@@ -324,6 +325,10 @@ class App:
             self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
         self.laps.green_s = self.overlays.get()["laps"]["green_s"]
         self.laps.update(timeline_frame, self._lap_class)
+        # Pit stops (the pit stop overlay): on pit road, in the pit box.
+        self.pits.update(num, t, [(idx, bool(_at(frame.on_pit, idx, False)),
+                                   _at(frame.surface, idx, TRK_NOT_IN_WORLD) == TRK_IN_PIT_STALL,
+                                   _at(frame.surface, idx, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD) for idx in self._drivers])
         self._logged_until[num] = t
         self.detection = "live" if frame.is_live else "replay"
 
@@ -375,6 +380,7 @@ class App:
                 "team": team if team != d.get("UserName") else "",
                 "car": d.get("CarScreenNameShort", ""),
                 "car_name": d.get("CarScreenName") or d.get("CarScreenNameShort", ""),
+                "car_path": d.get("CarPath", ""),
                 # The manufacturer, from iRacing's car name and path.
                 "make": make_for(d.get("CarScreenName") or d.get("CarScreenNameShort", ""), d.get("CarPath", "")),
                 "car_class": d.get("CarClassShortName") or "",
@@ -446,7 +452,6 @@ class App:
                     "connected": False, "source": self.source.name, "league": self._league_summary(),
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
-                    "photobooth": self._photobooth_snapshot(),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
                 "race_control": {"log": self.rc_log[-50:]},
                 "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
@@ -477,11 +482,14 @@ class App:
                 surface = _at(frame.surface, idx, TRK_NOT_IN_WORLD)
                 row = dict(d)
                 league = self.leagues.lookup(d["cust_id"], d["number"])
-                row["league"] = {k: league.get(k, "") for k in ("nickname", "team", "notes", "driver_number")} if league else None
+                row["league"] = {k: league.get(k, "") for k in ("nickname", "team", "notes", "driver_number", "class2_id")} if league else None
                 # The car as logged in the league wins over iRacing's car name.
                 row["make"] = (league or {}).get("car_make") or d["make"]
                 row["make_logo"] = make_logo(row["make"])
                 row["class_key"] = self._class_key(classes, active_league, league, d)
+                # No class in the league (e.g. a safety car): kept here for the
+                # Timing tab, left off every overlay and out of the results.
+                row["hidden"] = self._unclassed(active_league, league, row["class_key"].startswith("league:"))
                 row.update({
                     "lap": lap if lap is not None and lap >= 0 else None,
                     "laps_completed": _at(frame.laps_completed, idx, -1) if _at(frame.laps_completed, idx, -1) >= 0 else None,
@@ -542,7 +550,6 @@ class App:
                 "drivers": rows,
                 "detection": self.detection,
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
-                "photobooth": self._photobooth_snapshot(),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
                 "race_control": {"log": self.rc_log[-50:]},
                 "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
@@ -634,6 +641,8 @@ class App:
                 added += 1
             key = driver_key(entry) if entry else driver_key({"cust_id": r["cust_id"], "name": r["name"]})
             cls = self.leagues.class_for(entry, r["car_class"], profile, r["name"])
+            if self._unclassed(profile, entry, cls is not None):
+                continue  # no class in the league (a safety car, say): not in the results
             off = official.get(r["car_idx"], {})
             laps = off.get("LapsComplete")
             if not isinstance(laps, int) or laps < 0:
@@ -764,6 +773,34 @@ class App:
             return (nickname or strip_class_prefix(name)), ""
         return name, nickname
 
+    @staticmethod
+    def _unclassed(league, entry, has_main):
+        """Whether a driver is left off the overlays (and out of results): with
+        a league that has classes (and "Hide drivers with no class" on), one
+        with neither a main class nor a secondary one, e.g. a safety car."""
+        if not league or not league.get("hide_unclassed", True) or has_main:
+            return False
+        classes = league.get("classes") or []
+        if not classes:
+            return False
+        c2 = (entry or {}).get("class2_id")
+        return not any(c.get("id") == c2 and c.get("role") == "secondary" for c in classes)
+
+    @staticmethod
+    def _paint(r, active_league):
+        """The colours a driver can be shown in, with a league active:
+        {"main": their main class's colour, "secondary": their secondary
+        class's} (None where they have none: shown without a colour). None
+        without a league (the iRacing class colours are used then)."""
+        if not active_league:
+            return None
+        classes = {c["id"]: c for c in active_league.get("classes", [])}
+        key = r.get("class_key") or ""
+        main = classes.get(key[len("league:"):]) if key.startswith("league:") else None
+        second = classes.get(((r.get("league") or {}).get("class2_id")) or "")
+        return {"main": main.get("color") if main else None,
+                "secondary": second.get("color") if second and second.get("role") == "secondary" else None}
+
     def _overlay_entry(self, r, active_league):
         """Who a driver is, for the stream overlays: league details win."""
         lg = r["league"] or {}
@@ -777,6 +814,7 @@ class App:
             "team": team_name, "team_short": (team or {}).get("short", ""), "team_color": (team or {}).get("color", ""),
             "team_logo": logo_url(pid, team.get("logo")) if team and pid else None,
             "class_key": r["class_key"], "car": r["car"], "on_pit": r["on_pit"], "in_world": r["in_world"],
+            "paint": self._paint(r, active_league),
             # For the full-screen versions.
             "make": r["make"], "make_logo": r["make_logo"],
             "lap": r["lap"], "last_lap": r["last_lap"], "best_lap": r["best_lap"], "pit_stops": r["pit_stops"],
@@ -864,6 +902,7 @@ class App:
         settings = self.overlays.get()
         kind = str(session.get("SessionType", "")).lower()
         is_race = bool(heats.race_kind(session))
+        rows = [r for r in rows if not r.get("hidden")]  # no class in the league: on no overlay
         entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
         # Standings: race order in a race; otherwise fastest clean lap, and
         # only drivers who have set one (blank at the start of qualifying).
@@ -936,6 +975,8 @@ class App:
             "fastest_flash": flash,
             # The driver on camera, for the "who's this" board (driver.html).
             "driver": self._camera_driver(frame, rows, entries, is_race, self._camera_picks),
+            # Cars in the pit lane, with their pit lane and pit box times (pits.html).
+            "pits": self._pits_snapshot(frame, rows, entries, is_race),
             # "all": every driver, for the full-screen timing page (timed
             # drivers by lap time, then the rest).
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
@@ -953,6 +994,30 @@ class App:
             return None
         return dict(entries[idx], pos=row["pos"], class_pos=row["class_pos"],
                     pos_change=row.get("pos_change") if is_race else None, pick=picks)
+
+    def _pits_snapshot(self, frame, rows, entries, is_race):
+        """The pit stops to show (see pits.py): the car on camera first, then
+        in the order they came in, at most ``count``. ``speed``: how fast
+        their clocks run (the replay's speed; 0 paused)."""
+        cfg = self.overlays.get()["pits"]
+        speed = frame.replay_speed if isinstance(frame.replay_speed, (int, float)) else 1
+        if cfg["race_only"] and not is_race:
+            return {"stops": [], "speed": speed}
+        _, t = frame.timeline()
+        place = {r["car_idx"]: r for r in rows}
+        stops = []
+        for s in self.pits.state(t, cfg["hold_s"]):
+            e, r = entries.get(s["car_idx"]), place.get(s["car_idx"])
+            if e is None or r is None:  # not on the overlays (no class), or gone
+                continue
+            on_camera = s["car_idx"] == frame.cam_car_idx
+            if cfg["who"] == "camera" and not on_camera:
+                continue
+            if cfg["show_s"] > 0 and s["lane_s"] > cfg["show_s"]:
+                continue  # up for as long as it's allowed (before the exit too): off until their next stop
+            stops.append(dict(e, **s, pos=r["pos"], class_pos=r["class_pos"], camera=on_camera))
+        stops.sort(key=lambda x: not x["camera"])
+        return {"stops": stops[:max(1, cfg["count"])], "speed": speed}
 
     def _add_start_positions(self, rows, is_race):
         """Grid position (overall and in class) and places gained since, in races."""
@@ -1044,12 +1109,16 @@ class App:
 
         Adds any class it meets to ``classes`` so the overlay can colour it.
         """
+        self.thumbnails.refresh()  # new pictures dropped in the folder show up by themselves
         entries = {}
         for idx in self._grid_order:
             d = self._drivers.get(idx)
             if d is None:
                 continue
             league = self.leagues.lookup(d["cust_id"], d["number"])
+            has_main = self.leagues.class_for(league, d["car_class"], active_league, d["name"]) is not None
+            if self._unclassed(active_league, league, has_main):
+                continue  # no class in the league: not on the grid walk
             surface = _at(frame.surface, idx, TRK_NOT_IN_WORLD) if frame else TRK_NOT_IN_WORLD
             entries[f"car:{idx}"] = self._grid_entry(
                 d, league, active_league, classes, car_idx=idx, in_session=True,
@@ -1083,8 +1152,28 @@ class App:
             pole = class_pole.get(e["class_key"])
             gap = round(e["qual_time"] - pole, 3) if e["qual_time"] and pole else None
             out.append(dict(e, key=key, grid_pos=pos, class_pos=in_class[e["class_key"]], qual_gap=gap))
+        th = self.thumbnails
+        thumbs = {"folder": str(th.folder or ""), "count": th.count, "error": th.error,
+                  "matched": sum(1 for e in out if e["has_thumb"]), "drivers": len(out)}
         return {**self.gridwalk.state(), "source": "manual" if self.gridwalk.manual_order else self._grid_source,
-                "entries": out}
+                "entries": out, "thumbs": thumbs}
+
+    def _thumb_for(self, d):
+        """The thumbnails folder's picture for this driver in their car (a file name), or None."""
+        return self.thumbnails.match(d.get("cust_id"), (d.get("car_name"), d.get("car"), d.get("car_path")))
+
+    def _thumb_url(self, d):
+        name = self._thumb_for(d)
+        return f"/api/thumbs/{quote(name)}?v={self.thumbnails.version(name)}" if name else None
+
+    def cmd_gridwalk_folder(self, folder=""):
+        """The folder of grid walk car pictures ("" = none), kept for next time."""
+        try:
+            self.thumbnails.set_folder(folder)
+        except ValueError as e:
+            raise CommandError(str(e)) from None
+        self.settings.set("gridwalk_thumbs_dir", str(self.thumbnails.folder or "") or None)
+        return {"folder": str(self.thumbnails.folder or ""), "count": self.thumbnails.count}
 
     def _grid_entry(self, d, league, active_league, classes, car_idx, in_session, in_world):
         league = league or {}
@@ -1093,6 +1182,8 @@ class App:
         name, nickname = self._stream_name(d["name"], league.get("nickname", ""), active_league)
         return {
             "car_idx": car_idx,
+            "cust_id": d.get("cust_id"),
+            "car_name": d.get("car_name") or d.get("car", ""),
             "name": name,
             "nickname": nickname,
             "number": d.get("number", ""),
@@ -1101,10 +1192,10 @@ class App:
             "car": d.get("car", ""),
             "make": league.get("car_make") or d.get("make", ""),
             "make_logo": make_logo(league.get("car_make") or d.get("make", "")),
-            "car_image": logo_url(pid, league.get("car_image")) if pid else None,
-            "helmet_image": logo_url(pid, league.get("helmet_image")) if pid else None,
+            # The picture from the thumbnails folder (by iRacing ID and car), else the league's car photo.
+            "car_image": self._thumb_url(d) or (logo_url(pid, league.get("car_image")) if pid and league.get("car_image") else None),
+            "has_thumb": bool(self._thumb_for(d)),
             "car_design": d.get("car_design"),
-            "helmet_design": d.get("helmet_design"),
             "class_key": self._class_key(classes, active_league, league or None, d),
             "in_session": in_session,
             "in_world": in_world,
@@ -1171,7 +1262,7 @@ class App:
             # Sent often by on-screen overlays as they change: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "photobooth_auto", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -1190,6 +1281,7 @@ class App:
         "gridwalk": ("Grid walk", "/gridwalk.html"),
         "driver": ("Driver on camera", "/driver.html"),
         "battle": ("Championship battle", "/battle.html"),
+        "pits": ("Pit stops", "/pits.html"),
     }
 
     def _desktop_snapshot(self):
@@ -1453,9 +1545,9 @@ class App:
     def cmd_gridwalk_hide(self):
         self.gridwalk.hide()
 
-    def cmd_gridwalk_settings(self, interval=None, style=None, loop=None, include_absent=None):
+    def cmd_gridwalk_settings(self, interval=None, loop=None, include_absent=None):
         try:
-            self.gridwalk.configure(interval, style, loop, include_absent)
+            self.gridwalk.configure(interval, loop, include_absent)
         except ValueError as e:
             raise CommandError(str(e)) from e
 
@@ -1469,46 +1561,14 @@ class App:
     def cmd_gridwalk_reset_order(self):
         self.gridwalk.reset_order()
 
-    # -- photo booth -------------------------------------------------------------
-
-    def _has_photo(self, car_idx):
-        """Whether a car's driver has a car photo in the active league."""
-        d = self._drivers.get(car_idx)
-        entry = d and self.leagues.lookup(d["cust_id"], d["number"])
-        return bool(entry and entry.get("car_image"))
-
-    def _loaded_cars(self, frame):
-        """Cars loaded onto the track (the only ones that can be photographed), in grid order."""
-        return [i for i in self._grid_order if frame and _at(frame.surface, i, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD]
-
-    def cmd_photobooth_start(self, car_idx=None, group=None, cutout=True, missing_only=False):
-        """Photograph one car (car_idx) or every loaded car, in grid order
-        (``missing_only``: only those without a car photo yet)."""
-        from .photobooth import PhotoBoothError
-
-        if self.photobooth is None:
-            raise CommandError("The photo booth isn't available")
-        if car_idx not in (None, ""):
-            cars = [int(car_idx)]
-        else:
-            cars = self._loaded_cars(self._frame)
-            if missing_only:
-                cars = [i for i in cars if not self._has_photo(i)]
-                if not cars:
-                    raise CommandError("Every car on track has a photo already")
-        try:
-            self.photobooth.start(cars, self._group(group), use_cutout=bool(cutout))
-        except PhotoBoothError as e:
-            raise CommandError(str(e)) from e
-        return {"cars": len(cars)}
-
     # -- hotkeys ------------------------------------------------------------------
 
     def cmd_hotkey(self, action):
         """What a hotkey does, by name (the same as the app's own key handling):
         cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, board:off,
         board:next, board:prev (its pages), board:<kind>:<group> (on screen,
-        or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick)."""
+        or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick),
+        tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class)."""
         kind, _, rest = str(action).partition(":")
         if kind == "cam":
             group = next((g["num"] for g in self._camera_groups if g["name"] == rest), None)
@@ -1535,6 +1595,12 @@ class App:
             return self.cmd_board_show(board_kind, group, "latest")
         if kind == "battle":
             return self.cmd_battle_pick(rest)
+        if kind == "tower":
+            tower = self.overlays.get()["standings"]
+            if rest == "sponsor":
+                return self.cmd_overlay_settings("standings", {"sponsor_bar": not tower["sponsor_bar"]})
+            if rest == "mode":
+                return self.cmd_overlay_settings("standings", {"mode": "class" if tower["mode"] == "overall" else "overall"})
         raise CommandError(f"Unknown hotkey '{action}'")
 
     def cmd_hotkeys(self, keys=None):
@@ -1635,68 +1701,6 @@ class App:
         except ValueError as e:
             raise CommandError(str(e)) from e
 
-    # -- automatic photos: each driver's car as it loads in -------------------
-    #
-    # With it on, a car on track whose driver has no car photo in the active
-    # league is photographed by itself: once it has been there AUTO_PHOTO_WAIT_S
-    # (cars loading in together are taken in one go). Never during a race once
-    # it's green (that's live), and each driver is tried once a session: one
-    # that fails can be photographed by hand.
-
-    AUTO_PHOTO_WAIT_S = 6.0
-
-    def cmd_photobooth_auto(self, enabled=False, group=None, cutout=True):
-        """Turn automatic photos on (with this camera, by name) or off."""
-        if self.photobooth is None:
-            raise CommandError("The photo booth isn't available")
-        name = next((g["name"] for g in self._camera_groups if str(g["num"]) == str(group)), "")
-        self.settings.set("photobooth_auto", {"camera": name, "cutout": bool(cutout)} if enabled else None)
-        self._auto_seen, self._auto_error = {}, ""
-        return {"auto": bool(enabled)}
-
-    def _auto_paused(self, frame):
-        """Why automatic photos are waiting ("" when they can go)."""
-        if not self.leagues.active():
-            return "no league active"
-        if self._is_race(frame) and frame.session_state >= STATE_RACING:
-            return "paused during the race"
-        return ""
-
-    def _auto_photos(self, frame):
-        settings = self.settings.get("photobooth_auto") if self.photobooth else None
-        if not settings or self.photobooth.busy or self._auto_paused(frame):
-            self._auto_seen = {}
-            return
-        session = self.session_key()
-        if session != self._auto_session:
-            self._auto_session, self._auto_tried, self._auto_seen = session, set(), {}
-        now = time.monotonic()
-        waiting = {}
-        for i in self._loaded_cars(frame):
-            d = self._drivers.get(i)
-            if not d or self._has_photo(i):
-                continue
-            key = driver_key({"cust_id": d["cust_id"], "name": d["name"]})
-            if key not in self._auto_tried:
-                waiting[i] = self._auto_seen.get(i, now)
-        self._auto_seen = waiting
-        # The newest arrival has settled (or someone has waited a good while): go.
-        if not waiting or (now - max(waiting.values()) < self.AUTO_PHOTO_WAIT_S
-                           and now - min(waiting.values()) < 4 * self.AUTO_PHOTO_WAIT_S):
-            return
-        cars = list(waiting)
-        for i in cars:
-            d = self._drivers[i]
-            self._auto_tried.add(driver_key({"cust_id": d["cust_id"], "name": d["name"]}))
-        group = next((g["num"] for g in self._camera_groups if g["name"] == settings.get("camera")), None)
-        try:
-            self.photobooth.start(cars, self._group(group), use_cutout=settings.get("cutout", True))
-        except Exception as e:  # e.g. the screenshots folder can't be read: say so, and stop trying
-            print(f"[apex] automatic photos: {e}")
-            self.settings.set("photobooth_auto", None)
-            self._auto_error = str(e)
-        self._auto_seen = {}
-
     # -- race results saved by themselves ---------------------------------------
     #
     # With it on (the default), each race's results go into the active league's
@@ -1780,29 +1784,3 @@ class App:
         self._results_notice = {"league": saved["id"], "round": rd["id"], "name": rd["name"], "event": rd.get("event", ""),
                                 "count": len(results), "at": time.strftime("%H:%M")}
         print(f"[apex] race results saved to {rd['name']} ({len(results)} drivers)")
-
-    def _photobooth_snapshot(self):
-        if not self.photobooth:
-            return None
-        settings = self.settings.get("photobooth_auto")
-        frame = self._frame
-        auto = {"on": bool(settings), "camera": (settings or {}).get("camera", ""), "cutout": (settings or {}).get("cutout", True),
-                "paused": self._auto_paused(frame) if settings and frame else "", "waiting": len(self._auto_seen),
-                "error": self._auto_error}
-        return dict(self.photobooth.status(), auto=auto)
-
-    def cmd_photobooth_folder(self, folder=""):
-        """Where iRacing saves screenshots ("" = its default folder)."""
-        from .photobooth import PhotoBoothError
-        if self.photobooth is None:
-            raise CommandError("The photo booth isn't available")
-        try:
-            self.photobooth.set_folder(folder)
-        except PhotoBoothError as e:
-            raise CommandError(str(e)) from e
-        self.settings.set("screenshots_dir", str(self.photobooth.custom_dir or ""))
-        return {"folder": str(self.photobooth.screenshots_dir)}
-
-    def cmd_photobooth_cancel(self):
-        if self.photobooth is not None:
-            self.photobooth.cancel()

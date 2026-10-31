@@ -105,7 +105,6 @@ function render() {
   lb.classList.toggle("muted", !league);
   renderGridwalk(s);
   renderHome(s);
-  renderPhotoboothFolder(s.photobooth);
   renderUpdates(s.update);
   renderResultsAuto(s.results_auto);
   renderOverlaySettings(s);
@@ -143,7 +142,6 @@ function render() {
   $("#btn-live").classList.toggle("on-air", !!s.replay.live);
 
   renderCamButtons(s.camera);
-  renderPhotobooth(s);
   renderStandings(s);
   renderLog(s);
 }
@@ -297,7 +295,8 @@ function standingsView(s) {
   });
 }
 
-// car_idx of everyone within the battle gap of the car ahead (and that car).
+// car_idx of every driver within the battle gap of the car ahead (just them,
+// not the car they're closing on).
 function findBattles(s, rows) {
   const out = new Set();
   if (!isRace(s) || s.session.state !== "Racing") return out;
@@ -307,7 +306,6 @@ function findBattles(s, rows) {
     const fighting = (x) => x.r.in_world && !x.r.on_pit;
     if (ahead && v.int != null && v.int >= 0 && v.int <= settings.battleGap && fighting(v) && fighting(ahead)) {
       out.add(v.r.car_idx);
-      out.add(ahead.r.car_idx);
     }
   });
   return out;
@@ -376,7 +374,7 @@ function renderStandings(s) {
       [changeCell(inClass ? r.class_pos_change : r.pos_change), "c-chg"],
       [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
       [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname && !sameButClassTag(r.name, lg.nickname) ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
-        `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}`, "driver-cell"],
+        `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}${r.hidden ? ' <span class="tag out" title="No class in the league: left off the overlays and out of the results">NO CLASS</span>' : ""}`, "driver-cell"],
       [String(r.lap ?? "")],
       [gap, "c-time"],
       [int, "c-time"],
@@ -506,7 +504,8 @@ function renderGridwalk(s) {
   const classes = new Map((s.classes || []).map((c) => [c.key, c]));
   $("#gridwalk-badge").textContent = g.visible ? (g.running ? "● on air" : "❚❚ on air") : "";
   $("#gw-toggle").textContent = g.running ? "❚❚ Pause" : "▶ Resume";
-  for (const [id, value, prop] of [["#gw-interval", g.interval, "value"], ["#gw-style", g.style, "value"],
+  renderThumbs(g);
+  for (const [id, value, prop] of [["#gw-interval", g.interval, "value"],
     ["#gw-loop", g.loop, "checked"], ["#gw-absent", g.include_absent, "checked"]]) {
     const el = $(id);
     if (document.activeElement !== el) el[prop] = value;
@@ -521,7 +520,7 @@ function renderGridwalk(s) {
   $("#gw-empty").hidden = entries.length > 0;
   // Rebuild rows only when they change, so buttons aren't replaced mid-click.
   const key = JSON.stringify([g.index, g.visible, entries.map((e) => [e.key, e.number, e.name, e.nickname, e.team,
-    e.in_session, e.in_world, (classes.get(e.class_key) || {}).color])]);
+    e.in_session, e.in_world, e.has_thumb, e.car_name, (classes.get(e.class_key) || {}).color])]);
   if (key === gwRowsKey) return;
   gwRowsKey = key;
   $("#gw-rows").innerHTML = entries.map((e, i) => {
@@ -529,15 +528,18 @@ function renderGridwalk(s) {
     const color = (classes.get(e.class_key) || {}).color || "var(--muted)";
     const status = !e.in_session ? '<span class="tag out">NOT IN SESSION</span>'
       : !e.in_world ? '<span class="tag out">NOT ON TRACK</span>' : "";
+    // No picture in the folder: what it should be called.
+    const want = e.cust_id ? `${e.cust_id}.${e.car_name || "Car name"}.png` : "";
+    const pic = e.has_thumb ? '<span class="tag ok" title="Car picture found">✓ Picture</span>'
+      : `<span class="tag" title="${want ? `No picture: name it ${esc(want)}` : "No iRacing ID to match a picture"}">No picture</span>`;
     return `<tr class="${onScreen ? "on-screen" : ""}">
       <td class="pos">P${e.grid_pos}</td>
       <td><span class="num" style="border-left-color:${esc(color)}">${esc(e.number)}</span></td>
       <td><span class="name">${esc(e.name)}</span>${e.nickname ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
       <td class="sub">${esc(e.team)}</td>
-      <td>${status}</td>
+      <td>${pic} ${status}</td>
       <td><div class="actions">
         <button class="btn" data-gw-goto="${i}" title="Show this driver's pair now">Show</button>
-        <button class="btn icon" data-pb-car="${e.car_idx ?? ""}" ${e.in_world ? "" : "disabled"} title="${e.in_world ? "Take this car's photo in iRacing" : "Only cars loaded onto the track can be photographed"}">📷</button>
         <button class="btn icon" data-gw-move="${esc(e.key)}" data-dir="-1" ${i ? "" : "disabled"} title="Move up the grid">↑</button>
         <button class="btn icon" data-gw-move="${esc(e.key)}" data-dir="1" ${i < entries.length - 1 ? "" : "disabled"} title="Move down the grid">↓</button>
       </div></td>
@@ -557,7 +559,6 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
     return cmd(action, {});
   }
   if (btn.dataset.gwGoto != null) return cmd("gridwalk_goto", { index: +btn.dataset.gwGoto });
-  if (btn.dataset.pbCar) return startPhotobooth(+btn.dataset.pbCar);
   if (btn.dataset.gwMove) return cmd("gridwalk_move", { key: btn.dataset.gwMove, direction: +btn.dataset.dir });
   if (btn.id === "gw-reset-order") return cmd("gridwalk_reset_order", {}, "Grid order reset");
   if (btn.id === "gw-copy") {
@@ -566,133 +567,37 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
 });
 
 $("#gw-interval").addEventListener("change", (e) => cmd("gridwalk_settings", { interval: +e.target.value }));
-$("#gw-style").addEventListener("change", (e) => cmd("gridwalk_settings", { style: e.target.value }));
 $("#gw-loop").addEventListener("change", (e) => cmd("gridwalk_settings", { loop: e.target.checked }));
 $("#gw-absent").addEventListener("change", (e) => cmd("gridwalk_settings", { include_absent: e.target.checked }));
 $("#gw-url").textContent = `${location.origin}/gridwalk.html`;
 
-// ---------------------------------------------------------------------------
-// photo booth
-// ---------------------------------------------------------------------------
-
-const PB_CAMERA_KEY = "apex.photoboothCamera";
-let pbGroupsKey = "";
-let pbResultsKey = "";
-
-function renderPhotoboothFolder(pb) {
-  if (!pb) return;
-  const input = $("#pb-folder");
-  if (document.activeElement !== input) input.value = pb.screenshots_custom ? pb.screenshots_dir : "";
-  input.placeholder = pb.screenshots_custom ? "iRacing's own folder" : pb.screenshots_dir;
-  $("#pb-folder-reset").hidden = !pb.screenshots_custom;
+// The grid walk's car pictures: a folder of iRacingID.Carname pictures.
+let gwFolderShown = null;
+function renderThumbs(g) {
+  const th = g.thumbs || {};
+  const input = $("#gw-folder");
+  if (th.folder !== gwFolderShown && document.activeElement !== input) {
+    gwFolderShown = th.folder;
+    input.value = th.folder || "";
+  }
+  $("#gw-folder-clear").hidden = !th.folder;
+  $("#gw-thumbs").textContent = th.error ? th.error
+    : !th.folder ? "No folder picked yet: cars show as drawings in their livery colours."
+      : `${th.count} picture${th.count === 1 ? "" : "s"} in the folder · ${th.matched} of ${th.drivers} drivers on the grid have one.`;
 }
 
-async function setPhotoboothFolder(folder) {
-  try {
-    const r = await api("/api/cmd", { method: "POST", body: { action: "photobooth_folder", params: { folder } } });
-    toast(`Screenshots folder: ${r.folder}`);
-  } catch (err) {
-    toast(err.message, true);
+async function setThumbsFolder(folder) {
+  const r = await cmd("gridwalk_folder", { folder });
+  if (r) {
+    gwFolderShown = null;
+    toast(r.folder ? `Car pictures: ${r.count} found` : "Car pictures folder cleared");
   }
 }
-$("#pb-folder-save").addEventListener("click", () => setPhotoboothFolder($("#pb-folder").value.trim()));
-$("#pb-folder").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") setPhotoboothFolder(e.target.value.trim());
+$("#gw-folder-save").addEventListener("click", () => setThumbsFolder($("#gw-folder").value.trim()));
+$("#gw-folder").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") setThumbsFolder(e.target.value.trim());
 });
-$("#pb-folder-reset").addEventListener("click", () => setPhotoboothFolder(""));
-
-function renderPhotobooth(s) {
-  const pb = s.photobooth;
-  if (!pb) return;
-  // Camera choice: the groups iRacing offers, remembering the last pick.
-  const groups = s.camera.groups || [];
-  const key = groups.map((g) => g.num + g.name).join("|");
-  const sel = $("#pb-camera");
-  if (key !== pbGroupsKey) {
-    pbGroupsKey = key;
-    let saved = null;
-    try {
-      saved = localStorage.getItem(PB_CAMERA_KEY);
-    } catch (e) { /* storage unavailable */ }
-    // A camera looking at the car from the front-side suits the grid walk best.
-    const preferred = ["Rear Chase", "Chase", "TV1"].map((n) => groups.find((g) => g.name === n)).find(Boolean);
-    sel.innerHTML = groups.map((g) => `<option value="${g.num}">${esc(g.name)}</option>`).join("");
-    const pick = groups.find((g) => g.name === saved) || preferred;
-    if (pick) sel.value = String(pick.num);
-  }
-  const busy = ["downloading", "capturing", "processing"].includes(pb.state);
-  $("#pb-start").disabled = busy;
-  $("#pb-cancel").hidden = !busy;
-  $("#pb-cutout").disabled = busy || !pb.cutout_available;
-  if (!pb.cutout_available) $("#pb-cutout").checked = false;
-  // Automatic photos: on or off is kept by the app, so every window agrees.
-  const auto = pb.auto || {};
-  if (document.activeElement !== $("#pb-auto")) $("#pb-auto").checked = !!auto.on;
-  const autoText = auto.error ? `Automatic photos stopped: ${auto.error}`
-    : !auto.on ? "" : auto.paused ? `Automatic photos: ${auto.paused}.`
-      : auto.waiting ? `Automatic photos: ${auto.waiting} car${auto.waiting === 1 ? "" : "s"} just loaded in, photographing in a few seconds…`
-        : `Automatic photos: on${auto.camera ? ` (${auto.camera} camera)` : ""}, waiting for drivers without a photo.`;
-  $("#pb-auto-status").textContent = autoText;
-  $("#pb-auto-status").hidden = !autoText;
-  $("#pb-auto-status").classList.toggle("error-text", !!auto.error);
-  const dl = pb.model_download || {};
-  const pct = dl.total ? Math.round((dl.done / dl.total) * 100) : 0;
-  const n = pb.total;
-  const status = {
-    idle: pb.model_ready || !pb.cutout_available ? "" : "The cut-out model downloads the first time you use it (about 170 MB).",
-    downloading: `Downloading the cut-out model (first time only): ${pct}%…`,
-    capturing: `Photographing ${pb.current || ""} (${pb.captured + 1}/${n})… leave iRacing's camera alone.`,
-    processing: `${pb.use_cutout ? "Cutting out" : "Saving"} ${pb.current || ""} (${pb.processed + 1}/${n})…`,
-    done: `Done: ${pb.results.filter((r) => r.state === "saved").length} of ${n} photos saved to the league.`,
-    cancelled: `Cancelled: ${pb.results.filter((r) => r.state === "saved").length} photos saved.`,
-    error: pb.error || "Something went wrong.",
-  }[pb.state] || "";
-  const el = $("#pb-status");
-  el.textContent = status;
-  el.classList.toggle("error-text", pb.state === "error");
-  const resultsKey = JSON.stringify(pb.results);
-  if (resultsKey === pbResultsKey) return;
-  pbResultsKey = resultsKey;
-  $("#pb-results").innerHTML = pb.results.map((r) => `<figure class="pb-shot ${r.state}" title="${esc(r.error || r.state)}">
-      <div class="pb-img">${r.image ? `<img src="${esc(r.image)}" alt="">` : `<span>${esc(r.state === "failed" ? "✕" : "…")}</span>`}</div>
-      <figcaption><span class="num">${esc(r.number)}</span> ${esc(r.name)}</figcaption>
-    </figure>`).join("");
-}
-
-function startPhotobooth(carIdx) {
-  const params = { group: +$("#pb-camera").value || undefined, cutout: $("#pb-cutout").checked };
-  if (carIdx != null) params.car_idx = carIdx;
-  else params.missing_only = $("#pb-missing").checked;
-  return cmd("photobooth_start", params, (r) => `Photographing ${r.cars} car${r.cars === 1 ? "" : "s"}…`);
-}
-
-$("#pb-start").addEventListener("click", () => startPhotobooth(null));
-$("#pb-cancel").addEventListener("click", () => cmd("photobooth_cancel", {}, "Cancelling…"));
-$("#pb-camera").addEventListener("change", (e) => {
-  try {
-    localStorage.setItem(PB_CAMERA_KEY, e.target.selectedOptions[0].textContent);
-  } catch (err) { /* storage unavailable */ }
-  if ($("#pb-auto").checked) setAutoPhotos(true);  // automatic photos use the new camera
-});
-
-// Automatic photos, with the camera and cut-out picked here.
-function setAutoPhotos(on) {
-  return cmd("photobooth_auto", { enabled: on, group: +$("#pb-camera").value || undefined, cutout: $("#pb-cutout").checked },
-    on ? "Automatic photos on: each driver without a photo is photographed as their car loads in" : "Automatic photos off");
-}
-$("#pb-auto").addEventListener("change", (e) => setAutoPhotos(e.target.checked));
-$("#pb-cutout").addEventListener("change", () => {
-  if ($("#pb-auto").checked) setAutoPhotos(true);
-});
-const PB_MISSING_KEY = "apex.pbMissing";
-try {
-  $("#pb-missing").checked = localStorage.getItem(PB_MISSING_KEY) === "1";
-} catch (e) { /* storage unavailable */ }
-$("#pb-missing").addEventListener("change", (e) => {
-  try {
-    localStorage.setItem(PB_MISSING_KEY, e.target.checked ? "1" : "");
-  } catch (err) { /* storage unavailable */ }
-});
+$("#gw-folder-clear").addEventListener("click", () => setThumbsFolder(""));
 
 // ---------------------------------------------------------------------------
 // interactions
@@ -803,7 +708,7 @@ $("#battle-color").addEventListener("input", (e) => {
 let hotkeyTarget = null;   // {kind: "cam" | "act", id, label} waiting for a key
 
 const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"],
-  ["battle", "Championship battle"]];
+  ["battle", "Championship battle"], ["pits", "Pit stops"]];
 const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
 
 // What a key can do besides cameras: [[section, [[id, label, run]]]], from
@@ -825,6 +730,12 @@ function hotkeyActions(s = ui.snap || {}) {
   return [
     ["Overlays (on / off)", OVERLAY_TOGGLES.map(([k, label]) => [`ov:${k}`, label,
       () => cmd("overlay_settings", { overlay: k, values: { visible: !on(k) } }, `${label} ${on(k) ? "off" : "on"}`)])],
+    ["Timing tower", [
+      ["tower:sponsor", "Sponsor bar under the header (on / off)", () => cmd("hotkey", { action: "tower:sponsor" },
+        `Sponsor bar ${ov.standings && ov.standings.sponsor_bar ? "off" : "on"}`)],
+      ["tower:mode", "Overall / by class", () => cmd("hotkey", { action: "tower:mode" },
+        ov.standings && ov.standings.mode === "class" ? "Tower: overall" : "Tower: by class")],
+    ]],
     ["Grid walk", [
       ["gw:toggle", "On / off (starts from P1)", () => (s.gridwalk && s.gridwalk.visible
         ? cmd("gridwalk_hide", {}, "Grid walk off") : cmd("gridwalk_start", { index: 0 }, "Grid walk on"))],
@@ -1420,7 +1331,7 @@ function renderChampRounds() {
       ${open ? `<div class="row transfer-row"><span class="hint">This round's results:</span>
         <button class="btn subtle" data-export="round" data-export-round="${esc(rd.id)}" title="To import into a round, here or on another PC">⤓ Export</button>
         <button class="btn subtle" data-export="round_csv" data-export-round="${esc(rd.id)}" title="As a spreadsheet (CSV)">⤓ CSV</button>
-        <label class="btn subtle" title="From a round export (.json) or a CSV with the same columns as the CSV export">⤒ Import…<input type="file" accept=".json,.csv,application/json,text/csv" data-import="round" data-import-round="${esc(rd.id)}" hidden></label>
+        <label class="btn subtle" title="iRacing's event result export (.csv, from the results page), a round export (.json) or a CSV with the same columns as the CSV export">⤒ Import…<input type="file" accept=".json,.csv,application/json,text/csv" data-import="round" data-import-round="${esc(rd.id)}" hidden></label>
       </div>
       <div class="table-scroll"><table class="grid champ-table results-table">
         <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored in each championship (after saving)">Pts</th><th></th></tr></thead>
@@ -2124,8 +2035,9 @@ const NAME_FORMATS = [["full", "Full name"], ["initial_last", "A. Driver"], ["la
   ["last", "Last name"], ["first", "First name"], ["abbrev", "DRI (3 letters)"], ["nickname", "Nickname"]];
 
 // Custom opacity per column: a tick box, then a slider for each column.
-const columnOpacity = (cols) => [["col_opacity_on", "Custom opacity per column", "bool"],
-  iff((v) => v.col_opacity_on, ["col_opacity", "Opacity of each column", "colopacity", cols])];
+const columnOpacity = (cols) => [["col_opacity_on", "A background of its own for each column", "bool"],
+  iff((v) => v.col_opacity_on, ["col_bg_color", "Column background colour", "color"]),
+  iff((v) => v.col_opacity_on, ["col_opacity", "Background opacity of each column (the text stays as it is)", "colopacity", cols])];
 
 // Each overlay's settings, in named sections that open and close:
 // [title, fields]. A field is [key, label, kind, opts]; `iff(when, field)`
@@ -2142,12 +2054,12 @@ const OVERLAY_FIELDS = {
       ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
       ["class_key", "Class", "class"],
       ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
-      iff((v) => v.mode === "overall", ["rows_last", "Extra drivers under the top ones, when there are more (0 = none)", "number", { min: 0, max: 30 }]),
-      iff((v) => v.mode === "overall" && v.rows_last > 0, ["rows_extra_mode", "Extra drivers show", "select",
-        [["rotate", "The rest of the field, a set at a time"], ["last", "The last ones"]]]),
-      iff((v) => v.mode === "overall" && v.rows_last > 0 && v.rows_extra_mode === "rotate",
+      ["rows_last", "Extra drivers under the top ones, when there are more (0 = none; by class: in each class)", "number", { min: 0, max: 30 }],
+      iff((v) => v.rows_last > 0, ["rows_extra_mode", "Extra drivers show", "select",
+        [["rotate", "The rest of the field (or class), a set at a time"], ["last", "The last ones"]]]),
+      iff((v) => v.rows_last > 0 && v.rows_extra_mode === "rotate",
         ["rows_extra_s", "Seconds per set of extra drivers", "number", { min: 1, max: 120, step: 1 }]),
-      iff((v) => v.mode === "overall" && v.rows_last > 0, ["rows_extra_opacity", "Extra drivers' opacity (%)", "number", { min: 10, max: 100, step: 5 }]),
+      iff((v) => v.rows_last > 0, ["rows_extra_opacity", "Extra drivers' opacity (%)", "number", { min: 10, max: 100, step: 5 }]),
       ["reveal", "Race start: only the header until each driver completes lap 1 (they appear from the start of lap 2)", "bool"],
     ]],
     ["Header", [
@@ -2195,7 +2107,7 @@ const OVERLAY_FIELDS = {
         ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"]]],
       ["screen_column_order", "Column order on the full screen", "order", [["laps", "Laps"], ["gap", "Gap"], ["interval", "Interval"],
         ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"]]],
-      ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["logo", "Team logo"], ["name", "Driver"], ["team", "Team (full screen)"],
+      ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["logo", "Team logo"], ["name", "Driver"], ["team", "Team name"],
         ["pos_change", "+/−"], ["laps", "Laps"], ["pits", "Pit stops"], ["last_lap", "Last lap"], ["best_lap", "Best lap"], ["gap", "Gap"],
         ["interval", "Interval"]]),
     ]],
@@ -2203,11 +2115,15 @@ const OVERLAY_FIELDS = {
       ["name_format", "Names", "select", NAME_FORMATS],
       ["show_number", "Car numbers", "bool"],
       iff((v) => v.show_number, ["color_number", "Car number background, in the driver's class colour (off: just the number)", "bool"]),
+      ["class_colors", "Class colours (car number, bar) from", "select", [["main", "The driver's main class"],
+        ["secondary", "The driver's secondary class"]]],
       ["show_stripe", "Coloured bar by each driver", "bool"],
-      ["show_team", "Team names", "bool"],
-      ["show_logo", "Team logos", "bool"],
-      iff((v) => v.show_logo, ["team_logo_side", "Team logo", "select", [["first", "Before the team name (its own column on the tower)"],
-        ["last", "After the team name"]]]),
+      ["show_team", "Team names (a column of their own)", "bool"],
+      iff((v) => v.show_team, ["team_name_place", "Team name on the tower", "select", [["under", "Under the driver's name"],
+        ["column", "In its own column, after the driver's name"]]]),
+      ["show_logo", "Team logos (a column of their own)", "bool"],
+      iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the driver / team name"],
+        ["last", "After the driver / team name"]]]),
     ]],
     ["Fastest lap", [
       ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
@@ -2256,7 +2172,25 @@ const OVERLAY_FIELDS = {
       ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
-  gridwalk: [OVERLAY_LOOK],
+  gridwalk: [["Car pictures", [["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
+  pits: [
+    ["What it shows", [
+      ["who", "Show", "select", [["all", "Every car in the pit lane (the one on camera first)"], ["camera", "Only the car on camera"]]],
+      iff((v) => v.who === "all", ["count", "How many drivers at once (the most cards on screen)", "number", { min: 1, max: 12, step: 1 }]),
+      ["show_s", "Each driver's card goes after (seconds in the pit lane; 0 = stays until they leave)", "number", { min: 0, max: 300, step: 1 }],
+      ["hold_s", "Card stays after they cross the pit exit line, with the final times (seconds; 0 = goes at once)", "number", { min: 0, max: 60, step: 1 }],
+      ["race_only", "Races only", "bool"],
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_position", "Position", "bool"],
+      ["show_number", "Car number", "bool"],
+      ["show_team", "Team name", "bool"],
+      ["show_logo", "Team logo", "bool"],
+      ["class_colors", "Class colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]],
+    ]],
+    OVERLAY_LOOK,
+  ],
   battle: [
     ["What it shows", [
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
@@ -2277,14 +2211,16 @@ const OVERLAY_FIELDS = {
       ["stay", "Stay up for as long as they're on camera", "bool"],
       iff((v) => !v.stay, ["hide_s", "Card stays on screen for (seconds; a new driver resets it)", "number", { min: 1, max: 120, step: 1 }]),
       ["name_format", "Names", "select", NAME_FORMATS],
-      ["show_position", "Position (and in class)", "bool"],
+      ["show_position", "Position (overall)", "bool"],
+      iff((v) => v.show_position, ["show_class_pos", "Also their position in class, under it (multiclass)", "bool"]),
+      ["class_colors", "Class colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]],
       ["show_number", "Car number", "bool"],
       ["show_team", "Team", "bool"],
       iff((v) => v.show_team, ["show_logo", "Team logo", "bool"]),
-      iff((v) => v.show_team, ["team_place", "Team and car badge", "select", [["under", "Team under the name, car badge at the end"],
-        ["end", "Car badge under the name, team at the end"]]]),
-      iff((v) => v.show_team && v.show_logo, ["team_logo_side", "Team logo", "select", [["first", "Logo, then the team name"],
-        ["last", "Team name, then the logo"]]]),
+      ["team_place", "Team logo and car badge", "select", [["under", "Team logo by the team name, car badge at the end"],
+        ["end", "Car badge by the team name, team logo at the end"]]],
+      ["team_logo_side", "By the team name", "select", [["first", "Logo / badge, then the team name"],
+        ["last", "Team name, then the logo / badge"]]],
       ["show_make", "Car badge", "bool"],
       ["show_class", "Class (multiclass)", "bool"],
     ]],
@@ -2427,7 +2363,7 @@ function opacityField(key, label, value, cols) {
   const set = Object.fromEntries(String(value || "").split(",").map((p) => p.split(":")).filter((p) => p.length === 2).map(([k, v]) => [k, +v]));
   return `<div class="ov-field wide colop-field"><span>${label}</span><div class="colop-grid">${cols.map(([k, name]) => `<label class="colop">
       <span>${esc(name)} <span class="rng-val">${set[k] ?? 100}%</span></span>
-      <input type="range" min="10" max="100" step="5" data-key="${key}" data-kind="colopacity" data-opcol="${k}" value="${set[k] ?? 100}"></label>`).join("")}</div></div>`;
+      <input type="range" min="0" max="100" step="5" data-key="${key}" data-kind="colopacity" data-opcol="${k}" value="${set[k] ?? 100}"></label>`).join("")}</div></div>`;
 }
 
 // A column order: chips to drag, or move with the arrows. ``cols``: [key,
@@ -2546,18 +2482,19 @@ const cards = (v) => v.style === "cards";
 
 const BOARD_FIELDS = {
   board_championship: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
-    ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names (a column)", "bool"], ["show_logo", "Team logos (a column)", "bool"],
+    iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
     ["show_make", "Car badges", "bool"], ["show_gap", "Points gap to the leader", "bool"],
     ["show_ahead", "Points gap to the driver ahead", "bool"], ["show_wins", "Wins", "bool"],
     ["show_penalty", "Penalty points", "bool"],
-    ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["car", "Car badge"],
+    ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"], ["car", "Car badge"],
       ["rounds", "Round points"], ["wins", "Wins"], ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"],
       ["ahead", "Gap to driver ahead"]])],
   board_teams: [["rows", "Teams a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
-    ["show_logo", "Team logos", "bool"], ["show_color", "Team colour stripe", "bool"], ["show_drivers", "Drivers who scored", "bool"],
+    ["show_logo", "Team logos (a column)", "bool"], iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]), ["show_color", "Team colour stripe", "bool"], ["show_drivers", "Drivers who scored", "bool"],
     ["show_gap", "Points gap to the leader", "bool"], ["show_ahead", "Points gap to the team ahead", "bool"],
     ["show_wins", "Wins", "bool"], ["show_penalty", "Penalty points", "bool"],
-    ...columnOpacity([["pos", "Position"], ["team", "Team"], ["drivers", "Drivers"], ["rounds", "Round points"], ["wins", "Wins"],
+    ...columnOpacity([["pos", "Position"], ["team", "Team"], ["logo", "Team logo"], ["drivers", "Drivers"], ["rounds", "Round points"], ["wins", "Wins"],
       ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"], ["ahead", "Gap to team ahead"]])],
   board_makes: [["rows", "Manufacturers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
     ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"],
@@ -2572,11 +2509,12 @@ const BOARD_FIELDS = {
     iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"]),
     iff(cards, ["rows", "Race meetings a page (the rest on the next pages)", "number", { min: 1, max: 64 }])],
   board_results: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
-    ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names (a column)", "bool"], ["show_logo", "Team logos (a column)", "bool"],
+    iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
     ["show_gap", "Gap to the winner (DNF / DNS / DSQ show here)", "bool"], ["show_interval", "Interval to the car ahead", "bool"],
     ["show_points", "Points scored", "bool"],
-    ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"],
+    ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
       ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["gap", "Gap"], ["interval", "Interval"], ["points", "Points"]])],
 };
 const BOARD_SECTION_NAMES = {
@@ -2685,6 +2623,7 @@ $("#url-board").textContent = `${location.origin}/board.html`;
 $("#url-sponsors").textContent = `${location.origin}/sponsors.html`;
 $("#url-driver").textContent = `${location.origin}/driver.html`;
 $("#url-battle").textContent = `${location.origin}/battle.html`;
+$("#url-pits").textContent = `${location.origin}/pits.html`;
 
 for (const page of ["standings", "laps"]) {
   $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;
@@ -2954,6 +2893,7 @@ async function loadLeagues() {
       <li data-league="${esc(l.id)}" class="${ui.editing && ui.editing.id === l.id ? "selected" : ""}">
         <div><div>${esc(l.name)} ${l.active ? '<span class="badge live">ACTIVE</span>' : ""}</div>
         <div class="meta">${l.drivers} drivers${l.classes ? ` · ${l.classes} classes` : ""}${l.league_id ? ` · ID ${l.league_id}` : ""}</div></div>
+        <button class="btn icon" data-duplicate="${esc(l.id)}" title="Duplicate: a copy of this league (drivers, classes, teams, championship, images) to change">⧉</button>
         <button class="btn icon danger" data-delete="${esc(l.id)}" title="Delete">✕</button>
       </li>`).join("") : '<li class="meta">No saved leagues yet</li>';
   } catch (e) {
@@ -2966,6 +2906,7 @@ function openEditor(profile) {
   $("#league-editor").hidden = false;
   $("#edit-name").value = profile.name || "";
   $("#edit-strip-class").checked = !!profile.strip_class_prefix;
+  $("#edit-hide-unclassed").checked = profile.hide_unclassed !== false;
   $("#btn-activate-league").textContent = profile.id && profile.id === ui.activeLeague ? "Active in overlay" : "Use in overlay";
   profile.classes = profile.classes || [];
   renderClasses();
@@ -3193,6 +3134,10 @@ function renderSponsors() {
   $("#sponsor-list").innerHTML = list.length ? list.map((sp, i) => `<div class="sponsor-card">
       <div class="sponsor-img"><img src="${esc(logoSrc(sp.file))}" alt=""></div>
       <input data-sponsor="${i}" value="${esc(sp.name || "")}" placeholder="Sponsor name" aria-label="Sponsor name">
+      <span class="sponsor-move">
+        <button class="btn icon" data-sponsor-move="${i}" data-dir="-1" ${i ? "" : "disabled"} title="Earlier (shown first)">◀</button>
+        <button class="btn icon" data-sponsor-move="${i}" data-dir="1" ${i < list.length - 1 ? "" : "disabled"} title="Later">▶</button>
+      </span>
       <button class="btn icon danger" data-sponsor-remove="${i}" title="Remove">✕</button>
     </div>`).join("") : '<p class="hint">No sponsors yet.</p>';
 }
@@ -3214,6 +3159,18 @@ $("#league-editor").addEventListener("change", async (e) => {
   if (field) ui.editing.sponsors[+field.dataset.sponsor].name = field.value;
 });
 $("#sponsor-list").addEventListener("click", (e) => {
+  const mv = e.target.closest("[data-sponsor-move]");
+  if (mv) {
+    // The order they're shown in, everywhere: boards, the sponsors overlay, the tower's sponsor bar.
+    const list = ui.editing.sponsors;
+    const i = +mv.dataset.sponsorMove;
+    const j = i + +mv.dataset.dir;
+    if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    renderSponsors();
+    toast("Moved: save the league to keep the order");
+    return;
+  }
   const rm = e.target.closest("[data-sponsor-remove]");
   if (!rm) return;
   ui.editing.sponsors.splice(+rm.dataset.sponsorRemove, 1);
@@ -3268,6 +3225,123 @@ async function renderLeaguePickers() {
   renderTeams();
   renderChampionship();
 }
+
+// -- arrow keys between the boxes (roster, classes, team cards) -------------
+// The arrow keys move to the nearest box in that direction: up and down to
+// the same field in the row (or card) above or below, left and right along
+// the row. As in a spreadsheet, a box's text is selected on arrival, so left
+// and right go straight on; once you click in it or type, they move through
+// the text, and on to the next box from its start or end.
+
+const NAV_FIELDS = "input:not([type=file]):not([type=hidden]):not([type=checkbox]), select";
+const TEXTUAL = new Set(["text", "search", "number", "email", "url", "tel", ""]);
+
+function nearestField(container, el, key) {
+  const a = el.getBoundingClientRect();
+  const ax = a.left + a.width / 2;
+  const ay = a.top + a.height / 2;
+  let best = null;
+  let bestScore = Infinity;
+  for (const f of container.querySelectorAll(NAV_FIELDS)) {
+    if (f === el || f.disabled || !f.offsetParent) continue;
+    const b = f.getBoundingClientRect();
+    const dx = b.left + b.width / 2 - ax;
+    const dy = b.top + b.height / 2 - ay;
+    let score;
+    if (key === "ArrowDown" || key === "ArrowUp") {
+      const ahead = key === "ArrowDown" ? dy : -dy;
+      if (ahead < a.height / 2) continue;
+      score = ahead + 3 * Math.abs(dx);
+    } else {
+      const ahead = key === "ArrowRight" ? dx : -dx;
+      if (ahead < 4 || Math.abs(dy) > a.height) continue;
+      score = ahead + 6 * Math.abs(dy);
+    }
+    if (score < bestScore) {
+      bestScore = score;
+      best = f;
+    }
+  }
+  return best;
+}
+
+function arrowNav(container) {
+  container.addEventListener("keydown", (e) => {
+    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const el = e.target;
+    if (!el.matches || !el.matches(NAV_FIELDS)) return;
+    const textual = el.tagName === "INPUT" && TEXTUAL.has(el.type) && el.type !== "number";
+    if (textual && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      // All of it selected (just arrived, as in a spreadsheet): straight on. Else from the end of the text.
+      const all = el.selectionStart === 0 && el.selectionEnd === el.value.length;
+      const atStart = all || (el.selectionStart === 0 && el.selectionEnd === 0);
+      const atEnd = all || (el.selectionStart === el.value.length && el.selectionEnd === el.value.length);
+      if ((e.key === "ArrowLeft" && !atStart) || (e.key === "ArrowRight" && !atEnd)) return;
+    }
+    const next = nearestField(container, el, e.key);
+    if (!next) return;
+    e.preventDefault();
+    e.stopPropagation();
+    next.focus();
+    if (next.tagName === "INPUT" && TEXTUAL.has(next.type) && next.type !== "number") next.select();
+  });
+}
+["#roster-rows", "#class-list", "#team-cards"].forEach((sel) => { if ($(sel)) arrowNav($(sel)); });
+
+// -- drivers, teams and classes from a spreadsheet (csvimport.py) ----------
+
+const CSV_FIELDS = [["cust_id", "iRacing (customer) ID"], ["name", "Full name"], ["first", "First name"], ["last", "Last name"],
+  ["number", "Car number"], ["team", "Team"], ["team_color", "Team colour"], ["class", "Class"], ["nickname", "Nickname"]];
+let csvText = "";
+let csvPreview = null;
+
+document.addEventListener("change", async (e) => {
+  const input = e.target.closest && e.target.closest("[data-csv]");
+  if (!input || !input.files.length) return;
+  const file = input.files[0];
+  input.value = "";
+  if (!ui.editing) return toast("Open a league first (League builder)", true);
+  try {
+    csvText = await file.text();
+    csvPreview = await api("/api/csv/preview", { method: "POST", body: { text: csvText } });
+    openCsv(csvPreview);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
+function openCsv(p) {
+  const first = p.sample[0] || [];
+  $("#csv-count").textContent = `${p.rows} row${p.rows === 1 ? "" : "s"} in the sheet, going into ${ui.editing.name || "this league"}.`;
+  $("#csv-map").innerHTML = CSV_FIELDS.map(([f, label]) => `<label class="ov-field">${esc(label)}<select data-csv-field="${f}">
+    <option value="">— not in the sheet —</option>${p.headers.map((h, i) => `<option value="${i}" ${p.mapping[f] === i ? "selected" : ""}>${esc(h || `Column ${i + 1}`)}${first[i] ? ` (e.g. ${esc(first[i].slice(0, 24))})` : ""}</option>`).join("")}
+  </select></label>`).join("");
+  const hasSecondary = (ui.editing.classes || []).some((c) => c.role === "secondary");
+  $("#csv-role").value = hasSecondary ? "secondary" : "main";
+  $("#csv-classes").textContent = p.classes.length ? `Classes in the sheet: ${p.classes.join(", ")}.` : "";
+  $("#csv-modal").hidden = false;
+}
+
+$("#csv-cancel").addEventListener("click", () => { $("#csv-modal").hidden = true; });
+$("#csv-go").addEventListener("click", async () => {
+  const mapping = {};
+  document.querySelectorAll("[data-csv-field]").forEach((sel) => {
+    if (sel.value !== "") mapping[sel.dataset.csvField] = +sel.value;
+  });
+  if (mapping.name == null && mapping.first == null && mapping.cust_id == null) return toast("Pick the column with the names or iRacing IDs", true);
+  try {
+    const saved = await saveEditor();
+    const r = await api(`/api/leagues/${encodeURIComponent(saved.id)}/import-csv`, {
+      method: "POST", body: { text: csvText, mapping: Object.keys(mapping).length ? mapping : { name: -1 }, class_role: $("#csv-role").value },
+    });
+    $("#csv-modal").hidden = true;
+    openEditor(r.league);
+    const m = r.summary;
+    toast(`${m.added} added, ${m.updated} updated${m.teams ? `, ${m.teams} new team${m.teams === 1 ? "" : "s"}` : ""}${m.classes ? `, ${m.classes} new class${m.classes === 1 ? "" : "es"}` : ""}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
 
 async function openLeague(id) {
   const league = await api(`/api/leagues/${encodeURIComponent(id)}`);
@@ -3616,6 +3690,7 @@ function readEditor() {
   const p = ui.editing;
   p.name = $("#edit-name").value.trim();
   p.strip_class_prefix = $("#edit-strip-class").checked;
+  p.hide_unclassed = $("#edit-hide-unclassed").checked;
   return p;
 }
 
@@ -3687,6 +3762,19 @@ $("#btn-add-driver").addEventListener("click", () => {
 });
 
 $("#league-list").addEventListener("click", async (e) => {
+  const dup = e.target.closest("[data-duplicate]");
+  if (dup) {
+    e.stopPropagation();
+    try {
+      const r = await api(`/api/leagues/${encodeURIComponent(dup.dataset.duplicate)}/duplicate`, { method: "POST", body: {} });
+      await loadLeagues();
+      openEditor(r.league);
+      toast(`Made "${r.league.name}": rename it and save`);
+    } catch (err) {
+      toast(err.message, true);
+    }
+    return;
+  }
   const del = e.target.closest("[data-delete]");
   if (del) {
     e.stopPropagation();

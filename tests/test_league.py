@@ -46,6 +46,23 @@ class StoreTests(unittest.TestCase):
             {"cust_id": 1, "name": "Amy First", "car_number": "7", "nickname": "Ames"},
             {"cust_id": 2, "name": "Zed Last", "car_number": "99"}]})
 
+    def test_duplicate(self):
+        p = self.seed()
+        p = self.store.save_image(p["id"], "sponsor:Acme", b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+        copy = self.store.duplicate(p["id"])
+        self.assertEqual((copy["id"], copy["name"]), ("thursday-night-thunder-copy", "Thursday Night Thunder (copy)"))
+        self.assertIsNone(copy["league_id"])
+        self.assertEqual([d["name"] for d in copy["drivers"]], ["Amy First", "Zed Last"])
+        self.assertTrue(self.store.logo_file(copy["id"], copy["sponsors"][0]["file"]))  # images copied too
+        again = self.store.duplicate(p["id"])
+        self.assertEqual(again["name"], "Thursday Night Thunder (copy) 2")
+        self.assertEqual(self.store.duplicate(p["id"], "Season 2")["id"], "season-2")
+        self.assertEqual(len(self.get_all()), 4)
+        self.assertEqual(self.store.get(p["id"])["name"], "Thursday Night Thunder")  # the original as it was
+
+    def get_all(self):
+        return self.store.list()
+
     def test_save_activate_lookup(self):
         p = self.seed()
         self.assertEqual(len(p["drivers"]), 2)

@@ -209,6 +209,12 @@ def export_overlays(settings, backgrounds):
 
 # -- imports --------------------------------------------------------------------
 
+class Rows(list):
+    """A CSV's rows (dicts, lower-case keys); ``event``: the event details at
+    the top of an iRacing event result export, else {}."""
+    event = {}
+
+
 def read(data):
     """("json", kind, object) for an Apex Commentator file, or ("csv", None, [dict rows])."""
     if len(data) > MAX_IMPORT_BYTES:
@@ -224,10 +230,21 @@ def read(data):
         if kind not in JSON_KINDS:
             raise TransferError("That isn't an Apex Commentator export.")
         return "json", kind, obj
-    rows = list(csv.DictReader(io.StringIO(text)))
+    event = {}
+    lines = text.splitlines()
+    head = next((i for i, line in enumerate(lines) if line.lstrip('"').lower().startswith("fin pos")), None)
+    if head is not None:
+        # iRacing's own event result export: the event's details (start
+        # time, track...) above the results table, which starts at "Fin Pos".
+        top = [r for r in csv.reader(io.StringIO("\n".join(lines[:head]))) if any(c.strip() for c in r)]
+        if len(top) >= 2:
+            event = {k.strip().lower(): v.strip() for k, v in zip(top[0], top[1])}
+        text = "\n".join(lines[head:])
+    rows = Rows({(k or "").strip().lower(): (v or "").strip() for k, v in r.items()} for r in csv.DictReader(io.StringIO(text)))
     if not rows:
         raise TransferError("That file is empty, or isn't an Apex Commentator export or a CSV.")
-    return "csv", None, [{(k or "").strip().lower(): (v or "").strip() for k, v in r.items()} for r in rows]
+    rows.event = event
+    return "csv", None, rows
 
 
 def expect(data, kind, csv_ok=False):
@@ -329,22 +346,67 @@ def _num(text, cast=int):
         return None
 
 
-def _result_from_csv(profile, row):
+def _laptime(text):
+    """"1:34.597" / "34.597" -> seconds; "-01.345" -> 1.345; None if it isn't one."""
+    text = str(text or "").strip().lstrip("-+")
+    m = re.fullmatch(r"(?:(\d+):)?(\d+(?:\.\d+)?)", text)
+    if not m:
+        return None
+    value = int(m.group(1) or 0) * 60 + float(m.group(2))
+    return round(value, 3) if value > 0 else None
+
+
+def _result_from_csv(profile, row, store=None):
+    """One result from a CSV row: this app's round export, or iRacing's event
+    result export ("Fin Pos", "Cust ID", "Laps Comp", "Out", "Interval"...)."""
+    from .makes import make_for
+
     name = row.get("driver") or row.get("name") or ""
     cust = _num(row.get("cust id"))
     roster = next((d for d in profile.get("drivers", []) if cust is not None and d.get("cust_id") == cust), None) or \
         next((d for d in profile.get("drivers", []) if str(d.get("name", "")).lower() == name.lower()), None)
     key = driver_key(roster) if roster else (f"cust:{cust}" if cust is not None else f"name:{name.strip().lower()}")
+    iracing = "fin pos" in row
+    laps = _num(row.get("laps") or row.get("laps comp")) or 0
+    if iracing:
+        # iRacing's class: the league's class for the driver (their own pick,
+        # name tag or car class), else iRacing's, as for results from the sim.
+        car_class = row.get("car class", "")
+        cls = store.class_for(roster, car_class, profile, name) if store else None
+        class_id = cls["id"] if cls else f"iracing:{car_class or 'Field'}"
+        out = row.get("out", "").strip().lower()
+        status = "finished" if out in ("running", "") else "dsq" if "disq" in out else "dns" if laps == 0 else "dnf"
+        interval = row.get("interval", "")
+        gap = None if "l" in interval.lower() else (_laptime(interval) or (0.0 if _num(row.get("fin pos")) == 1 else None))
+        return {
+            "driver": key, "name": name or (roster or {}).get("name", ""), "class_id": class_id,
+            "position": _num(row.get("fin pos")), "start_position": _num(row.get("start pos")),
+            "laps": laps, "laps_led": _num(row.get("laps led")) or 0,
+            "fastest_lap": _laptime(row.get("fastest lap time")), "incidents": _num(row.get("inc")) or 0,
+            "status": status, "make": (roster or {}).get("car_make") or make_for(row.get("car", ""), ""),
+            "gap": gap, "has_main": cls is not None,
+        }
     cls = row.get("class", "")
     class_id = next((c["id"] for c in profile.get("classes", []) if c["name"].lower() == cls.lower() or c["id"] == cls), cls)
     status = (row.get("status") or "finished").lower()
     return {
         "driver": key, "name": name or (roster or {}).get("name", ""), "class_id": class_id,
         "position": _num(row.get("pos") or row.get("position")), "start_position": _num(row.get("start")),
-        "laps": _num(row.get("laps")) or 0, "laps_led": _num(row.get("laps led")) or 0,
-        "fastest_lap": _num(row.get("fastest lap"), float), "incidents": _num(row.get("incidents")) or 0,
+        "laps": laps, "laps_led": _num(row.get("laps led")) or 0,
+        "fastest_lap": _num(row.get("fastest lap"), float) or _laptime(row.get("fastest lap")),
+        "incidents": _num(row.get("incidents")) or 0,
         "status": status, "make": row.get("car", ""), "adjust": _num(row.get("points adjust"), float) or 0,
     }
+
+
+def _unclassed(profile, result):
+    """No main class and no secondary class in a league with classes (a safety
+    car, say): left out, as for results from the sim (App._unclassed)."""
+    classes = profile.get("classes") or []
+    if not classes or not profile.get("hide_unclassed", True) or result.get("has_main", True):
+        return False
+    roster = next((d for d in profile.get("drivers", []) if driver_key(d) == result["driver"]), {})
+    return not any(c["id"] == roster.get("class2_id") and c.get("role") == "secondary" for c in classes)
 
 
 def import_round(store, profile, round_id, fmt, obj):
@@ -355,7 +417,16 @@ def import_round(store, profile, round_id, fmt, obj):
     if rd is None:
         raise TransferError("Pick a round in this league's calendar to import into.")
     if fmt == "csv":
-        results = [_result_from_csv(profile, row) for row in obj if row.get("driver") or row.get("name")]
+        results = [_result_from_csv(profile, row, store) for row in obj if row.get("driver") or row.get("name")]
+        results = [r for r in results if not _unclassed(profile, r)]
+        event = getattr(obj, "event", None) or {}
+        if event:
+            # iRacing's export: the track and date for a round without them.
+            track, _, config = (event.get("track") or "").partition(" - ")
+            if track.strip() and not rd.get("track"):
+                rd["track"], rd["config"] = track.strip(), config.strip()
+            if event.get("start time") and not rd.get("date"):
+                rd["date"] = event["start time"][:10]
     else:
         src = obj.get("round") if isinstance(obj.get("round"), dict) else {}
         ids = _class_ids(profile, obj.get("classes"))

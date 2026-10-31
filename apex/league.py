@@ -369,6 +369,9 @@ def normalise_profile(profile):
         "drivers": drivers,
         "championship": championship.normalise(profile.get("championship")),
         "strip_class_prefix": strip,
+        # Drivers with neither a main nor a secondary class (a safety car, say)
+        # are left off the overlays and out of the results (App._unclassed).
+        "hide_unclassed": bool(profile.get("hide_unclassed", True)),
         "banners": normalise_banners(profile.get("banners")),
         "sponsors": normalise_sponsors(profile.get("sponsors")),
         # The league's own logo (board headers) and its own calendar graphic.
@@ -652,6 +655,24 @@ class LeagueStore:
             return None
         path = self._logo_dir(profile_id) / filename
         return path if path.is_file() else None
+
+    def duplicate(self, profile_id, name=None):
+        """A copy of a league (drivers, classes, teams, championship, images)
+        under a new name ("<name> (copy)" unless given) and id."""
+        profile = self.get(profile_id)
+        if profile is None:
+            raise LeagueError("League not found")
+        base = str(name or "").strip() or f"{profile.get('name') or profile_id} (copy)"
+        new_name, n = base, 2
+        taken = {p["id"] for p in self.list()}
+        while _slug(new_name) in taken:
+            new_name, n = f"{base} {n}", n + 1
+        copy = json.loads(json.dumps(profile))
+        copy.update(id=_slug(new_name), name=new_name, league_id=None)
+        src, dst = self._logo_dir(profile_id), self._logo_dir(copy["id"])
+        if src.is_dir():
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+        return self._write(copy)
 
     def delete(self, profile_id):
         path = self._path(profile_id)

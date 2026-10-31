@@ -27,7 +27,6 @@ DEFAULTS = {
     "default_camera_group": "",   # camera group name to use for Watch/Replay ("" = keep current)
     # Grid walk defaults (both can be changed live from the Grid walk tab).
     "gridwalk_interval_s": 8,     # seconds each pair of drivers stays on screen
-    "gridwalk_style": "track",    # "track" (cars on a grid), "grid" (grid map) or "h2h" (head to head)
     # Event detection tuning.
     "overtake_hold_s": 1.5,       # a pass must hold this long to count
     "overtake_max_gap_laps": 0.04,  # only cars this close on track are compared
@@ -46,10 +45,6 @@ DEFAULTS = {
     "event_cooldown_s": 8.0,      # min seconds between incidents of the same kind per car
     "max_events": 300,
     "leagues_dir": "data/leagues",
-    # Photo booth: where iRacing saves screenshots ("" = Documents\\iRacing\\screenshots)
-    # and how long to let the camera settle on each car before the shot.
-    "screenshots_dir": "",
-    "photobooth_settle_s": 1.6,
     # Updates: check GitHub for new releases and offer them in the app.
     "update_check": True,
     "update_repo": "ShamzOut2/Apex_Commentator",

@@ -14,21 +14,27 @@ const OUT_MS = 400;
 let current = null;  // {key, el, at, html, hidden, timer, hideMs}
 
 function cardHtml(d, cfg, cls, multiclass) {
+  // Their class colour (main or secondary, as set), or none: no background, white text.
+  const color = paintFor(d, cls, cfg.class_colors);
   const pos = cfg.show_position && d.pos
-    ? `<div class="pos" style="color:${inkFor(cls.color)}"><span class="p">P${d.pos}</span>${multiclass && d.class_pos ? `<span class="cp">P${d.class_pos} ${esc(cls.name)}</span>` : ""}</div>` : "";
+    ? `<div class="pos" style="color:${color ? inkFor(color) : "#fff"}"><span class="p">P${d.pos}</span>${cfg.show_class_pos && multiclass && d.class_pos && color ? `<span class="cp">P${d.class_pos} ${esc(cls.name)}</span>` : ""}</div>` : "";
   const number = cfg.show_number && d.number
-    ? `<span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(d.number)}</span>` : "";
-  // The team: its logo before or after its name; under the driver's name, or
-  // at the end of the card with the car badge under the name instead.
+    ? (color ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(d.number)}</span>` : `<span class="num plain">${esc(d.number)}</span>`) : "";
+  // Under the driver's name: the team name, with the team logo before or
+  // after it, and the car badge at the end of the card. Swapped ("end"):
+  // the car badge takes the logo's place by the team name, and the team logo
+  // goes to the end.
   const swapped = cfg.team_place === "end";
-  const logo = cfg.show_logo && d.team_logo ? `<img src="${esc(d.team_logo)}" alt="">` : "";
-  const teamName = `<span class="team-name">${esc(d.team)}</span>`;
-  const team = cfg.show_team && d.team
-    ? `<div class="team ${swapped ? "end" : ""}">${cfg.team_logo_side === "last" ? teamName + logo : logo + teamName}</div>` : "";
-  const klass = cfg.show_class && multiclass && cls.name ? `<span class="klass" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(cls.name)}</span>` : "";
-  const make = cfg.show_make && d.make_logo ? `<span class="make ${swapped ? "small" : ""}"><img src="${esc(d.make_logo)}" alt="${esc(d.make)}"></span>` : "";
-  const under = swapped ? make : team;
-  const end = swapped ? team : make;
+  const teamLogo = cfg.show_logo && d.team_logo ? `<img class="team-logo" src="${esc(d.team_logo)}" alt="">` : "";
+  const badge = (small) => (cfg.show_make && d.make_logo
+    ? `<span class="make ${small ? "small" : ""}"><img src="${esc(d.make_logo)}" alt="${esc(d.make)}"></span>` : "");
+  const byName = swapped ? badge(true) : teamLogo;
+  const teamName = cfg.show_team && d.team ? `<span class="team-name">${esc(d.team)}</span>` : "";
+  const team = teamName || byName
+    ? `<div class="team">${cfg.team_logo_side === "last" ? teamName + byName : byName + teamName}</div>` : "";
+  const klass = cfg.show_class && multiclass && cls.name && paintFor(d, cls, "main") ? `<span class="klass" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(cls.name)}</span>` : "";
+  const end = swapped ? (teamLogo ? `<span class="team-end">${teamLogo}</span>` : "") : badge(false);
+  const under = team;
   return `${pos}<div class="who">${number}<div class="names"><div class="name">${esc(formatName(d, cfg.name_format))}${klass}</div>${under}</div></div>${end}`;
 }
 
@@ -50,7 +56,7 @@ function render(snap) {
     leave();
     const el = document.createElement("div");
     el.className = "card in";
-    el.style.setProperty("--cls", cls.color);
+    el.style.setProperty("--cls", paintFor(d, cls, cfg.class_colors) || "transparent");
     el.innerHTML = html;
     slot.appendChild(el);
     // Once it's in, updates (a new position) just swap the numbers.
@@ -64,7 +70,7 @@ function render(snap) {
     current.el.innerHTML = html;
     current.html = html;
   }
-  current.el.style.setProperty("--cls", cls.color);
+  current.el.style.setProperty("--cls", paintFor(d, cls, cfg.class_colors) || "transparent");
   schedule(cfg);  // the time may have been changed while it's up
 }
 

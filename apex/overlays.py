@@ -23,7 +23,7 @@ BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacit
 # while col_opacity_on is ticked.
 # Every board: "Page 2 / 3" in its header when it runs to more than one page.
 PAGING = {"page_number": True}
-COLUMN_OPACITY = {"col_opacity_on": False, "col_opacity": ""}
+COLUMN_OPACITY = {"col_opacity_on": False, "col_opacity": "", "col_bg_color": "#0e1015"}
 
 NAME_FORMATS = ("full", "initial_last", "last_initial", "last", "first", "abbrev", "nickname")
 
@@ -41,8 +41,8 @@ DEFAULTS = {
         "mode": "overall",        # "overall" or "class"
         "class_key": "",          # "class" mode: one class only ("" = every class, one block each)
         "rows": 20,               # most drivers shown (per class in "class" mode)
-        # "overall", more drivers than rows: rows_last more under the top of the
-        # order, after a small gap. "rotate": the rest of the field, that many at
+        # More drivers than rows: rows_last more under the top of the order
+        # (by class: of each class), after a small gap. "rotate": the rest of the field, that many at
         # a time, a new set every rows_extra_s (then back to the first);
         # "last": always the last ones (last place included).
         "rows_last": 0,
@@ -53,7 +53,12 @@ DEFAULTS = {
         "name_format": "last_initial",
         "show_team": True,
         "show_logo": True,
-        "team_logo_side": "first",  # the team logo before the team name ("first": its own column on the tower) or after it ("last")
+        "team_logo_side": "first",  # the team logo column before the driver / team name ("first") or after it ("last")
+        "team_name_place": "under",  # tower: the team name under the driver's name ("under") or a column of its own ("column")
+        # The car number's background and the bar by each driver: the colour of
+        # the driver's "main" or "secondary" class (none, a plain number and no
+        # bar, for a driver without one; with no league, iRacing's class colours).
+        "class_colors": "main",
         "show_number": True,
         "show_stripe": True,      # the coloured bar by each driver (class or team colour)
         "show_col_labels": True,  # the column headings (GAP, INT...) under the header
@@ -126,9 +131,25 @@ DEFAULTS = {
         "name_format": "full",
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_class": True,       # the class, in multiclass races
-        "show_position": True,    # P3 (and P1 in class, in multiclass races)
-        "team_place": "under",    # "under": the team under the name, the car badge at the end; "end": swapped
+        "show_position": True,    # P3 (their place overall)
+        "show_class_pos": False,  # and under it their place in class (P1 GT3), in multiclass races
+        "class_colors": "main",   # colours from the driver's main or secondary class (see standings)
+        "team_place": "under",    # "under": the team logo by the team name, the car badge at the end; "end": those two swapped
         "team_logo_side": "first",  # the team logo before ("first") or after ("last") the team name
+        **BACKGROUND, **OFFSET,
+    },
+    # Pit stops (pits.html): a card for a car in the pit lane, with its pit
+    # lane time (entry line to exit line) and its time in the pit box. who:
+    # "all" (every car in the pit lane, at most count) or "camera" (the car
+    # on camera only); hold_s: how long a finished stop stays up.
+    "pits": {
+        "visible": True,
+        "who": "all", "count": 3, "hold_s": 8.0, "race_only": True,
+        "show_s": 0.0,  # a card goes after this long in the pit lane, even before the exit (0 = until the exit)
+        "place": "right",
+        "name_format": "last_initial",
+        "show_number": True, "show_team": True, "show_logo": True, "show_position": True,
+        "class_colors": "main",
         **BACKGROUND, **OFFSET,
     },
     # Championship battle (battle.html): a few drivers' championship places
@@ -149,7 +170,8 @@ DEFAULTS = {
         **BACKGROUND, **OFFSET,
     },
     # The grid walk's own settings are with the grid walk; this is just its background.
-    "gridwalk": {**BACKGROUND, **OFFSET},
+    "gridwalk": {**BACKGROUND, **OFFSET,
+                 "flip_cars": False},  # car pictures facing the other way (the cars should point right, up the road)
     # Full-screen boards (board.html), one section each. Every board has:
     # banner ("none", "top", "bottom", "left", "right"), banner_id (which of
     # the league's banners, "" = the first of the right shape),
@@ -160,6 +182,7 @@ DEFAULTS = {
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
+        "team_logo_side": "first",  # the team logo column before ("first") or after ("last") the team name
         "show_gap": True, "show_ahead": False,  # gap to the leader; gap to the driver ahead
         "show_wins": False, "show_penalty": False,
     },
@@ -167,6 +190,7 @@ DEFAULTS = {
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
+        "team_logo_side": "first",
         "show_drivers": True,  # the drivers who scored for the team, under its name
         "show_gap": True, "show_ahead": False, "show_wins": False, "show_penalty": False,
     },
@@ -185,7 +209,7 @@ DEFAULTS = {
                        "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
     "board_results": {**COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
-        "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
+        "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True,
         # Gap to the winner and to the car ahead (a DNF / DNS / DSQ shows there instead).
         "show_gap": True, "show_interval": True,
@@ -208,12 +232,12 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
+LIMITS = {"rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "who": ("all", "camera"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 
@@ -235,7 +259,7 @@ def _value(key, value, default):
             lo, hi = LIMITS.get(key, (value, value))
             return min(max(value, lo), hi)
         value = str(value)[:600 if key == "drivers" else 200]
-        if key == "bg_color" or key.startswith("accent_"):
+        if key.endswith("bg_color") or key.startswith("accent_"):
             return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
         if key == "bg_image":
             return value if re.fullmatch(r"(bg-[0-9a-f]{12}\.(png|jpg|webp|svg))?", value) else default

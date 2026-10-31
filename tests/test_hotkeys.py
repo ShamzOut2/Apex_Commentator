@@ -38,6 +38,18 @@ class HotkeyActionTests(unittest.TestCase):
     def press(self, action):
         return self.app.command("hotkey", {"action": action})
 
+    def test_tower_keys(self):
+        app = self.app
+        mode, bar = app.overlays.get()["standings"]["mode"], app.overlays.get()["standings"]["sponsor_bar"]
+        self.press("tower:mode")
+        self.assertEqual(app.overlays.get()["standings"]["mode"], "class" if mode == "overall" else "overall")
+        self.press("tower:mode")
+        self.assertEqual(app.overlays.get()["standings"]["mode"], mode)
+        self.press("tower:sponsor")
+        self.assertEqual(app.overlays.get()["standings"]["sponsor_bar"], not bar)
+        self.press("tower:sponsor")
+        self.assertEqual(app.overlays.get()["standings"]["sponsor_bar"], bar)
+
     def test_overlays_boards_and_grid_walk(self):
         app = self.app
         was = app.overlays.get()["laps"]["visible"]

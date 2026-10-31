@@ -46,8 +46,8 @@ body.panel-image .card::before {
 .team img { height: 26px; max-width: 60px; object-fit: contain; }
 .make { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 56px; width: 104px; padding: 6px 10px; }
 .make img { max-height: 100%; max-width: 100%; object-fit: contain; }
-/* Swapped: the car badge small under the name, the team at the end. */
-.make.small { height: 28px; width: auto; padding: 0; justify-content: flex-start; }
-.make.small img { height: 100%; max-width: 96px; }
-.team.end { flex: none; font-size: 24px; font-weight: 700; color: var(--text); gap: 12px; }
-.team.end img { height: 52px; max-width: 120px; }
+/* Swapped: the car badge small by the team name, the team logo at the end. */
+.make.small { height: 26px; width: auto; padding: 0; justify-content: flex-start; }
+.make.small img { height: 100%; max-width: 70px; }
+.team-end { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 56px; width: 104px; padding: 4px 8px; }
+.team-end img { max-height: 100%; max-width: 100%; object-fit: contain; }

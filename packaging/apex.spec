@@ -11,7 +11,7 @@ from PyInstaller.utils.hooks import collect_all
 root = Path(SPECPATH).parent
 datas = [(str(root / "web"), "web")]
 binaries = []
-hiddenimports = ["irsdk", "yaml", "onnxruntime", "numpy", "PIL.Image"]
+hiddenimports = ["irsdk", "yaml"]
 
 # The app window (pywebview) is optional: bundle it when it's installed.
 try:
