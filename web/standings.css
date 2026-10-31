@@ -34,6 +34,8 @@
 .srow .who { min-width: 0; display: flex; flex-direction: column; line-height: 1.05; }
 .srow .who .n { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .srow .who .tm { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srow .tm-logo { height: 15px; max-width: 34px; object-fit: contain; vertical-align: -3px; margin-left: 6px; }
+.srow .n .tm-logo { height: 18px; vertical-align: -3px; }
 .srow .c { font-weight: 700; color: var(--muted); font-size: 17px; text-align: right; white-space: nowrap; }
 .srow .c .lead { color: var(--ink); }
 .srow .c .up { color: var(--green); }

@@ -47,6 +47,8 @@ OBS dock.
 
 ### Improvements
 
+- Standings (tower and full screen): put the team logo before or after the
+  team name.
 - Driver on camera: swap the team and the car badge (badge under the name,
   team at the end), and put the team logo before or after the team name.
 - Driver on camera: set how long the card stays on screen (1 to 120
@@ -357,7 +359,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
 
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
-    team names and team logos.
+    team names and team logos. **Team logo**: before the team name (on the
+    tower, a column of its own before the driver) or after it (on the tower,
+    at the end of the team line, or after the driver's name with team names
+    off). The full-screen standings follow the same choice.
   - **Column headings** (the small GAP, INT… row) can be turned off.
   - **Custom opacity per column**: tick it and set each column's opacity
     (position, car number, driver, +/−, gap, interval…), for the tower and

@@ -1944,6 +1944,8 @@ const OVERLAY_FIELDS = {
       ["show_stripe", "Coloured bar by each driver", "bool"],
       ["show_team", "Team names", "bool"],
       ["show_logo", "Team logos", "bool"],
+      iff((v) => v.show_logo, ["team_logo_side", "Team logo", "select", [["first", "Before the team name (its own column on the tower)"],
+        ["last", "After the team name"]]]),
     ]],
     ["Fastest lap", [
       ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],

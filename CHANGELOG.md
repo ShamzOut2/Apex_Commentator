@@ -21,6 +21,8 @@ How each version's entry is written:
 
 ### Improvements
 
+- Standings (tower and full screen): put the team logo before or after the
+  team name.
 - Driver on camera: swap the team and the car badge (badge under the name,
   team at the end), and put the team logo before or after the team name.
 - Driver on camera: set how long the card stays on screen (1 to 120

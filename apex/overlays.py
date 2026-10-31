@@ -49,6 +49,7 @@ DEFAULTS = {
         "name_format": "last_initial",
         "show_team": True,
         "show_logo": True,
+        "team_logo_side": "first",  # the team logo before the team name ("first": its own column on the tower) or after it ("last")
         "show_number": True,
         "show_stripe": True,      # the coloured bar by each driver (class or team colour)
         "show_col_labels": True,  # the column headings (GAP, INT...) under the header

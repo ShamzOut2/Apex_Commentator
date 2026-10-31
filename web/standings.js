@@ -189,7 +189,7 @@ function numberChip(e, cls, cfg) {
 
 // Position, stripe, number and logo: the same size whatever the width.
 function fixedParts(cfg) {
-  return ["40px", "6px", cfg.show_number ? "50px" : null, cfg.show_logo ? "30px" : null].filter(Boolean);
+  return ["40px", "6px", cfg.show_number ? "50px" : null, cfg.logo_col ? "30px" : null].filter(Boolean);
 }
 
 // A width set by hand: the name takes what the other columns leave.
@@ -256,15 +256,17 @@ function autoFit(cfg, cols) {
 
 function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) {
   const pos = classMode ? e.class_pos : e.pos;
-  const team = cfg.show_team && e.team ? `<span class="tm">${esc(e.team)}</span>` : "";
+  // The team logo after the team name (or the driver's, with no team line); else in its own column before.
+  const logoAfter = cfg.logo_inline && e.team_logo ? `<img class="tm-logo" src="${esc(e.team_logo)}" alt="">` : "";
+  const team = cfg.show_team && e.team ? `<span class="tm">${esc(e.team)}${logoAfter}</span>` : "";
   const pit = cfg.show_pit_status && e.on_pit ? '<span class="pitb">PIT</span>' : "";
   const move = moveOf(e.car_idx);
   return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
     <span class="p tnum" data-opcol="pos">${pos}</span>
     <span class="stripe" style="${cfg.show_stripe ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : cls.color)}` : ""}"></span>
     ${cfg.show_number ? `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>` : ""}
-    ${cfg.show_logo ? `<span data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
-    <span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${team}</span>
+    ${cfg.logo_col ? `<span data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
+    <span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}${team ? "" : logoAfter}</span>${team}</span>
     ${cols.map((c) => `<span class="c tnum" data-opcol="${c[0].replace(/^show_/, "")}">${c[3](e, race, classMode, cfg, green)}</span>`).join("")}
   </div>`;
 }
@@ -287,7 +289,7 @@ function progressText(ov) {
 function headRowHtml(cfg, cols) {
   if (!cols.length || !cfg.show_col_labels) return "";
   return `<div class="srow shead">
-    <span></span><span></span>${cfg.show_number ? "<span></span>" : ""}${cfg.show_logo ? "<span></span>" : ""}<span></span>
+    <span></span><span></span>${cfg.show_number ? "<span></span>" : ""}${cfg.logo_col ? "<span></span>" : ""}<span></span>
     ${cols.map((c) => `<span class="c">${c[2]}</span>`).join("")}</div>`;
 }
 
@@ -306,6 +308,8 @@ function render() {
   // No logo column when no team has a logo.
   const cfg = { ...ov.settings.standings };
   cfg.show_logo = cfg.show_logo && entries.some((e) => e.team_logo);
+  cfg.logo_col = cfg.show_logo && cfg.team_logo_side !== "last";
+  cfg.logo_inline = cfg.show_logo && cfg.team_logo_side === "last";
   const race = ov.session_kind === "race";
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const multiclass = new Set(entries.map((e) => e.class_key)).size > 1;
@@ -407,7 +411,8 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   const interval = classMode ? e.class_interval : e.interval;
   const first = pos === 1;
   const change = race && e.pos_change ? `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>` : "";
-  const team = e.team ? `${cfg.show_logo && e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}${esc(e.team)}` : "";
+  const logo = cfg.show_logo && e.team_logo ? `<img src="${esc(e.team_logo)}" alt="" class="${cfg.team_logo_side === "last" ? "after" : ""}">` : "";
+  const team = e.team ? (cfg.team_logo_side === "last" ? `${esc(e.team)}${logo}` : `${logo}${esc(e.team)}`) : "";
   const cells = [
     `<td class="stripe" style="${cfg.show_stripe ? `background:${esc(classMode && e.team_color ? e.team_color : cls.color)}` : "background:none"}"></td>`,
     `<td class="p r" data-opcol="pos">${pos}</td>`,
