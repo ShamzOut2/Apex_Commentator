@@ -342,7 +342,7 @@ def _score_group(group, results, rules, multiplier, distance, bonuses=True):
         d = r["driver"]
         st = status(r)
         entry = {"group": group, "rank": rank.get(d), "status": st, "short": d in short, "position": 0,
-                 "qualifying": 0, "bonus": {}, "adjust": r["adjust"], "total": r["adjust"]}
+                 "qualifying": 0, "bonus": {}, "adjust": r["adjust"], "total": _round(r["adjust"])}
         out[d] = entry
         # Disqualified, or short of the race distance: no points at all.
         if st == "dsq" or d in short:

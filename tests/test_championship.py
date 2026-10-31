@@ -227,6 +227,7 @@ class ScoringTests(unittest.TestCase):
         p = profile({"points": [10, 8], "dnf_scores": False},
                     [{"id": "r1", "results": [res("a", 1), res("b", 2, status="dnf")]}])
         self.assertEqual(table(p)[0]["b"]["points"], 0)
+        self.assertEqual(repr(table(p)[1]["groups"][0]["drivers"][1]["rounds"][0]["points"]), "0")  # not 0.0
 
     def test_classes_score_separately(self):
         classes = [{"id": "pro", "name": "Pro", "color": "#ff0000"}, {"id": "am", "name": "Am", "color": "#0000ff"}]
