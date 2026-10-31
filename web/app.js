@@ -1314,6 +1314,22 @@ function trackGroup(name) {
 
 // A round's layout: a list of the track's layouts when it's a known track.
 // ``attrs`` says which field it is (data-round / data-build-row...).
+// A round's race length as a number and a unit: "45 min", "2 h" or "30 laps".
+const LENGTH_UNITS = [["min", "minutes"], ["h", "hours"], ["laps", "laps"]];
+function parseLength(text) {
+  const m = /^\s*(\d+(?:\.\d+)?)\s*(min|minutes?|mins?|h|hours?|hrs?|laps?)?/i.exec(text || "");
+  if (!m) return { n: "", unit: "min" };
+  const u = (m[2] || "min").toLowerCase();
+  return { n: m[1], unit: u.startsWith("l") ? "laps" : u.startsWith("h") ? "h" : "min" };
+}
+function lengthField(rd, i) {
+  const { n, unit } = parseLength(rd.length);
+  return `<span class="len-field" title="Race length: a time or a number of laps">
+    <input type="number" min="0" step="1" class="narrow" data-round="${i}" data-rlen="n" value="${esc(n)}" placeholder="Length" aria-label="Race length">
+    <select data-round="${i}" data-rlen="u" aria-label="Minutes, hours or laps">${LENGTH_UNITS.map(([v, l]) =>
+      `<option value="${v}" ${unit === v ? "selected" : ""}>${l}</option>`).join("")}</select></span>`;
+}
+
 function configField(rd, attrs) {
   const g = trackGroup(rd.track);
   if (!g) {
@@ -1353,7 +1369,7 @@ function renderChampRounds() {
         ${configField(rd, `data-round="${i}" data-rkey="config"`)}
         <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
         <input type="time" data-round="${i}" data-rkey="time" value="${esc(rd.time || "")}" aria-label="Start time" title="Start time">
-        <input data-round="${i}" data-rkey="length" class="narrow-text" value="${esc(rd.length || "")}" placeholder="Length" aria-label="Race length" title="e.g. 60 min, 30 laps">
+        ${lengthField(rd, i)}
         <label class="field" title="Points multiplier: 1 for normal points, 2 for double points, and so on">Points ×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
         <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
         <label class="field" title="The race in progress counts as this round in the live standings"><input type="radio" name="live-round" data-live-round="${esc(rd.id)}" ${isLive ? "checked" : ""}> Live</label>
@@ -1611,6 +1627,12 @@ function champChange(e, final) {
     if (!final) return;
     for (const rd of meetingRounds(+d.meeting)) rd.event = el.value.trim();
     rerender = true;
+  } else if (d.round != null && d.rlen) {
+    // Race length: a number and its unit (minutes, hours or laps).
+    const box = el.closest(".len-field");
+    const n = box.querySelector("[data-rlen=n]").value;
+    const unit = box.querySelector("[data-rlen=u]").value;
+    c.rounds[+d.round].length = n !== "" && +n > 0 ? `${+n} ${unit}` : "";
   } else if (d.round != null && d.rkey) {
     const rd = c.rounds[+d.round];
     rd[d.rkey] = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
@@ -2619,7 +2641,11 @@ const BOARD_FIELDS = {
     iff((v) => cards(v) && v.show_date, ["date_format", "Dates as", "select", [["weekday_short", "Sun 22 Nov"], ["numeric", "22/11/26"],
       ["day_month", "22nd November"], ["full", "22nd November 2026"], ["weekday", "Sunday 22nd November"]]]),
     iff(cards, ["show_time", "Start times", "bool"]), iff(cards, ["show_config", "Track layouts", "bool"]),
-    iff(cards, ["show_length", "Race lengths", "bool"]), iff(cards, ["show_winners", "Winners of past rounds", "bool"]),
+    iff(cards, ["show_length", "Race lengths", "bool"]),
+    iff(cards, ["show_race_name", "Each race's name in its box (Sprint, Feature…)", "bool"]),
+    iff(cards, ["show_winners", "Winners of past rounds (each class's, under its race)", "bool"]),
+    iff((v) => cards(v) && v.show_winners, ["show_winner_class", "The class name by each winner (Gold: D. Price)", "bool"]),
+    iff((v) => cards(v) && v.show_winners, ["winner_name_format", "Winners' names", "select", NAME_FORMATS]),
     iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"]),
     iff(cards, ["rows", "Race meetings a page (the rest on the next pages)", "number", { min: 1, max: 64 }])],
   board_results: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],

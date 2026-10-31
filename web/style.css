@@ -674,3 +674,6 @@ p.hint .desk { margin-left: 6px; }
 .swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .swatch { width: 30px; height: 30px; border-radius: 6px; border: 2px solid var(--line); cursor: pointer; padding: 0; }
 .swatch:hover { border-color: #fff; transform: scale(1.08); }
+
+.len-field { display: inline-flex; align-items: center; gap: 4px; }
+.len-field input { width: 70px; }

@@ -206,6 +206,9 @@ DEFAULTS = {
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
                        "show_winners": True,
+                       # Each race's box: its name (show_race_name), and the
+                       # winners' class names (show_winner_class) and names as.
+                       "show_race_name": True, "show_winner_class": True, "winner_name_format": "initial_last",
                        # Each round's title: "both" (Round 3 · its name), "name" (its own name) or "number" (Round 3).
                        "round_title": "both",
                        # weekday_short: Sun 22 Nov; numeric: 22/11/26; day_month: 22nd November;

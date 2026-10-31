@@ -269,12 +269,14 @@ def meetings(cal):
         if r["event"] and prev and prev.get("event") == r["event"]:
             prev["last"] = r["round"]
             prev["races"].append(r["name"])
-            prev["sessions"].append({"name": r["name"], "length": r.get("length", ""), "time": r.get("time", "")})
+            prev["sessions"].append({"name": r["name"], "length": r.get("length", ""), "time": r.get("time", ""),
+                                     "winners": list(r["winners"]), "done": r["done"]})
             prev["done"] = prev["done"] and r["done"]
             prev["winners"] += [dict(w, race=r["name"]) for w in r["winners"]]
             continue
         entry = dict(r, last=None, races=[r["name"]],
-                     sessions=[{"name": r["name"], "length": r.get("length", ""), "time": r.get("time", "")}])
+                     sessions=[{"name": r["name"], "length": r.get("length", ""), "time": r.get("time", ""),
+                                "winners": list(r["winners"]), "done": r["done"]}])
         if r["event"]:
             entry["name"] = r["event"]
             entry["winners"] = [dict(w, race=r["name"]) for w in r["winners"]]

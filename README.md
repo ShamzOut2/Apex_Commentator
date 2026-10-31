@@ -53,6 +53,11 @@ walk, Overlays, Boards and Race control.
   centred; the leader stays at the top of every page, the rest carrying on
   under them.
 - Finishing order: the winner's Gap shows their laps or their race time.
+- Season calendar: each card starts with the meeting's or round's name; each
+  race has its own box with its name and length, and after it's run, each
+  class's winner under it, one a line (the race and class names can be
+  turned off).
+- Rounds: the race length is a number of minutes, hours or laps.
 
 ### Fixes
 
@@ -728,10 +733,17 @@ built from the active league:
 - **Season calendar**: every round with track, layout, date, time and
   length, which rounds are done (with their winners) and which is next.
   - **Round titles**: "Round 3 · your round name", just your round name, or
-    just "Round 3". A round you haven't named is always "Round 3".
-  - A race meeting of several races (heat races, say) is one card: "Rounds
-    4–6", each race by its name with its length (Race 1 · 20 min, Race 2 ·
-    20 min…), and each race's winner.
+    just "Round 3". A round you haven't named is always "Round 3". A round's
+    race length is a number of minutes, hours or laps (Championship →
+    Calendar & results).
+  - The top of each card: the round's number and its own name ("Round 3 ·
+    Spa Showdown"), or for a race meeting of several races (heat races, say)
+    "Rounds 4–6 · Fuji Night".
+  - Each race has a box: its name and length (Sprint 20 min), and once it's
+    run, each class's winner under it, one a line (Gold: A. Konig, Silver:
+    M. Frederik…). A race meeting has a box for each race, side by side.
+    *Each race's name in its box*, *The class name by each winner* and the
+    winners' name style can be set.
   - **Dates as**: Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or
     Sunday 22nd November.
   - A round with a points multiplier other than 1 (Championship → Calendar

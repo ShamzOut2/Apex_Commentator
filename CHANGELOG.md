@@ -21,6 +21,11 @@ How each version's entry is written:
   centred; the leader stays at the top of every page, the rest carrying on
   under them.
 - Finishing order: the winner's Gap shows their laps or their race time.
+- Season calendar: each card starts with the meeting's or round's name; each
+  race has its own box with its name and length, and after it's run, each
+  class's winner under it, one a line (the race and class names can be
+  turned off).
+- Rounds: the race length is a number of minutes, hours or laps.
 
 ### Fixes
 

@@ -133,16 +133,25 @@ function dateText(r, format) {
 // name of its own is "Round 3" whatever's picked.
 // A race meeting of several races is several rounds: "Rounds 4–6".
 function roundTitle(r, how) {
-  const own = r.name && r.name !== `Round ${r.round}` && !(r.last && /^(round|event) \d+$/i.test(r.name)) ? r.name : "";
+  // The meeting's or round's own name (whatever it's called), unless it's just its number.
+  const own = r.name && r.name.trim().toLowerCase() !== `round ${r.round}` ? r.name.trim() : "";
   const num = r.last ? `Rounds ${r.round}–${r.last}` : `Round ${r.round}`;
   if (how === "number" || !own) return num;
   return how === "name" ? own : `${num} · ${own}`;
 }
 
-// A winner's label: which race (at a meeting) and which championship, if there's more than one.
-function winnerLabel(w, r) {
-  const groups = new Set(r.winners.map((x) => x.group)).size;
-  return [w.race, groups > 1 ? w.group_name : ""].filter(Boolean).join(" · ");
+
+// Each race of a card (one for a round, each heat for a race meeting): its
+// name and length, and once it's run, each class's winner under it.
+function racesHtml(r, s) {
+  const boxes = (r.sessions || []).map((x) => {
+    const head = [s.show_race_name !== false && x.name, s.show_length && x.length].filter(Boolean);
+    const wins = s.show_winners && x.winners && x.winners.length ? x.winners.map((w) => `<div class="rb-win">
+        <span class="dot" style="background:${esc(w.color || "#8b93a3")}"></span>${s.show_winner_class !== false && w.group_name ? `<span class="cls">${esc(w.group_name)}:</span> ` : "🏆 "}${esc(formatName(w, s.winner_name_format))}</div>`).join("") : "";
+    if (!head.length && !wins) return "";
+    return `<div class="race-box">${head.length ? `<div class="rb-head"><b>${esc(head[0])}</b>${head[1] ? ` <span class="len">${esc(head[1])}</span>` : ""}</div>` : ""}${wins}</div>`;
+  }).filter(Boolean);
+  return boxes.length ? `<div class="races">${boxes.join("")}</div>` : "";
 }
 
 function calendarHtml(b) {
@@ -152,11 +161,8 @@ function calendarHtml(b) {
       <div class="rn"><span class="rt">${esc(roundTitle(r, s.round_title))}</span>${s.show_multiplier && r.multiplier !== 1 ? `<span class="mult">×${r.multiplier} points</span>` : ""}<span class="tag">${r.next ? "Next" : r.done ? "Done" : ""}</span></div>
       <div class="tr">${esc(r.track || "Track to be confirmed")}</div>
       ${s.show_config && r.config ? `<div class="cf">${esc(r.config)}</div>` : ""}
-      <div class="when">${[s.show_date && dateText(r, s.date_format), s.show_time && r.time,
-        r.races.length < 2 && s.show_length && r.length].filter(Boolean).map(esc).join(" · ")}</div>
-      ${(r.sessions || []).length > 1 ? `<div class="races">${r.sessions.map((x) => `<span class="race"><b>${esc(x.name)}</b>${
-        s.show_length && x.length ? ` <span class="len">${esc(x.length)}</span>` : ""}</span>`).join("")}</div>` : ""}
-      ${s.show_winners && r.winners.length ? `<div class="wins">${r.winners.map((w) => `<span style="${w.color ? `background:${esc(w.color)};color:${inkFor(w.color)}` : ""}">🏆 ${esc(winnerLabel(w, r) ? `${winnerLabel(w, r)}: ` : "")}${esc(w.name)}</span>`).join("")}</div>` : ""}
+      <div class="when">${[s.show_date && dateText(r, s.date_format), s.show_time && r.time].filter(Boolean).map(esc).join(" · ")}</div>
+      ${racesHtml(r, s)}
     </div>`).join("")}</div>`;
 }
 
