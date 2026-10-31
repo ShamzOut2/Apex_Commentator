@@ -48,9 +48,17 @@ OBS dock.
 - **Hotkeys for overlays and boards**: a key for each overlay (on / off),
   the grid walk and every board (on screen, and off again), set in the
   Hotkeys window, now also on the Overlays and Boards tabs.
+- **Championship battle overlay**: pick two to six drivers (or the car on
+  camera and the cars around it, or the top 3) in any championship, overall
+  or a class, and show their places, points and the gaps between them; live
+  during a race, with the points this race would give them.
+- **Board pages**: set how many drivers each board shows a page, and go
+  through the rest with Next / Prev (or hotkeys) until the end.
 
 ### Improvements
 
+- Finishing order: a button for every class of the league, secondary
+  classes and classes without points of their own included.
 - The finishing order board can show any session of the event in iRacing:
   practice, qualifying, warm-up, each heat or the race (practice and
   qualifying by best lap, without points).
@@ -161,12 +169,14 @@ shows something else. Camera hotkeys work in whichever window has focus.
 
 **Hotkeys for overlays and boards.** *⌨ Hotkeys* (on the Timing, Overlays and
 Boards tabs) also sets keys for:
-- each overlay: the standings tower, lap tracker, driver on camera and
-  sponsors, on and off;
+- each overlay: the standings tower, lap tracker, driver on camera,
+  sponsors and championship battle, on and off;
+- the championship battle's quick picks (the car on camera and the one
+  ahead, the cars either side, the top 3), which also put it on screen;
 - the grid walk: on / off (starting from P1), and the next pair;
 - every board in the Boards tab (each class's standings, teams',
-  manufacturers', the calendar, finishing orders), and taking the board off
-  screen. A board's key puts it on screen; pressed again while it's up, it
+  manufacturers', the calendar, finishing orders), its next and previous
+  page, and taking the board off screen. A board's key puts it on screen; pressed again while it's up, it
   takes it off.
 
 A key does one thing: giving it to something else takes it off the first
@@ -441,6 +451,23 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     time. Set how many seconds it stays (3 or more). It can also flash each
     class's new fastest lap. Races skip the first lap; laps set before the
     app connected don't flash.
+- **Championship battle** (`/battle.html`): a few drivers fighting for the
+  championship, in a small table in a corner (or along an edge). Pick the
+  championship (Overall or any class, secondary classes too) and up to six
+  drivers in its card on the Overlays tab, or in one go:
+  - **The car on camera and the one ahead** (in that championship's running
+    order on track; the leader on camera: it and the car behind);
+  - **The car on camera and the cars either side**;
+  - **The championship's top 3**.
+  These put it on screen too, and can have hotkeys. It lists them in
+  championship order with each one's place and points. During a race it
+  works them out as if the race ended now ("If it ended now"): the points
+  this race gives them (+18), places gained or lost in the championship
+  (▲1), and the new totals. **Points gap**: to the first of them, or to the
+  driver above. Car numbers (class colours), team logos and names, the
+  heading, name format, place, size and background can be set. It shows
+  once the championship has standings: after the first results, or live
+  during a race.
 - **Driver on camera** (`/driver.html`): a small board at the bottom centre
   naming the driver the camera is on. It shows their position (and in class,
   in multiclass races), car number in the class colour, name, class, team and
@@ -660,7 +687,9 @@ built from the active league:
     & results → *Points ×*, e.g. 2 for double points) shows "×2 points". This
     can be turned off. Or
   the league's own calendar image instead (see *League builder*).
-- **Finishing order**: Overall or per class, from the latest round, a chosen
+- **Finishing order**: Overall or for any class of the league (secondary
+  classes too, and classes without points of their own, which show their
+  drivers in order without points), from the latest round, a chosen
   round, the session going on now (live), or any session of the event in
   iRacing (practice, qualifying, warm-up, each heat, the race) once it has
   results. Races show their finishing order with the points; practice and
@@ -674,7 +703,14 @@ Under *What each board shows*, every board can be set up separately:
 - the league's sponsor logos along any edge, and which sponsors;
 - the board's own columns: car numbers, team names and logos, car badges,
   gaps, wins, penalty points, points from the last few rounds, laps, places
-  gained, fastest lap (purple), DNF/DSQ, points scored, and how many rows.
+  gained, fastest lap (purple), DNF/DSQ, points scored;
+- how many drivers (or teams, manufacturers, race meetings) a page.
+
+**Pages.** A board with more than that runs onto further pages: **Next ▶**
+and **◀ Prev** by *Take off screen* go through them (positions carry on, so
+page 2 starts at P11 with 10 a page), and "Page 2 of 3" shows where you are.
+The board shows "2 / 3" in its header (this can be turned off). Each new
+board starts on page 1. *Next page* and *Previous page* can have hotkeys too.
 
 Putting another board on screen crossfades from the old one, and a new
 board's header and rows sweep in one after another; **Take off screen**

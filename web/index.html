@@ -430,6 +430,17 @@
             <div id="ov-driver" class="ov-form" data-overlay="driver"></div>
           </div>
           <div class="overlay-card">
+            <h3>Championship battle</h3>
+            <p class="hint">A few drivers fighting for the championship, in a corner: their place and points (during a race,
+              as if it ended now), the points this race gives them, and the points between them. Pick the championship
+              and the drivers here, or in one go from the car on camera.</p>
+            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-battle"></code> <button class="btn subtle" data-copy="url-battle">Copy</button></p>
+            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="battle"></span></p>
+            <p class="preview-link"><a class="btn subtle" href="/battle.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
+            <div id="battle-pick" class="battle-pick"></div>
+            <div id="ov-battle" class="ov-form" data-overlay="battle"></div>
+          </div>
+          <div class="overlay-card">
             <h3>Sponsors</h3>
             <p class="hint">The active league's sponsor logos (add them in the League builder), in a corner or along an edge:
               all together, or one at a time. Tick which sponsors to show.</p>
@@ -450,6 +461,11 @@
           <span class="grow"></span>
           <button class="btn subtle" data-open-hotkeys title="Keys to put each board on screen and take it off">⌨ Hotkeys</button>
           <button class="btn subtle" data-popout="boards" title="Open the boards in a window of its own">⧉ Pop out</button>
+          <span id="board-pager" class="row" hidden>
+            <button id="btn-board-prev" class="btn subtle" title="The board's previous page">◀ Prev</button>
+            <span id="board-page" class="hint"></span>
+            <button id="btn-board-next" class="btn" title="The board's next page: the rest of the drivers">Next ▶</button>
+          </span>
           <button id="btn-board-hide" class="btn danger">Take off screen</button>
         </div>
         <p class="hint">Full-screen boards for the active league: championship standings, the season calendar and results.

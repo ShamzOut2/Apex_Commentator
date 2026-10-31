@@ -649,13 +649,16 @@ def round_results(profile, rd, group):
     champ = normalise(profile.get("championship"))
     rules = champ["rules"]
     roster = _roster(profile)
-    scored = score_round(rd, rules, secondary_classes(profile))
+    second = secondary_classes(profile)
+    scored = score_round(rd, rules, second)
     if group in scored:
         scores = scored[group]
     else:
         # A finishing order the points system doesn't score (e.g. overall when
-        # points go by class): everyone by position, no points.
-        order = sorted((r for r in rd["results"] if r["status"] not in ("dns",)), key=lambda r: r["position"] or 10_000)
+        # points go by class): everyone in it (everyone, or the class's drivers)
+        # by position, no points.
+        mine = [r for r in rd["results"] if group == OVERALL or r["class_id"] == group or second.get(r["driver"]) == group]
+        order = sorted((r for r in mine if r["status"] not in ("dns",)), key=lambda r: r["position"] or 10_000)
         scores = {r["driver"]: {"rank": None if r["status"] == "dsq" else i, "status": r["status"], "short": False,
                                 "total": None} for i, r in enumerate(order, start=1)}
     rows = [r for r in rd["results"] if r["driver"] in scores]

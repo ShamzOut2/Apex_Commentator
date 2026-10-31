@@ -171,7 +171,7 @@ function render(snap) {
   };
   const sub = b.subtitle
     ? `<span class="sub"><span class="chip" style="${b.accent ? `background:${esc(b.accent)};color:${inkFor(b.accent)}` : "background:rgba(255,255,255,.12)"}">${esc(b.subtitle)}</span></span>` : "";
-  const key = [b.kind, b.title, b.subtitle].join("|");
+  const key = [b.kind, b.title, b.subtitle, b.page].join("|");
   const steady = key === boardKey;
   boardKey = key;
   setPanels(b.settings);
@@ -180,7 +180,7 @@ function render(snap) {
     <div class="center">
       ${edge("top")}
       <div class="main">
-        <div class="bhead">${b.league_logo ? `<img class="league-logo" src="${esc(b.league_logo)}" alt="">` : ""}<span class="t1">${esc(b.title)}</span>${sub}<span class="league">${esc(b.league)}</span></div>
+        <div class="bhead">${b.league_logo ? `<img class="league-logo" src="${esc(b.league_logo)}" alt="">` : ""}<span class="t1">${esc(b.title)}</span>${sub}<span class="league">${esc(b.league)}</span>${b.pages > 1 && b.settings.page_number ? `<span class="pageno">${b.page + 1} / ${b.pages}</span>` : ""}</div>
         ${body}
       </div>
       ${edge("bottom")}

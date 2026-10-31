@@ -577,6 +577,7 @@ const DESK_PARTS = {
   "/sponsors.html": ".sp",
   "/gridwalk.html": "#stage > *",
   "/board.html": "#stage > *",
+  "/battle.html": ".battle:not(.out)",
 };
 
 function reportDeskParts(page) {

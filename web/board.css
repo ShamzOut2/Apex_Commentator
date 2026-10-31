@@ -40,6 +40,7 @@
 .cal-image { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
 .cal-image img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
 .bhead .league { margin-left: auto; font-size: 24px; color: var(--muted); font-weight: 600; }
+.bhead .pageno { font-size: 24px; font-weight: 800; padding: 4px 12px; border-radius: 6px; background: rgba(255, 255, 255, .12); font-variant-numeric: tabular-nums; }
 
 .bbody { flex: 1; min-height: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 28px; align-content: start; }
 .btable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }

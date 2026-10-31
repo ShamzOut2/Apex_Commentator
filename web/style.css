@@ -636,3 +636,15 @@ p.hint .desk { margin-left: 6px; }
 
 /* Overlays tab: a button to open an overlay's preview, instead of a preview pane. */
 .preview-link { margin: 2px 0 10px; }
+
+/* Championship battle: which championship and drivers. */
+.battle-pick { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.battle-pick .ov-field { max-width: 320px; }
+.bp-drivers > span { font-weight: 600; }
+.bp-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.bp-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; }
+.bp-chip.missing { opacity: .55; text-decoration: line-through; }
+.bp-chip button { border: 0; background: none; color: inherit; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; opacity: .7; }
+.bp-chip button:hover { opacity: 1; }
+.bp-chips select { max-width: 260px; }
+.bp-quick { flex-wrap: wrap; gap: 6px; }

@@ -29,14 +29,18 @@ def _group_info(league, key):
 def options(league):
     """What the Boards tab can offer: the league's championships and rounds."""
     if not league:
-        return {"groups": [], "rounds": []}
+        return {"groups": [], "rounds": [], "classes": []}
     table = championship.standings(league)
     groups = []
     for g in table["groups"]:
         name, color, _ = _group_info(league, g["key"])
         groups.append({"key": g["key"], "name": name, "color": color})
     rounds = [{"id": r["id"], "name": r["name"], "track": r["track"], "scored": r["scored"]} for r in table["rounds"]]
-    return {"groups": groups, "rounds": rounds, "teams": bool(table["teams"]),
+    # Every class of the league (main and secondary), for a finishing order of
+    # any of them, whether or not it has points of its own yet.
+    classes = [{"key": c["id"], "name": c.get("name") or c["id"], "color": c.get("color") or None,
+                "secondary": c.get("role") == "secondary"} for c in league.get("classes", []) if c.get("id")]
+    return {"groups": groups, "rounds": rounds, "classes": classes, "teams": bool(table["teams"]),
             "has_teams": any(d.get("team") for d in league.get("drivers", []))}
 
 
@@ -108,7 +112,7 @@ def build(league, board, settings, live_results=None):
         rounds = [r for r in table["rounds"] if r["scored"]]
         last = rounds[-cfg["rounds"]:] if cfg["rounds"] else []
         rows = []
-        for d in (g["drivers"] if g else [])[:cfg["rows"]]:
+        for d in (g["drivers"] if g else []):
             roster = next((x for x in league.get("drivers", []) if championship._key(x) == d["driver"]), {})
             make = roster.get("car_make", "")
             rows.append({
@@ -132,7 +136,7 @@ def build(league, board, settings, live_results=None):
         last = rounds[-cfg["rounds"]:] if cfg["rounds"] else []
         out["round_names"] = [f"R{rounds.index(r) + 1}" for r in last]
         rows = []
-        for t in table["teams"][:cfg["rows"]]:
+        for t in table["teams"]:
             team = info.get(t["team"].lower(), {})
             per = {s["round"]: s["points"] for s in t["rounds"]}
             rows.append(dict(t, team_logo=team_logos.get(t["team"].lower()), color=team.get("color") or None,
@@ -140,7 +144,7 @@ def build(league, board, settings, live_results=None):
                              rounds=[per.get(r["id"]) for r in last]))
         out["rows"] = rows
     elif kind == "makes":
-        out["rows"] = [dict(m, make_logo=make_logo(m["make"])) for m in championship.make_standings(league, group)[:cfg["rows"]]]
+        out["rows"] = [dict(m, make_logo=make_logo(m["make"])) for m in championship.make_standings(league, group)]
     elif kind == "calendar":
         # The league's own calendar graphic, when they have one and want it.
         if cfg["style"] == "image" and league.get("calendar_image"):
@@ -182,7 +186,21 @@ def build(league, board, settings, live_results=None):
                 name = " · ".join(filter(None, [rd["event"], rd["name"]]))
                 out["title"] = f"{name} result" if name else f"Round {n} result"
                 out["subtitle"] = " · ".join(filter(None, [out["subtitle"], rd["track"]]))
-        out["rows"] = rows[:cfg["rows"]]
+        out["rows"] = rows
+    return _page(out, cfg, params)
+
+
+def _page(out, cfg, params):
+    """Just this page of the board's rows: ``rows`` (the setting) a page, the
+    rest on the pages after it. Positions carry on from page to page."""
+    n = max(1, int(cfg.get("rows") or 1)) if not out.get("image") else max(1, len(out["rows"]))
+    pages = max(1, -(-len(out["rows"]) // n))
+    try:
+        page = int(params.get("page") or 0)
+    except (TypeError, ValueError):
+        page = 0
+    page = min(max(page, 0), pages - 1)
+    out.update(rows=out["rows"][page * n:(page + 1) * n], page=page, pages=pages)
     return out
 
 

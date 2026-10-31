@@ -109,6 +109,7 @@ function render() {
   renderUpdates(s.update);
   renderResultsAuto(s.results_auto);
   renderOverlaySettings(s);
+  renderBattlePick(s);
   renderChampLive(s);
   renderBoards(s);
   renderDesktop(s);
@@ -800,7 +801,8 @@ $("#battle-color").addEventListener("input", (e) => {
 
 let hotkeyTarget = null;   // {kind: "cam" | "act", id, label} waiting for a key
 
-const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"]];
+const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"],
+  ["battle", "Championship battle"]];
 const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
 
 // What a key can do besides cameras: [[section, [[id, label, run]]]], from
@@ -809,14 +811,15 @@ function hotkeyActions(s = ui.snap || {}) {
   const ov = (s.overlays && s.overlays.settings) || {};
   const opts = s.board_options || { groups: [] };
   const groups = opts.groups || [];
-  const boards = [["board:off", "Take the board off screen", () => cmd("board_hide", {}, "Board off screen")]];
+  const boards = [["board:off", "Take the board off screen", () => cmd("board_hide", {}, "Board off screen")],
+    ["board:next", "Next page of the board", () => cmd("board_page", { step: "next" })],
+    ["board:prev", "Previous page of the board", () => cmd("board_page", { step: "prev" })]];
   const add = (kind, group, label) => boards.push([`board:${kind}:${group}`, label, () => toggleBoard(kind, group)]);
   groups.forEach((g) => add("championship", g.key, `Standings · ${g.name}`));
   if (opts.teams) add("teams", "", "Teams' championship");
   groups.forEach((g) => add("makes", g.key, `Manufacturers · ${g.name}`));
   add("calendar", "", "Season calendar");
-  [{ key: "overall", name: "Overall" }, ...groups.filter((g) => g.key !== "overall")]
-    .forEach((g) => add("results", g.key, `Finishing order · ${g.name}`));
+  resultGroups(opts).forEach((g) => add("results", g.key, `Finishing order · ${g.name}`));
   const on = (k) => !!(ov[k] && ov[k].visible);
   return [
     ["Overlays (on / off)", OVERLAY_TOGGLES.map(([k, label]) => [`ov:${k}`, label,
@@ -827,7 +830,99 @@ function hotkeyActions(s = ui.snap || {}) {
       ["gw:next", "Next pair", () => cmd("gridwalk_next", {})],
     ]],
     ["Boards (press again: off screen)", boards],
+    ["Championship battle (picks the drivers and shows it)", BATTLE_PICKS.map(([mode, label]) => [`battle:${mode}`, label,
+      () => cmd("battle_pick", { mode }, "Championship battle on")])],
   ];
+}
+
+// The championship battle's quick picks (cmd_battle_pick).
+const BATTLE_PICKS = [["ahead", "The car on camera and the one ahead"], ["around", "The car on camera and the cars either side"],
+  ["top", "The championship's top 3"]];
+
+// The championship battle: which championship, which drivers.
+let battlePickKey = "";
+function renderBattlePick(s) {
+  const el = $("#battle-pick");
+  const cfg = s.overlays && s.overlays.settings && s.overlays.settings.battle;
+  if (!el || !cfg) return;
+  const champ = s.championship;
+  const groups = (champ && champ.groups) || [];
+  const group = groups.find((g) => g.key === cfg.group);
+  const picked = cfg.drivers ? cfg.drivers.split(",") : [];
+  const drivers = (group && group.drivers) || [];
+  const key = JSON.stringify([cfg.group, cfg.drivers, cfg.visible, groups.map((g) => [g.key, g.name]),
+    drivers.map((d) => [d.driver, d.name, d.pos]), !!s.league]);
+  // Not while a list in it is open.
+  if (key === battlePickKey || (el.contains(document.activeElement) && document.activeElement.tagName === "SELECT")) return;
+  battlePickKey = key;
+  if (!s.league) {
+    el.innerHTML = '<p class="hint">Activate a league (League builder) to use it.</p>';
+    return;
+  }
+  if (!groups.length) {
+    el.innerHTML = '<p class="hint">It shows once the championship has standings: after the first round\'s results, or live during a race.</p>';
+    return;
+  }
+  const nameOf = (k) => (drivers.find((d) => d.driver === k) || {}).name || k.replace(/^(cust|name):/, "");
+  const chips = picked.map((k) => {
+    const d = drivers.find((x) => x.driver === k);
+    return `<span class="bp-chip ${d ? "" : "missing"}" title="${d ? "" : "Not in this championship"}">${d && d.pos ? `P${d.pos} ` : ""}${esc(nameOf(k))}
+      <button type="button" data-battle-remove="${esc(k)}" aria-label="Remove">×</button></span>`;
+  }).join("");
+  const free = drivers.filter((d) => !picked.includes(d.driver));
+  el.innerHTML = `
+    <label class="ov-field">Championship <select data-battle-group>${groups.map((g) =>
+      `<option value="${esc(g.key)}" ${g.key === cfg.group ? "selected" : ""}>${esc(g.name)}</option>`).join("")}
+      ${group ? "" : `<option value="${esc(cfg.group)}" selected>Pick one</option>`}</select></label>
+    <div class="bp-drivers"><span>Drivers <span class="hint">(up to 6)</span></span>
+      <div class="bp-chips">${chips || '<span class="hint">None picked yet</span>'}
+        ${picked.length < 6 && free.length ? `<select data-battle-add aria-label="Add a driver"><option value="">+ Add a driver…</option>${free.map((d) =>
+          `<option value="${esc(d.driver)}">P${d.pos} · ${esc(d.name)} (${esc(String(d.points))} pts)</option>`).join("")}</select>` : ""}
+      </div></div>
+    <div class="row bp-quick">${BATTLE_PICKS.map(([mode, label]) => `<button type="button" class="btn subtle" data-battle-pick="${mode}"
+      title="Pick these and show it">${esc(label)}</button>`).join("")}
+      ${picked.length ? '<button type="button" class="btn subtle" data-battle-clear>Clear</button>' : ""}</div>
+    ${champ.live ? `<p class="hint">Live: as if ${esc(champ.round || "this race")} ended now.</p>` : ""}`;
+}
+
+function setBattle(values, done) {
+  battlePickKey = "";
+  return cmd("overlay_settings", { overlay: "battle", values }, done);
+}
+
+// The drivers picked, as the card shows them.
+function battlePicked() {
+  const cfg = ui.snap.overlays.settings.battle;
+  return cfg.drivers ? cfg.drivers.split(",") : [];
+}
+
+$("#battle-pick").addEventListener("change", (e) => {
+  const picked = battlePicked();
+  if (e.target.matches("[data-battle-group]")) setBattle({ group: e.target.value });
+  if (e.target.matches("[data-battle-add]") && e.target.value) setBattle({ drivers: [...picked, e.target.value].join(",") });
+  e.target.blur();
+});
+$("#battle-pick").addEventListener("click", (e) => {
+  const picked = battlePicked();
+  const remove = e.target.closest("[data-battle-remove]");
+  if (remove) setBattle({ drivers: picked.filter((k) => k !== remove.dataset.battleRemove).join(",") });
+  const pick = e.target.closest("[data-battle-pick]");
+  if (pick) {
+    battlePickKey = "";
+    cmd("battle_pick", { mode: pick.dataset.battlePick }, "Championship battle on");
+  }
+  if (e.target.closest("[data-battle-clear]")) setBattle({ drivers: "", visible: false });
+  if (e.target.closest("button")) e.target.closest("button").blur();
+});
+
+// Finishing orders on offer: overall, each championship, and every other class
+// of the league (secondary ones too), points or not.
+function resultGroups(opts) {
+  const out = [{ key: "overall", name: "Overall", color: null }];
+  for (const g of [...(opts.groups || []), ...(opts.classes || [])]) {
+    if (!out.some((x) => x.key === g.key)) out.push(g);
+  }
+  return out;
 }
 
 // A board's key: on screen, or off if it's the one up already.
@@ -2038,6 +2133,21 @@ const OVERLAY_FIELDS = {
     ]],
   ],
   gridwalk: [LOOK],
+  battle: [
+    ["What it shows", [
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["title", "Heading (empty: Championship)", "text"],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_number", "Car numbers", "bool"],
+      ["show_logo", "Team logos", "bool"],
+      ["show_team", "Team names", "bool"],
+      ["gap_to", "Points gap", "select", [["first", "To the first of them"], ["ahead", "To the driver above"]]],
+      ["show_race_points", "During a race: the points this race gives them", "bool"],
+      ["show_change", "During a race: places gained / lost in the championship", "bool"],
+    ]],
+    LOOK,
+  ],
   driver: [
     ["What it shows", [
       ["stay", "Stay up for as long as they're on camera", "bool"],
@@ -2305,11 +2415,12 @@ const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   iff((v) => v.banner !== "none", ["banner_id", "Which banner", "banner"]),
   ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
     ["left", "Down the left"], ["right", "Down the right"]]],
-  iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"])];
+  iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"]),
+  ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"]];
 const cards = (v) => v.style === "cards";
 
 const BOARD_FIELDS = {
-  board_championship: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
+  board_championship: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
     ["show_make", "Car badges", "bool"], ["show_gap", "Points gap to the leader", "bool"],
     ["show_ahead", "Points gap to the driver ahead", "bool"], ["show_wins", "Wins", "bool"],
@@ -2317,13 +2428,13 @@ const BOARD_FIELDS = {
     ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["car", "Car badge"],
       ["rounds", "Round points"], ["wins", "Wins"], ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"],
       ["ahead", "Gap to driver ahead"]])],
-  board_teams: [["rows", "Teams shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
+  board_teams: [["rows", "Teams a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
     ["show_logo", "Team logos", "bool"], ["show_color", "Team colour stripe", "bool"], ["show_drivers", "Drivers who scored", "bool"],
     ["show_gap", "Points gap to the leader", "bool"], ["show_ahead", "Points gap to the team ahead", "bool"],
     ["show_wins", "Wins", "bool"], ["show_penalty", "Penalty points", "bool"],
     ...columnOpacity([["pos", "Position"], ["team", "Team"], ["drivers", "Drivers"], ["rounds", "Round points"], ["wins", "Wins"],
       ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"], ["ahead", "Gap to team ahead"]])],
-  board_makes: [["rows", "Manufacturers shown", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
+  board_makes: [["rows", "Manufacturers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
     ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"],
     ...columnOpacity([["pos", "Position"], ["make", "Manufacturer"], ["wins", "Wins"], ["points", "Points"], ["gap", "Gap"]])],
   board_calendar: [["style", "Show", "select", [["cards", "The calendar built from the rounds"], ["image", "The league's own calendar image"]]],
@@ -2333,8 +2444,9 @@ const BOARD_FIELDS = {
       ["day_month", "22nd November"], ["full", "22nd November 2026"], ["weekday", "Sunday 22nd November"]]]),
     iff(cards, ["show_time", "Start times", "bool"]), iff(cards, ["show_config", "Track layouts", "bool"]),
     iff(cards, ["show_length", "Race lengths", "bool"]), iff(cards, ["show_winners", "Winners of past rounds", "bool"]),
-    iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"])],
-  board_results: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
+    iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"]),
+    iff(cards, ["rows", "Race meetings a page (the rest on the next pages)", "number", { min: 1, max: 64 }])],
+  board_results: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
     ["show_status", "DNF / DSQ", "bool"], ["show_points", "Points scored", "bool"],
@@ -2366,6 +2478,14 @@ function renderBoards(s) {
   ui.boardOn = s.board ? { kind: s.board.kind, group: s.board.group } : null;
   $("#board-onair").textContent = s.board ? `On screen: ${s.board.title}${s.board.subtitle ? ` · ${s.board.subtitle}` : ""}` : "Nothing on screen";
   $("#btn-board-hide").disabled = !s.board;
+  // A board that runs to more than one page: the rest of it, a page at a time.
+  const pages = (s.board && s.board.pages) || 1;
+  $("#board-pager").hidden = pages < 2;
+  if (pages > 1) {
+    $("#board-page").textContent = `Page ${s.board.page + 1} of ${pages}`;
+    $("#btn-board-prev").disabled = s.board.page === 0;
+    $("#btn-board-next").disabled = s.board.page >= pages - 1;
+  }
   const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, !!s.board, settings.actionKeys]);
   if (key !== boardButtonsKey) {
     boardButtonsKey = key;
@@ -2386,8 +2506,7 @@ function renderBoards(s) {
             ${boardRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}</optgroup>` : ""}
           ${scored.length ? `<optgroup label="Championship rounds">${scored.map((r) => `<option value="${esc(r.id)}" ${boardRound === r.id ? "selected" : ""}>${esc(r.name)}${r.track ? ` · ${esc(r.track)}` : ""}</option>`).join("")}</optgroup>` : ""}
         </select></label>
-        <div>${[{ key: "overall", name: "Overall", color: null }, ...groups.filter((g) => g.key !== "overall")]
-          .map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>`;
+        <div>${resultGroups(opts).map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>`;
   }
   const skey = JSON.stringify([s.overlays && s.overlays.settings, (s.league && s.league.banners) || [], (s.league && s.league.sponsors) || []]);
   if (skey !== boardSettingsKey && !document.activeElement.closest("#board-settings")) {
@@ -2420,6 +2539,8 @@ $("#board-buttons").addEventListener("change", (e) => {
     if (ui.boardOn && ui.boardOn.kind === "results") cmd("board_show", { kind: "results", group: ui.boardOn.group, round: boardRound });
   }
 });
+$("#btn-board-prev").addEventListener("click", () => cmd("board_page", { step: "prev" }));
+$("#btn-board-next").addEventListener("click", () => cmd("board_page", { step: "next" }));
 $("#btn-board-hide").addEventListener("click", async () => {
   await cmd("board_hide");
   ui.boardOn = null;
@@ -2437,6 +2558,7 @@ $("#board-settings").addEventListener("change", (e) => {
 $("#url-board").textContent = `${location.origin}/board.html`;
 $("#url-sponsors").textContent = `${location.origin}/sponsors.html`;
 $("#url-driver").textContent = `${location.origin}/driver.html`;
+$("#url-battle").textContent = `${location.origin}/battle.html`;
 
 for (const page of ["standings", "laps"]) {
   $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;

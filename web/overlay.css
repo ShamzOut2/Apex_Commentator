@@ -102,7 +102,7 @@ body.custom-panels .sp.panel { background: var(--panel); }
 
 /* Size setting on overlays (setSize in common.js): each overlay grows or
    shrinks from where it sits. */
-.tower, .fl-flash, .trackers, .sp, .slot { zoom: var(--ov-size, 1); }
+.tower, .fl-flash, .trackers, .sp, .slot, .battle { zoom: var(--ov-size, 1); }
 
 /* A car number without its background (standings: "Car number background" off): just the number. */
 .num.plain { background: none !important; color: #fff !important; }

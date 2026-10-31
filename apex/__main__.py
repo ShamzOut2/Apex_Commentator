@@ -93,7 +93,7 @@ def smoke_test(cfg):
     try:
         import irsdk  # noqa: F401  (bundled for live iRacing sessions)
         time.sleep(1.5)
-        for path, expect in (("/", b"Apex"), ("/gridwalk.html", b"gridwalk.js"), ("/standings.html", b"standings.js"), ("/laps.html", b"laps.js"), ("/board.html", b"board.js"), ("/sponsors.html", b"sponsors.js"), ("/driver.html", b"driver.js"), ("/makes/porsche.png", b"PNG"), ("/logos/pro.svg", b"data-apex-fill"),
+        for path, expect in (("/", b"Apex"), ("/gridwalk.html", b"gridwalk.js"), ("/standings.html", b"standings.js"), ("/laps.html", b"laps.js"), ("/board.html", b"board.js"), ("/sponsors.html", b"sponsors.js"), ("/driver.html", b"driver.js"), ("/battle.html", b"battle.js"), ("/makes/porsche.png", b"PNG"), ("/logos/pro.svg", b"data-apex-fill"),
                              ("/api/state", b'"connected": true')):
             with urllib.request.urlopen(base + path, timeout=10) as resp:
                 body = resp.read()

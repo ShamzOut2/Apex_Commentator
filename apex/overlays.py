@@ -19,6 +19,8 @@ BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacit
 # Overlays and boards with columns can dim each column on its own:
 # col_opacity "gap:60,laps:40" (percent; columns left out are 100), used
 # while col_opacity_on is ticked.
+# Every board: "Page 2 / 3" in its header when it runs to more than one page.
+PAGING = {"page_number": True}
 COLUMN_OPACITY = {"col_opacity_on": False, "col_opacity": ""}
 
 NAME_FORMATS = ("full", "initial_last", "last_initial", "last", "first", "abbrev", "nickname")
@@ -111,6 +113,23 @@ DEFAULTS = {
         "team_logo_side": "first",  # the team logo before ("first") or after ("last") the team name
         **BACKGROUND,
     },
+    # Championship battle (battle.html): a few drivers' championship places
+    # and points, live during a race (as if it finished now), and the points
+    # between them. group: which championship ("overall" or a class id);
+    # drivers: who, comma separated driver keys (cust:123), up to six.
+    "battle": {
+        "visible": False,
+        "group": "overall",
+        "drivers": "",
+        "place": "top-right",
+        "title": "",              # its heading ("" = the championship's name)
+        "name_format": "last_initial",
+        "show_number": True, "show_team": False, "show_logo": True,
+        "show_race_points": True,  # during a race: the points this race gives them (+18)
+        "show_change": True,      # during a race: places gained / lost in the championship
+        "gap_to": "first",        # the points gap to the first of them ("first") or to the driver above ("ahead")
+        **BACKGROUND,
+    },
     # The grid walk's own settings are with the grid walk; this is just its background.
     "gridwalk": dict(BACKGROUND),
     # Full-screen boards (board.html), one section each. Every board has:
@@ -119,23 +138,24 @@ DEFAULTS = {
     # league_logo (the league's logo in the header), sponsors (where the
     # sponsor logos go, the same places as a banner) and sponsor_ids (which,
     # as for the sponsors overlay).
-    "board_championship": {**COLUMN_OPACITY, 
+    "board_championship": {**COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_gap": True, "show_ahead": False,  # gap to the leader; gap to the driver ahead
         "show_wins": False, "show_penalty": False,
     },
-    "board_teams": {**COLUMN_OPACITY, 
+    "board_teams": {**COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
         "show_drivers": True,  # the drivers who scored for the team, under its name
         "show_gap": True, "show_ahead": False, "show_wins": False, "show_penalty": False,
     },
-    "board_makes": {**COLUMN_OPACITY, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND, "rows": 12, "show_logo": True,
+    "board_makes": {**COLUMN_OPACITY, **PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND, "rows": 12, "show_logo": True,
                     "show_gap": True, "show_wins": True},
-    "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+    "board_calendar": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+                       "rows": 24,  # race meetings a page
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
                        "show_winners": True,
@@ -145,7 +165,7 @@ DEFAULTS = {
                        # full: 22nd November 2026; weekday: Sunday 22nd November.
                        "date_format": "weekday_short",
                        "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
-    "board_results": {**COLUMN_OPACITY, 
+    "board_results": {**COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True, "show_status": True,
@@ -173,7 +193,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "team_place": ("under", "end"), "team_logo_side": ("first", "last"),
+           "leader_cell": ("leader", "lap"), "team_place": ("under", "end"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 
@@ -194,7 +214,7 @@ def _value(key, value, default):
             value = type(default)(value)
             lo, hi = LIMITS.get(key, (value, value))
             return min(max(value, lo), hi)
-        value = str(value)[:200]
+        value = str(value)[:600 if key == "drivers" else 200]
         if key == "bg_color":
             return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
         if key == "bg_image":
@@ -209,6 +229,11 @@ def _value(key, value, default):
                 if re.fullmatch(r"[a-z_]{1,20}", col) and pct.strip().isdigit() and int(pct) < 100:
                     out.append(f"{col}:{max(0, int(pct))}")
             return ",".join(out)
+        if key == "drivers":
+            keys = [k.strip() for k in value.split(",") if re.fullmatch(r"(cust:\d{1,12}|name:[^,]{1,60})", k.strip())]
+            return ",".join(dict.fromkeys(keys[:6]))
+        if key == "group":
+            return value if re.fullmatch(r"[A-Za-z0-9:_ .\-]{1,80}", value) else default
         if key == "sponsor_ids":
             return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
         return value if key not in CHOICES or value in CHOICES[key] else default

@@ -22,9 +22,17 @@ How each version's entry is written:
 - **Hotkeys for overlays and boards**: a key for each overlay (on / off),
   the grid walk and every board (on screen, and off again), set in the
   Hotkeys window, now also on the Overlays and Boards tabs.
+- **Championship battle overlay**: pick two to six drivers (or the car on
+  camera and the cars around it, or the top 3) in any championship, overall
+  or a class, and show their places, points and the gaps between them; live
+  during a race, with the points this race would give them.
+- **Board pages**: set how many drivers each board shows a page, and go
+  through the rest with Next / Prev (or hotkeys) until the end.
 
 ### Improvements
 
+- Finishing order: a button for every class of the league, secondary
+  classes and classes without points of their own included.
 - The finishing order board can show any session of the event in iRacing:
   practice, qualifying, warm-up, each heat or the race (practice and
   qualifying by best lap, without points).

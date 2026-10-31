@@ -237,6 +237,7 @@ class App:
         self.tracks = TrackCatalogue()     # likewise: the season calendar's track list
         self.board = {"kind": None, "params": {}}  # the full-screen board on screen, if any
         self._board_cache = (None, None)
+        self._board_pages = 1  # how many pages the board on screen runs to
         self._class_of = {}        # car_idx -> class key, from the last snapshot
         self._track_sectors = self.laps.starts  # the track's own split points
         self._race = RaceProgress()
@@ -515,6 +516,8 @@ class App:
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
                 **self._boards(active_league, lambda source: self._session_board(active_league, source, rows)),
             }
+            self._battle_basis = (rows, snap["championship"], frame.cam_car_idx)
+            snap["overlays"]["battle"] = self._battle_snapshot(snap["championship"], active_league)
             return snap
 
     # -- championship -------------------------------------------------------
@@ -623,6 +626,75 @@ class App:
             {k: d[k] for k in ("driver", "name", "team", "car_number", "points", "pos", "behind")}
             for d in g["drivers"]]} for g in table["groups"]]
         return {"live": False, "round": None, "groups": groups}
+
+    # -- the championship battle overlay (battle.html) ----------------------
+
+    def _battle_snapshot(self, champ, active_league):
+        """The drivers picked for the battle overlay in the championship picked:
+        their place and points now (as if the race finished now, during one),
+        what this race gives them, and the points between them."""
+        cfg = self.overlays.get()["battle"]
+        keys = [k for k in cfg["drivers"].split(",") if k]
+        group = next((g for g in (champ or {}).get("groups", []) if g["key"] == cfg["group"]), None)
+        if not group or not keys or not active_league:
+            return None
+        roster = {driver_key(d): d for d in active_league.get("drivers", [])}
+        colours = {c["id"]: c.get("color") for c in active_league.get("classes", [])}
+        pid = active_league["id"]
+        picked = [d for d in group["drivers"] if d["driver"] in keys]  # in championship order
+        out = []
+        for i, d in enumerate(picked):
+            info = roster.get(d["driver"]) or {}
+            name, nickname = self._stream_name(d["name"], info.get("nickname", ""), active_league)
+            team = self.leagues.team(d["team"], active_league) if d["team"] else None
+            out.append({
+                "driver": d["driver"], "name": name, "nickname": nickname, "number": d["car_number"],
+                "team": d["team"], "team_logo": logo_url(pid, team.get("logo")) if team else None,
+                "class_color": colours.get(info.get("class_id")), "pos": d["pos"], "points": d["points"],
+                "pos_before": d.get("pos_before"), "points_before": d.get("points_before"),
+                "race_points": d.get("race_points"), "race_rank": d.get("race_rank"),
+                "gap_first": championship._round(picked[0]["points"] - d["points"]) if i else None,
+                "gap_ahead": championship._round(picked[i - 1]["points"] - d["points"]) if i else None,
+            })
+        return {"group": group["key"], "name": group["name"], "color": group["color"], "live": champ["live"],
+                "round": champ["round"], "rows": out}
+
+    def cmd_battle_pick(self, mode="ahead", show=True):
+        """Pick the battle overlay's drivers in one go (and put it on screen):
+        ``mode`` "ahead" (the car on camera and the one in front of it in this
+        championship's running order, or behind it if it's leading), "around"
+        (the cars either side of it too) or "top" (the championship's top 3)."""
+        rows, champ, cam = getattr(self, "_battle_basis", ([], None, None))
+        cfg = self.overlays.get()["battle"]
+        group = next((g for g in (champ or {}).get("groups", []) if g["key"] == cfg["group"]), None)
+        if not group:
+            raise CommandError("No standings in that championship yet")
+        members = [d["driver"] for d in group["drivers"]]
+        if mode == "top":
+            keys = members[:3]
+        elif mode in ("ahead", "around"):
+            profile = self.leagues.active()
+            running = []
+            for r in sorted((r for r in rows if r["pos"]), key=lambda r: r["pos"]):
+                entry = self.leagues.lookup(r["cust_id"], r["number"], profile)
+                key = driver_key(entry) if entry else driver_key({"cust_id": r["cust_id"], "name": r["name"]})
+                if key in members:
+                    running.append((r["car_idx"], key))
+            at = next((i for i, (idx, _) in enumerate(running) if idx == cam), None)
+            if at is None:
+                raise CommandError("The car on camera isn't racing in that championship")
+            if mode == "around":
+                lo, hi = max(at - 1, 0), at + 2
+            else:
+                lo, hi = (at, at + 2) if at == 0 else (at - 1, at + 1)
+            keys = [k for _, k in running[lo:hi]]
+        else:
+            raise CommandError(f"Unknown pick '{mode}'")
+        values = {"drivers": ",".join(keys)}
+        if show:
+            values["visible"] = True
+        self.overlays.update("battle", values)
+        return {"drivers": keys}
 
     # -- stream overlays ----------------------------------------------------
 
@@ -1045,7 +1117,7 @@ class App:
             # Sent often by on-screen overlays as they change: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "photobooth_auto", "auto_results", "hotkey", "board_", "popout", "desktop_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "photobooth_auto", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -1063,6 +1135,7 @@ class App:
         "board": ("Boards", "/board.html"),
         "gridwalk": ("Grid walk", "/gridwalk.html"),
         "driver": ("Driver on camera", "/driver.html"),
+        "battle": ("Championship battle", "/battle.html"),
     }
 
     def _desktop_snapshot(self):
@@ -1310,7 +1383,8 @@ class App:
     def cmd_hotkey(self, action):
         """What a hotkey does, by name (the same as the app's own key handling):
         cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, board:off,
-        board:<kind>:<group> (on screen, or off if it's up)."""
+        board:next, board:prev (its pages), board:<kind>:<group> (on screen,
+        or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick)."""
         kind, _, rest = str(action).partition(":")
         if kind == "cam":
             group = next((g["num"] for g in self._camera_groups if g["name"] == rest), None)
@@ -1329,10 +1403,14 @@ class App:
         if kind == "board":
             if rest == "off":
                 return self.cmd_board_hide()
+            if rest in ("next", "prev"):
+                return self.cmd_board_page(rest)
             board_kind, _, group = rest.partition(":")
             if self.board.get("kind") == board_kind and self.board.get("params", {}).get("group", "") == group:
                 return self.cmd_board_hide()
             return self.cmd_board_show(board_kind, group, "latest")
+        if kind == "battle":
+            return self.cmd_battle_pick(rest)
         raise CommandError(f"Unknown hotkey '{action}'")
 
     def cmd_hotkeys(self, keys=None):
@@ -1357,6 +1435,26 @@ class App:
 
     def cmd_board_hide(self):
         self.board = {"kind": None, "params": {}}
+
+    def cmd_board_page(self, step="next"):
+        """The board on screen's next / previous page (``step`` "next", "prev"
+        or a page number from 1). Stops at the first and last page."""
+        if not self.board.get("kind"):
+            raise CommandError("No board on screen")
+        pages = max(1, self._board_pages)
+        page = min(int(self.board["params"].get("page") or 0), pages - 1)
+        if step == "next":
+            page += 1
+        elif step == "prev":
+            page -= 1
+        else:
+            try:
+                page = int(step) - 1
+            except (TypeError, ValueError):
+                raise CommandError(f"Unknown page '{step}'") from None
+        page = min(max(page, 0), pages - 1)
+        self.board = {"kind": self.board["kind"], "params": dict(self.board["params"], page=page)}
+        return {"page": page + 1, "pages": pages}
 
     def _boards(self, active_league, session_board):
         board, opts = self._board_snapshot(active_league, session_board)
@@ -1402,6 +1500,7 @@ class App:
         value = (boards.build(active_league, self.board, settings, session_board(source) if live else None),
                  boards.options(active_league))
         self._board_cache = (key, value)
+        self._board_pages = value[0]["pages"] if value[0] else 1
         return value
 
     def cmd_overlay_settings(self, overlay, values):

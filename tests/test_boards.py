@@ -149,6 +149,34 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(cal["image"], "/api/logos/lg/league-calendar-image-1.png")
         self.assertTrue(cal["rows"])  # the rounds are still there for everything else
 
+    def test_pages(self):
+        settings = overlay_settings({"board_results": {"rows": 3}, "board_championship": {"rows": 3}})
+        build = lambda kind, page: boards.build(league(), {"kind": kind, "params": {"group": "overall", "page": page}}, settings)  # noqa: E731
+        first, second = build("results", 0), build("results", 1)
+        self.assertEqual((first["page"], first["pages"], len(first["rows"])), (0, 2, 3))
+        # The rest on the next page, positions carrying on.
+        self.assertEqual([(r["rank"], r["name"]) for r in second["rows"]], [(4, "Driver 4")])
+        self.assertEqual(build("results", 9)["page"], 1)  # past the end: the last page
+        champ = build("championship", 1)["rows"]
+        self.assertEqual([r["pos"] for r in champ], [4])
+        self.assertEqual(champ[0]["ahead"], 1)  # to the driver ahead on the page before (4 vs 3)
+        self.assertEqual(self.board("calendar")["pages"], 1)
+
+    def test_finishing_order_for_any_class(self):
+        lg = league(classes=[{"id": "pro", "name": "PRO", "color": "#ff0000"}, {"id": "am", "name": "AM", "color": "#00ff00"},
+                             {"id": "rookie", "name": "Rookies", "color": "#0000ff", "role": "secondary"},
+                             {"id": "silver", "name": "Silver", "color": "#999999"}])
+        lg["drivers"][3]["class2_id"] = "rookie"
+        lg["drivers"][1]["class2_id"] = "rookie"
+        lg["championship"]["rules"]["scoring"] = "overall"  # no class points: the classes aren't scored
+        self.assertEqual([(c["key"], c["secondary"]) for c in boards.options(lg)["classes"]],
+                         [("pro", False), ("am", False), ("rookie", True), ("silver", False)])
+        rows = lambda g: boards.build(lg, {"kind": "results", "params": {"group": g}}, self.settings)["rows"]  # noqa: E731
+        self.assertEqual([(r["rank"], r["name"], r["points"]) for r in rows("am")], [(1, "Driver 3", None), (2, "Driver 4", None)])
+        self.assertEqual([r["name"] for r in rows("rookie")], ["Driver 2", "Driver 4"])
+        self.assertEqual(rows("silver"), [])
+        self.assertEqual(len(rows("overall")), 4)
+
     def test_commands(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = App(MockSource(seed=1, clock=lambda: 0.0), dict(DEFAULTS), LeagueStore(tmp))
@@ -160,8 +188,20 @@ class BoardTests(unittest.TestCase):
             snap = app.build_snapshot()
             self.assertEqual(snap["board"]["kind"], "championship")
             self.assertEqual(len(snap["board_options"]["groups"]), 3)
+            # Pages: a step at a time, stopping at either end; another board starts at page 1.
+            app.overlays.update("board_championship", {"rows": 3})
+            app.build_snapshot()
+            self.assertEqual(app.command("board_page", {"step": "next"}), {"page": 2, "pages": 2})
+            self.assertEqual(app.command("hotkey", {"action": "board:next"}), {"page": 2, "pages": 2})
+            self.assertEqual(app.build_snapshot()["board"]["page"], 1)
+            self.assertEqual(app.command("hotkey", {"action": "board:prev"}), {"page": 1, "pages": 2})
+            app.command("board_page", {"step": "2"})
+            app.command("board_show", {"kind": "championship", "group": "pro"})
+            self.assertEqual(app.build_snapshot()["board"]["page"], 0)
             app.command("board_hide", {})
             self.assertIsNone(app.build_snapshot()["board"])
+            with self.assertRaises(CommandError):
+                app.command("board_page", {"step": "next"})
             # Pop-outs: in the app window they open there; otherwise the page opens one itself.
             self.assertEqual(app.command("popout", {"page": "boards"}), {"opened": False})
             opened = []
