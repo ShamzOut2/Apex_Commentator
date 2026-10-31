@@ -127,6 +127,12 @@
               <label title="Highlight drivers this close to the car ahead">Battle ≤
                 <input type="number" id="battle-gap" min="0.05" max="3" step="0.05"> s</label>
               <label title="Colour battles flash in">Colour <input type="color" id="battle-color"></label>
+              <label title="How names show in this list">Names
+                <select id="timing-names">
+                  <option value="full">Full name</option><option value="initial_last">D. Price</option>
+                  <option value="last_initial">Price D.</option><option value="last">Last name</option>
+                </select></label>
+              <label class="toggle" title="The league's nickname by the name"><input type="checkbox" id="timing-nick"> Nicknames</label>
             </div>
           </div>
           <div class="table-scroll">
@@ -199,13 +205,15 @@
           </div>
           <div class="gw-settings">
             <label>Seconds per pair <input id="gw-interval" type="number" min="2" max="120" step="1"></label>
+            <label class="toggle" title="Move on to the next pair by itself after the seconds per pair (off: only Next / Prev, or their hotkeys, move it)">
+              <input type="checkbox" id="gw-autoplay"> Auto-play</label>
             <label class="toggle"><input type="checkbox" id="gw-loop"> Loop</label>
             <label class="toggle" title="Add drivers from the active league who are not in this session, at the back">
               <input type="checkbox" id="gw-absent"> League drivers not in session</label>
           </div>
           <p class="hint">On stream: add a <b>Browser Source</b> in OBS (1920×1080) with
             <code id="gw-url"></code> <button class="btn subtle icon" id="gw-copy" title="Copy URL">Copy</button>.
-            Everything but the track and the panels is see-through. <span class="desk" data-desk="gridwalk"></span></p>
+            It fills the screen. <span class="desk" data-desk="gridwalk"></span></p>
           <div id="ov-gridwalk" class="ov-form" data-overlay="gridwalk"></div>
           <div class="gw-preview"><iframe id="gw-frame" title="Grid walk preview" src="gridwalk.html?preview=1"></iframe></div>
           <div class="booth">
@@ -371,6 +379,7 @@
         <div class="row desk-bar desk-help">
           <label class="desk-screen" hidden>Show on my screen on <select data-desk-tab="overlays" aria-label="Which screen overlays go on"></select>
             <span class="hint">for every overlay and the grid walk</span></label>
+          <button class="btn" id="desk-show-all" title="Every overlay (not the full-screen ones or the grid walk) straight on your screen">Show all on my screen</button>
           <button class="btn subtle" id="desk-hide-all" hidden>Remove all from my screen</button>
         </div>
         <div class="row transfer-row">

@@ -52,7 +52,8 @@ const ui = {
 // Per-PC preferences for the timing screen.
 const SETTINGS_KEY = "apex.timing";
 const settings = Object.assign(
-  { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null, actionKeys: {} },
+  { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null, actionKeys: {},
+    nameFormat: "full", showNick: true },
   (() => {
     try {
       return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
@@ -155,6 +156,12 @@ function render() {
 const PAGE_KEY = "apex.page";
 // ?popout=timing: one page in a window of its own (the Pop out buttons), without the tabs.
 const POPOUT = new URLSearchParams(location.search).get("popout");
+
+// The Timing tab's name style (Names): any but the full name leaves off a "(P)" class tag.
+function timingName(name) {
+  if (settings.nameFormat === "full") return name;
+  return formatName({ name: String(name || "").replace(/^\s*\([^()]*\)\s*/, "") }, settings.nameFormat);
+}
 
 // A nickname that's just the name without its "(P)" class tag says nothing new.
 function sameButClassTag(name, nickname) {
@@ -399,7 +406,7 @@ function renderStandings(s) {
       [r.class_pos ? `<span class="cls-pos" style="border-color:${esc(color)}">${r.class_pos}</span>` : ""],
       [changeCell(inClass ? r.class_pos_change : r.pos_change), "c-chg"],
       [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
-      [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname && !sameButClassTag(r.name, lg.nickname) ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
+      [`<span class="name">${esc(timingName(r.name))}</span>${settings.showNick && lg && lg.nickname && !sameButClassTag(r.name, lg.nickname) ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
         `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}${r.hidden ? ' <span class="tag out" title="No class in the league: left off the overlays and out of the results">NO CLASS</span>' : ""}`, "driver-cell"],
       [String(r.lap ?? "")],
       [gap, "c-time"],
@@ -532,7 +539,7 @@ function renderGridwalk(s) {
   $("#gw-toggle").textContent = g.running ? "❚❚ Pause" : "▶ Resume";
   renderThumbs(g);
   for (const [id, value, prop] of [["#gw-interval", g.interval, "value"],
-    ["#gw-loop", g.loop, "checked"], ["#gw-absent", g.include_absent, "checked"]]) {
+    ["#gw-loop", g.loop, "checked"], ["#gw-absent", g.include_absent, "checked"], ["#gw-autoplay", g.autoplay !== false, "checked"]]) {
     const el = $(id);
     if (document.activeElement !== el) el[prop] = value;
   }
@@ -594,6 +601,7 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
 
 $("#gw-interval").addEventListener("change", (e) => cmd("gridwalk_settings", { interval: +e.target.value }));
 $("#gw-loop").addEventListener("change", (e) => cmd("gridwalk_settings", { loop: e.target.checked }));
+$("#gw-autoplay").addEventListener("change", (e) => cmd("gridwalk_settings", { autoplay: e.target.checked }));
 $("#gw-absent").addEventListener("change", (e) => cmd("gridwalk_settings", { include_absent: e.target.checked }));
 $("#gw-url").textContent = `${location.origin}/gridwalk.html`;
 
@@ -720,6 +728,18 @@ $("#battle-gap").addEventListener("change", (e) => {
   e.target.value = settings.battleGap;
   saveSettings();
 });
+$("#timing-names").value = settings.nameFormat;
+$("#timing-nick").checked = settings.showNick;
+$("#timing-names").addEventListener("change", (e) => {
+  settings.nameFormat = e.target.value;
+  saveSettings();
+  if (ui.snap) renderStandings(ui.snap);
+});
+$("#timing-nick").addEventListener("change", (e) => {
+  settings.showNick = e.target.checked;
+  saveSettings();
+  if (ui.snap) renderStandings(ui.snap);
+});
 $("#battle-color").addEventListener("input", (e) => {
   settings.battleColor = e.target.value;
   document.documentElement.style.setProperty("--battle", settings.battleColor);
@@ -766,6 +786,12 @@ function hotkeyActions(s = ui.snap || {}) {
       ["gw:toggle", "On / off (starts from P1)", () => (s.gridwalk && s.gridwalk.visible
         ? cmd("gridwalk_hide", {}, "Grid walk off") : cmd("gridwalk_start", { index: 0 }, "Grid walk on"))],
       ["gw:next", "Next pair", () => cmd("gridwalk_next", {})],
+      ["gw:prev", "Previous pair", () => cmd("gridwalk_prev", {})],
+    ]],
+    ["On my screen (the app window only)", [
+      ["desk:overlays", "Every overlay on my screen", () => deskShowAll("overlays")],
+      ["desk:boards", "Boards on my screen", () => deskShowAll("boards")],
+      ["desk:off", "Remove everything from my screen", () => cmd("desktop_hide", {}, "Removed from your screen")],
     ]],
     ["Boards (press again: off screen)", boards],
     ["Championship battle (picks the drivers and shows it)", BATTLE_PICKS.map(([mode, label]) => [`battle:${mode}`, label,
@@ -2270,7 +2296,8 @@ const OVERLAY_FIELDS = {
       ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
-  gridwalk: [["Car pictures", [["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
+  gridwalk: [["Drivers", [["name_format", "Names", "select", NAME_FORMATS], ["show_nickname", "Nickname under the name", "bool"]]],
+    ["Car pictures", [["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
   pits: [
     ["What it shows", [
       ["who", "Show", "select", [["all", "Every car in the pit lane (the one on camera first)"], ["camera", "Only the car on camera"]]],
@@ -2869,6 +2896,7 @@ function renderDesktop(s) {
       `<option value="${i}" ${n === i ? "selected" : ""}>${esc(screenName(sc, i, d.screens))}</option>`).join("");
   });
   $("#desk-hide-all").hidden = !Object.keys(d.on_screen).length;
+  $("#desk-show-all").hidden = !d.available;
   document.querySelectorAll(".desk-help").forEach((el) => { el.hidden = !d.available; });
 }
 
@@ -2881,6 +2909,17 @@ async function deskShow(page, screen) {
     ok = localStorage.getItem(DESK_OK) === ui.version;
   } catch (e) { /* storage unavailable */ }
   if (!ok) startDeskCheck(page);
+}
+
+// Every overlay (or the boards) on screen at once: the Show all button and hotkeys.
+async function deskShowAll(group) {
+  const r = await cmd("desktop_show_all", { group, screen: deskScreen(group) }, group === "boards" ? "Boards on your screen" : "Overlays on your screen");
+  if (!r) return;
+  let ok = false;
+  try {
+    ok = localStorage.getItem(DESK_OK) === ui.version;
+  } catch (e) { /* storage unavailable */ }
+  if (!ok) startDeskCheck(undefined);  // no answer: all of them come down
 }
 
 // Can they see through it? If it came up solid instead, it's covering their
@@ -2937,6 +2976,7 @@ document.querySelectorAll("[data-desk-tab]").forEach((pick) => pick.addEventList
   }
 }));
 $("#desk-hide-all").addEventListener("click", () => cmd("desktop_hide", {}));
+$("#desk-show-all").addEventListener("click", () => deskShowAll("overlays"));
 
 // Scrolling the page with the mouse over a number box you'd clicked in
 // changed its value (e.g. a round's points multiplier, or a position):

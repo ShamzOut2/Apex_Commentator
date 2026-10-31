@@ -1316,6 +1316,19 @@ class App:
             raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
         return {"on_screen": self.desktop.on_screen()}
 
+    # What "all of them on my screen" puts up (hotkeys desk:overlays / desk:boards).
+    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits"), "boards": ("board",)}
+
+    def cmd_desktop_show_all(self, group="overlays", screen=0):
+        """Put every overlay (or the boards) on the user's screen, at once."""
+        if group not in self.DESKTOP_GROUPS:
+            raise CommandError("Unknown group of overlays.")
+        on = self.desktop.on_screen() if self.desktop is not None else {}
+        for page in self.DESKTOP_GROUPS[group]:
+            if on.get(page) != int(screen or 0):
+                self.cmd_desktop_show(page, screen)
+        return {"on_screen": self.desktop.on_screen()}
+
     def cmd_desktop_region(self, page, rects=None):
         """Where an on-screen overlay's page draws: [[x, y, width, height], ...]
         in its window's pixels (None: all of it). The window is cut to that."""
@@ -1559,9 +1572,9 @@ class App:
     def cmd_gridwalk_hide(self):
         self.gridwalk.hide()
 
-    def cmd_gridwalk_settings(self, interval=None, loop=None, include_absent=None):
+    def cmd_gridwalk_settings(self, interval=None, loop=None, include_absent=None, autoplay=None):
         try:
-            self.gridwalk.configure(interval, loop, include_absent)
+            self.gridwalk.configure(interval, loop, include_absent, autoplay)
         except ValueError as e:
             raise CommandError(str(e)) from e
 
@@ -1579,9 +1592,10 @@ class App:
 
     def cmd_hotkey(self, action):
         """What a hotkey does, by name (the same as the app's own key handling):
-        cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, board:off,
+        cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, gw:prev, board:off,
         board:next, board:prev (its pages), board:<kind>:<group> (on screen,
         or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick),
+        desk:overlays / desk:boards (all of them on the user's screen), desk:off,
         tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class)."""
         kind, _, rest = str(action).partition(":")
         if kind == "cam":
@@ -1597,6 +1611,8 @@ class App:
         if kind == "gw":
             if rest == "next":
                 return self.cmd_gridwalk_next()
+            if rest == "prev":
+                return self.cmd_gridwalk_prev()
             return self.cmd_gridwalk_hide() if self.gridwalk.visible else self.cmd_gridwalk_start(0)
         if kind == "board":
             if rest == "off":
@@ -1609,6 +1625,8 @@ class App:
             return self.cmd_board_show(board_kind, group, "latest")
         if kind == "battle":
             return self.cmd_battle_pick(rest)
+        if kind == "desk":
+            return self.cmd_desktop_hide() if rest == "off" else self.cmd_desktop_show_all(rest)
         if kind == "tower":
             tower = self.overlays.get()["standings"]
             if rest == "sponsor":

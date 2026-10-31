@@ -19,6 +19,15 @@ How each version's entry is written:
   of race (a sprint, a feature…), as many as you like, picked for each round.
 - **Drop a race meeting as a whole**: its races count as one for the drop
   rounds and drop together.
+- **Grid walk, rebuilt**: the grid in perspective from beside the track, with
+  textured tarmac, kerbs, grass, a wall with advertising boards, catch
+  fencing and a grandstand; the cars ahead wait up the road and the camera
+  glides down the grid from pair to pair.
+- Grid walk: **Auto-play** on or off (off: Next / Prev move it), a hotkey for
+  the previous pair, and the name style and nickname as you like them.
+- **Show all on my screen**, and hotkeys to put every overlay or the boards
+  on your screen (or take everything off).
+- Timing screen: name style (full name, D. Price…) and nicknames on or off.
 
 ### Improvements
 

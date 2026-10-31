@@ -69,8 +69,41 @@ class HotkeyActionTests(unittest.TestCase):
         self.assertIsNone(app.board["kind"])
         self.press("gw:toggle")
         self.assertTrue(app.gridwalk.visible)
+        self.press("gw:next")
+        self.assertEqual(app.gridwalk.index, 2)
+        self.press("gw:prev")
+        self.assertEqual(app.gridwalk.index, 0)
         self.press("gw:toggle")
         self.assertFalse(app.gridwalk.visible)
+
+    def test_everything_on_my_screen(self):
+        class Desk:
+            def __init__(self):
+                self.up = {}
+
+            def show(self, page, url, name, screen):
+                self.up[page] = screen
+                return True
+
+            def hide(self, page=None):
+                self.up = {k: v for k, v in self.up.items() if page and k != page}
+
+            def on_screen(self):
+                return dict(self.up)
+
+            def screens(self):
+                return []
+
+        self.app.desktop = desk = Desk()
+        try:
+            self.press("desk:overlays")
+            self.assertEqual(set(desk.up), {"standings", "laps", "sponsors", "driver", "battle", "pits"})
+            self.press("desk:boards")
+            self.assertIn("board", desk.up)
+            self.press("desk:off")
+            self.assertEqual(desk.up, {})
+        finally:
+            self.app.desktop = None
 
     def test_cameras(self):
         group = self.app._camera_groups[1]

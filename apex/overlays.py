@@ -178,6 +178,7 @@ DEFAULTS = {
     },
     # The grid walk's own settings are with the grid walk; this is just its background.
     "gridwalk": {**BACKGROUND, **OFFSET,
+                 "name_format": "full", "show_nickname": True,
                  "flip_cars": False},  # car pictures facing the other way (the cars should point right, up the road)
     # Full-screen boards (board.html), one section each. Every board has:
     # banner ("none", "top", "bottom", "left", "right"), banner_id (which of

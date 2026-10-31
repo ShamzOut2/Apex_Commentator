@@ -17,9 +17,10 @@ OBS dock.
   logos, notes and car and helmet photos. Define **classes** with your own
   names, colours and logos.
 - **Grid walk**: an on-stream graphic that walks the starting grid two drivers
-  at a time: a track across the screen, each car in its grid box (your own
-  car pictures, matched to each driver and car) with the driver's details
-  beside it. It advances on a timer you set.
+  at a time: the grid seen in perspective from beside the track, each car in
+  its grid box (your own car pictures, matched to each driver and car) with
+  the driver's details beside it. It advances on a timer you set, or when
+  you press Next.
 - **Standings overlay**: a timing tower for stream, overall or by class. In
   qualifying it starts empty and fills as drivers set clean laps.
 - **Qualifying lap tracker**: live sector bars (purple, green, yellow) and lap
@@ -51,6 +52,15 @@ walk, Overlays, Boards and Race control.
   of race (a sprint, a feature…), as many as you like, picked for each round.
 - **Drop a race meeting as a whole**: its races count as one for the drop
   rounds and drop together.
+- **Grid walk, rebuilt**: the grid in perspective from beside the track, with
+  textured tarmac, kerbs, grass, a wall with advertising boards, catch
+  fencing and a grandstand; the cars ahead wait up the road and the camera
+  glides down the grid from pair to pair.
+- Grid walk: **Auto-play** on or off (off: Next / Prev move it), a hotkey for
+  the previous pair, and the name style and nickname as you like them.
+- **Show all on my screen**, and hotkeys to put every overlay or the boards
+  on your screen (or take everything off).
+- Timing screen: name style (full name, D. Price…) and nicknames on or off.
 
 ### Improvements
 
@@ -156,6 +166,9 @@ shows something else. Camera hotkeys work in whichever window has focus.
 - **Battles**: a driver within the battle gap of the car ahead (0.15 s by
   default) is lit up, steadily, in the colour you pick: just that driver,
   not the car they're closing on. Both settings sit above the standings.
+- **Names**: the name style in the list (full name, D. Price, Price D., last
+  name), and **Nicknames** by the names on or off. Next to the battle
+  settings, kept for this PC.
 - **Race log**: everything that happens, newest first, filterable: overtakes,
   off tracks, spins, incident points, places lost after an off, pit in/out
   (with stop time and places lost), penalties and class fastest laps. **Click
@@ -187,7 +200,9 @@ Boards tabs) also sets keys for:
   overall / by class;
 - the championship battle's quick picks (the car on camera and the one
   ahead, the cars either side, the top 3), which also put it on screen;
-- the grid walk: on / off (starting from P1), and the next pair;
+- the grid walk: on / off (starting from P1), and the next and previous pair;
+- on your own screen (app window): every overlay, the boards, or taking
+  everything off (see "Overlays on your own screen");
 - every board in the Boards tab (each class's standings, teams',
   manufacturers', the calendar, finishing orders), its next and previous
   page, and taking the board off screen. A board's key puts it on screen; pressed again while it's up, it
@@ -273,17 +288,25 @@ Things to know:
 
 ## Grid walk
 
-![grid walk: two cars in their grid boxes on a track across the screen](docs/gridwalk-track.png)
+![grid walk: two cars in their grid boxes, seen at an angle from beside the track](docs/gridwalk-track.png)
 
 The **Grid walk** tab runs a broadcast graphic that goes through the whole
-field, front to back, two drivers at a time. A stretch of track runs across
-the screen; the front car of the row stands in its painted grid box on the
-upper lane, further up the road, and the second one in the box staggered
-behind it below, as on a real grid. Beside each car are the driver's
+field, front to back, two drivers at a time. The grid is seen in
+perspective from a camera beside the track, over the pit wall: textured
+tarmac with the racing line rubbered in, red and white kerbs, grass, a wall
+with advertising boards (the league's name) and a catch fence, and a full
+grandstand behind. The front car of the row stands in its painted grid box
+on the far lane, further up the road, and the second one in the box
+staggered behind it, as on a real grid; each box has its number painted in
+front of it, and pole has the start line ahead. The cars further up the grid
+wait in their boxes up the road, and moving on to the next pair the camera
+glides back down the grid to it. The driver panels sit over the top right
+(the front car) and bottom left (the second one) with the driver's
 details: grid position (and class position in multiclass races), car
 number in the class colour, class badge, car badge, name, nickname, team and
 team logo, and their qualifying time (the class pole's lap, the gap to it
-for everyone else).
+for everyone else). **Names** sets the name style (full name, A. Driver…)
+and *Nickname under the name* can be turned off.
 
 - **Car pictures**: you make them, the app puts them in the right place.
   Put them in one folder and point *Car pictures → Folder* at it. Name each
@@ -314,10 +337,12 @@ for everyone else).
   on any driver to jump to their pair, and *Hide* to take it off screen.
   *Seconds per pair* sets the timer, and *Loop* restarts from the front.
   Without Loop, the graphic leaves the screen after the last pair.
+  **Auto-play** (on by default) moves on to the next pair when its time is
+  up; with it off, a pair stays until you press *Next* or *Prev* (or their
+  hotkeys).
 
 **On stream**: in OBS add a **Browser Source** of 1920×1080 pointing at
-`http://localhost:8180/gridwalk.html`. Everything but the title, the track
-and the drivers' panels is see-through. The walk runs on the server, so the
+`http://localhost:8180/gridwalk.html`. It fills the screen. The walk runs on the server, so the
 OBS source, the preview in the tab, and any other copy all stay in step. Add
 `?preview=1` to the URL to view it on a backdrop in a normal browser.
 
@@ -720,7 +745,11 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
   Overlays tab (for every overlay and the grid walk) or the Boards tab. The
   app remembers it; changing it moves anything from that tab already up.
 - **Remove** takes it down; *Remove all from my screen* clears everything.
-  They also close with the app.
+  They also close with the app. **Show all on my screen** (Overlays tab) puts
+  every overlay up at once: the standings tower, lap tracker, driver on
+  camera, sponsors, championship battle and pit stops (each still shows only
+  when it's turned on). Hotkeys can do the same: every overlay, the boards,
+  or remove everything.
 - The first time (and the first time after each update), the app asks
   whether you can see your screen through it.
   If you don't answer within 15 seconds it takes the overlay down by itself
