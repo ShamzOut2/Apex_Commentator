@@ -184,7 +184,7 @@ function render() {
   progress = { elapsed: g.elapsed, interval: g.interval, running: g.running && g.visible, at: performance.now() };
   const show = g.visible && pair.length > 0;
   setPanels(snap.overlays && snap.overlays.settings.gridwalk);
-  setSize(snap.overlays && snap.overlays.settings.gridwalk, true);
+  setSize(snap.overlays && snap.overlays.settings.gridwalk, true, true);
   // Only rebuild when what is on screen changes, so animations play once.
   const key = JSON.stringify([show, g.style, g.index, pair, pair.map((e) => classes.get(e.class_key) || null),
     entries.length, snap.league, snap.session && snap.session.track]);

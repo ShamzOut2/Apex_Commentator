@@ -29,14 +29,18 @@ def _group_info(league, key):
 def options(league):
     """What the Boards tab can offer: the league's championships and rounds."""
     if not league:
-        return {"groups": [], "rounds": []}
+        return {"groups": [], "rounds": [], "classes": []}
     table = championship.standings(league)
     groups = []
     for g in table["groups"]:
         name, color, _ = _group_info(league, g["key"])
         groups.append({"key": g["key"], "name": name, "color": color})
     rounds = [{"id": r["id"], "name": r["name"], "track": r["track"], "scored": r["scored"]} for r in table["rounds"]]
-    return {"groups": groups, "rounds": rounds, "teams": bool(table["teams"]),
+    # Every class of the league (main and secondary), for a finishing order of
+    # any of them, whether or not it has points of its own yet.
+    classes = [{"key": c["id"], "name": c.get("name") or c["id"], "color": c.get("color") or None,
+                "secondary": c.get("role") == "secondary"} for c in league.get("classes", []) if c.get("id")]
+    return {"groups": groups, "rounds": rounds, "classes": classes, "teams": bool(table["teams"]),
             "has_teams": any(d.get("team") for d in league.get("drivers", []))}
 
 
@@ -77,7 +81,10 @@ def _sponsor_strip(league, settings):
 
 
 def build(league, board, settings, live_results=None):
-    """The board on screen, ready to draw, or None."""
+    """The board on screen, ready to draw, or None.
+
+    ``live_results``: for a finishing order from a session of the event in
+    iRacing ("live", or "session:<number>"): {"name", "race", "results"}."""
     if not league or not board.get("kind"):
         return None
     kind = board["kind"]
@@ -105,7 +112,7 @@ def build(league, board, settings, live_results=None):
         rounds = [r for r in table["rounds"] if r["scored"]]
         last = rounds[-cfg["rounds"]:] if cfg["rounds"] else []
         rows = []
-        for d in (g["drivers"] if g else [])[:cfg["rows"]]:
+        for d in (g["drivers"] if g else []):
             roster = next((x for x in league.get("drivers", []) if championship._key(x) == d["driver"]), {})
             make = roster.get("car_make", "")
             rows.append({
@@ -129,7 +136,7 @@ def build(league, board, settings, live_results=None):
         last = rounds[-cfg["rounds"]:] if cfg["rounds"] else []
         out["round_names"] = [f"R{rounds.index(r) + 1}" for r in last]
         rows = []
-        for t in table["teams"][:cfg["rows"]]:
+        for t in table["teams"]:
             team = info.get(t["team"].lower(), {})
             per = {s["round"]: s["points"] for s in t["rounds"]}
             rows.append(dict(t, team_logo=team_logos.get(t["team"].lower()), color=team.get("color") or None,
@@ -137,7 +144,7 @@ def build(league, board, settings, live_results=None):
                              rounds=[per.get(r["id"]) for r in last]))
         out["rows"] = rows
     elif kind == "makes":
-        out["rows"] = [dict(m, make_logo=make_logo(m["make"])) for m in championship.make_standings(league, group)[:cfg["rows"]]]
+        out["rows"] = [dict(m, make_logo=make_logo(m["make"])) for m in championship.make_standings(league, group)]
     elif kind == "calendar":
         # The league's own calendar graphic, when they have one and want it.
         if cfg["style"] == "image" and league.get("calendar_image"):
@@ -155,10 +162,11 @@ def build(league, board, settings, live_results=None):
     elif kind == "results":
         champ = championship.normalise(league.get("championship"))
         source = params.get("round") or "latest"
-        if source == "live" and live_results is not None:
-            rd = {"id": "live", "name": "Live", "track": "", "multiplier": 1.0, "results": live_results,
-                  "provisional": True}
-            out["title"] = "Running order"
+        live = (source == "live" or source.startswith("session:")) and live_results is not None
+        if live:
+            rd = {"id": "live", "name": live_results["name"], "track": "", "multiplier": 1.0,
+                  "results": live_results["results"], "provisional": True}
+            out["title"] = "Running order" if source == "live" else f"{live_results['name'].title()} result"
         else:
             scored = [r for r in champ["rounds"] if r["results"]]
             rd = next((r for r in scored if r["id"] == source), scored[-1] if scored else None)
@@ -170,12 +178,72 @@ def build(league, board, settings, live_results=None):
                                  number=r["car_number"], team_logo=team_logos.get((r["team"] or "").lower()),
                                  make_logo=make_logo(r["make"]),
                                  gained=(r["start"] - r["rank"]) if r["start"] and r["rank"] else None))
+            if live and not live_results["race"]:
+                for row in rows:  # practice or qualifying: an order by best lap, not points
+                    row.update(points=None, gained=None, gap=None)
+            _gaps(rows, by_lap=live and not live_results["race"])
             if rd["id"] != "live":
                 n = champ["rounds"].index(rd) + 1
                 name = " · ".join(filter(None, [rd["event"], rd["name"]]))
                 out["title"] = f"{name} result" if name else f"Round {n} result"
                 out["subtitle"] = " · ".join(filter(None, [out["subtitle"], rd["track"]]))
-        out["rows"] = rows[:cfg["rows"]]
+        out["rows"] = rows
+    return _page(out, cfg, params)
+
+
+def _gaps(rows, by_lap=False):
+    """Each finisher's gap to the winner and to the car ahead (``gap`` /
+    ``interval`` seconds, or ``gap_laps`` / ``interval_laps`` laps down; a
+    DNF, DNS or DSQ has ``out``: what to show there instead). ``by_lap``:
+    practice or qualifying, gaps between best laps."""
+    ahead = None
+    leader = None
+    for row in rows:
+        row["_gap"] = row.get("gap")  # seconds behind the overall winner, as saved
+    for row in rows:
+        row.update(gap_laps=None, interval=None, interval_laps=None,
+                   out="DNF" if row.get("short") else (row["status"].upper() if row["status"] != "finished" else None))
+        if by_lap:
+            t = row.get("fastest_lap")
+            row["gap"] = None
+            if t is None or row["out"]:
+                continue
+            if leader is not None:
+                row["gap"] = round(t - leader, 3)
+                row["interval"] = round(t - ahead, 3)
+            leader = t if leader is None else leader
+            ahead = t
+            continue
+        if row["out"] or row.get("rank") is None:
+            row["gap"] = None
+            continue
+        if leader is None:
+            leader, ahead = row, row
+            row["gap"] = None  # the winner
+            continue
+        for key, other in (("gap", leader), ("interval", ahead)):
+            down = (other.get("laps") or 0) - (row.get("laps") or 0)
+            if down > 0:
+                row[f"{key}_laps"], row[key] = down, None
+            else:
+                mine, theirs = row["_gap"], other["_gap"]
+                row[key] = round(max(mine - theirs, 0.0), 3) if mine is not None and theirs is not None else None
+        ahead = row
+    for row in rows:
+        row.pop("_gap", None)
+
+
+def _page(out, cfg, params):
+    """Just this page of the board's rows: ``rows`` (the setting) a page, the
+    rest on the pages after it. Positions carry on from page to page."""
+    n = max(1, int(cfg.get("rows") or 1)) if not out.get("image") else max(1, len(out["rows"]))
+    pages = max(1, -(-len(out["rows"]) // n))
+    try:
+        page = int(params.get("page") or 0)
+    except (TypeError, ValueError):
+        page = 0
+    page = min(max(page, 0), pages - 1)
+    out.update(rows=out["rows"][page * n:(page + 1) * n], page=page, pages=pages)
     return out
 
 

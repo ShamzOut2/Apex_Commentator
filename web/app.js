@@ -52,7 +52,7 @@ const ui = {
 // Per-PC preferences for the timing screen.
 const SETTINGS_KEY = "apex.timing";
 const settings = Object.assign(
-  { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null },
+  { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null, actionKeys: {} },
   (() => {
     try {
       return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
@@ -90,8 +90,14 @@ function connectStream() {
 // rendering
 // ---------------------------------------------------------------------------
 
+let hotkeysSent = false;
+
 function render() {
   const s = ui.snap;
+  if (!hotkeysSent && s.camera) {
+    hotkeysSent = true;
+    sendHotkeys();  // this PC's keys, once the cameras are known
+  }
   $("#status-dot").classList.toggle("on", !!s.connected);
   const league = s.league;
   const lb = $("#league-badge");
@@ -103,6 +109,8 @@ function render() {
   renderUpdates(s.update);
   renderResultsAuto(s.results_auto);
   renderOverlaySettings(s);
+  renderBattlePick(s);
+  renderRaceControl(s);
   renderChampLive(s);
   renderBoards(s);
   renderDesktop(s);
@@ -198,7 +206,32 @@ function hotkeys(groups) {
 }
 
 function keyLabel(k) {
-  return { arrowup: "↑", arrowdown: "↓", " ": "Space" }[k] || (k.length === 1 ? k.toUpperCase() : k);
+  const one = (p) => ({ arrowup: "↑", arrowdown: "↓", " ": "Space", ctrl: "Ctrl", alt: "Alt", shift: "Shift" }[p]
+    || (/^num\d$/.test(p) ? `Num ${p.slice(3)}` : p.length === 1 || /^f\d+$/.test(p) ? p.toUpperCase() : p));
+  return String(k).split("+").map((p) => one(p || "+")).join("+");
+}
+
+// A key as the hotkeys keep it: "c", "1", or with Ctrl / Alt (and Shift)
+// "ctrl+alt+1". With modifiers, the key itself is read from where it is on
+// the keyboard (so Shift+1 is "shift+1", not "!").
+function keyOf(e) {
+  const mods = (e.ctrlKey ? "ctrl+" : "") + (e.altKey ? "alt+" : "") + ((e.ctrlKey || e.altKey) && e.shiftKey ? "shift+" : "");
+  if (!mods) return e.key.toLowerCase();
+  const c = e.code || "";
+  const base = /^Key[A-Z]$/.test(c) ? c.slice(3).toLowerCase() : /^Digit\d$/.test(c) ? c.slice(5)
+    : /^Numpad\d$/.test(c) ? `num${c.slice(6)}` : /^F\d{1,2}$/.test(c) ? c.toLowerCase() : e.key.toLowerCase();
+  return mods + base;
+}
+
+// Keys with Ctrl or Alt work whichever program is in front (the app registers
+// them with Windows; see apex/hotkeys.py): it's told about every change.
+const systemWide = (k) => /(^|\+)(ctrl|alt)\+/.test(k);
+function sendHotkeys() {
+  const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
+  const keys = {};
+  for (const [name, k] of Object.entries(hotkeys(groups))) if (systemWide(k)) keys[k] = `cam:${name}`;
+  for (const [id, k] of Object.entries(settings.actionKeys || {})) if (systemWide(k)) keys[k] = id;
+  return api("/api/cmd", { method: "POST", body: { action: "hotkeys", params: { keys } } }).catch(() => {});
 }
 
 function renderCamButtons(cam) {
@@ -762,20 +795,272 @@ $("#battle-color").addEventListener("input", (e) => {
   saveSettings();
 });
 
-// -- camera hotkeys --------------------------------------------------------------------
+// -- hotkeys: cameras, overlays, the grid walk and boards -----------------------------
+// Cameras keep their own map (settings.hotkeys, by camera name; 1-9 until set
+// by hand); everything else is settings.actionKeys, by action id. A key does
+// one thing, and works in any app window (pop-outs too) when it's in front.
 
-let hotkeyTarget = null;   // camera group name waiting for a key
+let hotkeyTarget = null;   // {kind: "cam" | "act", id, label} waiting for a key
+
+const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"],
+  ["battle", "Championship battle"]];
+const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
+
+// What a key can do besides cameras: [[section, [[id, label, run]]]], from
+// the snapshot (the boards there are, what's on).
+function hotkeyActions(s = ui.snap || {}) {
+  const ov = (s.overlays && s.overlays.settings) || {};
+  const opts = s.board_options || { groups: [] };
+  const groups = opts.groups || [];
+  const boards = [["board:off", "Take the board off screen", () => cmd("board_hide", {}, "Board off screen")],
+    ["board:next", "Next page of the board", () => cmd("board_page", { step: "next" })],
+    ["board:prev", "Previous page of the board", () => cmd("board_page", { step: "prev" })]];
+  const add = (kind, group, label) => boards.push([`board:${kind}:${group}`, label, () => toggleBoard(kind, group)]);
+  groups.forEach((g) => add("championship", g.key, `Standings · ${g.name}`));
+  if (opts.teams) add("teams", "", "Teams' championship");
+  groups.forEach((g) => add("makes", g.key, `Manufacturers · ${g.name}`));
+  add("calendar", "", "Season calendar");
+  resultGroups(opts).forEach((g) => add("results", g.key, `Finishing order · ${g.name}`));
+  const on = (k) => !!(ov[k] && ov[k].visible);
+  return [
+    ["Overlays (on / off)", OVERLAY_TOGGLES.map(([k, label]) => [`ov:${k}`, label,
+      () => cmd("overlay_settings", { overlay: k, values: { visible: !on(k) } }, `${label} ${on(k) ? "off" : "on"}`)])],
+    ["Grid walk", [
+      ["gw:toggle", "On / off (starts from P1)", () => (s.gridwalk && s.gridwalk.visible
+        ? cmd("gridwalk_hide", {}, "Grid walk off") : cmd("gridwalk_start", { index: 0 }, "Grid walk on"))],
+      ["gw:next", "Next pair", () => cmd("gridwalk_next", {})],
+    ]],
+    ["Boards (press again: off screen)", boards],
+    ["Championship battle (picks the drivers and shows it)", BATTLE_PICKS.map(([mode, label]) => [`battle:${mode}`, label,
+      () => cmd("battle_pick", { mode }, "Championship battle on")])],
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// race control: penalties and race commands, sent as iRacing admin chat commands
+// ---------------------------------------------------------------------------
+
+const rcHold = {};  // car_idx -> {amount, unit}: each driver's stop & hold box, kept through redraws
+let rcKey = "";
+let rcLogKey = "";
+
+function renderRaceControl(s) {
+  const classes = new Map((s.classes || []).map((c) => [c.key, c]));
+  const filter = $("#rc-filter").value.trim().toLowerCase();
+  const drivers = (s.connected ? s.drivers || [] : [])
+    .filter((d) => !filter || `${d.number} ${d.name}`.toLowerCase().includes(filter))
+    .sort((a, b) => (a.pos || 999) - (b.pos || 999) || String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
+  $("#rc-status").textContent = s.connected ? `${(s.drivers || []).length} drivers` : "Not connected to iRacing";
+  ["#rc-clear-all", "#rc-grid", "#rc-start", "#rc-send"].forEach((id) => { $(id).disabled = !s.connected; });
+  const key = JSON.stringify([drivers.map((d) => [d.car_idx, d.pos, d.number, d.name, d.class_key, d.in_world]), [...classes.keys()]]);
+  const table = $("#rc-rows");
+  // Not while something in the list is being typed in or picked.
+  if (key !== rcKey && !(table.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName))) {
+    rcKey = key;
+    table.innerHTML = drivers.map((d) => {
+      const cls = classes.get(d.class_key);
+      const hold = rcHold[d.car_idx] || { amount: "", unit: "seconds" };
+      return `<tr data-car="${d.car_idx}" class="${d.in_world ? "" : "rc-out"}">
+        <td class="r">${d.pos || "–"}</td>
+        <td><span class="num" style="${cls ? `background:${esc(cls.color)};color:${inkFor(cls.color)}` : ""}">${esc(d.number)}</span></td>
+        <td class="rc-name">${esc(d.name)}${d.in_world ? "" : ' <span class="hint">(not in the car)</span>'}</td>
+        <td class="rc-pen">
+          <button class="btn subtle" data-rc="clear" title="Clear their penalties (!clear)">Clear</button>
+          <button class="btn" data-rc="drive_through" title="Drive-through (!black D)">Drive-through</button>
+          <button class="btn" data-rc="stop_go" title="Stop & go (!black)">Stop &amp; go</button>
+        </td>
+        <td class="rc-hold">
+          <input type="number" min="1" step="1" data-rc-amount value="${esc(hold.amount)}" placeholder="0" aria-label="How long">
+          <select data-rc-unit aria-label="Seconds, minutes or laps">${[["seconds", "Seconds"], ["minutes", "Minutes"], ["laps", "Laps"]].map(([v, l]) =>
+            `<option value="${v}" ${hold.unit === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+          <button class="btn" data-rc="stop_hold" title="Stop and hold for this long (!black with a time or laps)">Stop &amp; hold</button>
+        </td></tr>`;
+    }).join("");
+  }
+  $("#rc-empty").hidden = drivers.length > 0;
+  const log = (s.race_control && s.race_control.log) || [];
+  const logKey = JSON.stringify(log);
+  if (logKey !== rcLogKey) {
+    rcLogKey = logKey;
+    $("#rc-log").innerHTML = log.length ? [...log].reverse().map((l) => `<li><span class="hint">${esc(l.at)}</span> ${esc(l.label)}
+      <code>${esc(l.line)}</code></li>`).join("") : '<li class="hint">Nothing sent yet.</li>';
+  }
+}
+
+$("#rc-filter").addEventListener("input", () => { rcKey = ""; renderRaceControl(ui.snap); });
+$("#rc-rows").addEventListener("input", (e) => {
+  const row = e.target.closest("tr[data-car]");
+  if (!row) return;
+  rcHold[row.dataset.car] = { amount: row.querySelector("[data-rc-amount]").value, unit: row.querySelector("[data-rc-unit]").value };
+});
+$("#rc-rows").addEventListener("change", (e) => {
+  const row = e.target.closest("tr[data-car]");
+  if (row) rcHold[row.dataset.car] = { amount: row.querySelector("[data-rc-amount]").value, unit: row.querySelector("[data-rc-unit]").value };
+});
+$("#rc-rows").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-rc]");
+  if (!btn) return;
+  const row = btn.closest("tr[data-car]");
+  const params = { car_idx: +row.dataset.car, kind: btn.dataset.rc };
+  if (params.kind === "stop_hold") {
+    params.amount = row.querySelector("[data-rc-amount]").value;
+    params.unit = row.querySelector("[data-rc-unit]").value;
+  }
+  btn.blur();
+  const r = await cmd("rc_penalty", params);
+  if (r) toast(`Sent: ${r.sent}`);
+});
+$("#rc-clear-all").addEventListener("click", async () => {
+  if (!confirm("Clear every driver's penalties?")) return;
+  const r = await cmd("rc_clear_all");
+  if (r) toast("All penalties cleared");
+});
+$("#rc-grid").addEventListener("click", async () => {
+  const r = await cmd("rc_grid", { minutes: $("#rc-grid-min").value });
+  if (r) toast(`Grid time set: ${$("#rc-grid-min").value} min`);
+});
+$("#rc-start").addEventListener("click", async () => {
+  if (!confirm("Start the race now?")) return;
+  const r = await cmd("rc_start");
+  if (r) toast("Race start sent");
+});
+async function rcSend() {
+  const box = $("#rc-message");
+  const r = await cmd("rc_message", { text: box.value });
+  if (r) {
+    toast("Message sent to all");
+    box.value = "";
+  }
+}
+$("#rc-send").addEventListener("click", rcSend);
+$("#rc-message").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") rcSend();
+});
+
+// The championship battle's quick picks (cmd_battle_pick).
+const BATTLE_PICKS = [["ahead", "The car on camera and the one ahead"], ["around", "The car on camera and the cars either side"],
+  ["top", "The championship's top 3"]];
+
+// The championship battle: which championship, which drivers.
+let battlePickKey = "";
+function renderBattlePick(s) {
+  const el = $("#battle-pick");
+  const cfg = s.overlays && s.overlays.settings && s.overlays.settings.battle;
+  if (!el || !cfg) return;
+  const champ = s.championship;
+  const groups = (champ && champ.groups) || [];
+  const group = groups.find((g) => g.key === cfg.group);
+  const picked = cfg.drivers ? cfg.drivers.split(",") : [];
+  const drivers = (group && group.drivers) || [];
+  const key = JSON.stringify([cfg.group, cfg.drivers, cfg.visible, groups.map((g) => [g.key, g.name]),
+    drivers.map((d) => [d.driver, d.name, d.pos]), !!s.league]);
+  // Not while a list in it is open.
+  if (key === battlePickKey || (el.contains(document.activeElement) && document.activeElement.tagName === "SELECT")) return;
+  battlePickKey = key;
+  if (!s.league) {
+    el.innerHTML = '<p class="hint">Activate a league (League builder) to use it.</p>';
+    return;
+  }
+  if (!groups.length) {
+    el.innerHTML = '<p class="hint">It shows once the championship has standings: after the first round\'s results, or live during a race.</p>';
+    return;
+  }
+  const nameOf = (k) => (drivers.find((d) => d.driver === k) || {}).name || k.replace(/^(cust|name):/, "");
+  const chips = picked.map((k) => {
+    const d = drivers.find((x) => x.driver === k);
+    return `<span class="bp-chip ${d ? "" : "missing"}" title="${d ? "" : "Not in this championship"}">${d && d.pos ? `P${d.pos} ` : ""}${esc(nameOf(k))}
+      <button type="button" data-battle-remove="${esc(k)}" aria-label="Remove">×</button></span>`;
+  }).join("");
+  const free = drivers.filter((d) => !picked.includes(d.driver));
+  el.innerHTML = `
+    <label class="ov-field">Championship <select data-battle-group>${groups.map((g) =>
+      `<option value="${esc(g.key)}" ${g.key === cfg.group ? "selected" : ""}>${esc(g.name)}</option>`).join("")}
+      ${group ? "" : `<option value="${esc(cfg.group)}" selected>Pick one</option>`}</select></label>
+    <div class="bp-drivers"><span>Drivers <span class="hint">(up to 6)</span></span>
+      <div class="bp-chips">${chips || '<span class="hint">None picked yet</span>'}
+        ${picked.length < 6 && free.length ? `<select data-battle-add aria-label="Add a driver"><option value="">+ Add a driver…</option>${free.map((d) =>
+          `<option value="${esc(d.driver)}">P${d.pos} · ${esc(d.name)} (${esc(String(d.points))} pts)</option>`).join("")}</select>` : ""}
+      </div></div>
+    <div class="row bp-quick">${BATTLE_PICKS.map(([mode, label]) => `<button type="button" class="btn subtle" data-battle-pick="${mode}"
+      title="Pick these and show it">${esc(label)}</button>`).join("")}
+      ${picked.length ? '<button type="button" class="btn subtle" data-battle-clear>Clear</button>' : ""}</div>
+    ${champ.live ? `<p class="hint">Live: as if ${esc(champ.round || "this race")} ended now.</p>` : ""}`;
+}
+
+function setBattle(values, done) {
+  battlePickKey = "";
+  return cmd("overlay_settings", { overlay: "battle", values }, done);
+}
+
+// The drivers picked, as the card shows them.
+function battlePicked() {
+  const cfg = ui.snap.overlays.settings.battle;
+  return cfg.drivers ? cfg.drivers.split(",") : [];
+}
+
+$("#battle-pick").addEventListener("change", (e) => {
+  const picked = battlePicked();
+  if (e.target.matches("[data-battle-group]")) setBattle({ group: e.target.value });
+  if (e.target.matches("[data-battle-add]") && e.target.value) setBattle({ drivers: [...picked, e.target.value].join(",") });
+  e.target.blur();
+});
+$("#battle-pick").addEventListener("click", (e) => {
+  const picked = battlePicked();
+  const remove = e.target.closest("[data-battle-remove]");
+  if (remove) setBattle({ drivers: picked.filter((k) => k !== remove.dataset.battleRemove).join(",") });
+  const pick = e.target.closest("[data-battle-pick]");
+  if (pick) {
+    battlePickKey = "";
+    cmd("battle_pick", { mode: pick.dataset.battlePick }, "Championship battle on");
+  }
+  if (e.target.closest("[data-battle-clear]")) setBattle({ drivers: "", visible: false });
+  if (e.target.closest("button")) e.target.closest("button").blur();
+});
+
+// Finishing orders on offer: overall, each championship, and every other class
+// of the league (secondary ones too), points or not.
+function resultGroups(opts) {
+  const out = [{ key: "overall", name: "Overall", color: null }];
+  for (const g of [...(opts.groups || []), ...(opts.classes || [])]) {
+    if (!out.some((x) => x.key === g.key)) out.push(g);
+  }
+  return out;
+}
+
+// A board's key: on screen, or off if it's the one up already.
+async function toggleBoard(kind, group) {
+  if (ui.boardOn && ui.boardOn.kind === kind && ui.boardOn.group === group) return cmd("board_hide", {}, "Board off screen");
+  const params = { kind, group };
+  if (kind === "results") params.round = boardRound;
+  const r = await cmd("board_show", params);
+  if (r) ui.boardOn = { kind, group };
+  boardButtonsKey = "";
+  return r;
+}
 
 function renderHotkeyList() {
   const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
-  const keys = hotkeys(groups);
-  $("#hotkey-list").innerHTML = groups.length ? groups.map((g) => `<button class="btn hk ${hotkeyTarget === g.name ? "primary" : ""}"
-      data-hk="${esc(g.name)}">${esc(g.name)} <kbd>${keys[g.name] ? esc(keyLabel(keys[g.name])) : "–"}</kbd></button>`).join("")
-    : '<p class="hint">Cameras appear once iRacing is connected.</p>';
-  $("#hotkey-prompt").textContent = hotkeyTarget ? `Press a key for ${hotkeyTarget}…` : "";
+  const cams = hotkeys(groups);
+  const acts = settings.actionKeys || {};
+  const hk = (ui.snap && ui.snap.hotkeys) || {};
+  const taken = new Set(hk.taken || []);
+  const btn = (kind, id, label, key) => {
+    const wide = key && systemWide(key) && hk.system_wide;
+    const note = !key ? "" : taken.has(key) ? "Another program has this combination: pick another"
+      : wide ? "Works whichever program is in front" : "Works when an Apex Commentator window is in front";
+    return `<button class="btn hk ${hotkeyTarget && hotkeyTarget.kind === kind && hotkeyTarget.id === id ? "primary" : ""} ${taken.has(key) ? "taken" : ""}"
+      data-hk-kind="${kind}" data-hk="${esc(id)}" data-hk-label="${esc(label)}" title="${note}">${esc(label)}
+      <kbd>${key ? `${wide ? "🌐 " : ""}${esc(keyLabel(key))}` : "–"}</kbd></button>`;
+  };
+  const sections = [["Cameras", groups.length ? groups.map((g) => btn("cam", g.name, g.name, cams[g.name])).join("")
+    : '<p class="hint">Cameras appear once iRacing is connected.</p>'],
+  ...hotkeyActions().map(([title, items]) => [title, items.map(([id, label]) => btn("act", id, label, acts[id])).join("")])];
+  $("#hotkey-list").innerHTML = sections.map(([title, html]) => `<h4 class="hk-section">${esc(title)}</h4><div class="hotkey-list">${html}</div>`).join("");
+  $("#hotkey-prompt").textContent = hotkeyTarget ? `Press a key for ${hotkeyTarget.label}…` : "";
 }
 
-$("#btn-hotkeys").addEventListener("click", () => {
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("[data-open-hotkeys]")) return;
   hotkeyTarget = null;
   renderHotkeyList();
   $("#hotkey-modal").hidden = false;
@@ -783,42 +1068,50 @@ $("#btn-hotkeys").addEventListener("click", () => {
 $("#hotkey-list").addEventListener("click", (e) => {
   const b = e.target.closest("[data-hk]");
   if (!b) return;
-  hotkeyTarget = b.dataset.hk;
+  hotkeyTarget = { kind: b.dataset.hkKind, id: b.dataset.hk, label: b.dataset.hkLabel };
   renderHotkeyList();
 });
 $("#hotkey-done").addEventListener("click", () => {
   hotkeyTarget = null;
   $("#hotkey-modal").hidden = true;
   camKey = "";
+  boardButtonsKey = "";
   if (ui.snap && ui.snap.connected) renderCamButtons(ui.snap.camera);
 });
 $("#hotkey-reset").addEventListener("click", () => {
   settings.hotkeys = null;
   saveSettings();
+  sendHotkeys();
   renderHotkeyList();
 });
 
 function captureHotkey(e) {
-  const key = e.key.toLowerCase();
-  if (key === "escape") {
+  const t = hotkeyTarget;
+  if (e.key === "Escape") {
     hotkeyTarget = null;
-  } else {
-    const groups = ui.snap.camera.groups;
-    const map = { ...hotkeys(groups) };
-    if (key === "backspace" || key === "delete") {
-      delete map[hotkeyTarget];
-    } else if (RESERVED_KEYS.has(key)) {
-      $("#hotkey-prompt").textContent = `${keyLabel(key)} is taken. Pick another key for ${hotkeyTarget}.`;
-      return;
-    } else {
-      // A key belongs to one camera.
-      for (const [name, k] of Object.entries(map)) if (k === key) delete map[name];
-      map[hotkeyTarget] = key;
-    }
-    settings.hotkeys = map;
-    saveSettings();
-    hotkeyTarget = null;
+    return renderHotkeyList();
   }
+  if (NOT_KEYS.has(e.key.toLowerCase())) return;  // a modifier on its own: wait for the key
+  const key = keyOf(e);
+  const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
+  const cams = { ...hotkeys(groups) };
+  const acts = { ...(settings.actionKeys || {}) };
+  const mine = t.kind === "cam" ? cams : acts;
+  if (key === "backspace" || key === "delete") {
+    delete mine[t.id];
+  } else if (RESERVED_KEYS.has(key)) {
+    $("#hotkey-prompt").textContent = `${keyLabel(key)} is taken. Pick another key for ${t.label}.`;
+    return;
+  } else {
+    // A key does one thing.
+    for (const map of [cams, acts]) for (const [id, k] of Object.entries(map)) if (k === key) delete map[id];
+    mine[t.id] = key;
+  }
+  settings.hotkeys = cams;
+  settings.actionKeys = acts;
+  saveSettings();
+  sendHotkeys();
+  hotkeyTarget = null;
   renderHotkeyList();
 }
 
@@ -827,9 +1120,18 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     return captureHotkey(e);
   }
-  if (e.target.closest("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest("input, select, textarea") || e.metaKey) return;
   if (!$("#hotkey-modal").hidden || !$("#update-modal").hidden) return;
-  const key = e.key.toLowerCase();
+  // (System-wide ones reach the app through Windows instead; these are the rest,
+  // and all of them when the app runs in a browser.)
+  const key = keyOf(e);
+  const act = Object.entries(settings.actionKeys || {}).find(([, k]) => k === key);
+  const action = act && hotkeyActions().flatMap(([, items]) => items).find(([id]) => id === act[0]);
+  if (action) {
+    e.preventDefault();
+    action[2]();
+    return;
+  }
   const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
   const camName = Object.entries(hotkeys(groups)).find(([, k]) => k === key);
   const cam = camName && groups.find((g) => g.name === camName[0]);
@@ -1830,6 +2132,10 @@ const columnOpacity = (cols) => [["col_opacity_on", "Custom opacity per column",
 // shows it only while when(values) holds (e.g. a timer for a flash that's on).
 const iff = (when, field) => Object.assign(field, { when });
 const LOOK = ["Size & background", [["scale", "Size", "size"], ["bg", "Background", "background"]]];
+// Overlays can also be moved from where they sit (px on the 1920×1080 screen), to keep clear of each other.
+const OFFSET = [["offset_x", "Move right (px; minus moves it left)", "number", { min: -1920, max: 1920, step: 5 }],
+  ["offset_y", "Move down (px; minus moves it up)", "number", { min: -1080, max: 1080, step: 5 }]];
+const OVERLAY_LOOK = ["Size, position & background", [["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"]]];
 const OVERLAY_FIELDS = {
   standings: [
     ["What it shows", [
@@ -1852,6 +2158,22 @@ const OVERLAY_FIELDS = {
       ["title_race", "Race name (blank = RACE)", "text"],
       ["title_qualify", "Qualifying name (blank = QUALIFYING)", "text"],
       ["title_practice", "Practice / warm-up name (blank = iRacing's)", "text"],
+      ["title_heat", "Heat race name (blank = iRacing's, e.g. HEAT 1; a number is added for several)", "text"],
+      ["title_consolation", "Consolation race name (blank = iRacing's)", "text"],
+      ["title_feature", "Feature race name (blank = iRacing's)", "text"],
+      ["round_titles", "Heat events: name each race as its round is named in the Championship tab (by today's date)", "select",
+        [["name", "Yes"], ["off", "No"]]],
+      ["time_left_word", "\"LEFT\" after the time left (12:34 LEFT)", "bool"],
+      ["accent", "Accent colour (time / lap, the header's bar and line)", "select", [["default", "Orange"], ["color", "A colour of my own"],
+        ["session", "By session: practice, qualifying, race"]]],
+      iff((v) => v.accent === "color", ["accent_color", "Accent colour", "color"]),
+      iff((v) => v.accent === "session", ["accent_practice", "Practice", "color"]),
+      iff((v) => v.accent === "session", ["accent_qualify", "Qualifying", "color"]),
+      iff((v) => v.accent === "session", ["accent_race", "Race", "color"]),
+      ["sponsor_bar", "Sponsor logo bar under the header (tower)", "bool"],
+      iff((v) => v.sponsor_bar, ["sponsor_bar_ids", "Sponsors in the bar (several take turns)", "sponsors"]),
+      iff((v) => v.sponsor_bar, ["sponsor_bar_s", "Seconds per logo", "number", { min: 2, max: 120, step: 1 }]),
+      iff((v) => v.sponsor_bar, ["sponsor_bar_size", "Bar height (px)", "number", { min: 20, max: 120, step: 2 }]),
       ["title_wrap", "Wrap a long session name onto two lines (off: one line, the tower widens for it)", "bool"],
       ["show_col_labels", "Column headings (GAP, INT…)", "bool"],
     ]],
@@ -1859,6 +2181,8 @@ const OVERLAY_FIELDS = {
       ["show_gap", "Gap to leader / pole", "bool"],
       iff((v) => v.show_gap, ["leader_cell", "The leader's gap shows", "select", [["leader", "Leader"], ["lap", "Their current lap (Lap 12)"]]]),
       ["show_interval", "Interval to car ahead", "bool"],
+      iff((v) => v.show_interval, ["interval_leader", "The leader's interval shows", "select", [["blank", "Nothing"], ["leader", "Leader"],
+        ["lap", "Their current lap (Lap 12)"]]]),
       iff((v) => v.show_interval, ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }]),
       ["show_pos_change", "Places gained / lost (race)", "bool"],
       ["show_best_lap", "Best lap", "bool"],
@@ -1882,6 +2206,8 @@ const OVERLAY_FIELDS = {
       ["show_stripe", "Coloured bar by each driver", "bool"],
       ["show_team", "Team names", "bool"],
       ["show_logo", "Team logos", "bool"],
+      iff((v) => v.show_logo, ["team_logo_side", "Team logo", "select", [["first", "Before the team name (its own column on the tower)"],
+        ["last", "After the team name"]]]),
     ]],
     ["Fastest lap", [
       ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
@@ -1889,9 +2215,9 @@ const OVERLAY_FIELDS = {
       iff((v) => v.fl_flash, ["fl_flash_s", "Flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }]),
       iff((v) => v.fl_flash, ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"]),
     ]],
-    ["Size & background", [
+    ["Size, position & background", [
       ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
-      ["scale", "Size", "size"], ["bg", "Background", "background"],
+      ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
   laps: [
@@ -1913,7 +2239,7 @@ const OVERLAY_FIELDS = {
       ["show_team", "Team names", "bool"],
       ["show_logo", "Team logos", "bool"],
     ]],
-    LOOK,
+    OVERLAY_LOOK,
   ],
   sponsors: [
     ["Logos", [
@@ -1925,24 +2251,44 @@ const OVERLAY_FIELDS = {
       ["size", "Logo height (px)", "number", { min: 30, max: 300, step: 5 }],
       ["title", "Caption above (e.g. Partners)", "text"],
     ]],
-    ["Size & background", [
+    ["Size, position & background", [
       ["background", "Dark panel behind", "bool"],
-      ["scale", "Size", "size"], ["bg", "Background", "background"],
+      ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
-  gridwalk: [LOOK],
+  gridwalk: [OVERLAY_LOOK],
+  battle: [
+    ["What it shows", [
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["title", "Heading (empty: Championship)", "text"],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_number", "Car numbers", "bool"],
+      ["show_logo", "Team logos", "bool"],
+      ["show_team", "Team names", "bool"],
+      ["gap_to", "Points gap", "select", [["first", "To the first of them"], ["ahead", "To the driver above"]]],
+      ["show_race_points", "During a race: the points this race gives them", "bool"],
+      ["show_change", "During a race: places gained / lost in the championship", "bool"],
+    ]],
+    OVERLAY_LOOK,
+  ],
   driver: [
     ["What it shows", [
-      ["hide_s", "Hide after (s; 0 = while they're on camera)", "number", { min: 0, max: 60, step: 1 }],
+      ["stay", "Stay up for as long as they're on camera", "bool"],
+      iff((v) => !v.stay, ["hide_s", "Card stays on screen for (seconds; a new driver resets it)", "number", { min: 1, max: 120, step: 1 }]),
       ["name_format", "Names", "select", NAME_FORMATS],
       ["show_position", "Position (and in class)", "bool"],
       ["show_number", "Car number", "bool"],
       ["show_team", "Team", "bool"],
       iff((v) => v.show_team, ["show_logo", "Team logo", "bool"]),
+      iff((v) => v.show_team, ["team_place", "Team and car badge", "select", [["under", "Team under the name, car badge at the end"],
+        ["end", "Car badge under the name, team at the end"]]]),
+      iff((v) => v.show_team && v.show_logo, ["team_logo_side", "Team logo", "select", [["first", "Logo, then the team name"],
+        ["last", "Team name, then the logo"]]]),
       ["show_make", "Car badge", "bool"],
       ["show_class", "Class (multiclass)", "bool"],
     ]],
-    LOOK,
+    OVERLAY_LOOK,
   ],
 };
 
@@ -2011,11 +2357,11 @@ document.addEventListener("change", async (e) => {
 });
 
 // Tick boxes for which of the league's sponsors to show ("" = all, "none" = none).
-function sponsorPicker(sponsors, value) {
+function sponsorPicker(sponsors, value, key = "sponsor_ids", label = "Sponsors") {
   if (!sponsors.length) return '<p class="hint">No sponsor logos in the active league yet (League builder).</p>';
   const ids = value === "" ? null : new Set(value.split(","));
-  return `<div class="ov-field wide sponsor-pick"><span>Sponsors</span><div>${sponsors.map((sp, i) => `<label class="check">
-    <input type="checkbox" data-key="sponsor_ids" data-kind="sponsors" value="${esc(sp.id)}" ${!ids || ids.has(sp.id) ? "checked" : ""}>
+  return `<div class="ov-field wide sponsor-pick"><span>${esc(label)}</span><div>${sponsors.map((sp, i) => `<label class="check">
+    <input type="checkbox" data-key="${key}" data-kind="sponsors" value="${esc(sp.id)}" ${!ids || ids.has(sp.id) ? "checked" : ""}>
     <img src="${esc(sp.url)}" alt="">${esc(sp.name || `Sponsor ${i + 1}`)}</label>`).join("")}</div></div>`;
 }
 
@@ -2065,7 +2411,8 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
     return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
   }
   if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
-  if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v);
+  if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v, k, label);
+  if (kind === "color") return `<label class="ov-field">${label}<input type="color" ${attrs} value="${esc(v)}"></label>`;
   if (kind === "class" && values.mode !== "class") return "";
   const options = kind === "class" ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
     : kind === "banner" ? [["", "The first of the right shape"], ...((s.league && s.league.banners) || []).map((b, i) =>
@@ -2193,11 +2540,12 @@ const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   iff((v) => v.banner !== "none", ["banner_id", "Which banner", "banner"]),
   ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
     ["left", "Down the left"], ["right", "Down the right"]]],
-  iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"])];
+  iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"]),
+  ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"]];
 const cards = (v) => v.style === "cards";
 
 const BOARD_FIELDS = {
-  board_championship: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
+  board_championship: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
     ["show_make", "Car badges", "bool"], ["show_gap", "Points gap to the leader", "bool"],
     ["show_ahead", "Points gap to the driver ahead", "bool"], ["show_wins", "Wins", "bool"],
@@ -2205,13 +2553,13 @@ const BOARD_FIELDS = {
     ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["car", "Car badge"],
       ["rounds", "Round points"], ["wins", "Wins"], ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"],
       ["ahead", "Gap to driver ahead"]])],
-  board_teams: [["rows", "Teams shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
+  board_teams: [["rows", "Teams a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
     ["show_logo", "Team logos", "bool"], ["show_color", "Team colour stripe", "bool"], ["show_drivers", "Drivers who scored", "bool"],
     ["show_gap", "Points gap to the leader", "bool"], ["show_ahead", "Points gap to the team ahead", "bool"],
     ["show_wins", "Wins", "bool"], ["show_penalty", "Penalty points", "bool"],
     ...columnOpacity([["pos", "Position"], ["team", "Team"], ["drivers", "Drivers"], ["rounds", "Round points"], ["wins", "Wins"],
       ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"], ["ahead", "Gap to team ahead"]])],
-  board_makes: [["rows", "Manufacturers shown", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
+  board_makes: [["rows", "Manufacturers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
     ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"],
     ...columnOpacity([["pos", "Position"], ["make", "Manufacturer"], ["wins", "Wins"], ["points", "Points"], ["gap", "Gap"]])],
   board_calendar: [["style", "Show", "select", [["cards", "The calendar built from the rounds"], ["image", "The league's own calendar image"]]],
@@ -2221,13 +2569,15 @@ const BOARD_FIELDS = {
       ["day_month", "22nd November"], ["full", "22nd November 2026"], ["weekday", "Sunday 22nd November"]]]),
     iff(cards, ["show_time", "Start times", "bool"]), iff(cards, ["show_config", "Track layouts", "bool"]),
     iff(cards, ["show_length", "Race lengths", "bool"]), iff(cards, ["show_winners", "Winners of past rounds", "bool"]),
-    iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"])],
-  board_results: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
+    iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"]),
+    iff(cards, ["rows", "Race meetings a page (the rest on the next pages)", "number", { min: 1, max: 64 }])],
+  board_results: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
-    ["show_status", "DNF / DSQ", "bool"], ["show_points", "Points scored", "bool"],
+    ["show_gap", "Gap to the winner (DNF / DNS / DSQ show here)", "bool"], ["show_interval", "Interval to the car ahead", "bool"],
+    ["show_points", "Points scored", "bool"],
     ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"],
-      ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["status", "DNF / DSQ"], ["points", "Points"]])],
+      ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["gap", "Gap"], ["interval", "Interval"], ["points", "Points"]])],
 };
 const BOARD_SECTION_NAMES = {
   board_championship: "Championship standings", board_teams: "Teams' championship",
@@ -2241,16 +2591,28 @@ let boardRound = "latest";
 function boardButton(label, kind, group = "", color = null, extra = {}) {
   const b = ui.snap && ui.snap.board;
   const on = b && ui.boardOn && ui.boardOn.kind === kind && ui.boardOn.group === group;
+  const key = (settings.actionKeys || {})[`board:${kind}:${group}`];
   return `<button class="btn board-btn ${on ? "on-air" : ""}" data-board="${kind}" data-group="${esc(group)}"
-    ${extra.round ? `data-round="${esc(extra.round)}"` : ""} style="${color ? `--cls:${esc(color)}` : ""}">${color ? '<span class="swatch"></span>' : ""}${esc(label)}</button>`;
+    ${extra.round ? `data-round="${esc(extra.round)}"` : ""} style="${color ? `--cls:${esc(color)}` : ""}">${color ? '<span class="swatch"></span>' : ""}${esc(label)}${key ? `<kbd>${esc(keyLabel(key))}</kbd>` : ""}</button>`;
 }
+
+// iRacing's session names ("QUALIFY", "HEAT 1") as words ("Qualify", "Heat 1").
+const sessionLabel = (name) => String(name || "").toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
 
 function renderBoards(s) {
   const opts = s.board_options || { groups: [], rounds: [] };
   ui.boardOn = s.board ? { kind: s.board.kind, group: s.board.group } : null;
   $("#board-onair").textContent = s.board ? `On screen: ${s.board.title}${s.board.subtitle ? ` · ${s.board.subtitle}` : ""}` : "Nothing on screen";
   $("#btn-board-hide").disabled = !s.board;
-  const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, !!s.board]);
+  // A board that runs to more than one page: the rest of it, a page at a time.
+  const pages = (s.board && s.board.pages) || 1;
+  $("#board-pager").hidden = pages < 2;
+  if (pages > 1) {
+    $("#board-page").textContent = `Page ${s.board.page + 1} of ${pages}`;
+    $("#btn-board-prev").disabled = s.board.page === 0;
+    $("#btn-board-next").disabled = s.board.page >= pages - 1;
+  }
+  const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, !!s.board, settings.actionKeys]);
   if (key !== boardButtonsKey) {
     boardButtonsKey = key;
     const groups = opts.groups;
@@ -2266,10 +2628,11 @@ function renderBoards(s) {
         <label class="field">From <select id="board-round">
           <option value="latest" ${boardRound === "latest" ? "selected" : ""}>Latest round</option>
           <option value="live" ${boardRound === "live" ? "selected" : ""}>This session (live)</option>
-          ${scored.map((r) => `<option value="${esc(r.id)}" ${boardRound === r.id ? "selected" : ""}>${esc(r.name)}${r.track ? ` · ${esc(r.track)}` : ""}</option>`).join("")}
+          ${(opts.sessions || []).length ? `<optgroup label="This event in iRacing">${opts.sessions.map((x) => `<option value="${esc(x.source)}"
+            ${boardRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}</optgroup>` : ""}
+          ${scored.length ? `<optgroup label="Championship rounds">${scored.map((r) => `<option value="${esc(r.id)}" ${boardRound === r.id ? "selected" : ""}>${esc(r.name)}${r.track ? ` · ${esc(r.track)}` : ""}</option>`).join("")}</optgroup>` : ""}
         </select></label>
-        <div>${[{ key: "overall", name: "Overall", color: null }, ...groups.filter((g) => g.key !== "overall")]
-          .map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>`;
+        <div>${resultGroups(opts).map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>`;
   }
   const skey = JSON.stringify([s.overlays && s.overlays.settings, (s.league && s.league.banners) || [], (s.league && s.league.sponsors) || []]);
   if (skey !== boardSettingsKey && !document.activeElement.closest("#board-settings")) {
@@ -2302,6 +2665,8 @@ $("#board-buttons").addEventListener("change", (e) => {
     if (ui.boardOn && ui.boardOn.kind === "results") cmd("board_show", { kind: "results", group: ui.boardOn.group, round: boardRound });
   }
 });
+$("#btn-board-prev").addEventListener("click", () => cmd("board_page", { step: "prev" }));
+$("#btn-board-next").addEventListener("click", () => cmd("board_page", { step: "next" }));
 $("#btn-board-hide").addEventListener("click", async () => {
   await cmd("board_hide");
   ui.boardOn = null;
@@ -2319,6 +2684,7 @@ $("#board-settings").addEventListener("change", (e) => {
 $("#url-board").textContent = `${location.origin}/board.html`;
 $("#url-sponsors").textContent = `${location.origin}/sponsors.html`;
 $("#url-driver").textContent = `${location.origin}/driver.html`;
+$("#url-battle").textContent = `${location.origin}/battle.html`;
 
 for (const page of ["standings", "laps"]) {
   $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;

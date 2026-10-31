@@ -6,6 +6,7 @@ import re
 import threading
 from dataclasses import replace
 import time
+from datetime import date
 
 from . import __version__, championship
 from .events import EventDetector
@@ -16,7 +17,7 @@ from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
 from .settings import UserSettings
 from .tracks import TrackCatalogue
-from . import boards
+from . import boards, heats
 from .league import driver_key, logo_url, strip_class_prefix
 from .makes import logo_for as make_logo
 from .makes import make_for
@@ -232,9 +233,14 @@ class App:
         # Race results saved by themselves (_auto_results): the race being
         # watched, the sessions already saved, and the last one saved.
         self._results_watch, self._results_saved, self._results_notice = None, set(), None
+        self._camera_picks = 0  # drivers picked from the app (_camera_driver)
+        self.global_hotkeys = None  # set by __main__ on Windows (apex.hotkeys)
         self.tracks = TrackCatalogue()     # likewise: the season calendar's track list
         self.board = {"kind": None, "params": {}}  # the full-screen board on screen, if any
         self._board_cache = (None, None)
+        self._today = date.today  # the day it is, for a heat event's rounds (tests set their own)
+        self._board_pages = 1  # how many pages the board on screen runs to
+        self.rc_log = []  # race control: what's been sent to iRacing
         self._class_of = {}        # car_idx -> class key, from the last snapshot
         self._track_sectors = self.laps.starts  # the track's own split points
         self._race = RaceProgress()
@@ -398,7 +404,37 @@ class App:
         return self._session_meta.get("sessions", {}).get(frame.session_num, {})
 
     def _is_race(self, frame):
-        return str(self._session(frame).get("SessionType", "")).lower() == "race"
+        return bool(heats.race_kind(self._session(frame)))
+
+    def _meeting(self, league):
+        """A heat event's races matched to the league's rounds of the day:
+        {session number: (round number, round)} (see heats.match_rounds)."""
+        if not league:
+            return {}
+        races = [{"num": r["num"], "kind": r["kind"]} for r in self.race_sessions()]
+        rounds = championship.normalise(league.get("championship"))["rounds"]
+        return {num: (i + 1, rounds[i]) for num, i in heats.match_rounds(races, rounds, self._today()).items()}
+
+    def _round_title(self, league, session_num):
+        on = self.overlays.get()["standings"]["round_titles"] != "off"
+        matched = self._meeting(league).get(session_num) if on else None
+        return heats.round_title(matched[0], matched[1]["name"]) if matched else ""
+
+    def _live_round(self, champ, league, key):
+        """The round the race ``key`` (subsession:session) counts as, or None:
+        on a heat event, its round of the day; otherwise championship.live_round_for."""
+        if not key or any(rd["session"] == key for rd in champ["rounds"]):
+            return None
+        try:
+            num = int(key.rsplit(":", 1)[1])
+        except (IndexError, ValueError):
+            num = None
+        matched = self._meeting(league).get(num)
+        if matched:
+            rd = next((r for r in champ["rounds"] if r["id"] == matched[1]["id"]), None)
+            if rd is not None and not (rd["results"] and rd["session"]):
+                return rd
+        return championship.live_round_for(champ, key)
 
     # -- snapshot -----------------------------------------------------------
 
@@ -412,6 +448,9 @@ class App:
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                     "photobooth": self._photobooth_snapshot(),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
+                "race_control": {"log": self.rc_log[-50:]},
+                "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
+                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else []},
                     "desktop": self._desktop_snapshot(),
                     **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
@@ -489,6 +528,10 @@ class App:
                     "flags": frame.session_flags,
                     "track": self._session_meta.get("track", ""),
                     "track_config": self._session_meta.get("track_config", ""),
+                    # Heat racing: "heat", "consolation" or "feature" (heats.race_kind), and the
+                    # name of the league's round this race is (as named in the rounds), if matched.
+                    "kind": heats.race_kind(session),
+                    "round_title": self._round_title(active_league, frame.session_num),
                 },
                 "camera": {"car_idx": frame.cam_car_idx, "group": frame.cam_group, "groups": self._camera_groups},
                 "replay": {
@@ -501,25 +544,31 @@ class App:
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
                 "photobooth": self._photobooth_snapshot(),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
+                "race_control": {"log": self.rc_log[-50:]},
+                "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
+                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else []},
                 "classes": self._ordered_classes(classes),
                 "events": events[-200:],
                 "desktop": self._desktop_snapshot(),
                 "league": self._league_summary(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
-                **self._boards(active_league, lambda: self.session_results(active_league, rows)[0] if is_race else None),
+                **self._boards(active_league, lambda source: self._session_board(active_league, source, rows)),
             }
+            self._battle_basis = (rows, snap["championship"], frame.cam_car_idx)
+            snap["overlays"]["battle"] = self._battle_snapshot(snap["championship"], active_league)
             return snap
 
     # -- championship -------------------------------------------------------
 
     def race_sessions(self):
         """The race sessions of the event on screen (heats and a feature, say),
-        in order: [{"num", "name", "results": bool}]."""
+        in order: [{"num", "name", "kind" (heats.race_kind), "results": bool}]."""
         out = []
         for num, s in sorted(self._session_meta.get("sessions", {}).items(), key=lambda kv: kv[0] if kv[0] is not None else -1):
-            if str(s.get("SessionType", "")).lower() == "race":
-                out.append({"num": num, "name": str(s.get("SessionName") or f"Race {len(out) + 1}"),
+            kind = heats.race_kind(s)
+            if kind:
+                out.append({"num": num, "name": str(s.get("SessionName") or f"Race {len(out) + 1}"), "kind": kind,
                             "results": bool(s.get("ResultsPositions"))})
         return out
 
@@ -538,6 +587,16 @@ class App:
                          "lap": laps + 1 if isinstance(laps, int) and laps >= 0 else None,
                          "best_lap": None, "in_world": True, "incidents": res.get("Incidents") or 0})
         return rows
+
+    @staticmethod
+    def _result_gap(official, winner_time, row, finished):
+        """Seconds behind the race winner (on the same lap), or None: iRacing's
+        race times once the race is over, live timing while it's on."""
+        t = official.get("Time")
+        if finished and winner_time and isinstance(t, (int, float)) and t > 0:
+            return round(max(t - winner_time, 0.0), 3)
+        gap = row.get("gap")
+        return round(gap, 3) if isinstance(gap, (int, float)) and gap >= 0 else None
 
     def session_results(self, profile, rows=None, add_missing=False, session_num=None):
         """The current session (or race session ``session_num`` of this event)
@@ -560,6 +619,9 @@ class App:
             session = self._session(frame) if frame else {}
             checkered = bool(frame) and frame.session_state >= STATE_CHECKERED
         official = {r.get("CarIdx"): r for r in session.get("ResultsPositions") or [] if isinstance(r, dict)}
+        # Time behind the winner: iRacing's race times once it has them, else live timing.
+        won = next((o.get("Time") for o in official.values() if o.get("Position") == 1), None)
+        won = won if isinstance(won, (int, float)) and won > 0 else None
         results, added = [], 0
         for r in sorted(rows, key=lambda r: r["pos"] or 10_000):
             entry = self.leagues.lookup(r["cust_id"], r["number"], profile)
@@ -592,6 +654,7 @@ class App:
                 "fastest_lap": fastest if isinstance(fastest, (int, float)) and fastest > 0 else r["best_lap"],
                 "incidents": incidents or 0, "status": status,
                 "make": (entry or {}).get("car_make") or r.get("make", ""),
+                "gap": self._result_gap(off, won, r, checkered),
             }))
         return results, added
 
@@ -604,7 +667,7 @@ class App:
         champ = championship.normalise(champ)
         if not racing and not any(rd["results"] for rd in champ["rounds"]):
             return None
-        rd = championship.live_round_for(champ, self.session_key()) if racing else None
+        rd = self._live_round(champ, active_league, self.session_key()) if racing else None
         if racing and rd is None and not champ["rounds"]:
             rd = {"id": "live", "name": "This race", "track": "", "date": "", "multiplier": 1.0, "no_drop": False}
         if rd is not None:
@@ -617,6 +680,75 @@ class App:
             {k: d[k] for k in ("driver", "name", "team", "car_number", "points", "pos", "behind")}
             for d in g["drivers"]]} for g in table["groups"]]
         return {"live": False, "round": None, "groups": groups}
+
+    # -- the championship battle overlay (battle.html) ----------------------
+
+    def _battle_snapshot(self, champ, active_league):
+        """The drivers picked for the battle overlay in the championship picked:
+        their place and points now (as if the race finished now, during one),
+        what this race gives them, and the points between them."""
+        cfg = self.overlays.get()["battle"]
+        keys = [k for k in cfg["drivers"].split(",") if k]
+        group = next((g for g in (champ or {}).get("groups", []) if g["key"] == cfg["group"]), None)
+        if not group or not keys or not active_league:
+            return None
+        roster = {driver_key(d): d for d in active_league.get("drivers", [])}
+        colours = {c["id"]: c.get("color") for c in active_league.get("classes", [])}
+        pid = active_league["id"]
+        picked = [d for d in group["drivers"] if d["driver"] in keys]  # in championship order
+        out = []
+        for i, d in enumerate(picked):
+            info = roster.get(d["driver"]) or {}
+            name, nickname = self._stream_name(d["name"], info.get("nickname", ""), active_league)
+            team = self.leagues.team(d["team"], active_league) if d["team"] else None
+            out.append({
+                "driver": d["driver"], "name": name, "nickname": nickname, "number": d["car_number"],
+                "team": d["team"], "team_logo": logo_url(pid, team.get("logo")) if team else None,
+                "class_color": colours.get(info.get("class_id")), "pos": d["pos"], "points": d["points"],
+                "pos_before": d.get("pos_before"), "points_before": d.get("points_before"),
+                "race_points": d.get("race_points"), "race_rank": d.get("race_rank"),
+                "gap_first": championship._round(picked[0]["points"] - d["points"]) if i else None,
+                "gap_ahead": championship._round(picked[i - 1]["points"] - d["points"]) if i else None,
+            })
+        return {"group": group["key"], "name": group["name"], "color": group["color"], "live": champ["live"],
+                "round": champ["round"], "rows": out}
+
+    def cmd_battle_pick(self, mode="ahead", show=True):
+        """Pick the battle overlay's drivers in one go (and put it on screen):
+        ``mode`` "ahead" (the car on camera and the one in front of it in this
+        championship's running order, or behind it if it's leading), "around"
+        (the cars either side of it too) or "top" (the championship's top 3)."""
+        rows, champ, cam = getattr(self, "_battle_basis", ([], None, None))
+        cfg = self.overlays.get()["battle"]
+        group = next((g for g in (champ or {}).get("groups", []) if g["key"] == cfg["group"]), None)
+        if not group:
+            raise CommandError("No standings in that championship yet")
+        members = [d["driver"] for d in group["drivers"]]
+        if mode == "top":
+            keys = members[:3]
+        elif mode in ("ahead", "around"):
+            profile = self.leagues.active()
+            running = []
+            for r in sorted((r for r in rows if r["pos"]), key=lambda r: r["pos"]):
+                entry = self.leagues.lookup(r["cust_id"], r["number"], profile)
+                key = driver_key(entry) if entry else driver_key({"cust_id": r["cust_id"], "name": r["name"]})
+                if key in members:
+                    running.append((r["car_idx"], key))
+            at = next((i for i, (idx, _) in enumerate(running) if idx == cam), None)
+            if at is None:
+                raise CommandError("The car on camera isn't racing in that championship")
+            if mode == "around":
+                lo, hi = max(at - 1, 0), at + 2
+            else:
+                lo, hi = (at, at + 2) if at == 0 else (at - 1, at + 1)
+            keys = [k for _, k in running[lo:hi]]
+        else:
+            raise CommandError(f"Unknown pick '{mode}'")
+        values = {"drivers": ",".join(keys)}
+        if show:
+            values["visible"] = True
+        self.overlays.update("battle", values)
+        return {"drivers": keys}
 
     # -- stream overlays ----------------------------------------------------
 
@@ -731,7 +863,7 @@ class App:
     def _overlay_snapshot(self, rows, frame, session, active_league):
         settings = self.overlays.get()
         kind = str(session.get("SessionType", "")).lower()
-        is_race = kind == "race"
+        is_race = bool(heats.race_kind(session))
         entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
         # Standings: race order in a race; otherwise fastest clean lap, and
         # only drivers who have set one (blank at the start of qualifying).
@@ -803,7 +935,7 @@ class App:
             "standings": standings,
             "fastest_flash": flash,
             # The driver on camera, for the "who's this" board (driver.html).
-            "driver": self._camera_driver(frame, rows, entries, is_race),
+            "driver": self._camera_driver(frame, rows, entries, is_race, self._camera_picks),
             # "all": every driver, for the full-screen timing page (timed
             # drivers by lap time, then the rest).
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
@@ -811,14 +943,16 @@ class App:
         }
 
     @staticmethod
-    def _camera_driver(frame, rows, entries, is_race):
-        """Who the camera is on: their overlay details and where they are, or None."""
+    def _camera_driver(frame, rows, entries, is_race, picks=0):
+        """Who the camera is on: their overlay details and where they are, or
+        None. ``picks`` counts drivers picked from the app, so the driver board
+        shows again when the same driver is picked again."""
         idx = frame.cam_car_idx
         row = next((r for r in rows if r["car_idx"] == idx), None)
         if row is None or idx not in entries or not row["in_world"]:
             return None
         return dict(entries[idx], pos=row["pos"], class_pos=row["class_pos"],
-                    pos_change=row.get("pos_change") if is_race else None)
+                    pos_change=row.get("pos_change") if is_race else None, pick=picks)
 
     def _add_start_positions(self, rows, is_race):
         """Grid position (overall and in class) and places gained since, in races."""
@@ -1037,7 +1171,7 @@ class App:
             # Sent often by on-screen overlays as they change: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "photobooth_auto", "auto_results", "board_", "popout", "desktop_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "photobooth_auto", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -1055,6 +1189,7 @@ class App:
         "board": ("Boards", "/board.html"),
         "gridwalk": ("Grid walk", "/gridwalk.html"),
         "driver": ("Driver on camera", "/driver.html"),
+        "battle": ("Championship battle", "/battle.html"),
     }
 
     def _desktop_snapshot(self):
@@ -1102,10 +1237,12 @@ class App:
 
     def cmd_watch(self, car_idx, group=None, camera=0):
         d = self._driver(car_idx)
+        self._camera_picks += 1
         self.source.cam_switch_num(d["number"], self._group(group), int(camera or 0))
         return {"watching": d["name"]}
 
     def cmd_watch_position(self, position, group=None, camera=0):
+        self._camera_picks += 1
         self.source.cam_switch_pos(int(position), self._group(group), int(camera or 0))
 
     def cmd_watch_special(self, mode, group=None):
@@ -1113,6 +1250,76 @@ class App:
         if mode not in modes:
             raise CommandError(f"Unknown mode '{mode}'")
         self.source.cam_switch_pos(modes[mode], self._group(group), 0)
+
+    # -- race control (the Race control tab): iRacing's admin chat commands --
+
+    PENALTIES = {"clear": "Penalties cleared", "drive_through": "Drive-through", "stop_go": "Stop & go",
+                 "stop_hold": "Stop & hold"}
+    HOLD_UNITS = {"seconds": 1, "minutes": 60, "laps": None}
+
+    def _race_control(self, line, label):
+        """Send ``line`` to iRacing's chat and keep it in the race control log."""
+        try:
+            self.source.send_chat(line)
+        except Exception as e:
+            raise CommandError(str(e)) from None
+        self.rc_log.append({"at": time.strftime("%H:%M:%S"), "line": line, "label": label})
+        del self.rc_log[:-50]
+        return {"sent": line}
+
+    def cmd_rc_penalty(self, car_idx, kind, amount=None, unit="seconds"):
+        """A penalty for one driver (or clear theirs): ``kind`` "clear",
+        "drive_through", "stop_go" or "stop_hold" (``amount`` of ``unit``:
+        "seconds", "minutes" or "laps")."""
+        d = self._drivers.get(int(car_idx))
+        if d is None:
+            raise CommandError("That driver isn't in the session")
+        if kind not in self.PENALTIES:
+            raise CommandError(f"Unknown penalty '{kind}'")
+        who = f"#{d['number']}" if d.get("number") else f'"{d["name"]}"'
+        label = self.PENALTIES[kind]
+        if kind == "clear":
+            line = f"!clear {who}"
+        elif kind == "drive_through":
+            line = f"!black {who} D"
+        elif kind == "stop_go":
+            line = f"!black {who}"
+        else:
+            if unit not in self.HOLD_UNITS:
+                raise CommandError(f"Unknown unit '{unit}'")
+            try:
+                n = int(float(amount))
+            except (TypeError, ValueError):
+                n = 0
+            if n < 1 or n > (99 if unit == "laps" else 600 if unit == "seconds" else 60):
+                raise CommandError("How long to hold them: a whole number (up to 600 seconds, 60 minutes or 99 laps)")
+            line = f"!black {who} L{n}" if unit == "laps" else f"!black {who} {n * self.HOLD_UNITS[unit]}"
+            label = f"Stop & hold, {n} {unit if n != 1 else unit[:-1]}"
+        return self._race_control(line, f"{label}: #{d['number']} {d['name']}")
+
+    def cmd_rc_clear_all(self):
+        return self._race_control("!clearall", "All penalties cleared")
+
+    def cmd_rc_grid(self, minutes):
+        """The grid timer: the race starts after ``minutes`` (instead of when everyone's on the grid)."""
+        try:
+            n = int(float(minutes))
+        except (TypeError, ValueError):
+            n = 0
+        if not 1 <= n <= 60:
+            raise CommandError("Grid time: a whole number of minutes, 1 to 60")
+        return self._race_control(f"!gridset {n}", f"Grid time set: {n} min")
+
+    def cmd_rc_start(self):
+        """Start the race now, whatever the grid timer says."""
+        return self._race_control("!gridstart", "Race started")
+
+    def cmd_rc_message(self, text):
+        """A message to every driver (iRacing's chat)."""
+        text = " ".join(str(text or "").split())[:200]
+        if not text:
+            raise CommandError("Type a message first")
+        return self._race_control(text, "Message to all")
 
     def cmd_camera_group(self, group):
         frame = self._frame
@@ -1295,6 +1502,52 @@ class App:
             raise CommandError(str(e)) from e
         return {"cars": len(cars)}
 
+    # -- hotkeys ------------------------------------------------------------------
+
+    def cmd_hotkey(self, action):
+        """What a hotkey does, by name (the same as the app's own key handling):
+        cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, board:off,
+        board:next, board:prev (its pages), board:<kind>:<group> (on screen,
+        or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick)."""
+        kind, _, rest = str(action).partition(":")
+        if kind == "cam":
+            group = next((g["num"] for g in self._camera_groups if g["name"] == rest), None)
+            if group is None:
+                raise CommandError(f"No camera called {rest}")
+            return self.cmd_camera_group(group)
+        if kind == "ov":
+            current = self.overlays.get().get(rest)
+            if current is None or "visible" not in current:
+                raise CommandError(f"Unknown overlay '{rest}'")
+            return self.cmd_overlay_settings(rest, {"visible": not current["visible"]})
+        if kind == "gw":
+            if rest == "next":
+                return self.cmd_gridwalk_next()
+            return self.cmd_gridwalk_hide() if self.gridwalk.visible else self.cmd_gridwalk_start(0)
+        if kind == "board":
+            if rest == "off":
+                return self.cmd_board_hide()
+            if rest in ("next", "prev"):
+                return self.cmd_board_page(rest)
+            board_kind, _, group = rest.partition(":")
+            if self.board.get("kind") == board_kind and self.board.get("params", {}).get("group", "") == group:
+                return self.cmd_board_hide()
+            return self.cmd_board_show(board_kind, group, "latest")
+        if kind == "battle":
+            return self.cmd_battle_pick(rest)
+        raise CommandError(f"Unknown hotkey '{action}'")
+
+    def cmd_hotkeys(self, keys=None):
+        """The Hotkeys window's keys ({key: action}): those with Ctrl or Alt work
+        system-wide (Windows), kept for the next start too."""
+        from .hotkeys import system_wide
+
+        wanted = system_wide(keys if isinstance(keys, dict) else {})
+        self.settings.set("global_hotkeys", wanted or None)
+        if self.global_hotkeys:
+            self.global_hotkeys.set(wanted)
+        return {"system_wide": len(wanted)}
+
     def cmd_board_show(self, kind, group="", round=""):
         """Put a full-screen board on screen (board.html)."""
         if kind not in boards.KINDS:
@@ -1307,21 +1560,71 @@ class App:
     def cmd_board_hide(self):
         self.board = {"kind": None, "params": {}}
 
-    def _boards(self, active_league, live_results):
-        board, opts = self._board_snapshot(active_league, live_results)
-        return {"board": board, "board_options": opts}
+    def cmd_board_page(self, step="next"):
+        """The board on screen's next / previous page (``step`` "next", "prev"
+        or a page number from 1). Stops at the first and last page."""
+        if not self.board.get("kind"):
+            raise CommandError("No board on screen")
+        pages = max(1, self._board_pages)
+        page = min(int(self.board["params"].get("page") or 0), pages - 1)
+        if step == "next":
+            page += 1
+        elif step == "prev":
+            page -= 1
+        else:
+            try:
+                page = int(step) - 1
+            except (TypeError, ValueError):
+                raise CommandError(f"Unknown page '{step}'") from None
+        page = min(max(page, 0), pages - 1)
+        self.board = {"kind": self.board["kind"], "params": dict(self.board["params"], page=page)}
+        return {"page": page + 1, "pages": pages}
 
-    def _board_snapshot(self, active_league, live_results):
+    def _boards(self, active_league, session_board):
+        board, opts = self._board_snapshot(active_league, session_board)
+        # The sessions of the event in iRacing, for a finishing order from any of them.
+        frame = self._frame
+        sessions = [{"source": f"session:{num}", "name": str(s.get("SessionName") or s.get("SessionType") or f"Session {num + 1}"),
+                     "current": bool(frame) and num == frame.session_num, "results": bool(s.get("ResultsPositions"))}
+                    for num, s in sorted(self._session_meta.get("sessions", {}).items(), key=lambda kv: kv[0] if kv[0] is not None else -1)
+                    if num is not None]
+        return {"board": board, "board_options": dict(opts, sessions=sessions)}
+
+    def _session_board(self, league, source, rows):
+        """A session of the event as a finishing order (boards.build): the one
+        on screen ("live") or "session:<number>". Practice and qualifying come
+        in best-lap order, with no points."""
+        frame = self._frame
+        if frame is None:
+            return None
+        try:
+            num = frame.session_num if source == "live" else int(source.split(":", 1)[1])
+        except (IndexError, ValueError):
+            return None
+        session = self._session_meta.get("sessions", {}).get(num)
+        if session is None:
+            return None
+        race = bool(heats.race_kind(session))
+        results, _ = self.session_results(league, rows if num == frame.session_num else None, session_num=num)
+        if not race:
+            for r in results:  # no laps set: no time, rather than a DNF
+                r["status"] = "finished" if r["fastest_lap"] else "dns"
+        return {"name": str(session.get("SessionName") or session.get("SessionType") or "Session"), "race": race,
+                "results": results}
+
+    def _board_snapshot(self, active_league, session_board):
         """(board, options): cached until the league, the board or its settings change."""
         settings = self.overlays.get()
         key = (active_league and (active_league["id"], active_league.get("updated_at")), repr(self.board),
                repr({k: v for k, v in settings.items() if k.startswith("board")}))
-        live = self.board.get("kind") == "results" and self.board["params"].get("round") == "live"
+        source = self.board["params"].get("round", "") if self.board.get("kind") == "results" else ""
+        live = source == "live" or source.startswith("session:")
         if key == self._board_cache[0] and not live:
             return self._board_cache[1]
-        value = (boards.build(active_league, self.board, settings, live_results() if live else None),
+        value = (boards.build(active_league, self.board, settings, session_board(source) if live else None),
                  boards.options(active_league))
         self._board_cache = (key, value)
+        self._board_pages = value[0]["pages"] if value[0] else 1
         return value
 
     def cmd_overlay_settings(self, overlay, values):
@@ -1461,7 +1764,7 @@ class App:
         champ = championship.normalise(profile.get("championship"))
         if any(rd["session"] == key for rd in champ["rounds"]):
             return  # imported already (by hand, perhaps corrected): those stand
-        rd = championship.live_round_for(champ, key)
+        rd = self._live_round(champ, profile, key)
         if rd is None:
             rd = {"id": f"r{int(time.time())}", "name": f"Round {len(champ['rounds']) + 1}", "event": "", "track": track,
                   "config": "", "track_id": None, "date": time.strftime("%Y-%m-%d"), "time": "", "length": "",

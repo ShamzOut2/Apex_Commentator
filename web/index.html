@@ -20,13 +20,14 @@
 
   <nav class="tabs" role="tablist">
     <button class="tab" data-tab="home">Home</button>
-    <button class="tab" data-tab="timing">Timing</button>
-    <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
     <button class="tab" data-tab="league">League builder</button>
     <button class="tab" data-tab="teams">Teams</button>
+    <button class="tab" data-tab="championship">Championship</button>
+    <button class="tab" data-tab="timing">Timing</button>
+    <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
     <button class="tab" data-tab="overlays">Overlays</button>
     <button class="tab" data-tab="boards">Boards</button>
-    <button class="tab" data-tab="championship">Championship</button>
+    <button class="tab" data-tab="racecontrol">Race control</button>
   </nav>
 
   <main id="main">
@@ -113,7 +114,7 @@
           <button class="btn" data-cmd="watch_special" data-mode="leader">Leader</button>
           <button class="btn" data-cmd="watch_special" data-mode="exciting" title="iRacing picks the most exciting car">Exciting</button>
           <button class="btn" data-cmd="watch_special" data-mode="incident" title="iRacing's incident camera">Incident cam</button>
-          <button class="btn subtle" id="btn-hotkeys" title="Set a keyboard shortcut for each camera">⌨ Hotkeys</button>
+          <button class="btn subtle" id="btn-hotkeys" data-open-hotkeys title="Keyboard shortcuts for cameras, overlays and boards">⌨ Hotkeys</button>
           <button class="btn subtle" data-popout="timing" title="Open the timing screen in a window of its own">⧉ Pop out</button>
         </div>
       </div>
@@ -378,7 +379,8 @@
 
     <section id="tab-overlays" class="panel">
       <div class="home">
-        <h2>Overlays</h2>
+        <div class="row teams-head"><h2>Overlays</h2><span class="grow"></span>
+          <button class="btn subtle" data-open-hotkeys title="Keys to turn each overlay on and off">⌨ Hotkeys</button></div>
         <p class="hint">Each has two versions. The <b>overlay</b> goes over the race in OBS (Browser Source at 1920×1080,
           transparent background); <b>Preview ↗</b> opens one in a window of its own to have a look. The <b>full screen</b> version is a complete screen of its own, with a background and every
           driver, to cut to on stream or show on a monitor (Open, then F11). Changes here show straight away.</p>
@@ -429,6 +431,17 @@
             <div id="ov-driver" class="ov-form" data-overlay="driver"></div>
           </div>
           <div class="overlay-card">
+            <h3>Championship battle</h3>
+            <p class="hint">A few drivers fighting for the championship, in a corner: their place and points (during a race,
+              as if it ended now), the points this race gives them, and the points between them. Pick the championship
+              and the drivers here, or in one go from the car on camera.</p>
+            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-battle"></code> <button class="btn subtle" data-copy="url-battle">Copy</button></p>
+            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="battle"></span></p>
+            <p class="preview-link"><a class="btn subtle" href="/battle.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
+            <div id="battle-pick" class="battle-pick"></div>
+            <div id="ov-battle" class="ov-form" data-overlay="battle"></div>
+          </div>
+          <div class="overlay-card">
             <h3>Sponsors</h3>
             <p class="hint">The active league's sponsor logos (add them in the League builder), in a corner or along an edge:
               all together, or one at a time. Tick which sponsors to show.</p>
@@ -447,7 +460,13 @@
           <h2>Boards</h2>
           <span id="board-onair" class="hint"></span>
           <span class="grow"></span>
+          <button class="btn subtle" data-open-hotkeys title="Keys to put each board on screen and take it off">⌨ Hotkeys</button>
           <button class="btn subtle" data-popout="boards" title="Open the boards in a window of its own">⧉ Pop out</button>
+          <span id="board-pager" class="row" hidden>
+            <button id="btn-board-prev" class="btn subtle" title="The board's previous page">◀ Prev</button>
+            <span id="board-page" class="hint"></span>
+            <button id="btn-board-next" class="btn" title="The board's next page: the rest of the drivers">Next ▶</button>
+          </span>
           <button id="btn-board-hide" class="btn danger">Take off screen</button>
         </div>
         <p class="hint">Full-screen boards for the active league: championship standings, the season calendar and results.
@@ -465,6 +484,40 @@
         </div>
         <h3 class="section-title">What each board shows</h3>
         <div id="board-settings" class="board-settings"></div>
+      </div>
+    </section>
+
+    <section id="tab-racecontrol" class="panel">
+      <div class="home wide">
+        <div class="row teams-head"><h2>Race control</h2><span id="rc-status" class="hint"></span></div>
+        <p class="hint">Penalties and race commands go to iRacing as its admin chat commands (<code>!black</code>, <code>!clear</code>…):
+          you need to be an admin of the session in iRacing. They're typed into the sim's chat for you.</p>
+        <div class="rc-bar">
+          <button class="btn danger" id="rc-clear-all" title="Clear every driver's penalties (!clearall)">Clear all penalties</button>
+          <span class="rc-group">
+            <label>Grid time <input type="number" id="rc-grid-min" min="1" max="60" step="1" value="5" aria-label="Grid time in minutes"> min</label>
+            <button class="btn" id="rc-grid" title="Start the race after this many minutes, not when everyone's on the grid (!gridset)">Set grid time</button>
+          </span>
+          <button class="btn primary" id="rc-start" title="Start the race now, whatever the grid time (!gridstart)">Start race</button>
+          <span class="rc-group rc-msg">
+            <input id="rc-message" maxlength="200" placeholder="Message to all drivers" aria-label="Message to all drivers">
+            <button class="btn" id="rc-send">Send to all</button>
+          </span>
+        </div>
+        <div class="rc-body">
+          <div class="rc-drivers">
+            <div class="row rc-tools"><input id="rc-filter" placeholder="Find a driver or car number" aria-label="Find a driver"></div>
+            <div class="table-scroll"><table class="grid rc-table">
+              <thead><tr><th class="r">Pos</th><th>#</th><th>Driver</th><th>Penalties</th><th>Stop &amp; hold</th></tr></thead>
+              <tbody id="rc-rows"></tbody>
+            </table></div>
+            <p id="rc-empty" class="hint">No drivers yet: they show once iRacing is connected.</p>
+          </div>
+          <div class="rc-log">
+            <h3>Sent</h3>
+            <ol id="rc-log"></ol>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -545,13 +598,16 @@
 
   <div id="hotkey-modal" class="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="hotkey-title">
-      <h2 id="hotkey-title">Camera hotkeys</h2>
-      <p class="hint">Click a camera, then press the key you want for it. <kbd>Backspace</kbd> clears it.
-        L, R and the arrow keys are taken (live, rewind, car ahead/behind).</p>
-      <div id="hotkey-list" class="hotkey-list"></div>
+      <h2 id="hotkey-title">Hotkeys</h2>
+      <p class="hint">Click something, then press the key you want for it. <kbd>Backspace</kbd> clears it. A key does one
+        thing: giving it to something else takes it off the first. L, R and the arrow keys are taken (live, rewind, car
+        ahead/behind). Plain keys work when an Apex Commentator window is in front; keys pressed with <b>Ctrl</b> or
+        <b>Alt</b> (and Shift if you like), e.g. <kbd>Ctrl+Alt+1</kbd>, work whichever program is in front, iRacing and
+        OBS included (🌐).</p>
+      <div id="hotkey-list" class="hotkey-sections"></div>
       <p id="hotkey-prompt" class="hint"></p>
       <div class="modal-actions">
-        <button class="btn subtle" id="hotkey-reset">Reset to 1–9</button>
+        <button class="btn subtle" id="hotkey-reset">Cameras back to 1–9</button>
         <button class="btn primary" id="hotkey-done">Done</button>
       </div>
     </div>

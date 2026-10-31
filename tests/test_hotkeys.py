@@ -1,0 +1,87 @@
+import tempfile
+import unittest
+
+from apex.hotkeys import GlobalHotkeys, parse, system_wide
+from apex.league import profile_from_session
+from tests.test_app import make_app
+
+
+class ParseTests(unittest.TestCase):
+    def test_only_ctrl_or_alt_combinations_go_system_wide(self):
+        self.assertEqual(parse("ctrl+alt+1"), (0x3, ord("1")))
+        self.assertEqual(parse("ctrl+shift+c"), (0x6, ord("C")))
+        self.assertEqual(parse("alt+f5"), (0x1, 0x74))
+        self.assertEqual(parse("ctrl+alt+num3"), (0x3, 0x63))
+        for plain in ("1", "c", "shift+1", "ctrl+alt+;", "win+1", ""):
+            self.assertIsNone(parse(plain), plain)
+        self.assertEqual(system_wide({"1": "cam:Nose", "ctrl+alt+1": "cam:TV1", "shift+2": "ov:laps"}), {"ctrl+alt+1": "cam:TV1"})
+
+    def test_not_windows(self):
+        hk = GlobalHotkeys(lambda action: None)
+        if not hk.available:
+            hk.set({"ctrl+alt+1": "cam:TV1"})  # nothing to do, nothing breaks
+            self.assertEqual(hk.taken, [])
+
+
+class HotkeyActionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.app, cls.source = make_app(cls.tmp.name, minutes=1)
+        league = cls.app.leagues.save(profile_from_session(cls.app.build_snapshot()["drivers"], "S"))
+        cls.app.leagues.set_active(league["id"])
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def press(self, action):
+        return self.app.command("hotkey", {"action": action})
+
+    def test_overlays_boards_and_grid_walk(self):
+        app = self.app
+        was = app.overlays.get()["laps"]["visible"]
+        self.press("ov:laps")
+        self.assertEqual(app.overlays.get()["laps"]["visible"], not was)
+        self.press("ov:laps")
+        self.assertEqual(app.overlays.get()["laps"]["visible"], was)
+        # A board on screen; the same key again takes it off; another swaps.
+        self.press("board:calendar:")
+        self.assertEqual(app.board["kind"], "calendar")
+        self.press("board:results:overall")
+        self.assertEqual((app.board["kind"], app.board["params"]["round"]), ("results", "latest"))
+        self.press("board:results:overall")
+        self.assertIsNone(app.board["kind"])
+        self.press("board:calendar:")
+        self.press("board:off")
+        self.assertIsNone(app.board["kind"])
+        self.press("gw:toggle")
+        self.assertTrue(app.gridwalk.visible)
+        self.press("gw:toggle")
+        self.assertFalse(app.gridwalk.visible)
+
+    def test_cameras(self):
+        group = self.app._camera_groups[1]
+        self.source.commands.clear()
+        self.press(f"cam:{group['name']}")
+        self.assertTrue(any(c[0] == "cam_switch_num" and c[2] == group["num"] for c in self.source.commands))
+        from apex.core import CommandError
+        with self.assertRaises(CommandError):
+            self.press("cam:No Such Camera")
+
+    def test_keys_are_kept_for_next_time(self):
+        class Fake:
+            available, taken = True, []
+
+            def set(self, mapping):
+                self.mapping = mapping
+
+        self.app.global_hotkeys = fake = Fake()
+        try:
+            r = self.app.command("hotkeys", {"keys": {"1": "cam:Nose", "ctrl+alt+c": "board:calendar:"}})
+            self.assertEqual(r["system_wide"], 1)
+            self.assertEqual(fake.mapping, {"ctrl+alt+c": "board:calendar:"})
+            self.assertEqual(self.app.settings.get("global_hotkeys"), {"ctrl+alt+c": "board:calendar:"})
+            self.assertTrue(self.app.build_snapshot()["hotkeys"]["system_wide"])
+        finally:
+            self.app.global_hotkeys = None

@@ -149,6 +149,69 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(cal["image"], "/api/logos/lg/league-calendar-image-1.png")
         self.assertTrue(cal["rows"])  # the rounds are still there for everything else
 
+    def test_finishing_order_gaps(self):
+        lg = league()
+        res = lg["championship"]["rounds"][0]["results"]
+        # Overall: 1 wins; 3 is 4.5 s back; 2 a lap down; 4 retired.
+        gaps = {"cust:1": 0.0, "cust:3": 4.5, "cust:2": None, "cust:4": None}
+        for r in res:
+            r["gap"] = gaps[r["driver"]]
+        res[2]["laps"] = 9
+        res[3]["status"] = "dnf"
+        rows = boards.build(lg, {"kind": "results", "params": {"group": "overall"}}, self.settings)["rows"]
+        self.assertEqual([(r["name"], r["gap"], r["gap_laps"], r["interval"], r["interval_laps"], r["out"]) for r in rows], [
+            ("Driver 1", None, None, None, None, None), ("Driver 3", 4.5, None, 4.5, None, None),
+            ("Driver 2", None, 1, None, 1, None), ("Driver 4", None, None, None, None, "DNF")])
+        # By class: gaps to the class winner (AM: driver 3 won it).
+        am = boards.build(lg, {"kind": "results", "params": {"group": "am"}}, self.settings)["rows"]
+        self.assertEqual([(r["name"], r["gap"], r["out"]) for r in am], [("Driver 3", None, None), ("Driver 4", None, "DNF")])
+        self.assertEqual(ch.normalise_result({"gap": "2.5"})["gap"], 2.5)
+        self.assertIsNone(ch.normalise_result({})["gap"])
+
+    def test_gap_saved_with_results(self):
+        gap = App._result_gap
+        # Over: iRacing's race times; on: live timing (iRacing's times then aren't final).
+        self.assertEqual(gap({"Time": 1805.25}, 1800.0, {"gap": 9.9}, True), 5.25)
+        self.assertEqual(gap({"Time": 1805.25}, 1800.0, {"gap": 4.2}, False), 4.2)
+        self.assertEqual(gap({}, None, {"gap": 1.5}, True), 1.5)
+        self.assertIsNone(gap({"Time": -1}, 1800.0, {"gap": None}, True))
+
+    def test_overlay_offsets_and_accent(self):
+        cfg = overlay_settings({"laps": {"offset_x": 5000, "offset_y": -40},
+                                "standings": {"accent": "session", "accent_race": "#FF0000", "accent_color": "red"}})
+        self.assertEqual((cfg["laps"]["offset_x"], cfg["laps"]["offset_y"]), (1920, -40))
+        self.assertEqual((cfg["standings"]["accent_race"], cfg["standings"]["accent_color"]), ("#ff0000", "#ff7a1a"))
+        self.assertTrue(all("offset_x" in cfg[k] for k in ("standings", "laps", "driver", "sponsors", "battle", "gridwalk")))
+        self.assertNotIn("offset_x", cfg["board_results"])  # boards fill the screen
+
+    def test_pages(self):
+        settings = overlay_settings({"board_results": {"rows": 3}, "board_championship": {"rows": 3}})
+        build = lambda kind, page: boards.build(league(), {"kind": kind, "params": {"group": "overall", "page": page}}, settings)  # noqa: E731
+        first, second = build("results", 0), build("results", 1)
+        self.assertEqual((first["page"], first["pages"], len(first["rows"])), (0, 2, 3))
+        # The rest on the next page, positions carrying on.
+        self.assertEqual([(r["rank"], r["name"]) for r in second["rows"]], [(4, "Driver 4")])
+        self.assertEqual(build("results", 9)["page"], 1)  # past the end: the last page
+        champ = build("championship", 1)["rows"]
+        self.assertEqual([r["pos"] for r in champ], [4])
+        self.assertEqual(champ[0]["ahead"], 1)  # to the driver ahead on the page before (4 vs 3)
+        self.assertEqual(self.board("calendar")["pages"], 1)
+
+    def test_finishing_order_for_any_class(self):
+        lg = league(classes=[{"id": "pro", "name": "PRO", "color": "#ff0000"}, {"id": "am", "name": "AM", "color": "#00ff00"},
+                             {"id": "rookie", "name": "Rookies", "color": "#0000ff", "role": "secondary"},
+                             {"id": "silver", "name": "Silver", "color": "#999999"}])
+        lg["drivers"][3]["class2_id"] = "rookie"
+        lg["drivers"][1]["class2_id"] = "rookie"
+        lg["championship"]["rules"]["scoring"] = "overall"  # no class points: the classes aren't scored
+        self.assertEqual([(c["key"], c["secondary"]) for c in boards.options(lg)["classes"]],
+                         [("pro", False), ("am", False), ("rookie", True), ("silver", False)])
+        rows = lambda g: boards.build(lg, {"kind": "results", "params": {"group": g}}, self.settings)["rows"]  # noqa: E731
+        self.assertEqual([(r["rank"], r["name"], r["points"]) for r in rows("am")], [(1, "Driver 3", None), (2, "Driver 4", None)])
+        self.assertEqual([r["name"] for r in rows("rookie")], ["Driver 2", "Driver 4"])
+        self.assertEqual(rows("silver"), [])
+        self.assertEqual(len(rows("overall")), 4)
+
     def test_commands(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = App(MockSource(seed=1, clock=lambda: 0.0), dict(DEFAULTS), LeagueStore(tmp))
@@ -160,8 +223,20 @@ class BoardTests(unittest.TestCase):
             snap = app.build_snapshot()
             self.assertEqual(snap["board"]["kind"], "championship")
             self.assertEqual(len(snap["board_options"]["groups"]), 3)
+            # Pages: a step at a time, stopping at either end; another board starts at page 1.
+            app.overlays.update("board_championship", {"rows": 3})
+            app.build_snapshot()
+            self.assertEqual(app.command("board_page", {"step": "next"}), {"page": 2, "pages": 2})
+            self.assertEqual(app.command("hotkey", {"action": "board:next"}), {"page": 2, "pages": 2})
+            self.assertEqual(app.build_snapshot()["board"]["page"], 1)
+            self.assertEqual(app.command("hotkey", {"action": "board:prev"}), {"page": 1, "pages": 2})
+            app.command("board_page", {"step": "2"})
+            app.command("board_show", {"kind": "championship", "group": "pro"})
+            self.assertEqual(app.build_snapshot()["board"]["page"], 0)
             app.command("board_hide", {})
             self.assertIsNone(app.build_snapshot()["board"])
+            with self.assertRaises(CommandError):
+                app.command("board_page", {"step": "next"})
             # Pop-outs: in the app window they open there; otherwise the page opens one itself.
             self.assertEqual(app.command("popout", {"page": "boards"}), {"opened": False})
             opened = []
@@ -257,3 +332,37 @@ class BackgroundTests(unittest.TestCase):
         # The board on screen carries its background settings to the page.
         b = boards.build(league(), {"kind": "results", "params": {}}, settings)
         self.assertEqual(b["settings"]["bg_opacity"], 40)
+
+
+class SessionResultsBoardTests(unittest.TestCase):
+    def test_finishing_order_from_any_session_of_the_event(self):
+        import tempfile
+        from apex.league import profile_from_session
+        from tests.test_app import make_app
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=1)
+            league = app.leagues.save(dict(profile_from_session(app.build_snapshot()["drivers"], "S"),
+                                           championship={"rules": {"points": [25, 18, 15]}, "rounds": [{"id": "r1", "name": "Round 1"}]}))
+            app.leagues.set_active(league["id"])
+            cars = sorted(app._drivers)
+            with app._lock:
+                # A qualifying session already run, before the race on screen.
+                app._session_meta["sessions"][5] = {"SessionType": "Lone Qualify", "SessionName": "QUALIFY", "ResultsPositions": [
+                    {"Position": i + 1, "CarIdx": car, "LapsComplete": 3, "FastestTime": 80.0 + i, "ReasonOutStr": "Running"}
+                    for i, car in enumerate(cars[:3])] + [
+                    {"Position": 4, "CarIdx": cars[3], "LapsComplete": 0, "FastestTime": -1, "ReasonOutStr": "Running"}]}
+            opts = app.build_snapshot()["board_options"]["sessions"]
+            self.assertEqual([(x["source"], x["name"], x["current"], x["results"]) for x in opts],
+                             [("session:0", "RACE", True, True), ("session:5", "QUALIFY", False, True)])
+            app.command("board_show", {"kind": "results", "group": "overall", "round": "session:5"})
+            board = app.build_snapshot()["board"]
+            self.assertEqual(board["title"], "Qualify result")
+            # Best-lap order, with no points; whoever set no time isn't in it (nor counted a DNF).
+            self.assertEqual([r["name"] for r in board["rows"]], [app._drivers[c]["name"] for c in cars[:3]])
+            self.assertEqual([r["points"] for r in board["rows"]], [None] * 3)
+            self.assertEqual([r["status"] for r in board["rows"]], ["finished"] * 3)
+            # The race on screen: the running order, with points (per class in this league).
+            app.command("board_show", {"kind": "results", "group": "gt3", "round": "session:0"})
+            board = app.build_snapshot()["board"]
+            self.assertEqual((board["title"], len(board["rows"]) > 3), ("Race result", True))
+            self.assertIsNotNone(board["rows"][0]["points"])

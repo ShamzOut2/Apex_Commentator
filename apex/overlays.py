@@ -14,11 +14,15 @@ from pathlib import Path
 # "image" (see backgrounds.py), at bg_opacity percent; and its size (scale,
 # percent: an overlay grows or shrinks from where it sits, a board or full
 # screen from the middle).
+# Overlays (not boards) can be moved from where they sit: px on the 1920x1080 screen.
+OFFSET = {"offset_x": 0, "offset_y": 0}
 BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacity": 100, "scale": 100}
 
 # Overlays and boards with columns can dim each column on its own:
 # col_opacity "gap:60,laps:40" (percent; columns left out are 100), used
 # while col_opacity_on is ticked.
+# Every board: "Page 2 / 3" in its header when it runs to more than one page.
+PAGING = {"page_number": True}
 COLUMN_OPACITY = {"col_opacity_on": False, "col_opacity": ""}
 
 NAME_FORMATS = ("full", "initial_last", "last_initial", "last", "first", "abbrev", "nickname")
@@ -49,10 +53,12 @@ DEFAULTS = {
         "name_format": "last_initial",
         "show_team": True,
         "show_logo": True,
+        "team_logo_side": "first",  # the team logo before the team name ("first": its own column on the tower) or after it ("last")
         "show_number": True,
         "show_stripe": True,      # the coloured bar by each driver (class or team colour)
         "show_col_labels": True,  # the column headings (GAP, INT...) under the header
         "leader_cell": "leader",  # race: the leader's gap box shows "leader" (Leader) or "lap" (the lap they're on)
+        "interval_leader": "blank",  # race: the leader's interval box: "blank", "leader" (Leader) or "lap" (the lap they're on)
         "color_number": True,     # the car number on a background in the class colour (off: just the number)
         "show_gap": True,         # race: gap to the leader; qualifying: gap to pole
         "show_interval": False,   # to the car ahead
@@ -75,7 +81,22 @@ DEFAULTS = {
         # your own ("" = RACE, QUALIFYING, or iRacing's name for practice).
         "show_series": True, "show_track": True,
         "title_race": "", "title_qualify": "", "title_practice": "",
+        # Heat racing: names of your own for the heats, consolation and feature
+        # ("" = iRacing's, e.g. HEAT 1), and on the day of a heat event each race
+        # named as its league round is named ("name") or not ("off"; see heats.py).
+        "title_heat": "", "title_consolation": "", "title_feature": "",
+        "round_titles": "name",
         "title_wrap": False,      # a long session name: onto two lines (True) or one line, the tower widening for it
+        "time_left_word": True,   # "12:34 LEFT" (off: just 12:34)
+        # Accent colour: the time / lap in the header, the bar down the tower
+        # header's left and the line under the full screen's header.
+        # "default" (orange), "color" (accent_color) or "session" (by session:
+        # accent_practice, accent_qualify, accent_race).
+        "accent": "default", "accent_color": "#ff7a1a",
+        "accent_practice": "#ffffff", "accent_qualify": "#b14cff", "accent_race": "#ff4d4d",
+        # A small bar under the tower's header with a sponsor logo (several take
+        # turns every sponsor_bar_s seconds): which (sponsor_bar_ids, "" = all) and how tall.
+        "sponsor_bar": False, "sponsor_bar_ids": "", "sponsor_bar_s": 8.0, "sponsor_bar_size": 44,
         # Fastest lap: a purple stopwatch by the holder's name (each class's
         # holder in "class" mode), and a purple pill at the top middle of the
         # screen for fl_flash_s when someone sets a new fastest lap.
@@ -83,7 +104,7 @@ DEFAULTS = {
         "fl_flash": True,
         "fl_flash_s": 6.0,
         "fl_flash_classes": False,  # also a new fastest lap in each class, not just overall
-        **BACKGROUND,
+        **BACKGROUND, **OFFSET,
     },
     # Sponsor logos on their own (sponsors.html), over the race.
     "sponsors": {
@@ -95,43 +116,64 @@ DEFAULTS = {
         "background": True,       # a dark panel behind the logos
         "title": "",              # a small caption above them, e.g. "Partners"
         "sponsor_ids": "",        # which sponsors, comma separated ("" = all, "none" = none)
-        **BACKGROUND,
+        **BACKGROUND, **OFFSET,
     },
     # "Who's this": a board at the bottom centre for the driver on camera (driver.html).
     "driver": {
         "visible": True,
         "hide_s": 8.0,            # seconds it stays up after the camera moves to someone (0 = while they're on camera)
+        "stay": False,            # stay up for as long as the camera's on them (hide_s not used)
         "name_format": "full",
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_class": True,       # the class, in multiclass races
         "show_position": True,    # P3 (and P1 in class, in multiclass races)
-        **BACKGROUND,
+        "team_place": "under",    # "under": the team under the name, the car badge at the end; "end": swapped
+        "team_logo_side": "first",  # the team logo before ("first") or after ("last") the team name
+        **BACKGROUND, **OFFSET,
+    },
+    # Championship battle (battle.html): a few drivers' championship places
+    # and points, live during a race (as if it finished now), and the points
+    # between them. group: which championship ("overall" or a class id);
+    # drivers: who, comma separated driver keys (cust:123), up to six.
+    "battle": {
+        "visible": False,
+        "group": "overall",
+        "drivers": "",
+        "place": "top-right",
+        "title": "",              # its heading ("" = the championship's name)
+        "name_format": "last_initial",
+        "show_number": True, "show_team": False, "show_logo": True,
+        "show_race_points": True,  # during a race: the points this race gives them (+18)
+        "show_change": True,      # during a race: places gained / lost in the championship
+        "gap_to": "first",        # the points gap to the first of them ("first") or to the driver above ("ahead")
+        **BACKGROUND, **OFFSET,
     },
     # The grid walk's own settings are with the grid walk; this is just its background.
-    "gridwalk": dict(BACKGROUND),
+    "gridwalk": {**BACKGROUND, **OFFSET},
     # Full-screen boards (board.html), one section each. Every board has:
     # banner ("none", "top", "bottom", "left", "right"), banner_id (which of
     # the league's banners, "" = the first of the right shape),
     # league_logo (the league's logo in the header), sponsors (where the
     # sponsor logos go, the same places as a banner) and sponsor_ids (which,
     # as for the sponsors overlay).
-    "board_championship": {**COLUMN_OPACITY, 
+    "board_championship": {**COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_gap": True, "show_ahead": False,  # gap to the leader; gap to the driver ahead
         "show_wins": False, "show_penalty": False,
     },
-    "board_teams": {**COLUMN_OPACITY, 
+    "board_teams": {**COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
         "show_drivers": True,  # the drivers who scored for the team, under its name
         "show_gap": True, "show_ahead": False, "show_wins": False, "show_penalty": False,
     },
-    "board_makes": {**COLUMN_OPACITY, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND, "rows": 12, "show_logo": True,
+    "board_makes": {**COLUMN_OPACITY, **PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND, "rows": 12, "show_logo": True,
                     "show_gap": True, "show_wins": True},
-    "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+    "board_calendar": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+                       "rows": 24,  # race meetings a page
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
                        "show_winners": True,
@@ -141,10 +183,12 @@ DEFAULTS = {
                        # full: 22nd November 2026; weekday: Sunday 22nd November.
                        "date_format": "weekday_short",
                        "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
-    "board_results": {**COLUMN_OPACITY, 
+    "board_results": {**COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
-        "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True, "show_status": True,
+        "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True,
+        # Gap to the winner and to the car ahead (a DNF / DNS / DSQ shows there instead).
+        "show_gap": True, "show_interval": True,
     },
     "laps": {
         "visible": True,
@@ -160,16 +204,16 @@ DEFAULTS = {
         "show_driver_number": False,
         "show_invalid": False,    # small trackers: also show laps already invalid
         "practice": False,        # also run in practice sessions (it always runs in qualifying)
-        **BACKGROUND,
+        **BACKGROUND, **OFFSET,
     },
 }
 
-LIMITS = {"rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
+LIMITS = {"rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 
@@ -190,8 +234,8 @@ def _value(key, value, default):
             value = type(default)(value)
             lo, hi = LIMITS.get(key, (value, value))
             return min(max(value, lo), hi)
-        value = str(value)[:200]
-        if key == "bg_color":
+        value = str(value)[:600 if key == "drivers" else 200]
+        if key == "bg_color" or key.startswith("accent_"):
             return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
         if key == "bg_image":
             return value if re.fullmatch(r"(bg-[0-9a-f]{12}\.(png|jpg|webp|svg))?", value) else default
@@ -205,7 +249,12 @@ def _value(key, value, default):
                 if re.fullmatch(r"[a-z_]{1,20}", col) and pct.strip().isdigit() and int(pct) < 100:
                     out.append(f"{col}:{max(0, int(pct))}")
             return ",".join(out)
-        if key == "sponsor_ids":
+        if key == "drivers":
+            keys = [k.strip() for k in value.split(",") if re.fullmatch(r"(cust:\d{1,12}|name:[^,]{1,60})", k.strip())]
+            return ",".join(dict.fromkeys(keys[:6]))
+        if key == "group":
+            return value if re.fullmatch(r"[A-Za-z0-9:_ .\-]{1,80}", value) else default
+        if key in ("sponsor_ids", "sponsor_bar_ids"):
             return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
         return value if key not in CHOICES or value in CHOICES[key] else default
     except (TypeError, ValueError):

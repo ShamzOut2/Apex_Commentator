@@ -69,6 +69,11 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
                                 settle_s=float(cfg["photobooth_settle_s"]))
     if app.settings.get("screenshots_dir") and not mock:
         app.photobooth.set_folder(app.settings.get("screenshots_dir"))
+    from .hotkeys import IS_WINDOWS, GlobalHotkeys
+    if IS_WINDOWS:
+        # Keys with Ctrl / Alt work whichever program is in front (see hotkeys.py).
+        app.global_hotkeys = GlobalHotkeys(lambda action: app.command("hotkey", {"action": action}))
+        app.global_hotkeys.set(app.settings.get("global_hotkeys", {}))
     app.updater = Updater(
         __version__, cfg["update_repo"], APP_DIR, ROOT / "data" / "update.json",
         token=cfg["github_token"] or app.settings.get("github_token", ""), enabled=cfg["update_check"],
@@ -88,7 +93,7 @@ def smoke_test(cfg):
     try:
         import irsdk  # noqa: F401  (bundled for live iRacing sessions)
         time.sleep(1.5)
-        for path, expect in (("/", b"Apex"), ("/gridwalk.html", b"gridwalk.js"), ("/standings.html", b"standings.js"), ("/laps.html", b"laps.js"), ("/board.html", b"board.js"), ("/sponsors.html", b"sponsors.js"), ("/driver.html", b"driver.js"), ("/makes/porsche.png", b"PNG"), ("/logos/pro.svg", b"data-apex-fill"),
+        for path, expect in (("/", b"Apex"), ("/gridwalk.html", b"gridwalk.js"), ("/standings.html", b"standings.js"), ("/laps.html", b"laps.js"), ("/board.html", b"board.js"), ("/sponsors.html", b"sponsors.js"), ("/driver.html", b"driver.js"), ("/battle.html", b"battle.js"), ("/makes/porsche.png", b"PNG"), ("/logos/pro.svg", b"data-apex-fill"),
                              ("/api/state", b'"connected": true')):
             with urllib.request.urlopen(base + path, timeout=10) as resp:
                 body = resp.read()

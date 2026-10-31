@@ -142,7 +142,8 @@ const COLUMNS = [
   ["show_interval", "80px", "Int", (e, race, classMode, cfg, green) => {
     const interval = classMode ? e.class_interval : e.interval;
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
-    if (first || interval == null) return "";
+    if (first) return race ? leaderInterval(e, cfg) : "";
+    if (interval == null) return "";
     const text = `+${race ? interval.toFixed(1) : interval.toFixed(3)}`;
     // Racing within close_s of the car ahead: red until they're past or it opens up.
     const close = race && green && cfg.close_s > 0 && interval <= cfg.close_s && e.in_world && !e.on_pit;
@@ -176,8 +177,13 @@ function extraDrivers(entries, cfg) {
 
 // What the race leader (each class's, by class) shows where the gap would be:
 // "Leader", or the lap they're on.
-function leaderText(e, cfg) {
-  return cfg.leader_cell === "lap" && e.lap ? `Lap ${e.lap}` : "Leader";
+function leaderText(e, cfg, setting = cfg.leader_cell) {
+  return setting === "lap" && e.lap ? `Lap ${e.lap}` : "Leader";
+}
+
+// The same for the interval column (interval_leader): nothing, "Leader" or their lap.
+function leaderInterval(e, cfg) {
+  return cfg.interval_leader === "blank" ? "" : `<span class="lead">${leaderText(e, cfg, cfg.interval_leader)}</span>`;
 }
 
 // The car number: on a background in the driver's class colour, or just the number (Overlays tab).
@@ -189,7 +195,7 @@ function numberChip(e, cls, cfg) {
 
 // Position, stripe, number and logo: the same size whatever the width.
 function fixedParts(cfg) {
-  return ["40px", "6px", cfg.show_number ? "50px" : null, cfg.show_logo ? "30px" : null].filter(Boolean);
+  return ["40px", "6px", cfg.show_number ? "50px" : null, cfg.logo_col ? "30px" : null].filter(Boolean);
 }
 
 // A width set by hand: the name takes what the other columns leave.
@@ -256,15 +262,17 @@ function autoFit(cfg, cols) {
 
 function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) {
   const pos = classMode ? e.class_pos : e.pos;
-  const team = cfg.show_team && e.team ? `<span class="tm">${esc(e.team)}</span>` : "";
+  // The team logo after the team name (or the driver's, with no team line); else in its own column before.
+  const logoAfter = cfg.logo_inline && e.team_logo ? `<img class="tm-logo" src="${esc(e.team_logo)}" alt="">` : "";
+  const team = cfg.show_team && e.team ? `<span class="tm">${esc(e.team)}${logoAfter}</span>` : "";
   const pit = cfg.show_pit_status && e.on_pit ? '<span class="pitb">PIT</span>' : "";
   const move = moveOf(e.car_idx);
   return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
     <span class="p tnum" data-opcol="pos">${pos}</span>
     <span class="stripe" style="${cfg.show_stripe ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : cls.color)}` : ""}"></span>
     ${cfg.show_number ? `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>` : ""}
-    ${cfg.show_logo ? `<span data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
-    <span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${team}</span>
+    ${cfg.logo_col ? `<span data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
+    <span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}${team ? "" : logoAfter}</span>${team}</span>
     ${cols.map((c) => `<span class="c tnum" data-opcol="${c[0].replace(/^show_/, "")}">${c[3](e, race, classMode, cfg, green)}</span>`).join("")}
   </div>`;
 }
@@ -272,6 +280,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
 // "LAP 5 / 20", "12:34 LEFT", "FINAL LAP", "FINISHED": whatever the
 // session is limited by (or what the commentator picked).
 function progressText(ov) {
+  const left = ov.settings.standings.time_left_word ? " LEFT" : "";
   const pr = ov.progress;
   if (!pr || pr.mode === "none") return "";
   if (pr.finished) return "FINISHED";
@@ -281,13 +290,33 @@ function progressText(ov) {
     return `LAP ${pr.lap}${pr.laps_total ? ` / ${pr.laps_total}` : ""}`;
   }
   if (pr.time_remain == null) return "";
-  return `${fmtClock(pr.time_remain)} LEFT`;
+  return `${fmtClock(pr.time_remain)}${left}`;
+}
+
+// The accent colour (header time / lap, the tower header's bar, the full
+// screen's header line): orange, one picked, or by session (accent setting).
+function setAccent(cfg, ov) {
+  const kind = ov.session_kind === "race" ? "race" : ov.session_kind === "qualify" ? "qualify" : "practice";
+  const color = cfg.accent === "color" ? cfg.accent_color : cfg.accent === "session" ? cfg[`accent_${kind}`] : "";
+  if (color) document.body.style.setProperty("--head-accent", color);
+  else document.body.style.removeProperty("--head-accent");
+}
+
+// The sponsor bar under the tower's header: one logo, several taking turns.
+function sponsorBarHtml(snap, cfg) {
+  if (!cfg.sponsor_bar) return "";
+  const all = (snap.league && snap.league.sponsors) || [];
+  const ids = cfg.sponsor_bar_ids && cfg.sponsor_bar_ids !== "none" ? new Set(cfg.sponsor_bar_ids.split(",")) : null;
+  const logos = cfg.sponsor_bar_ids === "none" ? [] : all.filter((l) => !ids || ids.has(l.id));
+  if (!logos.length) return "";
+  const logo = logos[Math.floor(Date.now() / 1000 / cfg.sponsor_bar_s) % logos.length];
+  return `<div class="tower-sponsor" style="--sb-h:${cfg.sponsor_bar_size}px"><img src="${esc(logo.url)}" alt="${esc(logo.name || "")}"></div>`;
 }
 
 function headRowHtml(cfg, cols) {
   if (!cols.length || !cfg.show_col_labels) return "";
   return `<div class="srow shead">
-    <span></span><span></span>${cfg.show_number ? "<span></span>" : ""}${cfg.show_logo ? "<span></span>" : ""}<span></span>
+    <span></span><span></span>${cfg.show_number ? "<span></span>" : ""}${cfg.logo_col ? "<span></span>" : ""}<span></span>
     ${cols.map((c) => `<span class="c">${c[2]}</span>`).join("")}</div>`;
 }
 
@@ -297,6 +326,7 @@ function render() {
   if (!ov) return;
   renderFlash(snap, ov);
   setColumnOpacity(ov.settings.standings);
+  setAccent(ov.settings.standings, ov);
   if (SCREEN) {
     setBackground(ov.settings.standings, true);
     setSize(ov.settings.standings, true);
@@ -306,6 +336,8 @@ function render() {
   // No logo column when no team has a logo.
   const cfg = { ...ov.settings.standings };
   cfg.show_logo = cfg.show_logo && entries.some((e) => e.team_logo);
+  cfg.logo_col = cfg.show_logo && cfg.team_logo_side !== "last";
+  cfg.logo_inline = cfg.show_logo && cfg.team_logo_side === "last";
   const race = ov.session_kind === "race";
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const multiclass = new Set(entries.map((e) => e.class_key)).size > 1;
@@ -346,7 +378,7 @@ function render() {
   const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head${goFlash(ov)}">
       <div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
       ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}
-    </div>${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
+    </div>${sponsorBarHtml(snap, cfg)}${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
   tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("wrap-title", !!cfg.title_wrap);
   tower.classList.toggle("hidden", !visible);
@@ -378,6 +410,15 @@ const ROW_BUDGET = 850;  // px of the 1080 stage left for table rows under the h
 function sessionTitle(snap, ov) {
   const session = snap.session || {};
   const cfg = ov.settings.standings;
+  // A heat event's race: its league round's name (as set in the rounds), else the
+  // name set for heats / the consolation / the feature, else iRacing's.
+  if (session.round_title) return session.round_title;
+  if (["heat", "consolation", "feature"].includes(session.kind)) {
+    const named = String(cfg[`title_${session.kind}`] || "").trim();
+    const number = (String(session.name || "").match(/\d+/) || [""])[0];
+    if (named) return number && !/\d/.test(named) ? `${named} ${number}` : named;
+    return String(session.name || session.kind).toUpperCase();
+  }
   const own = { race: cfg.title_race, qualify: cfg.title_qualify }[ov.session_kind] ?? cfg.title_practice;
   if (own && own.trim()) return own.trim();
   return ov.session_kind === "race" ? "RACE" : ov.session_kind === "qualify" ? "QUALIFYING"
@@ -407,7 +448,8 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   const interval = classMode ? e.class_interval : e.interval;
   const first = pos === 1;
   const change = race && e.pos_change ? `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>` : "";
-  const team = e.team ? `${cfg.show_logo && e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}${esc(e.team)}` : "";
+  const logo = cfg.show_logo && e.team_logo ? `<img src="${esc(e.team_logo)}" alt="" class="${cfg.team_logo_side === "last" ? "after" : ""}">` : "";
+  const team = e.team ? (cfg.team_logo_side === "last" ? `${esc(e.team)}${logo}` : `${logo}${esc(e.team)}`) : "";
   const cells = [
     `<td class="stripe" style="${cfg.show_stripe ? `background:${esc(classMode && e.team_color ? e.team_color : cls.color)}` : "background:none"}"></td>`,
     `<td class="p r" data-opcol="pos">${pos}</td>`,
@@ -422,7 +464,9 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     gap: () => (race
       ? `<td class="r ${first ? "lead" : ""}">${first ? leaderText(e, cfg) : down ? `+${down} L` : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`
       : `<td class="r">${first ? "" : gap != null ? `+${gap.toFixed(3)}` : ""}</td>`),
-    interval: () => `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(race ? 1 : 3)}` : ""}</td>`,
+    interval: () => (first && race && cfg.interval_leader !== "blank"
+      ? `<td class="r lead">${leaderText(e, cfg, cfg.interval_leader)}</td>`
+      : `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(race ? 1 : 3)}` : ""}</td>`),
     last_lap: () => `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
     best_lap: () => (race ? `<td class="r">${fmtLap(e.best_lap)}</td>` : `<td class="r lead">${fmtLap(e.best)}</td>`),
     pits: () => `<td class="r muted">${e.pit_stops || ""}</td>`,

@@ -11,6 +11,63 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.4.7
+
+### New features
+
+- **Move any overlay**: every overlay has Move right / Move down, to keep
+  them clear of each other and fit your layout.
+- **Sponsor logo bar** under the timing tower's header.
+- **Race control tab**: give any driver a drive-through, stop & go or stop
+  & hold (seconds, minutes or laps), clear one driver's or everyone's
+  penalties, set the grid time, start the race and message every driver,
+  straight to iRacing (you need to be a session admin).
+- **Hotkeys that work from anywhere**: give a camera, overlay, board or the
+  grid walk a key with Ctrl or Alt (e.g. Ctrl+Alt+1) and it works whichever
+  program is in front, iRacing and OBS included. Plain keys still work in
+  the app's own windows.
+- **Hotkeys for overlays and boards**: a key for each overlay (on / off),
+  the grid walk and every board (on screen, and off again), set in the
+  Hotkeys window, now also on the Overlays and Boards tabs.
+- **Championship battle overlay**: pick two to six drivers (or the car on
+  camera and the cars around it, or the top 3) in any championship, overall
+  or a class, and show their places, points and the gaps between them; live
+  during a race, with the points this race would give them.
+- **Board pages**: set how many drivers each board shows a page, and go
+  through the rest with Next / Prev (or hotkeys) until the end.
+
+### Improvements
+
+- Finishing order: Gap and Interval columns; DNF, DNS and DSQ show there
+  instead of a column of their own.
+- Board backgrounds: an image fills the whole screen at its own size again,
+  whatever the board's size.
+- Timing tower and full screen: "LEFT" after the time left can be turned
+  off, and the accent colour (time / lap, the header's bar and line) can be
+  your own or follow the session: white practice, purple qualifying, red
+  race.
+- Standings (tower and full screen): the leader's interval can show
+  "Leader" or the lap they're on, like the gap column.
+- Heat racing: heats, the consolation and the feature are recognised, can
+  have names of your own, and on the day of a heat event each race takes the
+  name of its league round for that date, with its results saved to that
+  round.
+- The tabs are in a new order: Home, League builder, Teams, Championship,
+  Timing, Grid walk, Overlays, Boards, Race control.
+- Finishing order: a button for every class of the league, secondary
+  classes and classes without points of their own included.
+- The finishing order board can show any session of the event in iRacing:
+  practice, qualifying, warm-up, each heat or the race (practice and
+  qualifying by best lap, without points).
+- Standings (tower and full screen): put the team logo before or after the
+  team name.
+- Driver on camera: swap the team and the car badge (badge under the name,
+  team at the end), and put the team logo before or after the team name.
+- Driver on camera: set how long the card stays on screen (1 to 120
+  seconds), or keep it up while they're on camera. A new driver replaces the
+  card and starts the time again, picking the same driver again in the app
+  brings their card back, and it now goes on time even with iRacing paused.
+
 ## v0.4.6
 
 ### New features

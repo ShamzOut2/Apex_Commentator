@@ -150,6 +150,7 @@ def normalise_result(r):
         "status": status,
         "adjust": _num(r.get("adjust"), 0, lo=-1000, hi=1000),  # hand-given points (+ or -)
         "make": str(r.get("make") or "").strip()[:40],  # the car driven that round (manufacturers' standings)
+        "gap": _num(r.get("gap"), None, lo=0),  # seconds behind the winner, for the finishing order board
     }
 
 
@@ -649,13 +650,16 @@ def round_results(profile, rd, group):
     champ = normalise(profile.get("championship"))
     rules = champ["rules"]
     roster = _roster(profile)
-    scored = score_round(rd, rules, secondary_classes(profile))
+    second = secondary_classes(profile)
+    scored = score_round(rd, rules, second)
     if group in scored:
         scores = scored[group]
     else:
         # A finishing order the points system doesn't score (e.g. overall when
-        # points go by class): everyone by position, no points.
-        order = sorted((r for r in rd["results"] if r["status"] not in ("dns",)), key=lambda r: r["position"] or 10_000)
+        # points go by class): everyone in it (everyone, or the class's drivers)
+        # by position, no points.
+        mine = [r for r in rd["results"] if group == OVERALL or r["class_id"] == group or second.get(r["driver"]) == group]
+        order = sorted((r for r in mine if r["status"] not in ("dns",)), key=lambda r: r["position"] or 10_000)
         scores = {r["driver"]: {"rank": None if r["status"] == "dsq" else i, "status": r["status"], "short": False,
                                 "total": None} for i, r in enumerate(order, start=1)}
     rows = [r for r in rd["results"] if r["driver"] in scores]
@@ -674,7 +678,7 @@ def round_results(profile, rd, group):
             "make": r.get("make") or info.get("car_make", ""),
             "start": grid.get(r["driver"]), "laps": r["laps"], "laps_led": r["laps_led"],
             "fastest_lap": r["fastest_lap"], "has_fastest": best is not None and r["fastest_lap"] == best,
-            "status": s["status"], "short": s["short"], "points": s["total"],
+            "status": s["status"], "short": s["short"], "points": s["total"], "gap": r.get("gap"),
         })
     return out
 
