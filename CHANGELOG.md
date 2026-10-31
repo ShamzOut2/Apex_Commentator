@@ -11,6 +11,14 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- Championship boards: a penalty now comes off the driver's class standings
+  too when it was given to their roster entry and their results were saved
+  under a slightly different name (capitals, spacing or a "(P)" class tag).
+
 ## v0.5.0
 
 ### New features

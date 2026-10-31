@@ -317,6 +317,10 @@ class ScoringTests(unittest.TestCase):
         tables = {g["name"]: {d["driver"]: d["points"] for d in g["drivers"]} for g in st["groups"]}
         self.assertEqual(tables["PRO"], {"cust:1": 9, "name:bo": 4})
         self.assertEqual(tables["Overall"], {"cust:1": 9, "name:bo": 4})
+        # A class tag or capitals in the saved name don't stop it matching.
+        p["championship"]["rounds"][0]["results"][1].update(driver="name:(p) bo", name="(P) BO")
+        tables = {g["name"]: {d["driver"]: d["points"] for d in g["drivers"]} for g in ch.standings(p)["groups"]}
+        self.assertEqual(tables["PRO"], {"cust:1": 9, "name:(p) bo": 4})
 
     def test_tie_broken_on_countback(self):
         p = profile({"points": [10, 10]}, [{"id": "r1", "results": [res("a", 2), res("b", 1)]}])
