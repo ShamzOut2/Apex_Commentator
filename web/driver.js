@@ -10,7 +10,7 @@ const stage = $("#stage");
 const slot = $("#slot");
 fitStage(stage);
 const DEFAULT_CLASS = { key: "", name: "", color: "#8b93a3" };
-const OUT_MS = 400;
+const OUT_MS = 680;  // the leaving animation (driver.css .card.out)
 let current = null;  // {key, el, at, html, hidden, timer, hideMs}
 
 function cardHtml(d, cfg, cls, multiclass) {

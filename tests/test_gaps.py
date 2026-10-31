@@ -48,6 +48,17 @@ class GapTimerTests(unittest.TestCase):
         self.assertAlmostEqual(timer.gap(2, 1, p[2] - 400.0 / TRACK_M, self.now - 8.0), 90.0, delta=0.05)
         self.assertIsNone(timer.gap(2, 1, 0.01, self.now))  # before anything was timed
 
+    def test_a_replay_of_any_lap_and_going_back_keeps_the_timing(self):
+        timer = GapTimer()
+        timer.set_track(TRACK_M)
+        # 10 laps, car 2 three seconds behind car 1 (150 m at 50 m/s).
+        p = self.drive(timer, 800, 0.1, {1: (150.0, 50.0), 2: (0.0, 50.0)})
+        early = 25.0  # a replay of lap 1: where car 2 was then
+        self.assertAlmostEqual(timer.gap(2, 1, early * 50.0 / TRACK_M, early), 3.0, delta=0.05)
+        # The replay going back in time doesn't throw the timing away.
+        timer.update(0, early, {1: (150.0 + early * 50.0) / TRACK_M, 2: early * 50.0 / TRACK_M})
+        self.assertAlmostEqual(timer.gap(2, 1, p[2], self.now), 3.0, delta=0.05)
+
     def test_a_stopped_car_keeps_losing_time(self):
         timer = GapTimer()
         timer.set_track(TRACK_M)
@@ -62,7 +73,8 @@ class GapTimerTests(unittest.TestCase):
         timer.set_track(TRACK_M)
         self.drive(timer, 5, 0.1, {1: (0.0, 50.0)})
         timer.update(0, 5.2, {1: 0.9})  # towed to the pits: a jump, no times noted for it
-        self.assertLess(max(timer._passed[1]), 0.1 * timer.points)
+        timed = [k for k, v in enumerate(timer._passed[1]) if v == v]  # NaN: not passed
+        self.assertLess(max(timed), 0.1 * timer.points)
         timer.update(1, 0.0, {1: 0.1})  # next session
         self.assertEqual(timer._passed, {})
 

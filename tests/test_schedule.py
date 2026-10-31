@@ -139,9 +139,9 @@ class MeetingTests(unittest.TestCase):
     def test_calendar_board_shows_a_meeting_once(self):
         champ = {"rounds": [
             {"id": "a", "name": "Round 1", "track": "Monza"},
-            {"id": "b", "event": "Spa night", "name": "Heat 1", "track": "Spa", "results": [
+            {"id": "b", "event": "Spa night", "name": "Heat 1", "track": "Spa", "length": "20 min", "results": [
                 {"driver": "x", "name": "X", "position": 1, "laps": 10}]},
-            {"id": "c", "event": "Spa night", "name": "Heat 2", "track": "Spa"},
+            {"id": "c", "event": "Spa night", "name": "Heat 2", "track": "Spa", "length": "30 min"},
         ]}
         cal = championship.calendar({"name": "L", "drivers": [], "classes": [],
                                      "championship": championship.normalise(champ)})
@@ -150,6 +150,7 @@ class MeetingTests(unittest.TestCase):
         self.assertEqual([(r["name"], r["round"], r["last"], r["races"], r["done"]) for r in rows], [
             ("Round 1", 1, None, ["Round 1"], False), ("Spa night", 2, 3, ["Heat 1", "Heat 2"], False)])
         self.assertEqual([(w["race"], w["name"]) for w in rows[1]["winners"]], [("Heat 1", "X")])
+        self.assertEqual([(x["name"], x["length"]) for x in rows[1]["sessions"]], [("Heat 1", "20 min"), ("Heat 2", "30 min")])
 
 
 class MeetingImportTests(unittest.TestCase):

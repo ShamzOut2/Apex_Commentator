@@ -133,8 +133,10 @@ function calendarHtml(b) {
       <div class="rn"><span class="rt">${esc(roundTitle(r, s.round_title))}</span>${s.show_multiplier && r.multiplier !== 1 ? `<span class="mult">×${r.multiplier} points</span>` : ""}<span class="tag">${r.next ? "Next" : r.done ? "Done" : ""}</span></div>
       <div class="tr">${esc(r.track || "Track to be confirmed")}</div>
       ${s.show_config && r.config ? `<div class="cf">${esc(r.config)}</div>` : ""}
-      <div class="when">${[s.show_date && dateText(r, s.date_format), s.show_time && r.time, r.races.length > 1 && `${r.races.length} races`,
-        s.show_length && r.length].filter(Boolean).map(esc).join(" · ")}</div>
+      <div class="when">${[s.show_date && dateText(r, s.date_format), s.show_time && r.time,
+        r.races.length < 2 && s.show_length && r.length].filter(Boolean).map(esc).join(" · ")}</div>
+      ${(r.sessions || []).length > 1 ? `<div class="races">${r.sessions.map((x) => `<span class="race"><b>${esc(x.name)}</b>${
+        s.show_length && x.length ? ` <span class="len">${esc(x.length)}</span>` : ""}</span>`).join("")}</div>` : ""}
       ${s.show_winners && r.winners.length ? `<div class="wins">${r.winners.map((w) => `<span style="${w.color ? `background:${esc(w.color)};color:${inkFor(w.color)}` : ""}">🏆 ${esc(winnerLabel(w, r) ? `${winnerLabel(w, r)}: ` : "")}${esc(w.name)}</span>`).join("")}</div>` : ""}
     </div>`).join("")}</div>`;
 }

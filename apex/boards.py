@@ -250,17 +250,20 @@ def _page(out, cfg, params):
 def meetings(cal):
     """The calendar with each race meeting (rounds next to each other with the
     same ``event``) as one entry: its first race's details, ``last`` (its last
-    round's number), and each race's winners named by race."""
+    round's number), each race's winners named by race, and ``sessions``: each
+    race's name and length (Race 1 · 20 min) for a meeting's card."""
     out = []
     for r in cal:
         prev = out[-1] if out else None
         if r["event"] and prev and prev.get("event") == r["event"]:
             prev["last"] = r["round"]
             prev["races"].append(r["name"])
+            prev["sessions"].append({"name": r["name"], "length": r.get("length", ""), "time": r.get("time", "")})
             prev["done"] = prev["done"] and r["done"]
             prev["winners"] += [dict(w, race=r["name"]) for w in r["winners"]]
             continue
-        entry = dict(r, last=None, races=[r["name"]])
+        entry = dict(r, last=None, races=[r["name"]],
+                     sessions=[{"name": r["name"], "length": r.get("length", ""), "time": r.get("time", "")}])
         if r["event"]:
             entry["name"] = r["event"]
             entry["winners"] = [dict(w, race=r["name"]) for w in r["winners"]]

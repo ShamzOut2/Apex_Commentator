@@ -2,7 +2,7 @@
   "host": "127.0.0.1",
   "port": 8180,
   "poll_hz": 10,
-  "push_hz": 4,
+  "push_hz": 8,
   "replay_preroll_s": 6.0,
   "replay_auto_return_s": 0,
   "default_camera_group": "",

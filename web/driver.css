@@ -25,8 +25,23 @@ body.panel-image .card::before {
   to { clip-path: inset(0 0 0 0 round 14px); }
 }
 @keyframes card-sweep { to { transform: translateX(110%); } }
-.card.out { animation: card-out .4s ease-in both; }
-@keyframes card-out { to { opacity: 0; transform: translateY(40px); } }
+/* Leaving, the entrance in reverse: the details fade, a light sweep runs
+   back across, then the card closes to the middle as it drops away. */
+.card.out { animation: card-out .65s cubic-bezier(.55, 0, .75, .1) both; z-index: 0; }
+.card.out > * { animation: card-content-out .25s ease-in both; }
+.card.out::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(260deg, transparent 35%, rgba(255, 255, 255, .24) 50%, transparent 65%);
+  transform: translateX(110%); animation: card-sweep-out .45s ease-in both;
+}
+@keyframes card-out {
+  0%, 30% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 14px); }
+  100% { opacity: 0; transform: translateY(46px); clip-path: inset(0 45% 0 45% round 14px); }
+}
+@keyframes card-content-out { to { opacity: 0; transform: translateY(8px); } }
+@keyframes card-sweep-out { to { transform: translateX(-110%); } }
+/* A new driver's card comes in over the one leaving. */
+.card:not(.out) { z-index: 1; }
 .card.in > * { animation: card-content .45s .25s ease both; }
 @keyframes card-content { from { opacity: 0; transform: translateY(8px); } }
 
