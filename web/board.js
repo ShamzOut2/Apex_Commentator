@@ -27,11 +27,18 @@ function columns(b) {
   const s = b.settings;
   const cols = [];
   const add = (on, key, label, width, cls, cell) => on && cols.push([label, width, cls, cell, key]);
+  // The team logo and the team name: columns of their own, the logo before or after the name.
+  const logoCol = (on) => add(on, "logo", "", "90px", "c lg", (r) => (r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""));
+  const teamCols = (nameOn, nameCell) => {
+    if (s.team_logo_side !== "last") logoCol(s.show_logo);
+    add(nameOn, "team", "Team", "auto", nameCell ? "" : "muted", nameCell || ((r) => esc(r.team)));
+    if (s.team_logo_side === "last") logoCol(s.show_logo);
+  };
   if (b.kind === "championship") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
     add(s.show_number, "number", "#", "80px", "c", numberChip);
     add(true, "driver", "Driver", "auto", "", (r) => esc(r.name));
-    add(s.show_team, "team", "Team", "auto", "muted", (r) => `${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}${esc(r.team)}`);
+    teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => {
       const x = r.rounds[i];
@@ -44,7 +51,7 @@ function columns(b) {
     add(s.show_ahead, "ahead", "To ahead", "140px", "r muted", (r) => (r.ahead != null ? `−${fmtPts(r.ahead)}` : ""));
   } else if (b.kind === "teams") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
-    add(true, "team", "Team", "auto", "", (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(r.color)}"></span>` : ""}${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
+    teamCols(true, (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(r.color)}"></span>` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
     add(s.show_drivers, "drivers", "Drivers", "auto", "muted team-drivers", (r) => esc(r.drivers.join(" · ")));
     b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => (r.rounds[i] == null ? "–" : fmtPts(r.rounds[i]))));
     add(s.show_wins, "wins", "Wins", "80px", "r muted", (r) => r.wins || "");
@@ -63,7 +70,7 @@ function columns(b) {
     add(s.show_gained, "gained", "", "90px", "c", (r) => (r.gained ? `<span class="${r.gained > 0 ? "up" : "down"}">${r.gained > 0 ? "▲" : "▼"}${Math.abs(r.gained)}</span>` : ""));
     add(s.show_number, "number", "#", "80px", "c", numberChip);
     add(true, "driver", "Driver", "auto", "", (r) => esc(r.name));
-    add(s.show_team, "team", "Team", "auto", "muted", (r) => `${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}${esc(r.team)}`);
+    teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
     add(s.show_fastest, "fastest", "Fastest", "140px", "r", (r) => (r.fastest_lap ? `<span class="${r.has_fastest ? "fl" : "muted"}">${fmtLap(r.fastest_lap)}</span>` : ""));

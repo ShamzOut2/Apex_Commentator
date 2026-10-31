@@ -166,6 +166,9 @@ class Handler(BaseHTTPRequestHandler):
                 profile = self.app.leagues.set_active(body.get("id") or None)
                 self.app.publish()
                 return self._send_json({"ok": True, "active": profile["id"] if profile else None})
+            if path.startswith("/api/leagues/") and path.endswith("/duplicate"):
+                league = self.app.leagues.duplicate(path.split("/")[3], body.get("name"))
+                return self._send_json({"ok": True, "league": league})
             if path.startswith("/api/leagues/") and path.endswith("/import-session"):
                 drivers = self.app.build_snapshot().get("drivers") or []
                 if not drivers:

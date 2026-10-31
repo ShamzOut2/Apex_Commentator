@@ -545,13 +545,22 @@ function reportDeskParts(page) {
 // - boards and full-screen pages, which are a whole screen: that screen's
 //   backdrop (setBackground), shown only while there's something on screen.
 
-// Custom opacity per column (cfg.col_opacity_on, cfg.col_opacity
-// "gap:60,laps:40"): a rule per column for the cells marked data-opcol.
+// Custom background per column (cfg.col_opacity_on): every column (the
+// cells marked data-opcol) gets a background of cfg.col_bg_color, at its own
+// opacity (cfg.col_opacity "gap:60,laps:40", percent; columns left out 100).
+// The text stays as it is. body.col-bg lets each page drop the background it
+// would otherwise have behind the rows (standings.css).
 let colOpacityCss = null;
 function setColumnOpacity(cfg) {
-  const css = cfg && cfg.col_opacity_on ? String(cfg.col_opacity || "").split(",").map((p) => p.split(":"))
-    .filter(([k, v]) => /^[a-z_]+$/.test(k || "") && /^\d+$/.test(v || ""))
-    .map(([k, v]) => `[data-opcol="${k}"] { opacity: ${Math.min(100, +v) / 100}; }`).join("\n") : "";
+  const on = !!(cfg && cfg.col_opacity_on);
+  document.body.classList.toggle("col-bg", on);
+  const color = on && /^#[0-9a-f]{6}$/i.test(cfg.col_bg_color || "") ? cfg.col_bg_color : "#0e1015";
+  const css = on ? [`body.col-bg [data-opcol] { position: relative; isolation: isolate; }`,
+    `body.col-bg [data-opcol]::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+      background: ${color}; opacity: var(--colbg, 1); }`,
+    ...String(cfg.col_opacity || "").split(",").map((p) => p.split(":"))
+      .filter(([k, v]) => /^[a-z_]+$/.test(k || "") && /^\d+$/.test(v || ""))
+      .map(([k, v]) => `[data-opcol="${k}"] { --colbg: ${Math.min(100, +v) / 100}; }`)].join("\n") : "";
   if (css === colOpacityCss) return;
   colOpacityCss = css;
   let el = document.getElementById("col-opacity");

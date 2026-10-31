@@ -23,8 +23,25 @@ How each version's entry is written:
 
 ### Improvements
 
+- Per-column opacity is now each column's background (with a colour of your
+  own), not its text.
+- Team logo and team name are columns of their own on the tower, the full
+  screen and the boards, each on or off, the logo before or after the name.
+- Driver on camera: the swap now swaps just the team logo and the car
+  badge; the team name stays under the driver's name.
+- Timing screen: a battle lights up steadily in your colour, and only the
+  driver within the gap, not the car ahead.
+- Timing tower: hotkeys for the sponsor bar and for overall / by class; the
+  chequered flag header has one dark plate behind all its text.
+- League builder: duplicate a league; change the order of sponsor logos.
 - The photo booth (taking car photos in iRacing) and the grid map and head
   to head grid walk styles are gone; the grid walk uses your own pictures.
+
+### Fixes
+
+- The timing tower's sponsor bar no longer flashes; it fades only when the
+  next logo comes up.
+- The tower's team logo is the same size before or after the name.
 
 ## v0.4.7
 

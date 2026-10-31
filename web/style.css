@@ -301,12 +301,9 @@ kbd {
 .standings tr.watching td { background: var(--watch); }
 .standings tr.watching td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .standings tr.gone td { opacity: .45; }
-.standings tr.battle td { animation: battle-flash 1s ease-in-out infinite; }
+/* Within the battle gap of the car ahead: lit up, steady, in the colour picked. */
+.standings tr.battle td { background: color-mix(in srgb, var(--battle) 32%, transparent); }
 .standings tr.battle td:first-child { box-shadow: inset 4px 0 0 var(--battle); }
-@keyframes battle-flash {
-  0%, 100% { background: transparent; }
-  50% { background: color-mix(in srgb, var(--battle) 40%, transparent); }
-}
 .c-chg { width: 46px; }
 .c-flag { width: 86px; }
 .chg { font-size: 12px; font-weight: 700; }

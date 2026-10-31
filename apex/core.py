@@ -1495,7 +1495,8 @@ class App:
         """What a hotkey does, by name (the same as the app's own key handling):
         cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, board:off,
         board:next, board:prev (its pages), board:<kind>:<group> (on screen,
-        or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick)."""
+        or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick),
+        tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class)."""
         kind, _, rest = str(action).partition(":")
         if kind == "cam":
             group = next((g["num"] for g in self._camera_groups if g["name"] == rest), None)
@@ -1522,6 +1523,12 @@ class App:
             return self.cmd_board_show(board_kind, group, "latest")
         if kind == "battle":
             return self.cmd_battle_pick(rest)
+        if kind == "tower":
+            tower = self.overlays.get()["standings"]
+            if rest == "sponsor":
+                return self.cmd_overlay_settings("standings", {"sponsor_bar": not tower["sponsor_bar"]})
+            if rest == "mode":
+                return self.cmd_overlay_settings("standings", {"mode": "class" if tower["mode"] == "overall" else "overall"})
         raise CommandError(f"Unknown hotkey '{action}'")
 
     def cmd_hotkeys(self, keys=None):

@@ -295,7 +295,8 @@ function standingsView(s) {
   });
 }
 
-// car_idx of everyone within the battle gap of the car ahead (and that car).
+// car_idx of every driver within the battle gap of the car ahead (just them,
+// not the car they're closing on).
 function findBattles(s, rows) {
   const out = new Set();
   if (!isRace(s) || s.session.state !== "Racing") return out;
@@ -305,7 +306,6 @@ function findBattles(s, rows) {
     const fighting = (x) => x.r.in_world && !x.r.on_pit;
     if (ahead && v.int != null && v.int >= 0 && v.int <= settings.battleGap && fighting(v) && fighting(ahead)) {
       out.add(v.r.car_idx);
-      out.add(ahead.r.car_idx);
     }
   });
   return out;
@@ -730,6 +730,12 @@ function hotkeyActions(s = ui.snap || {}) {
   return [
     ["Overlays (on / off)", OVERLAY_TOGGLES.map(([k, label]) => [`ov:${k}`, label,
       () => cmd("overlay_settings", { overlay: k, values: { visible: !on(k) } }, `${label} ${on(k) ? "off" : "on"}`)])],
+    ["Timing tower", [
+      ["tower:sponsor", "Sponsor bar under the header (on / off)", () => cmd("hotkey", { action: "tower:sponsor" },
+        `Sponsor bar ${ov.standings && ov.standings.sponsor_bar ? "off" : "on"}`)],
+      ["tower:mode", "Overall / by class", () => cmd("hotkey", { action: "tower:mode" },
+        ov.standings && ov.standings.mode === "class" ? "Tower: overall" : "Tower: by class")],
+    ]],
     ["Grid walk", [
       ["gw:toggle", "On / off (starts from P1)", () => (s.gridwalk && s.gridwalk.visible
         ? cmd("gridwalk_hide", {}, "Grid walk off") : cmd("gridwalk_start", { index: 0 }, "Grid walk on"))],
@@ -2029,8 +2035,9 @@ const NAME_FORMATS = [["full", "Full name"], ["initial_last", "A. Driver"], ["la
   ["last", "Last name"], ["first", "First name"], ["abbrev", "DRI (3 letters)"], ["nickname", "Nickname"]];
 
 // Custom opacity per column: a tick box, then a slider for each column.
-const columnOpacity = (cols) => [["col_opacity_on", "Custom opacity per column", "bool"],
-  iff((v) => v.col_opacity_on, ["col_opacity", "Opacity of each column", "colopacity", cols])];
+const columnOpacity = (cols) => [["col_opacity_on", "A background of its own for each column", "bool"],
+  iff((v) => v.col_opacity_on, ["col_bg_color", "Column background colour", "color"]),
+  iff((v) => v.col_opacity_on, ["col_opacity", "Background opacity of each column (the text stays as it is)", "colopacity", cols])];
 
 // Each overlay's settings, in named sections that open and close:
 // [title, fields]. A field is [key, label, kind, opts]; `iff(when, field)`
@@ -2100,7 +2107,7 @@ const OVERLAY_FIELDS = {
         ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"]]],
       ["screen_column_order", "Column order on the full screen", "order", [["laps", "Laps"], ["gap", "Gap"], ["interval", "Interval"],
         ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"]]],
-      ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["logo", "Team logo"], ["name", "Driver"], ["team", "Team (full screen)"],
+      ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["logo", "Team logo"], ["name", "Driver"], ["team", "Team name"],
         ["pos_change", "+/−"], ["laps", "Laps"], ["pits", "Pit stops"], ["last_lap", "Last lap"], ["best_lap", "Best lap"], ["gap", "Gap"],
         ["interval", "Interval"]]),
     ]],
@@ -2109,10 +2116,12 @@ const OVERLAY_FIELDS = {
       ["show_number", "Car numbers", "bool"],
       iff((v) => v.show_number, ["color_number", "Car number background, in the driver's class colour (off: just the number)", "bool"]),
       ["show_stripe", "Coloured bar by each driver", "bool"],
-      ["show_team", "Team names", "bool"],
-      ["show_logo", "Team logos", "bool"],
-      iff((v) => v.show_logo, ["team_logo_side", "Team logo", "select", [["first", "Before the team name (its own column on the tower)"],
-        ["last", "After the team name"]]]),
+      ["show_team", "Team names (a column of their own)", "bool"],
+      iff((v) => v.show_team, ["team_name_place", "Team name on the tower", "select", [["under", "Under the driver's name"],
+        ["column", "In its own column, after the driver's name"]]]),
+      ["show_logo", "Team logos (a column of their own)", "bool"],
+      iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the driver / team name"],
+        ["last", "After the driver / team name"]]]),
     ]],
     ["Fastest lap", [
       ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
@@ -2186,10 +2195,10 @@ const OVERLAY_FIELDS = {
       ["show_number", "Car number", "bool"],
       ["show_team", "Team", "bool"],
       iff((v) => v.show_team, ["show_logo", "Team logo", "bool"]),
-      iff((v) => v.show_team, ["team_place", "Team and car badge", "select", [["under", "Team under the name, car badge at the end"],
-        ["end", "Car badge under the name, team at the end"]]]),
-      iff((v) => v.show_team && v.show_logo, ["team_logo_side", "Team logo", "select", [["first", "Logo, then the team name"],
-        ["last", "Team name, then the logo"]]]),
+      ["team_place", "Team logo and car badge", "select", [["under", "Team logo by the team name, car badge at the end"],
+        ["end", "Car badge by the team name, team logo at the end"]]],
+      ["team_logo_side", "By the team name", "select", [["first", "Logo / badge, then the team name"],
+        ["last", "Team name, then the logo / badge"]]],
       ["show_make", "Car badge", "bool"],
       ["show_class", "Class (multiclass)", "bool"],
     ]],
@@ -2332,7 +2341,7 @@ function opacityField(key, label, value, cols) {
   const set = Object.fromEntries(String(value || "").split(",").map((p) => p.split(":")).filter((p) => p.length === 2).map(([k, v]) => [k, +v]));
   return `<div class="ov-field wide colop-field"><span>${label}</span><div class="colop-grid">${cols.map(([k, name]) => `<label class="colop">
       <span>${esc(name)} <span class="rng-val">${set[k] ?? 100}%</span></span>
-      <input type="range" min="10" max="100" step="5" data-key="${key}" data-kind="colopacity" data-opcol="${k}" value="${set[k] ?? 100}"></label>`).join("")}</div></div>`;
+      <input type="range" min="0" max="100" step="5" data-key="${key}" data-kind="colopacity" data-opcol="${k}" value="${set[k] ?? 100}"></label>`).join("")}</div></div>`;
 }
 
 // A column order: chips to drag, or move with the arrows. ``cols``: [key,
@@ -2451,18 +2460,19 @@ const cards = (v) => v.style === "cards";
 
 const BOARD_FIELDS = {
   board_championship: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
-    ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names (a column)", "bool"], ["show_logo", "Team logos (a column)", "bool"],
+    iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
     ["show_make", "Car badges", "bool"], ["show_gap", "Points gap to the leader", "bool"],
     ["show_ahead", "Points gap to the driver ahead", "bool"], ["show_wins", "Wins", "bool"],
     ["show_penalty", "Penalty points", "bool"],
-    ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["car", "Car badge"],
+    ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"], ["car", "Car badge"],
       ["rounds", "Round points"], ["wins", "Wins"], ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"],
       ["ahead", "Gap to driver ahead"]])],
   board_teams: [["rows", "Teams a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
-    ["show_logo", "Team logos", "bool"], ["show_color", "Team colour stripe", "bool"], ["show_drivers", "Drivers who scored", "bool"],
+    ["show_logo", "Team logos (a column)", "bool"], iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]), ["show_color", "Team colour stripe", "bool"], ["show_drivers", "Drivers who scored", "bool"],
     ["show_gap", "Points gap to the leader", "bool"], ["show_ahead", "Points gap to the team ahead", "bool"],
     ["show_wins", "Wins", "bool"], ["show_penalty", "Penalty points", "bool"],
-    ...columnOpacity([["pos", "Position"], ["team", "Team"], ["drivers", "Drivers"], ["rounds", "Round points"], ["wins", "Wins"],
+    ...columnOpacity([["pos", "Position"], ["team", "Team"], ["logo", "Team logo"], ["drivers", "Drivers"], ["rounds", "Round points"], ["wins", "Wins"],
       ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"], ["ahead", "Gap to team ahead"]])],
   board_makes: [["rows", "Manufacturers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
     ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"],
@@ -2477,11 +2487,12 @@ const BOARD_FIELDS = {
     iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"]),
     iff(cards, ["rows", "Race meetings a page (the rest on the next pages)", "number", { min: 1, max: 64 }])],
   board_results: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
-    ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names (a column)", "bool"], ["show_logo", "Team logos (a column)", "bool"],
+    iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
     ["show_gap", "Gap to the winner (DNF / DNS / DSQ show here)", "bool"], ["show_interval", "Interval to the car ahead", "bool"],
     ["show_points", "Points scored", "bool"],
-    ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"],
+    ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
       ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["gap", "Gap"], ["interval", "Interval"], ["points", "Points"]])],
 };
 const BOARD_SECTION_NAMES = {
@@ -2859,6 +2870,7 @@ async function loadLeagues() {
       <li data-league="${esc(l.id)}" class="${ui.editing && ui.editing.id === l.id ? "selected" : ""}">
         <div><div>${esc(l.name)} ${l.active ? '<span class="badge live">ACTIVE</span>' : ""}</div>
         <div class="meta">${l.drivers} drivers${l.classes ? ` · ${l.classes} classes` : ""}${l.league_id ? ` · ID ${l.league_id}` : ""}</div></div>
+        <button class="btn icon" data-duplicate="${esc(l.id)}" title="Duplicate: a copy of this league (drivers, classes, teams, championship, images) to change">⧉</button>
         <button class="btn icon danger" data-delete="${esc(l.id)}" title="Delete">✕</button>
       </li>`).join("") : '<li class="meta">No saved leagues yet</li>';
   } catch (e) {
@@ -3098,6 +3110,10 @@ function renderSponsors() {
   $("#sponsor-list").innerHTML = list.length ? list.map((sp, i) => `<div class="sponsor-card">
       <div class="sponsor-img"><img src="${esc(logoSrc(sp.file))}" alt=""></div>
       <input data-sponsor="${i}" value="${esc(sp.name || "")}" placeholder="Sponsor name" aria-label="Sponsor name">
+      <span class="sponsor-move">
+        <button class="btn icon" data-sponsor-move="${i}" data-dir="-1" ${i ? "" : "disabled"} title="Earlier (shown first)">◀</button>
+        <button class="btn icon" data-sponsor-move="${i}" data-dir="1" ${i < list.length - 1 ? "" : "disabled"} title="Later">▶</button>
+      </span>
       <button class="btn icon danger" data-sponsor-remove="${i}" title="Remove">✕</button>
     </div>`).join("") : '<p class="hint">No sponsors yet.</p>';
 }
@@ -3119,6 +3135,18 @@ $("#league-editor").addEventListener("change", async (e) => {
   if (field) ui.editing.sponsors[+field.dataset.sponsor].name = field.value;
 });
 $("#sponsor-list").addEventListener("click", (e) => {
+  const mv = e.target.closest("[data-sponsor-move]");
+  if (mv) {
+    // The order they're shown in, everywhere: boards, the sponsors overlay, the tower's sponsor bar.
+    const list = ui.editing.sponsors;
+    const i = +mv.dataset.sponsorMove;
+    const j = i + +mv.dataset.dir;
+    if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    renderSponsors();
+    toast("Moved: save the league to keep the order");
+    return;
+  }
   const rm = e.target.closest("[data-sponsor-remove]");
   if (!rm) return;
   ui.editing.sponsors.splice(+rm.dataset.sponsorRemove, 1);
@@ -3592,6 +3620,19 @@ $("#btn-add-driver").addEventListener("click", () => {
 });
 
 $("#league-list").addEventListener("click", async (e) => {
+  const dup = e.target.closest("[data-duplicate]");
+  if (dup) {
+    e.stopPropagation();
+    try {
+      const r = await api(`/api/leagues/${encodeURIComponent(dup.dataset.duplicate)}/duplicate`, { method: "POST", body: {} });
+      await loadLeagues();
+      openEditor(r.league);
+      toast(`Made "${r.league.name}": rename it and save`);
+    } catch (err) {
+      toast(err.message, true);
+    }
+    return;
+  }
   const del = e.target.closest("[data-delete]");
   if (del) {
     e.stopPropagation();

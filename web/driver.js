@@ -18,17 +18,21 @@ function cardHtml(d, cfg, cls, multiclass) {
     ? `<div class="pos" style="color:${inkFor(cls.color)}"><span class="p">P${d.pos}</span>${multiclass && d.class_pos ? `<span class="cp">P${d.class_pos} ${esc(cls.name)}</span>` : ""}</div>` : "";
   const number = cfg.show_number && d.number
     ? `<span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(d.number)}</span>` : "";
-  // The team: its logo before or after its name; under the driver's name, or
-  // at the end of the card with the car badge under the name instead.
+  // Under the driver's name: the team name, with the team logo before or
+  // after it, and the car badge at the end of the card. Swapped ("end"):
+  // the car badge takes the logo's place by the team name, and the team logo
+  // goes to the end.
   const swapped = cfg.team_place === "end";
-  const logo = cfg.show_logo && d.team_logo ? `<img src="${esc(d.team_logo)}" alt="">` : "";
-  const teamName = `<span class="team-name">${esc(d.team)}</span>`;
-  const team = cfg.show_team && d.team
-    ? `<div class="team ${swapped ? "end" : ""}">${cfg.team_logo_side === "last" ? teamName + logo : logo + teamName}</div>` : "";
+  const teamLogo = cfg.show_logo && d.team_logo ? `<img class="team-logo" src="${esc(d.team_logo)}" alt="">` : "";
+  const badge = (small) => (cfg.show_make && d.make_logo
+    ? `<span class="make ${small ? "small" : ""}"><img src="${esc(d.make_logo)}" alt="${esc(d.make)}"></span>` : "");
+  const byName = swapped ? badge(true) : teamLogo;
+  const teamName = cfg.show_team && d.team ? `<span class="team-name">${esc(d.team)}</span>` : "";
+  const team = teamName || byName
+    ? `<div class="team">${cfg.team_logo_side === "last" ? teamName + byName : byName + teamName}</div>` : "";
   const klass = cfg.show_class && multiclass && cls.name ? `<span class="klass" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(cls.name)}</span>` : "";
-  const make = cfg.show_make && d.make_logo ? `<span class="make ${swapped ? "small" : ""}"><img src="${esc(d.make_logo)}" alt="${esc(d.make)}"></span>` : "";
-  const under = swapped ? make : team;
-  const end = swapped ? team : make;
+  const end = swapped ? (teamLogo ? `<span class="team-end">${teamLogo}</span>` : "") : badge(false);
+  const under = team;
   return `${pos}<div class="who">${number}<div class="names"><div class="name">${esc(formatName(d, cfg.name_format))}${klass}</div>${under}</div></div>${end}`;
 }
 

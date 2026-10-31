@@ -6,7 +6,7 @@ OBS dock.
 
 - **Timing screen**: one screen for the race. Live standings with overall
   and class position, places gained or lost, gap and interval, flags and
-  penalties. **Battles** (cars within 0.15 s) flash in a colour you choose.
+  penalties. **Battles** (a car within 0.15 s of the one ahead) light up in a colour you choose.
   Click a driver to put the camera on them. A **race log** records
   overtakes, offs, spins, places lost, pit stops, penalties and fastest laps:
   pick a line and replay it from 5 to 30 seconds before. Camera buttons with
@@ -55,8 +55,25 @@ walk, Overlays, Boards and Race control.
 
 ### Improvements
 
+- Per-column opacity is now each column's background (with a colour of your
+  own), not its text.
+- Team logo and team name are columns of their own on the tower, the full
+  screen and the boards, each on or off, the logo before or after the name.
+- Driver on camera: the swap now swaps just the team logo and the car
+  badge; the team name stays under the driver's name.
+- Timing screen: a battle lights up steadily in your colour, and only the
+  driver within the gap, not the car ahead.
+- Timing tower: hotkeys for the sponsor bar and for overall / by class; the
+  chequered flag header has one dark plate behind all its text.
+- League builder: duplicate a league; change the order of sponsor logos.
 - The photo booth (taking car photos in iRacing) and the grid map and head
   to head grid walk styles are gone; the grid walk uses your own pictures.
+
+### Fixes
+
+- The timing tower's sponsor bar no longer flashes; it fades only when the
+  next logo comes up.
+- The tower's team logo is the same size before or after the name.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -129,8 +146,8 @@ shows something else. Camera hotkeys work in whichever window has focus.
   them. The class chips show one class at a time, with gaps and places within
   it.
 - **Battles**: a driver within the battle gap of the car ahead (0.15 s by
-  default) flashes along with that car, in the colour you pick. Both settings
-  sit above the standings.
+  default) is lit up, steadily, in the colour you pick: just that driver,
+  not the car they're closing on. Both settings sit above the standings.
 - **Race log**: everything that happens, newest first, filterable: overtakes,
   off tracks, spins, incident points, places lost after an off, pit in/out
   (with stop time and places lost), penalties and class fastest laps. **Click
@@ -158,6 +175,8 @@ shows something else. Camera hotkeys work in whichever window has focus.
 Boards tabs) also sets keys for:
 - each overlay: the standings tower, lap tracker, driver on camera,
   sponsors and championship battle, on and off;
+- the timing tower: its sponsor bar under the header on and off, and
+  overall / by class;
 - the championship battle's quick picks (the car on camera and the one
   ahead, the cars either side, the top 3), which also put it on screen;
 - the grid walk: on / off (starting from P1), and the next pair;
@@ -350,15 +369,19 @@ when another is on, like the fastest lap flash timer, appear once it's on.
 
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
-    team names and team logos. **Team logo**: before the team name (on the
-    tower, a column of its own before the driver) or after it (on the tower,
-    at the end of the team line, or after the driver's name with team names
-    off). The full-screen standings follow the same choice.
+    team names and team logos. The team logo and the team name are columns
+    of their own, each turned on and off by itself: **Team logo column**
+    before or after the driver / team name (the same size either way), and
+    on the tower the **team name** under the driver's name or in a column of
+    its own. The full-screen standings follow the same choices.
   - **Column headings** (the small GAP, INT… row) can be turned off.
-  - **Custom opacity per column**: tick it and set each column's opacity
-    (position, car number, driver, +/−, gap, interval…), for the tower and
-    the full-screen standings. The championship, teams', manufacturers' and
-    results boards have the same option for their own columns.
+  - **A background of its own for each column**: tick it, pick the column
+    background colour and set each column's background opacity (position,
+    car number, team logo, driver, team name, +/−, gap, interval…); the text
+    stays as it is. On the tower the columns then make the panel. For the
+    tower and the full-screen standings; the championship, teams',
+    manufacturers' and results boards have the same option for their own
+    columns.
   - **Column order**: drag the columns into the order you want (or use their
     arrows), separately for the tower and the full-screen standings. Columns
     that are switched off keep their place for when they're on. The full
@@ -470,10 +493,11 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     iRacing paused.
   - **Stay up for as long as they're on camera**: no timer; it changes when
     the camera does.
-  - **Team and car badge**: the team under the driver's name with the car
-    badge at the end of the card, or swapped (the car badge under the name,
-    the team at the end, bigger). **Team logo**: before or after the team
-    name.
+  - **Team logo and car badge**: the team name is always under the driver's
+    name. Next to it goes the team logo, with the car badge at the end of
+    the card; or swapped: the car badge next to the team name and the team
+    logo at the end. **By the team name**: the logo (or badge) before or
+    after the team name.
   - Choose the details shown, the name style and the panel background. It
     only shows when the camera is on a driver, not on scenic cameras.
 - **Sponsors** (`/sponsors.html`): the active league's sponsor logos (added
@@ -870,6 +894,12 @@ No iRacing login is needed for any of it.
 The league's settings are on three tabs: **Drivers** (the roster),
 **Classes**, and **Logos, banners & sponsors**. *Teams ↗* and *Season &
 points ↗* jump to the team builder and the championship.
+
+**⧉** by a saved league duplicates it: drivers, classes, teams,
+championship and images, as "<name> (copy)", to rename and change (a new
+season, say). Under *Logos, banners & sponsors*, **◀ ▶** on a sponsor change
+the order they're shown in everywhere (boards, the sponsors overlay, the
+tower's sponsor bar); save to keep it.
 
 Edit nicknames, teams and notes (for example "Championship leader" or a
 pronunciation hint), **Save**, then **Use in overlay**. Drivers are matched by
