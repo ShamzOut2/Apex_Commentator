@@ -161,7 +161,8 @@ function gridFor(cfg, cols) {
 const fit = { key: "", widths: [] };
 const ROW_GAP = 8;     // .srow column gap
 const ROW_PAD = 12;    // .srow padding-right
-const MIN_TOWER = 300; // room for the header (session, laps / time left)
+const MIN_TOWER = 300; // the narrowest the tower goes
+const HEAD_PAD = 6 + 14 * 2 + 4;  // the header's accent bar and padding
 
 // How wide a cell's contents are, whatever the size of the cell itself (a
 // cell's own width would follow the column it's in).
@@ -198,10 +199,14 @@ function autoFit(cfg, cols) {
     const was = fit.widths[i];
     return was && want <= was && want > was - 14 ? was : want;
   });
-  tower.style.setProperty("--grid", [...fixed, ...fit.widths.map((w) => `${w}px`)].join(" "));
+  // The name column takes any spare room (when the header needs more width than the columns).
+  tower.style.setProperty("--grid", [...fixed, ...fit.widths.map((w, i) => (i === 0 ? `minmax(${w}px, 1fr)` : `${w}px`))].join(" "));
   const total = fixed.reduce((n, w) => n + parseFloat(w), 0) + fit.widths.reduce((n, w) => n + w, 0)
     + ROW_GAP * (fixed.length + flexible - 1) + ROW_PAD;
-  tower.style.width = `${Math.max(MIN_TOWER, Math.ceil(total))}px`;
+  // Room for the header too: the session name and laps / time left side by side.
+  const h1 = tower.querySelector(".tower-head .h1");
+  const head = h1 ? [...h1.children].reduce((n, el) => n + contentWidth(el) / scale, 0) + 10 * (h1.children.length - 1) + HEAD_PAD : 0;
+  tower.style.width = `${Math.max(MIN_TOWER, Math.ceil(total), Math.ceil(head))}px`;
 }
 
 function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) {
@@ -282,8 +287,8 @@ function render() {
       ? `<div class="block">${rows(top)}${tail.length ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div>${rows(tail)}` : ""}</div>` : "";
   }
   const session = snap.session || {};
-  const title = race ? "RACE" : ov.session_kind === "qualify" ? "QUALIFYING" : String(session.name || "PRACTICE").toUpperCase();
-  const sub = [snap.league && snap.league.name, session.track].filter(Boolean).join(" · ");
+  const title = sessionTitle(snap, ov);
+  const sub = headerSub(snap, cfg, false);
   const progress = progressText(ov);
   // Hidden until someone qualifies for a row, unless "reveal" is on: then
   // the header shows from the start and drivers join as they cross the line.
@@ -319,10 +324,22 @@ function render() {
 
 const ROW_BUDGET = 850;  // px of the 1080 stage left for table rows under the header and column labels
 
+// The header's session name: the one set for races / qualifying / practice
+// (Overlays tab), else RACE, QUALIFYING or iRacing's name for the session.
 function sessionTitle(snap, ov) {
   const session = snap.session || {};
+  const cfg = ov.settings.standings;
+  const own = { race: cfg.title_race, qualify: cfg.title_qualify }[ov.session_kind] ?? cfg.title_practice;
+  if (own && own.trim()) return own.trim();
   return ov.session_kind === "race" ? "RACE" : ov.session_kind === "qualify" ? "QUALIFYING"
     : String(session.name || "PRACTICE").toUpperCase();
+}
+
+// The line under it: the series (the active league's name) and the track, each if wanted.
+function headerSub(snap, cfg, withLayout) {
+  const session = snap.session || {};
+  const track = withLayout ? [session.track, session.track_config].filter(Boolean).join(" – ") : session.track;
+  return [cfg.show_series && snap.league && snap.league.name, cfg.show_track && track].filter(Boolean).join(" · ");
 }
 
 function sessionClock(snap, ov) {
@@ -428,7 +445,7 @@ function renderScreen(snap, ov) {
         ? `<tr class="classrow"><td colspan="${spanFor(race, compact)}">${classHeaderHtml(l.head, `${l.n} cars`, rerender)}</td></tr>`
         : screenRow(l.e, cfg, classes.get(l.e.class_key) || DEFAULT_CLASS, race, classMode, multiclass, camIdx, compact)).join("")}</tbody></table></div>`).join("")}</div>`;
   const session = snap.session || {};
-  const sub = [snap.league && snap.league.name, [session.track, session.track_config].filter(Boolean).join(" – ")].filter(Boolean).join(" · ");
+  const sub = headerSub(snap, cfg, true);
   const html = `<div class="screen-page" style="--row-h:${rowH}px;--row-font:${Math.round(rowH * 0.55)}px">
     <div class="screen-head${goFlash(ov)}"><span class="t1">${esc(snap.connected ? sessionTitle(snap, ov) : "STANDINGS")}</span><span class="t2">${esc(sub)}</span>
       <span class="t3">${snap.connected ? esc(progressText(ov) || sessionClock(snap, ov)) : ""}</span></div>

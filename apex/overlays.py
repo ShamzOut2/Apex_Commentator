@@ -43,6 +43,11 @@ DEFAULTS = {
         # each driver appears once they've completed a lap.
         "reveal": True,
         "header_info": "auto",    # "auto" (laps or time, whichever the session is limited by), "laps", "time", "none"
+        # The header (tower and full screen): the series (the active league's
+        # name) and the track under the session name, and session names of
+        # your own ("" = RACE, QUALIFYING, or iRacing's name for practice).
+        "show_series": True, "show_track": True,
+        "title_race": "", "title_qualify": "", "title_practice": "",
         # Fastest lap: a purple stopwatch by the holder's name (each class's
         # holder in "class" mode), and a purple pill at the top middle of the
         # screen for fl_flash_s when someone sets a new fastest lap.

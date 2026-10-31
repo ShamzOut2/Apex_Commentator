@@ -59,6 +59,9 @@ OBS dock.
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- The standings header (tower and full screen) can hide the series name
+  and/or the track name, and the session names can be your own (e.g.
+  "FEATURE RACE" instead of "RACE").
 - The standings tower's width fits its contents: each column (the name
   column too) is as wide as what's in it, so there's no big empty gap. Or set
   the width yourself in pixels.
@@ -342,6 +345,13 @@ are kept in `data/overlays.json`.
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
+  - **Header**: the session name, laps or time left, and under them the
+    series (the active league's name) and the track. *Series name* and
+    *Track name* turn each of those on or off. *Race name*, *Qualifying
+    name* and *Practice / warm-up name* replace RACE, QUALIFYING and
+    iRacing's name for practice, e.g. "FEATURE RACE" or "SUPERPOLE"; leave
+    one blank for the usual name. Both the tower and the full-screen version
+    use these.
   - **Width**: automatic (0, the default) or a width in pixels. In
     automatic mode each column, the name column included, is as wide as its
     widest entry plus a little room, and the tower is exactly as wide as

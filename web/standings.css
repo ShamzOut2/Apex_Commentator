@@ -10,8 +10,8 @@
   padding: 10px 14px; display: flex; flex-direction: column; gap: 2px;
 }
 .tower-head .h1 { display: flex; align-items: baseline; gap: 10px; }
-.tower-head .t1 { font-size: 22px; font-weight: 900; letter-spacing: .06em; }
-.tower-head .t3 { margin-left: auto; font-size: 20px; font-weight: 900; letter-spacing: .04em; color: var(--accent); }
+.tower-head .t1 { font-size: 22px; font-weight: 900; letter-spacing: .06em; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tower-head .t3 { margin-left: auto; flex: none; white-space: nowrap; font-size: 20px; font-weight: 900; letter-spacing: .04em; color: var(--accent); }
 .tower-head .t2 { font-size: 14px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .block { background: var(--panel); }
 .block:last-child { border-radius: 0 0 10px 10px; overflow: hidden; }
