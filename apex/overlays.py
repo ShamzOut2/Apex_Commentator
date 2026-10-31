@@ -14,6 +14,8 @@ from pathlib import Path
 # "image" (see backgrounds.py), at bg_opacity percent; and its size (scale,
 # percent: an overlay grows or shrinks from where it sits, a board or full
 # screen from the middle).
+# Overlays (not boards) can be moved from where they sit: px on the 1920x1080 screen.
+OFFSET = {"offset_x": 0, "offset_y": 0}
 BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacity": 100, "scale": 100}
 
 # Overlays and boards with columns can dim each column on its own:
@@ -85,6 +87,16 @@ DEFAULTS = {
         "title_heat": "", "title_consolation": "", "title_feature": "",
         "round_titles": "name",
         "title_wrap": False,      # a long session name: onto two lines (True) or one line, the tower widening for it
+        "time_left_word": True,   # "12:34 LEFT" (off: just 12:34)
+        # Accent colour: the time / lap in the header, the bar down the tower
+        # header's left and the line under the full screen's header.
+        # "default" (orange), "color" (accent_color) or "session" (by session:
+        # accent_practice, accent_qualify, accent_race).
+        "accent": "default", "accent_color": "#ff7a1a",
+        "accent_practice": "#ffffff", "accent_qualify": "#b14cff", "accent_race": "#ff4d4d",
+        # A small bar under the tower's header with a sponsor logo (several take
+        # turns every sponsor_bar_s seconds): which (sponsor_bar_ids, "" = all) and how tall.
+        "sponsor_bar": False, "sponsor_bar_ids": "", "sponsor_bar_s": 8.0, "sponsor_bar_size": 44,
         # Fastest lap: a purple stopwatch by the holder's name (each class's
         # holder in "class" mode), and a purple pill at the top middle of the
         # screen for fl_flash_s when someone sets a new fastest lap.
@@ -92,7 +104,7 @@ DEFAULTS = {
         "fl_flash": True,
         "fl_flash_s": 6.0,
         "fl_flash_classes": False,  # also a new fastest lap in each class, not just overall
-        **BACKGROUND,
+        **BACKGROUND, **OFFSET,
     },
     # Sponsor logos on their own (sponsors.html), over the race.
     "sponsors": {
@@ -104,7 +116,7 @@ DEFAULTS = {
         "background": True,       # a dark panel behind the logos
         "title": "",              # a small caption above them, e.g. "Partners"
         "sponsor_ids": "",        # which sponsors, comma separated ("" = all, "none" = none)
-        **BACKGROUND,
+        **BACKGROUND, **OFFSET,
     },
     # "Who's this": a board at the bottom centre for the driver on camera (driver.html).
     "driver": {
@@ -117,7 +129,7 @@ DEFAULTS = {
         "show_position": True,    # P3 (and P1 in class, in multiclass races)
         "team_place": "under",    # "under": the team under the name, the car badge at the end; "end": swapped
         "team_logo_side": "first",  # the team logo before ("first") or after ("last") the team name
-        **BACKGROUND,
+        **BACKGROUND, **OFFSET,
     },
     # Championship battle (battle.html): a few drivers' championship places
     # and points, live during a race (as if it finished now), and the points
@@ -134,10 +146,10 @@ DEFAULTS = {
         "show_race_points": True,  # during a race: the points this race gives them (+18)
         "show_change": True,      # during a race: places gained / lost in the championship
         "gap_to": "first",        # the points gap to the first of them ("first") or to the driver above ("ahead")
-        **BACKGROUND,
+        **BACKGROUND, **OFFSET,
     },
     # The grid walk's own settings are with the grid walk; this is just its background.
-    "gridwalk": dict(BACKGROUND),
+    "gridwalk": {**BACKGROUND, **OFFSET},
     # Full-screen boards (board.html), one section each. Every board has:
     # banner ("none", "top", "bottom", "left", "right"), banner_id (which of
     # the league's banners, "" = the first of the right shape),
@@ -174,7 +186,9 @@ DEFAULTS = {
     "board_results": {**COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
-        "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True, "show_status": True,
+        "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True,
+        # Gap to the winner and to the car ahead (a DNF / DNS / DSQ shows there instead).
+        "show_gap": True, "show_interval": True,
     },
     "laps": {
         "visible": True,
@@ -190,16 +204,16 @@ DEFAULTS = {
         "show_driver_number": False,
         "show_invalid": False,    # small trackers: also show laps already invalid
         "practice": False,        # also run in practice sessions (it always runs in qualifying)
-        **BACKGROUND,
+        **BACKGROUND, **OFFSET,
     },
 }
 
-LIMITS = {"rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0)}
+LIMITS = {"rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 
@@ -221,7 +235,7 @@ def _value(key, value, default):
             lo, hi = LIMITS.get(key, (value, value))
             return min(max(value, lo), hi)
         value = str(value)[:600 if key == "drivers" else 200]
-        if key == "bg_color":
+        if key == "bg_color" or key.startswith("accent_"):
             return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
         if key == "bg_image":
             return value if re.fullmatch(r"(bg-[0-9a-f]{12}\.(png|jpg|webp|svg))?", value) else default
@@ -240,7 +254,7 @@ def _value(key, value, default):
             return ",".join(dict.fromkeys(keys[:6]))
         if key == "group":
             return value if re.fullmatch(r"[A-Za-z0-9:_ .\-]{1,80}", value) else default
-        if key == "sponsor_ids":
+        if key in ("sponsor_ids", "sponsor_bar_ids"):
             return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
         return value if key not in CHOICES or value in CHOICES[key] else default
     except (TypeError, ValueError):

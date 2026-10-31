@@ -588,6 +588,16 @@ class App:
                          "best_lap": None, "in_world": True, "incidents": res.get("Incidents") or 0})
         return rows
 
+    @staticmethod
+    def _result_gap(official, winner_time, row, finished):
+        """Seconds behind the race winner (on the same lap), or None: iRacing's
+        race times once the race is over, live timing while it's on."""
+        t = official.get("Time")
+        if finished and winner_time and isinstance(t, (int, float)) and t > 0:
+            return round(max(t - winner_time, 0.0), 3)
+        gap = row.get("gap")
+        return round(gap, 3) if isinstance(gap, (int, float)) and gap >= 0 else None
+
     def session_results(self, profile, rows=None, add_missing=False, session_num=None):
         """The current session (or race session ``session_num`` of this event)
         as championship results for ``profile``.
@@ -609,6 +619,9 @@ class App:
             session = self._session(frame) if frame else {}
             checkered = bool(frame) and frame.session_state >= STATE_CHECKERED
         official = {r.get("CarIdx"): r for r in session.get("ResultsPositions") or [] if isinstance(r, dict)}
+        # Time behind the winner: iRacing's race times once it has them, else live timing.
+        won = next((o.get("Time") for o in official.values() if o.get("Position") == 1), None)
+        won = won if isinstance(won, (int, float)) and won > 0 else None
         results, added = [], 0
         for r in sorted(rows, key=lambda r: r["pos"] or 10_000):
             entry = self.leagues.lookup(r["cust_id"], r["number"], profile)
@@ -641,6 +654,7 @@ class App:
                 "fastest_lap": fastest if isinstance(fastest, (int, float)) and fastest > 0 else r["best_lap"],
                 "incidents": incidents or 0, "status": status,
                 "make": (entry or {}).get("car_make") or r.get("make", ""),
+                "gap": self._result_gap(off, won, r, checkered),
             }))
         return results, added
 

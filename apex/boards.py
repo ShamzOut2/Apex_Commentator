@@ -180,7 +180,8 @@ def build(league, board, settings, live_results=None):
                                  gained=(r["start"] - r["rank"]) if r["start"] and r["rank"] else None))
             if live and not live_results["race"]:
                 for row in rows:  # practice or qualifying: an order by best lap, not points
-                    row.update(points=None, gained=None)
+                    row.update(points=None, gained=None, gap=None)
+            _gaps(rows, by_lap=live and not live_results["race"])
             if rd["id"] != "live":
                 n = champ["rounds"].index(rd) + 1
                 name = " · ".join(filter(None, [rd["event"], rd["name"]]))
@@ -188,6 +189,48 @@ def build(league, board, settings, live_results=None):
                 out["subtitle"] = " · ".join(filter(None, [out["subtitle"], rd["track"]]))
         out["rows"] = rows
     return _page(out, cfg, params)
+
+
+def _gaps(rows, by_lap=False):
+    """Each finisher's gap to the winner and to the car ahead (``gap`` /
+    ``interval`` seconds, or ``gap_laps`` / ``interval_laps`` laps down; a
+    DNF, DNS or DSQ has ``out``: what to show there instead). ``by_lap``:
+    practice or qualifying, gaps between best laps."""
+    ahead = None
+    leader = None
+    for row in rows:
+        row["_gap"] = row.get("gap")  # seconds behind the overall winner, as saved
+    for row in rows:
+        row.update(gap_laps=None, interval=None, interval_laps=None,
+                   out="DNF" if row.get("short") else (row["status"].upper() if row["status"] != "finished" else None))
+        if by_lap:
+            t = row.get("fastest_lap")
+            row["gap"] = None
+            if t is None or row["out"]:
+                continue
+            if leader is not None:
+                row["gap"] = round(t - leader, 3)
+                row["interval"] = round(t - ahead, 3)
+            leader = t if leader is None else leader
+            ahead = t
+            continue
+        if row["out"] or row.get("rank") is None:
+            row["gap"] = None
+            continue
+        if leader is None:
+            leader, ahead = row, row
+            row["gap"] = None  # the winner
+            continue
+        for key, other in (("gap", leader), ("interval", ahead)):
+            down = (other.get("laps") or 0) - (row.get("laps") or 0)
+            if down > 0:
+                row[f"{key}_laps"], row[key] = down, None
+            else:
+                mine, theirs = row["_gap"], other["_gap"]
+                row[key] = round(max(mine - theirs, 0.0), 3) if mine is not None and theirs is not None else None
+        ahead = row
+    for row in rows:
+        row.pop("_gap", None)
 
 
 def _page(out, cfg, params):

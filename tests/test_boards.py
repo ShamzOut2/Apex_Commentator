@@ -149,6 +149,41 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(cal["image"], "/api/logos/lg/league-calendar-image-1.png")
         self.assertTrue(cal["rows"])  # the rounds are still there for everything else
 
+    def test_finishing_order_gaps(self):
+        lg = league()
+        res = lg["championship"]["rounds"][0]["results"]
+        # Overall: 1 wins; 3 is 4.5 s back; 2 a lap down; 4 retired.
+        gaps = {"cust:1": 0.0, "cust:3": 4.5, "cust:2": None, "cust:4": None}
+        for r in res:
+            r["gap"] = gaps[r["driver"]]
+        res[2]["laps"] = 9
+        res[3]["status"] = "dnf"
+        rows = boards.build(lg, {"kind": "results", "params": {"group": "overall"}}, self.settings)["rows"]
+        self.assertEqual([(r["name"], r["gap"], r["gap_laps"], r["interval"], r["interval_laps"], r["out"]) for r in rows], [
+            ("Driver 1", None, None, None, None, None), ("Driver 3", 4.5, None, 4.5, None, None),
+            ("Driver 2", None, 1, None, 1, None), ("Driver 4", None, None, None, None, "DNF")])
+        # By class: gaps to the class winner (AM: driver 3 won it).
+        am = boards.build(lg, {"kind": "results", "params": {"group": "am"}}, self.settings)["rows"]
+        self.assertEqual([(r["name"], r["gap"], r["out"]) for r in am], [("Driver 3", None, None), ("Driver 4", None, "DNF")])
+        self.assertEqual(ch.normalise_result({"gap": "2.5"})["gap"], 2.5)
+        self.assertIsNone(ch.normalise_result({})["gap"])
+
+    def test_gap_saved_with_results(self):
+        gap = App._result_gap
+        # Over: iRacing's race times; on: live timing (iRacing's times then aren't final).
+        self.assertEqual(gap({"Time": 1805.25}, 1800.0, {"gap": 9.9}, True), 5.25)
+        self.assertEqual(gap({"Time": 1805.25}, 1800.0, {"gap": 4.2}, False), 4.2)
+        self.assertEqual(gap({}, None, {"gap": 1.5}, True), 1.5)
+        self.assertIsNone(gap({"Time": -1}, 1800.0, {"gap": None}, True))
+
+    def test_overlay_offsets_and_accent(self):
+        cfg = overlay_settings({"laps": {"offset_x": 5000, "offset_y": -40},
+                                "standings": {"accent": "session", "accent_race": "#FF0000", "accent_color": "red"}})
+        self.assertEqual((cfg["laps"]["offset_x"], cfg["laps"]["offset_y"]), (1920, -40))
+        self.assertEqual((cfg["standings"]["accent_race"], cfg["standings"]["accent_color"]), ("#ff0000", "#ff7a1a"))
+        self.assertTrue(all("offset_x" in cfg[k] for k in ("standings", "laps", "driver", "sponsors", "battle", "gridwalk")))
+        self.assertNotIn("offset_x", cfg["board_results"])  # boards fill the screen
+
     def test_pages(self):
         settings = overlay_settings({"board_results": {"rows": 3}, "board_championship": {"rows": 3}})
         build = lambda kind, page: boards.build(league(), {"kind": kind, "params": {"group": "overall", "page": page}}, settings)  # noqa: E731

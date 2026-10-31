@@ -6,7 +6,7 @@
 .head-box { border-radius: 10px 10px 0 0; overflow: hidden; background: var(--panel); }
 .head-box.alone { border-radius: 10px; }
 .tower-head {
-  background: var(--panel); border-left: 6px solid var(--accent);
+  background: var(--panel); border-left: 6px solid var(--head-accent, var(--accent));
   padding: 10px 14px; display: flex; flex-direction: column; gap: 2px;
 }
 .tower-head .h1 { display: flex; align-items: baseline; gap: 10px; }
@@ -14,7 +14,12 @@
 /* "Wrap a long session name": onto two lines instead. */
 .tower.wrap-title .tower-head .t1 { white-space: normal; overflow: visible; }
 .tower.wrap-title .tower-head .h1 { align-items: flex-start; }
-.tower-head .t3 { margin-left: auto; flex: none; white-space: nowrap; font-size: 20px; font-weight: 900; letter-spacing: .04em; color: var(--accent); }
+.tower-head .t3 { margin-left: auto; flex: none; white-space: nowrap; font-size: 20px; font-weight: 900; letter-spacing: .04em; color: var(--head-accent, var(--accent)); }
+/* A sponsor logo under the header. */
+.tower-sponsor { display: flex; align-items: center; justify-content: center; height: var(--sb-h, 44px); padding: 5px 14px;
+  background: var(--panel); border-top: 1px solid var(--line); }
+.tower-sponsor img { max-height: 100%; max-width: 100%; object-fit: contain; animation: sb-in .5s ease both; }
+@keyframes sb-in { from { opacity: 0; } }
 .tower-head .t2 { font-size: 14px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .block { background: var(--panel); }
 .block:last-child { border-radius: 0 0 10px 10px; overflow: hidden; }

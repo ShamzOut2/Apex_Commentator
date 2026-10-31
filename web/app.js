@@ -2132,6 +2132,10 @@ const columnOpacity = (cols) => [["col_opacity_on", "Custom opacity per column",
 // shows it only while when(values) holds (e.g. a timer for a flash that's on).
 const iff = (when, field) => Object.assign(field, { when });
 const LOOK = ["Size & background", [["scale", "Size", "size"], ["bg", "Background", "background"]]];
+// Overlays can also be moved from where they sit (px on the 1920×1080 screen), to keep clear of each other.
+const OFFSET = [["offset_x", "Move right (px; minus moves it left)", "number", { min: -1920, max: 1920, step: 5 }],
+  ["offset_y", "Move down (px; minus moves it up)", "number", { min: -1080, max: 1080, step: 5 }]];
+const OVERLAY_LOOK = ["Size, position & background", [["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"]]];
 const OVERLAY_FIELDS = {
   standings: [
     ["What it shows", [
@@ -2159,6 +2163,17 @@ const OVERLAY_FIELDS = {
       ["title_feature", "Feature race name (blank = iRacing's)", "text"],
       ["round_titles", "Heat events: name each race as its round is named in the Championship tab (by today's date)", "select",
         [["name", "Yes"], ["off", "No"]]],
+      ["time_left_word", "\"LEFT\" after the time left (12:34 LEFT)", "bool"],
+      ["accent", "Accent colour (time / lap, the header's bar and line)", "select", [["default", "Orange"], ["color", "A colour of my own"],
+        ["session", "By session: practice, qualifying, race"]]],
+      iff((v) => v.accent === "color", ["accent_color", "Accent colour", "color"]),
+      iff((v) => v.accent === "session", ["accent_practice", "Practice", "color"]),
+      iff((v) => v.accent === "session", ["accent_qualify", "Qualifying", "color"]),
+      iff((v) => v.accent === "session", ["accent_race", "Race", "color"]),
+      ["sponsor_bar", "Sponsor logo bar under the header (tower)", "bool"],
+      iff((v) => v.sponsor_bar, ["sponsor_bar_ids", "Sponsors in the bar (several take turns)", "sponsors"]),
+      iff((v) => v.sponsor_bar, ["sponsor_bar_s", "Seconds per logo", "number", { min: 2, max: 120, step: 1 }]),
+      iff((v) => v.sponsor_bar, ["sponsor_bar_size", "Bar height (px)", "number", { min: 20, max: 120, step: 2 }]),
       ["title_wrap", "Wrap a long session name onto two lines (off: one line, the tower widens for it)", "bool"],
       ["show_col_labels", "Column headings (GAP, INT…)", "bool"],
     ]],
@@ -2200,9 +2215,9 @@ const OVERLAY_FIELDS = {
       iff((v) => v.fl_flash, ["fl_flash_s", "Flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }]),
       iff((v) => v.fl_flash, ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"]),
     ]],
-    ["Size & background", [
+    ["Size, position & background", [
       ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
-      ["scale", "Size", "size"], ["bg", "Background", "background"],
+      ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
   laps: [
@@ -2224,7 +2239,7 @@ const OVERLAY_FIELDS = {
       ["show_team", "Team names", "bool"],
       ["show_logo", "Team logos", "bool"],
     ]],
-    LOOK,
+    OVERLAY_LOOK,
   ],
   sponsors: [
     ["Logos", [
@@ -2236,12 +2251,12 @@ const OVERLAY_FIELDS = {
       ["size", "Logo height (px)", "number", { min: 30, max: 300, step: 5 }],
       ["title", "Caption above (e.g. Partners)", "text"],
     ]],
-    ["Size & background", [
+    ["Size, position & background", [
       ["background", "Dark panel behind", "bool"],
-      ["scale", "Size", "size"], ["bg", "Background", "background"],
+      ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
-  gridwalk: [LOOK],
+  gridwalk: [OVERLAY_LOOK],
   battle: [
     ["What it shows", [
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
@@ -2255,7 +2270,7 @@ const OVERLAY_FIELDS = {
       ["show_race_points", "During a race: the points this race gives them", "bool"],
       ["show_change", "During a race: places gained / lost in the championship", "bool"],
     ]],
-    LOOK,
+    OVERLAY_LOOK,
   ],
   driver: [
     ["What it shows", [
@@ -2273,7 +2288,7 @@ const OVERLAY_FIELDS = {
       ["show_make", "Car badge", "bool"],
       ["show_class", "Class (multiclass)", "bool"],
     ]],
-    LOOK,
+    OVERLAY_LOOK,
   ],
 };
 
@@ -2342,11 +2357,11 @@ document.addEventListener("change", async (e) => {
 });
 
 // Tick boxes for which of the league's sponsors to show ("" = all, "none" = none).
-function sponsorPicker(sponsors, value) {
+function sponsorPicker(sponsors, value, key = "sponsor_ids", label = "Sponsors") {
   if (!sponsors.length) return '<p class="hint">No sponsor logos in the active league yet (League builder).</p>';
   const ids = value === "" ? null : new Set(value.split(","));
-  return `<div class="ov-field wide sponsor-pick"><span>Sponsors</span><div>${sponsors.map((sp, i) => `<label class="check">
-    <input type="checkbox" data-key="sponsor_ids" data-kind="sponsors" value="${esc(sp.id)}" ${!ids || ids.has(sp.id) ? "checked" : ""}>
+  return `<div class="ov-field wide sponsor-pick"><span>${esc(label)}</span><div>${sponsors.map((sp, i) => `<label class="check">
+    <input type="checkbox" data-key="${key}" data-kind="sponsors" value="${esc(sp.id)}" ${!ids || ids.has(sp.id) ? "checked" : ""}>
     <img src="${esc(sp.url)}" alt="">${esc(sp.name || `Sponsor ${i + 1}`)}</label>`).join("")}</div></div>`;
 }
 
@@ -2396,7 +2411,8 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
     return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
   }
   if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
-  if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v);
+  if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v, k, label);
+  if (kind === "color") return `<label class="ov-field">${label}<input type="color" ${attrs} value="${esc(v)}"></label>`;
   if (kind === "class" && values.mode !== "class") return "";
   const options = kind === "class" ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
     : kind === "banner" ? [["", "The first of the right shape"], ...((s.league && s.league.banners) || []).map((b, i) =>
@@ -2558,9 +2574,10 @@ const BOARD_FIELDS = {
   board_results: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
-    ["show_status", "DNF / DSQ", "bool"], ["show_points", "Points scored", "bool"],
+    ["show_gap", "Gap to the winner (DNF / DNS / DSQ show here)", "bool"], ["show_interval", "Interval to the car ahead", "bool"],
+    ["show_points", "Points scored", "bool"],
     ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"],
-      ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["status", "DNF / DSQ"], ["points", "Points"]])],
+      ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["gap", "Gap"], ["interval", "Interval"], ["points", "Points"]])],
 };
 const BOARD_SECTION_NAMES = {
   board_championship: "Championship standings", board_teams: "Teams' championship",

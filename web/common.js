@@ -545,11 +545,13 @@ const STOPWATCH = '<svg class="stopwatch" viewBox="0 0 24 24" aria-hidden="true"
 // full screens, the grid walk).
 let fitNow = () => {};
 let stageSize = 1;
+let stageOffset = [0, 0];  // an overlay moved from where it sits (offset_x / offset_y), in 1920×1080 px
 
 function fitStage(stage) {
   const fit = () => {
     const s = Math.min(innerWidth / 1920, innerHeight / 1080);
     stage.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`
+      + (stageOffset[0] || stageOffset[1] ? ` translate(${stageOffset[0]}px, ${stageOffset[1]}px)` : "")
       + (stageSize !== 1 ? ` translate(960px, 540px) scale(${stageSize}) translate(-960px, -540px)` : "");
   };
   fitNow = fit;
@@ -633,12 +635,15 @@ function setColumnOpacity(cfg) {
 // The Size setting (scale, percent). Overlays: their own elements grow or
 // shrink from where they sit (CSS zoom via --ov-size, in each page's CSS).
 // Boards and full screens: the whole stage, around the middle.
-function setSize(cfg, whole = false) {
+function setSize(cfg, whole = false, moved = !whole) {
   const k = ((cfg && cfg.scale) || 100) / 100;
   document.body.style.setProperty("--ov-size", String(whole ? 1 : k));
   const stage = whole ? k : 1;
-  if (stage !== stageSize) {
+  // Overlays (not boards or full screens) can be moved: offset_x / offset_y.
+  const off = moved && cfg ? [+cfg.offset_x || 0, +cfg.offset_y || 0] : [0, 0];
+  if (stage !== stageSize || off[0] !== stageOffset[0] || off[1] !== stageOffset[1]) {
     stageSize = stage;
+    stageOffset = off;
     fitNow();
   }
 }

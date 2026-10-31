@@ -150,6 +150,7 @@ def normalise_result(r):
         "status": status,
         "adjust": _num(r.get("adjust"), 0, lo=-1000, hi=1000),  # hand-given points (+ or -)
         "make": str(r.get("make") or "").strip()[:40],  # the car driven that round (manufacturers' standings)
+        "gap": _num(r.get("gap"), None, lo=0),  # seconds behind the winner, for the finishing order board
     }
 
 
@@ -677,7 +678,7 @@ def round_results(profile, rd, group):
             "make": r.get("make") or info.get("car_make", ""),
             "start": grid.get(r["driver"]), "laps": r["laps"], "laps_led": r["laps_led"],
             "fastest_lap": r["fastest_lap"], "has_fastest": best is not None and r["fastest_lap"] == best,
-            "status": s["status"], "short": s["short"], "points": s["total"],
+            "status": s["status"], "short": s["short"], "points": s["total"], "gap": r.get("gap"),
         })
     return out
 

@@ -47,6 +47,9 @@ walk, Overlays, Boards and Race control.
 
 ### New features
 
+- **Move any overlay**: every overlay has Move right / Move down, to keep
+  them clear of each other and fit your layout.
+- **Sponsor logo bar** under the timing tower's header.
 - **Race control tab**: give any driver a drive-through, stop & go or stop
   & hold (seconds, minutes or laps), clear one driver's or everyone's
   penalties, set the grid time, start the race and message every driver,
@@ -67,6 +70,14 @@ walk, Overlays, Boards and Race control.
 
 ### Improvements
 
+- Finishing order: Gap and Interval columns; DNF, DNS and DSQ show there
+  instead of a column of their own.
+- Board backgrounds: an image fills the whole screen at its own size again,
+  whatever the board's size.
+- Timing tower and full screen: "LEFT" after the time left can be turned
+  off, and the accent colour (time / lap, the header's bar and line) can be
+  your own or follow the session: white practice, purple qualifying, red
+  race.
 - Standings (tower and full screen): the leader's interval can show
   "Leader" or the lap they're on, like the gap column.
 - Heat racing: heats, the consolation and the feature are recognised, can
@@ -453,6 +464,15 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     and *Car number background* can each be turned off. The background is in
     the driver's class colour; with it off, just the number shows. Both the
     tower and the full-screen version follow these.
+  - **Time left**: "12:34 LEFT", or just "12:34" with *"LEFT" after the
+    time left* off.
+  - **Accent colour**: the colour of the time or lap in the header, the bar
+    down the left of the tower's header and the line under the full-screen
+    header: orange, a colour of your own, or **by session** (white for
+    practice, purple for qualifying, red for the race; each can be changed).
+  - **Sponsor logo bar**: a small bar under the tower's header with a
+    sponsor's logo. Pick which sponsors (several take turns, every few
+    seconds as set) and how tall it is.
   - **Header**: the session name, laps or time left, and under them the
     series (the active league's name) and the track. *Series name* and
     *Track name* turn each of those on or off. *Race name*, *Qualifying
@@ -652,6 +672,13 @@ An overlay grows or shrinks from where it sits:
 Boards, the grid walk and the full-screen versions grow or shrink around the
 middle of the screen. Changes show straight away, in OBS and on screen.
 
+**Moving an overlay.** Every overlay (standings tower, lap trackers, driver
+on camera, sponsors, championship battle and the grid walk) has *Move right*
+and *Move down* under *Size, position & background*: how far to move it from
+where it sits, in pixels of the 1920×1080 screen (minus moves it left or up).
+Use it to keep overlays clear of each other, or of your own stream layout.
+The full-screen versions and boards don't move.
+
 ## Backgrounds
 
 Every overlay and board has a background setting:
@@ -673,9 +700,9 @@ What it colours depends on what it is:
   walk cards), the setting is the overlay's own panels: their background
   takes the colour, or shows the image inside them, behind the text. The
   rest of the screen stays see-through, so the race is never covered.
-- **On a board**, it's the board's own panel: the board sits on a rounded
-  panel of that colour or image, sized to its contents, and the rest of the
-  screen stays see-through.
+- **On a board**, it's the whole screen behind the board: an image shows at
+  its own size and shape filling the 1920×1080 screen (centred, cropped if
+  it isn't 16:9), whatever the board's *Size*.
 - **On a full-screen version** (full-screen standings or lap tracker), which
   is a whole screen, it's that screen's backdrop.
 
@@ -762,7 +789,12 @@ Under *What each board shows*, every board can be set up separately:
 - the league's sponsor logos along any edge, and which sponsors;
 - the board's own columns: car numbers, team names and logos, car badges,
   gaps, wins, penalty points, points from the last few rounds, laps, places
-  gained, fastest lap (purple), DNF/DSQ, points scored;
+  gained, fastest lap (purple), points scored;
+- the finishing order's **Gap** (to the winner, or the class winner) and
+  **Int** (to the car ahead): seconds, or "+1 Lap" for a car a lap down. A
+  DNF, DNS or DSQ shows there instead of a time. Gaps come from iRacing's
+  race times once the race is over, and live timing while it's on; practice
+  and qualifying show the gaps between best laps;
 - how many drivers (or teams, manufacturers, race meetings) a page.
 
 **Pages.** A board with more than that runs onto further pages: **Next ▶**

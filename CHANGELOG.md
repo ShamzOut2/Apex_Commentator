@@ -15,6 +15,9 @@ How each version's entry is written:
 
 ### New features
 
+- **Move any overlay**: every overlay has Move right / Move down, to keep
+  them clear of each other and fit your layout.
+- **Sponsor logo bar** under the timing tower's header.
 - **Race control tab**: give any driver a drive-through, stop & go or stop
   & hold (seconds, minutes or laps), clear one driver's or everyone's
   penalties, set the grid time, start the race and message every driver,
@@ -35,6 +38,14 @@ How each version's entry is written:
 
 ### Improvements
 
+- Finishing order: Gap and Interval columns; DNF, DNS and DSQ show there
+  instead of a column of their own.
+- Board backgrounds: an image fills the whole screen at its own size again,
+  whatever the board's size.
+- Timing tower and full screen: "LEFT" after the time left can be turned
+  off, and the accent colour (time / lap, the header's bar and line) can be
+  your own or follow the session: white practice, purple qualifying, red
+  race.
 - Standings (tower and full screen): the leader's interval can show
   "Leader" or the lap they're on, like the gap column.
 - Heat racing: heats, the consolation and the feature are recognised, can

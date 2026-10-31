@@ -280,6 +280,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
 // "LAP 5 / 20", "12:34 LEFT", "FINAL LAP", "FINISHED": whatever the
 // session is limited by (or what the commentator picked).
 function progressText(ov) {
+  const left = ov.settings.standings.time_left_word ? " LEFT" : "";
   const pr = ov.progress;
   if (!pr || pr.mode === "none") return "";
   if (pr.finished) return "FINISHED";
@@ -289,7 +290,27 @@ function progressText(ov) {
     return `LAP ${pr.lap}${pr.laps_total ? ` / ${pr.laps_total}` : ""}`;
   }
   if (pr.time_remain == null) return "";
-  return `${fmtClock(pr.time_remain)} LEFT`;
+  return `${fmtClock(pr.time_remain)}${left}`;
+}
+
+// The accent colour (header time / lap, the tower header's bar, the full
+// screen's header line): orange, one picked, or by session (accent setting).
+function setAccent(cfg, ov) {
+  const kind = ov.session_kind === "race" ? "race" : ov.session_kind === "qualify" ? "qualify" : "practice";
+  const color = cfg.accent === "color" ? cfg.accent_color : cfg.accent === "session" ? cfg[`accent_${kind}`] : "";
+  if (color) document.body.style.setProperty("--head-accent", color);
+  else document.body.style.removeProperty("--head-accent");
+}
+
+// The sponsor bar under the tower's header: one logo, several taking turns.
+function sponsorBarHtml(snap, cfg) {
+  if (!cfg.sponsor_bar) return "";
+  const all = (snap.league && snap.league.sponsors) || [];
+  const ids = cfg.sponsor_bar_ids && cfg.sponsor_bar_ids !== "none" ? new Set(cfg.sponsor_bar_ids.split(",")) : null;
+  const logos = cfg.sponsor_bar_ids === "none" ? [] : all.filter((l) => !ids || ids.has(l.id));
+  if (!logos.length) return "";
+  const logo = logos[Math.floor(Date.now() / 1000 / cfg.sponsor_bar_s) % logos.length];
+  return `<div class="tower-sponsor" style="--sb-h:${cfg.sponsor_bar_size}px"><img src="${esc(logo.url)}" alt="${esc(logo.name || "")}"></div>`;
 }
 
 function headRowHtml(cfg, cols) {
@@ -305,6 +326,7 @@ function render() {
   if (!ov) return;
   renderFlash(snap, ov);
   setColumnOpacity(ov.settings.standings);
+  setAccent(ov.settings.standings, ov);
   if (SCREEN) {
     setBackground(ov.settings.standings, true);
     setSize(ov.settings.standings, true);
@@ -356,7 +378,7 @@ function render() {
   const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head${goFlash(ov)}">
       <div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
       ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}
-    </div>${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
+    </div>${sponsorBarHtml(snap, cfg)}${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
   tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("wrap-title", !!cfg.title_wrap);
   tower.classList.toggle("hidden", !visible);

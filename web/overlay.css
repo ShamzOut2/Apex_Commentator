@@ -34,10 +34,10 @@ body.screen { background: #0b0d12; }
     linear-gradient(115deg, rgba(255, 122, 26, .10) 0 18%, transparent 18% 100%),
     radial-gradient(circle at 80% 0%, #1d2330, #0b0d12 70%);
 }
-.screen-head { display: flex; align-items: center; gap: 24px; padding-bottom: 14px; border-bottom: 3px solid var(--accent); }
+.screen-head { display: flex; align-items: center; gap: 24px; padding-bottom: 14px; border-bottom: 3px solid var(--head-accent, var(--accent)); }
 .screen-head .t1 { font-size: 46px; font-weight: 900; letter-spacing: .06em; }
 .screen-head .t2 { font-size: 24px; color: var(--muted); font-weight: 600; }
-.screen-head .t3 { margin-left: auto; font-size: 26px; font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.screen-head .t3 { margin-left: auto; font-size: 26px; font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: var(--head-accent, inherit); }
 .screen-body { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 28px; min-height: 0; }
 .screen-col { display: flex; flex-direction: column; min-width: 0; }
 .screen-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }

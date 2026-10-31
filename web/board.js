@@ -14,9 +14,9 @@ const fmtPts = (v) => (v == null ? "" : Number.isInteger(v) ? String(v) : v.toFi
 const makeChip = (m) => (m ? `<span class="make">${m.logo ? `<img src="${esc(m.logo)}" alt="${esc(m.name)}">` : ""}</span>${m.withName ? `<span class="make-name">${esc(m.name)}</span>` : ""}` : "");
 const ROW_SPACE = 820;  // px for table rows under the header (less with a horizontal banner)
 
-// A Background colour or image: the board becomes a panel of that, and the
-// rest of the screen stays see-through (board.css).
-const panelled = (b) => b.settings.bg === "color" || (b.settings.bg === "image" && !!b.settings.bg_image);
+// A Background colour or image fills the whole screen behind the board, the
+// image at its own size whatever the board's Size (setBackground in
+// common.js, in render), rather than a panel round the table like the overlays.
 
 // The car number, in the driver's class colour.
 const numberChip = (r) => (r.number ? `<span class="num" style="${r.class_color ? `background:${esc(r.class_color)};color:${inkFor(r.class_color)}` : ""}">${esc(r.number)}</span>` : "");
@@ -67,7 +67,11 @@ function columns(b) {
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
     add(s.show_fastest, "fastest", "Fastest", "140px", "r", (r) => (r.fastest_lap ? `<span class="${r.has_fastest ? "fl" : "muted"}">${fmtLap(r.fastest_lap)}</span>` : ""));
-    add(s.show_status, "status", "", "90px", "c", (r) => (r.status !== "finished" || r.short ? `<span class="st">${r.short ? "DNF" : esc(r.status.toUpperCase())}</span>` : ""));
+    // Gap to the winner and to the car ahead; a DNF / DNS / DSQ shows there instead.
+    const gapCell = (r, secs, laps) => (r.out ? `<span class="st">${esc(r.out)}</span>`
+      : laps ? `+${laps} ${laps === 1 ? "Lap" : "Laps"}` : secs != null ? `+${secs.toFixed(3)}` : "");
+    add(s.show_gap, "gap", "Gap", "150px", "r muted", (r) => gapCell(r, r.gap, r.gap_laps));
+    add(s.show_interval, "interval", "Int", "150px", "r muted", (r) => gapCell(r, r.interval, r.interval_laps));
     add(s.show_points, "points", "Pts", "90px", "r pts", (r) => (r.points == null ? "" : `+${fmtPts(r.points)}`));
   }
   return cols;
@@ -131,6 +135,7 @@ function calendarHtml(b) {
 function render(snap) {
   const b = snap.board;
   if (b) setSize(b.settings, true);
+  setBackground(b && b.settings, !!b);
   setColumnOpacity(b && b.settings);
   if (!b) {
     if (shown !== "none") {
@@ -147,7 +152,7 @@ function render(snap) {
   else if (!b.rows.length) body = '<div class="empty-board">Nothing to show yet: no results in this championship.</div>';
   else {
     // Long lists go into two columns rather than shrinking past readable.
-    const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0) - (panelled(b) ? 56 : 0)
+    const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
       - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? 110 : 0);
     const cols = columns(b);
     const split = b.rows.length > 20 ? 2 : 1;
@@ -174,8 +179,7 @@ function render(snap) {
   const key = [b.kind, b.title, b.subtitle, b.page].join("|");
   const steady = key === boardKey;
   boardKey = key;
-  setPanels(b.settings);
-  const html = `<div class="board ${b.kind} ${panelled(b) ? "panelled" : ""}" style="${b.accent ? `--accent-c:${esc(b.accent)}` : ""}">
+  const html = `<div class="board ${b.kind}" style="${b.accent ? `--accent-c:${esc(b.accent)}` : ""}">
     ${edge("left")}
     <div class="center">
       ${edge("top")}
