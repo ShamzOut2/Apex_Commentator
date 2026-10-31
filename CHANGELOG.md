@@ -11,6 +11,17 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- "Show on my screen" overlays covered the whole screen in some cases. Each
+  overlay's window is now cut down to the overlay itself (the tower, the
+  driver board…), so the rest of the screen is never covered and the mouse
+  goes straight through, and it's made see-through the way the Apex
+  Overlays app does it. The log (`%APPDATA%\Apex Commentator\apex.log`)
+  notes each overlay put up.
+
 ## v0.4.5
 
 ### New features

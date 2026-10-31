@@ -205,11 +205,11 @@ class BoardTests(unittest.TestCase):
             app.desktop = fake = Fake()
             app.command("desktop_show", {"page": "standings", "screen": 1})
             app.command("desktop_show", {"page": "board"})
-            self.assertEqual(fake.urls, ["/standings.html?desktop=1", "/board.html?desktop=1"])
+            self.assertEqual(fake.urls, ["/standings.html?desktop=standings", "/board.html?desktop=board"])
             d = app.build_snapshot()["desktop"]
             self.assertEqual((d["available"], d["on_screen"], len(d["screens"])), (True, {"standings": 1, "board": 0}, 2))
             app.command("desktop_show", {"page": "standings_screen"})
-            self.assertEqual(fake.urls[-1], "/standings.html?screen=1&desktop=1")
+            self.assertEqual(fake.urls[-1], "/standings.html?screen=1&desktop=standings_screen")
             app.command("desktop_hide", {"page": "board"})
             self.assertNotIn("board", app.build_snapshot()["desktop"]["on_screen"])
             app.command("desktop_hide", {})

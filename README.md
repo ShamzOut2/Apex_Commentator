@@ -37,95 +37,16 @@ OBS dock.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.5**
-
-### New features
-
-- **Build the season's rounds from a calendar**: from the league's season in
-  iRacing, by scanning the league's calendar image, or from its text pasted
-  in. Check and correct the rounds found, then make them all at once.
-- **Race meetings** for leagues that run several races in one event (heat
-  races) and count each as a round. Import every race of the event in one
-  go, and the calendar board shows the meeting as one.
-- **Secondary classes**: a driver can be in a second class as well as their
-  main one (e.g. a Rookie Cup or Pro-Am trophy). It works in the background:
-  the overlays show the main class, and the secondary class gets its own
-  championship, standings, results and board.
-- **Class and overall points added together**: a new way to score, where
-  each driver gets the points for their class position plus the points for
-  their overall position. Any class can also have its own points table.
-- **Driver on camera**: a small board at the bottom centre names the driver
-  you're spectating (position, number, name, team and car). It slides in each
-  time the camera moves to someone, and can hide itself after a few seconds.
-- **Import and export** leagues (with all their images), teams,
-  championships, round results, the driver roster and overlay settings.
-  Exports go to `Documents\Apex Commentator\Exports`, and the app shows
-  where each one went, with a button to open the folder. Standings, results
-  and the roster also export as spreadsheets (CSV).
-
-- **Size** for every overlay and board (50–200%). An overlay grows or
-  shrinks from where it sits; a board from the middle of the screen.
-
-### Improvements
-
-- Car badges and team logos no longer sit in a white box anywhere. Team logos
-  that come with a white background show without it, and dark badges and
-  logos are shown light so they stand out on the dark panels.
-- Choose the order of the columns on the standings tower and on the
-  full-screen standings: drag them, or use their arrows.
-- The League builder is tidier: its settings are on three tabs (Drivers,
-  Classes, and Logos, banners & sponsors), with shortcuts to Teams and the
-  season. The driver list has room for full names and teams.
-- Overlay and board settings are tidier: each is split into short sections
-  (What it shows, Header, Columns, Drivers…) that open and close, and the app
-  remembers which you left open. Settings that depend on another (like the
-  red-interval threshold or the fastest lap flash timer) only appear when
-  that one is on.
-- Pick the screen for **Show on my screen** once, at the top of the
-  Overlays tab or the Boards tab, instead of under every overlay. It's
-  remembered, and changing it moves whatever is already up.
-- The season calendar board can show your own round names ("Round 3 ·
-  Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
-  Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
-  November. The "×2 points" note on rounds worth more can be turned off.
-- The Overlays tab is shorter: the preview panes are replaced by a
-  **Preview ↗** button that opens an overlay in its own window.
-- The standings' column headings (GAP, INT…) can be turned off, and the
-  race leader's gap box can show the lap they're on ("Lap 12") instead of
-  "Leader".
-- The standings (tower and full screen) can turn off the coloured bar by
-  each driver, and the background behind the car number (it's in the
-  driver's class colour when on).
-- When the chequered flag comes out, the standings header turns into a
-  waving black-and-white chequered flag, on the tower and the full-screen
-  standings. It flashes in, then keeps waving until the session changes or
-  the overlay is taken off.
-- The extra drivers under the Overall tower's top rows can rotate through
-  the rest of the field, a few at a time on a timer, then start again. They
-  can also be dimmed with their own opacity.
-- The standings header (tower and full screen) can hide the series name
-  and/or the track name, and the session names can be your own (e.g.
-  "FEATURE RACE" instead of "RACE"). A long session name can wrap onto two
-  lines, or stay on one line with the tower widening for it.
-- The standings tower's width fits its contents: each column (the name
-  column too) is as wide as what's in it, so there's no big empty gap. Or set
-  the width yourself in pixels.
-- Sort the League builder's driver list by clicking a column heading (name,
-  customer ID, car number, driver number, nickname, team, notes, class or
-  car). Click again for the reverse order, a third time for the original
-  order.
-- The Timing tab's **LIVE** button sits with the replay buttons instead of
-  at the far end of the bar.
-- The Sponsors overlay's panel sits closer around the logos. In "one at a
-  time" mode it fits whichever logo is showing.
+**Coming in the next update**
 
 ### Fixes
 
-- Scrolling with the mouse over a number box you'd clicked in (like a
-  round's points multiplier) no longer changes its value by accident.
-- "Show on my screen" overlays covered the whole monitor in dark instead of
-  being see-through (since v0.4.4). They're see-through again, and the app
-  checks with you after each update in case they ever come up solid.
+- "Show on my screen" overlays covered the whole screen in some cases. Each
+  overlay's window is now cut down to the overlay itself (the tower, the
+  driver board…), so the rest of the screen is never covered and the mouse
+  goes straight through, and it's made see-through the way the Apex
+  Overlays app does it. The log (`%APPDATA%\Apex Commentator\apex.log`)
+  notes each overlay put up.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -586,8 +507,9 @@ What it colours depends on what it is:
 Uploaded backgrounds are kept with the app's data and can be used by any
 overlay or board.
 
-On your own screen (*Show on my screen*), a part-opaque colour or image shows
-as solid: only fully see-through parts can show what's behind.
+On your own screen (*Show on my screen*), the background only fills the
+overlay's own panels, like everywhere else; the rest of the screen is never
+touched.
 
 ## Overlays on your own screen (no OBS)
 
@@ -598,6 +520,10 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
 
 - It sits over whatever is on that monitor, always on top. Run iRacing in
   **windowed or borderless** mode: a game in exclusive full screen covers it.
+- Only the overlay itself is on screen: its window is cut down to where the
+  overlay draws (the tower, the fastest lap pill, the driver board…) and
+  follows it as it grows, shrinks or slides. The rest of the screen isn't
+  covered at all. Full-screen versions and boards are a whole screen.
 - It never takes the keyboard, and your mouse goes straight through to the
   game or the app underneath.
 - With more than one monitor, pick which one once, at the top of the
@@ -610,6 +536,9 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
   If you don't answer within 15 seconds it takes the overlay down by itself
   (in case it came up solid and covered your screen). From then on it just
   appears.
+- The app notes each on-screen overlay it puts up, and anything that went
+  wrong, in its log: `apex.log` in `%APPDATA%\Apex Commentator` (paste that
+  into the Windows + R box).
 
 This needs the app window (it isn't available when the app runs in a browser).
 Soft drop shadows are left out on screen, since only fully see-through parts

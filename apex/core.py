@@ -1021,6 +1021,9 @@ class App:
         handler = getattr(self, f"cmd_{action}", None)
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
+        if action == "desktop_region":
+            # Sent often by on-screen overlays as they change: no lock, nothing to publish.
+            return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
         if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "board_", "popout", "desktop_")):
             raise CommandError("Not connected to iRacing")
@@ -1055,9 +1058,20 @@ class App:
         if self.desktop is None:
             raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
         name, path = self.DESKTOP_PAGES[page]
-        if not self.desktop.show(page, f"{path}{'&' if '?' in path else '?'}desktop=1", name, int(screen or 0)):
+        # desktop=<page>: the page reports where it draws, to fit the window to it (cmd_desktop_region).
+        if not self.desktop.show(page, f"{path}{'&' if '?' in path else '?'}desktop={page}", name, int(screen or 0)):
             raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
         return {"on_screen": self.desktop.on_screen()}
+
+    def cmd_desktop_region(self, page, rects=None):
+        """Where an on-screen overlay's page draws: [[x, y, width, height], ...]
+        in its window's pixels (None: all of it). The window is cut to that."""
+        if page not in self.DESKTOP_PAGES or self.desktop is None:
+            return {}
+        if rects is not None:
+            rects = [[int(v) for v in r[:4]] for r in list(rects)[:64] if isinstance(r, (list, tuple)) and len(r) >= 4]
+        self.desktop.region(page, rects)
+        return {}
 
     def cmd_desktop_hide(self, page=None):
         """Take an on-screen overlay down (all of them, with no ``page``)."""

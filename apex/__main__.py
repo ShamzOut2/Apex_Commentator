@@ -132,6 +132,9 @@ class OnScreen:
     def hide(self, page=None):
         desktop.hide_overlay(page)
 
+    def region(self, page, rects):
+        desktop.set_region(page, rects)
+
     def on_screen(self):
         return desktop.overlays_on_screen()
 
