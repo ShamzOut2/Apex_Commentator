@@ -349,6 +349,8 @@ def normalise_profile(profile):
             "short": str(t.get("short") or "").strip()[:8],
             "color": color if HEX_COLOR.fullmatch(color) else "",
             "logo": logo if logo and _valid_logo_ref(str(logo)) else None,
+            # The other leagues this team is also in (LeagueStore._sync_teams).
+            "shared": sorted({_slug(x) for x in t.get("shared") or [] if isinstance(x, str) and x.strip()}),
         })
     # Overlays show names without a "(P)" class tag: the clean name goes in
     # the nickname (drivers added later, e.g. from a session, included).
@@ -443,6 +445,17 @@ class LeagueStore:
             return json.load(f)
 
     def save(self, profile):
+        """Save a league, and keep the teams it shares with other leagues in step."""
+        profile = normalise_profile(profile)
+        others = self._linked(profile)
+        for team in profile.get("teams", []):  # not itself, nor a league since deleted
+            team["shared"] = [x for x in team["shared"] if x in others]
+        self._pull_members(profile, others)
+        profile = self._write(profile)
+        self._sync_teams(profile, others)
+        return profile
+
+    def _write(self, profile):
         profile = normalise_profile(profile)
         with self._lock:
             tmp = self._path(profile["id"]).with_suffix(".tmp")
@@ -453,6 +466,96 @@ class LeagueStore:
                 self._active = profile
             self._prune_logos(profile)
         return profile
+
+    # -- teams shared between leagues -----------------------------------------
+    #
+    # A team can be in several leagues (its "shared" list names the others).
+    # Saving a league copies each shared team (name, short name, colour, logo)
+    # into those leagues and puts its drivers in it there too (the same driver:
+    # customer ID, else name). Drivers without a team are put in the team
+    # they're in in a linked league, so newcomers join their team by
+    # themselves. Teams are matched by name.
+
+    def _linked(self, profile):
+        """Every other saved league, by id (the ones the sync may touch)."""
+        out = {}
+        for path in self.dir.glob("*.json"):
+            if path.stem == profile["id"]:
+                continue
+            other = self.get(path.stem)
+            if other:
+                out[other.get("id", path.stem)] = other
+        return out
+
+    @staticmethod
+    def _same_driver(d, drivers):
+        if d.get("cust_id") is not None:
+            return next((x for x in drivers if x.get("cust_id") == d["cust_id"]), None)
+        name = str(d.get("name") or "").strip().lower()
+        return next((x for x in drivers if x.get("cust_id") is None and name
+                     and str(x.get("name") or "").strip().lower() == name), None)
+
+    def _pull_members(self, profile, others):
+        """Drivers without a team join the shared team they're in elsewhere."""
+        for team in profile.get("teams", []):
+            for lid in team["shared"]:
+                other = others.get(lid)
+                if not other:
+                    continue
+                for od in other.get("drivers", []):
+                    if str(od.get("team") or "").strip().lower() != team["name"].lower():
+                        continue
+                    mine = self._same_driver(od, profile.get("drivers", []))
+                    if mine is not None and not str(mine.get("team") or "").strip():
+                        mine["team"] = team["name"]
+
+    def _sync_teams(self, profile, others):
+        me = profile["id"]
+        teams = {t["name"].lower(): t for t in profile.get("teams", [])}
+        for lid, other in others.items():
+            changed = False
+            other_teams = other.setdefault("teams", [])
+            # Links this league has dropped: the other league keeps its copy.
+            for ot in other_teams:
+                mine = teams.get(ot["name"].lower())
+                if me in (ot.get("shared") or []) and not (mine and lid in mine["shared"]):
+                    ot["shared"] = [x for x in ot["shared"] if x != me]
+                    changed = True
+            for team in profile.get("teams", []):
+                if lid not in team["shared"]:
+                    continue
+                ot = next((t for t in other_teams if t["name"].lower() == team["name"].lower()), None)
+                if ot is None:
+                    ot = {"name": team["name"]}
+                    other_teams.append(ot)
+                logo = self._copy_logo(me, lid, team.get("logo"))
+                links = sorted((set(team["shared"]) - {lid}) | {me})
+                new = {"name": team["name"], "short": team["short"], "color": team["color"], "logo": logo, "shared": links}
+                if any(ot.get(k) != v for k, v in new.items()):
+                    ot.update(new)
+                    changed = True
+                for d in profile.get("drivers", []):
+                    if str(d.get("team") or "").strip().lower() != team["name"].lower():
+                        continue
+                    theirs = self._same_driver(d, other.get("drivers", []))
+                    if theirs is not None and theirs.get("team") != team["name"]:
+                        theirs["team"] = team["name"]
+                        changed = True
+            if changed:
+                self._write(other)
+
+    def _copy_logo(self, src_id, dst_id, logo):
+        """A team logo for another league: library logos as they are, uploads copied over."""
+        if not logo or LIBRARY_LOGO.fullmatch(logo):
+            return logo
+        src = self.logo_file(src_id, logo)
+        if src is None:
+            return None
+        dst = self._logo_dir(dst_id) / logo
+        if not dst.exists():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst)
+        return logo
 
     # -- class logos --------------------------------------------------------
 

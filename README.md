@@ -41,6 +41,10 @@ OBS dock.
 
 ### New features
 
+- **Teams in more than one league**: in the team builder, tick the other
+  leagues a team races in. The team and its drivers are set up there too,
+  and drivers who join one of those leagues later are put in their team
+  automatically.
 - **Custom opacity per column** on the standings (tower and full screen) and
   the championship, teams', manufacturers' and results boards: tick it and
   set each column's opacity.
@@ -474,6 +478,21 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 *Team* column in the League builder is the same thing. **Save** saves the
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
+
+**Teams in more than one league.** Under each team, **Also in** lists your
+other leagues: tick the ones the team races in too, then **Save**. The team
+(name, short name, colour and logo) is copied into those leagues, and its
+drivers who are in them too (the same iRacing customer ID, or the same name
+for drivers without one) are put in it there. From then on:
+- changes to the team in any of its leagues reach the others when saved;
+- a driver who joins one of those leagues later, without a team, is put in
+  their team by themselves;
+- moving a driver to another shared team moves them in the other leagues
+  too. Taking a driver out of a team only changes the league you're in.
+
+Unticking a league stops the link; that league keeps its copy of the team.
+Teams are matched by name, so a renamed team starts a new team in the other
+leagues (the old one stays there until you delete it).
 
 ## Import & export
 

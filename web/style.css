@@ -421,6 +421,8 @@ kbd {
 .team-fields input.narrow { width: 80px; }
 .team-fields input[type=color] { width: 40px; height: 30px; padding: 0; border: none; background: none; }
 .team-members .chip { display: inline-flex; align-items: center; gap: 4px; }
+.team-shared { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.team-shared .chip { cursor: pointer; }
 .chip .clear { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0 2px; }
 .chip .clear:hover { color: var(--bad); }
 

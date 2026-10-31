@@ -2816,6 +2816,7 @@ const sameTeam = (a, b) => String(a || "").trim().toLowerCase() === String(b || 
 async function renderLeaguePickers() {
   try {
     const { leagues } = await api("/api/leagues");
+    ui.leagueList = leagues;
     const current = ui.editing && ui.editing.id;
     const html = `<option value="">${leagues.length ? "Pick a league…" : "No saved leagues yet"}</option>` +
       leagues.map((l) => `<option value="${esc(l.id)}" ${l.id === current ? "selected" : ""}>${esc(l.name)}${l.active ? " (active)" : ""}</option>`).join("");
@@ -2847,6 +2848,7 @@ function renderTeams() {
   const teams = editorTeams();
   const drivers = ui.editing.drivers || [];
   const label = (d) => `${d.car_number ? `#${esc(d.car_number)} ` : ""}${esc(d.name || "Unnamed")}`;
+  const otherLeagues = (ui.leagueList || []).filter((l) => l.id !== ui.editing.id);
   cards.innerHTML = teams.length ? teams.map((t, i) => {
     const members = drivers.map((d, j) => [d, j]).filter(([d]) => sameTeam(d.team, t.name));
     const others = drivers.map((d, j) => [d, j]).filter(([d]) => !sameTeam(d.team, t.name));
@@ -2873,6 +2875,9 @@ function renderTeams() {
         <option value="">+ Add driver…</option>
         ${others.map(([d, j]) => `<option value="${j}">${label(d)}${d.team ? ` (${esc(d.team)})` : ""}</option>`).join("")}
       </select>
+      ${otherLeagues.length ? `<div class="team-shared"><span class="hint" title="The team, and its drivers who race there too, in these leagues as well. Drivers who join one later are put in the team by themselves.">Also in:</span>
+        ${otherLeagues.map((l) => `<label class="chip ${(t.shared || []).includes(l.id) ? "active" : ""}">
+          <input type="checkbox" data-team-share="${i}" value="${esc(l.id)}" ${(t.shared || []).includes(l.id) ? "checked" : ""} hidden>${esc(l.name)}</label>`).join("")}</div>` : ""}
     </div>`;
   }).join("") : '<p class="hint">No teams yet: add one, or fill in the Team column in the League builder roster.</p>';
   const free = drivers.map((d, j) => [d, j]).filter(([d]) => !String(d.team || "").trim());
@@ -2915,6 +2920,16 @@ $("#team-cards").addEventListener("change", async (e) => {
     } catch (err) {
       toast(err.message, true);
     }
+    return;
+  }
+  if (el.dataset.teamShare != null) {
+    const team = teams[+el.dataset.teamShare];
+    const shared = new Set(team.shared || []);
+    if (el.checked) shared.add(el.value);
+    else shared.delete(el.value);
+    team.shared = [...shared];
+    renderTeams();
+    toast(el.checked ? `Save to add ${team.name} (and its drivers) to that league` : "Save to unlink it (that league keeps its copy)");
     return;
   }
   if (el.dataset.teamAdd != null) {

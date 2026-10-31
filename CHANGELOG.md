@@ -15,6 +15,10 @@ How each version's entry is written:
 
 ### New features
 
+- **Teams in more than one league**: in the team builder, tick the other
+  leagues a team races in. The team and its drivers are set up there too,
+  and drivers who join one of those leagues later are put in their team
+  automatically.
 - **Custom opacity per column** on the standings (tower and full screen) and
   the championship, teams', manufacturers' and results boards: tick it and
   set each column's opacity.

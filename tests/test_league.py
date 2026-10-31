@@ -173,7 +173,39 @@ class StoreTests(unittest.TestCase):
         junk = normalise_profile({"name": "L", "drivers": [{"name": "A", "car_image": "../../x.png"}],
                                   "teams": [{"name": "T", "logo": "../x.png"}, {"name": "t"}, {"name": ""}]})
         self.assertEqual(junk["drivers"][0]["car_image"], "")
-        self.assertEqual(junk["teams"], [{"name": "T", "short": "", "color": "", "logo": None}])
+        self.assertEqual(junk["teams"], [{"name": "T", "short": "", "color": "", "logo": None, "shared": []}])
+
+    def test_teams_shared_between_leagues(self):
+        png = b"\x89PNG\r\n\x1a\n" + b"\0" * 16
+        a = self.store.save({"id": "gt3", "name": "GT3 Cup", "drivers": [
+            {"cust_id": 1, "name": "Amy", "team": "Apex Racing"}, {"cust_id": 2, "name": "Zed", "team": "Apex Racing"},
+            {"name": "No ID", "team": "Apex Racing"}]})
+        self.store.save({"id": "gt4", "name": "GT4 Cup", "drivers": [
+            {"cust_id": 1, "name": "Amy"}, {"cust_id": 3, "name": "Cal", "team": "Other"}, {"name": "No ID"}]})
+        a = self.store.save_image("gt3", "team:Apex Racing", png)
+        team = next(t for t in a["teams"] if t["name"] == "Apex Racing")
+        team.update(color="#ff0000", shared=["gt4", "gt3", "gone"])  # itself and unknown leagues are dropped
+        a = self.store.save(a)
+        self.assertEqual(next(t for t in a["teams"] if t["name"] == "Apex Racing")["shared"], ["gt4"])
+        b = self.store.get("gt4")
+        copy = next(t for t in b["teams"] if t["name"] == "Apex Racing")
+        self.assertEqual((copy["color"], copy["shared"]), ("#ff0000", ["gt3"]))
+        self.assertTrue(self.store.logo_file("gt4", copy["logo"]))  # the logo came along
+        # Its drivers who are in the other league are in the team there too.
+        self.assertEqual({d["name"]: d.get("team", "") for d in b["drivers"]}, {"Amy": "Apex Racing", "Cal": "Other", "No ID": "Apex Racing"})
+        # Zed joins the GT4 league later: he's put in his team by himself.
+        b["drivers"].append({"cust_id": 2, "name": "Zed"})
+        b = self.store.save(b)
+        self.assertEqual(next(d for d in b["drivers"] if d["name"] == "Zed")["team"], "Apex Racing")
+        # Edits travel either way; and unsharing leaves the other league its copy.
+        next(t for t in b["teams"] if t["name"] == "Apex Racing")["short"] = "APX"
+        self.store.save(b)
+        a = self.store.get("gt3")
+        self.assertEqual(next(t for t in a["teams"] if t["name"] == "Apex Racing")["short"], "APX")
+        next(t for t in a["teams"] if t["name"] == "Apex Racing")["shared"] = []
+        self.store.save(a)
+        copy = next(t for t in self.store.get("gt4")["teams"] if t["name"] == "Apex Racing")
+        self.assertEqual((copy["shared"], copy["short"]), ([], "APX"))
 
     def test_import_session_merges_without_losing_edits(self):
         p = self.seed()
