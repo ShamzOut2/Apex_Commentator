@@ -457,7 +457,8 @@ class App:
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
                 "race_control": {"log": self.rc_log[-50:]},
                 "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
-                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else []},
+                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else [],
+                            "saved": self.settings.get("hotkey_map")},
                     "desktop": self._desktop_snapshot(),
                     **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
@@ -466,7 +467,9 @@ class App:
                 }
             # The session on screen: in a replay, the one being replayed (a race
             # watched once the server has moved on to the next session, say).
-            frame = replace(frame, session_num=frame.timeline()[0])
+            screen_num = frame.timeline()[0]
+            if screen_num != frame.session_num and screen_num in self._session_meta.get("sessions", {}):
+                frame = replace(frame, session_num=screen_num)
             is_race = self._is_race(frame)
             racing = is_race and frame.session_state == STATE_RACING
             events = self.detector.events
@@ -559,7 +562,8 @@ class App:
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
                 "race_control": {"log": self.rc_log[-50:]},
                 "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
-                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else []},
+                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else [],
+                            "saved": self.settings.get("hotkey_map")},
                 "classes": self._ordered_classes(classes),
                 "events": events[-200:],
                 "desktop": self._desktop_snapshot(),
@@ -641,13 +645,14 @@ class App:
             if entry is None:
                 entry = next((d for d in profile.get("drivers", []) if d.get("cust_id") is None
                               and d.get("name", "").strip().lower() == r["name"].strip().lower()), None)
+            in_roster = entry is not None  # a newcomer added below isn't one left without a class
             if entry is None and add_missing:
                 entry = {"cust_id": r["cust_id"], "name": r["name"], "car_number": r["number"], "team": r["team"]}
                 profile.setdefault("drivers", []).append(entry)
                 added += 1
             key = driver_key(entry) if entry else driver_key({"cust_id": r["cust_id"], "name": r["name"]})
             cls = self.leagues.class_for(entry, r["car_class"], profile, r["name"])
-            if self._unclassed(profile, entry, cls is not None):
+            if self._unclassed(profile, entry if in_roster else None, cls is not None):
                 continue  # no class in the league (a safety car, say): not in the results
             off = official.get(r["car_idx"], {})
             laps = off.get("LapsComplete")
@@ -782,9 +787,11 @@ class App:
     @staticmethod
     def _unclassed(league, entry, has_main):
         """Whether a driver is left off the overlays (and out of results): with
-        a league that has classes (and "Hide drivers with no class" on), one
-        with neither a main class nor a secondary one, e.g. a safety car."""
-        if not league or not league.get("hide_unclassed", True) or has_main:
+        a league that has classes (and "Hide drivers with no class" on), a
+        driver in its roster given neither a main class nor a secondary one,
+        e.g. a safety car. Drivers not in the roster are never hidden (a
+        session outside the league: everyone shows)."""
+        if not league or not entry or not league.get("hide_unclassed", True) or has_main:
             return False
         classes = league.get("classes") or []
         if not classes:
@@ -1609,16 +1616,24 @@ class App:
                 return self.cmd_overlay_settings("standings", {"mode": "class" if tower["mode"] == "overall" else "overall"})
         raise CommandError(f"Unknown hotkey '{action}'")
 
-    def cmd_hotkeys(self, keys=None):
+    def cmd_hotkeys(self, keys=None, cameras=None, actions=None):
         """The Hotkeys window's keys ({key: action}): those with Ctrl or Alt work
-        system-wide (Windows), kept for the next start too."""
+        system-wide (Windows), kept for the next start too. ``cameras`` /
+        ``actions`` (the window's own lists) are kept in the app's settings,
+        so every window (app, pop-outs, a browser) has the same keys and they
+        survive updates."""
         from .hotkeys import system_wide
 
         wanted = system_wide(keys if isinstance(keys, dict) else {})
         self.settings.set("global_hotkeys", wanted or None)
         if self.global_hotkeys:
             self.global_hotkeys.set(wanted)
-        return {"system_wide": len(wanted)}
+        version = (self.settings.get("hotkey_map") or {}).get("v", 0)
+        if isinstance(actions, dict):
+            clean = lambda m: {str(k)[:40]: str(v)[:40] for k, v in m.items()} if isinstance(m, dict) else None  # noqa: E731
+            version += 1
+            self.settings.set("hotkey_map", {"v": version, "cameras": clean(cameras), "actions": clean(actions)})
+        return {"system_wide": len(wanted), "v": version}
 
     def cmd_board_show(self, kind, group="", round=""):
         """Put a full-screen board on screen (board.html)."""

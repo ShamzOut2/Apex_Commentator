@@ -94,9 +94,13 @@ let hotkeysSent = false;
 
 function render() {
   const s = ui.snap;
+  // The app's saved keys win; a window with keys the app hasn't saved yet (from
+  // before they were kept there) hands them over once.
+  const savedKeys = s.hotkeys && s.hotkeys.saved;
+  if (savedKeys) adoptHotkeys(s);
   if (!hotkeysSent && s.camera) {
     hotkeysSent = true;
-    sendHotkeys();  // this PC's keys, once the cameras are known
+    if (!savedKeys) sendHotkeys();  // this window's keys, once the cameras are known
   }
   $("#status-dot").classList.toggle("on", !!s.connected);
   const league = s.league;
@@ -224,12 +228,34 @@ function keyOf(e) {
 // Keys with Ctrl or Alt work whichever program is in front (the app registers
 // them with Windows; see apex/hotkeys.py): it's told about every change.
 const systemWide = (k) => /(^|\+)(ctrl|alt)\+/.test(k);
+// The keys live in the app's settings (cmd_hotkeys), so every window (the app,
+// pop-outs, a browser) has the same ones and they survive updates. ``hotkeyV``:
+// the version of them this window has.
+let hotkeyV = null;
+let hotkeySending = 0;
 function sendHotkeys() {
   const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
   const keys = {};
   for (const [name, k] of Object.entries(hotkeys(groups))) if (systemWide(k)) keys[k] = `cam:${name}`;
   for (const [id, k] of Object.entries(settings.actionKeys || {})) if (systemWide(k)) keys[k] = id;
-  return api("/api/cmd", { method: "POST", body: { action: "hotkeys", params: { keys } } }).catch(() => {});
+  hotkeySending += 1;
+  return api("/api/cmd", { method: "POST", body: { action: "hotkeys", params: { keys, cameras: settings.hotkeys, actions: settings.actionKeys || {} } } })
+    .then((r) => { if (r && r.v != null) hotkeyV = r.v; })
+    .catch(() => {})
+    .finally(() => { hotkeySending -= 1; });
+}
+
+// Keys saved by another window (or before an update): use them here too.
+function adoptHotkeys(s) {
+  const saved = s.hotkeys && s.hotkeys.saved;
+  if (!saved || hotkeySending || saved.v === hotkeyV || !$("#hotkey-modal").hidden) return false;
+  hotkeyV = saved.v;
+  settings.hotkeys = saved.cameras || null;
+  settings.actionKeys = saved.actions || {};
+  saveSettings();
+  camKey = "";
+  boardButtonsKey = "";
+  return true;
 }
 
 function renderCamButtons(cam) {
@@ -963,10 +989,20 @@ function renderHotkeyList() {
       data-hk-kind="${kind}" data-hk="${esc(id)}" data-hk-label="${esc(label)}" title="${note}">${esc(label)}
       <kbd>${key ? `${wide ? "🌐 " : ""}${esc(keyLabel(key))}` : "–"}</kbd></button>`;
   };
+  const actions = hotkeyActions();
   const sections = [["Cameras", groups.length ? groups.map((g) => btn("cam", g.name, g.name, cams[g.name])).join("")
     : '<p class="hint">Cameras appear once iRacing is connected.</p>'],
-  ...hotkeyActions().map(([title, items]) => [title, items.map(([id, label]) => btn("act", id, label, acts[id])).join("")])];
-  $("#hotkey-list").innerHTML = sections.map(([title, html]) => `<h4 class="hk-section">${esc(title)}</h4><div class="hotkey-list">${html}</div>`).join("");
+  ...actions.map(([title, items]) => [title, items.map(([id, label]) => btn("act", id, label, acts[id])).join("")])];
+  // Every key that's set, at a glance (click one to change it).
+  const labels = new Map(actions.flatMap(([title, items]) => items.map(([id, label]) => [id, `${title.replace(/ \(.*\)$/, "")}: ${label}`])));
+  const set = [
+    ...groups.filter((g) => cams[g.name]).map((g) => ["cam", g.name, `Camera: ${g.name}`, cams[g.name]]),
+    ...Object.entries(acts).filter(([id, k]) => k && labels.has(id)).map(([id, k]) => ["act", id, labels.get(id), k]),
+  ].sort((a, b) => keyLabel(a[3]).localeCompare(keyLabel(b[3]), undefined, { numeric: true }));
+  const summary = set.length ? `<h4 class="hk-section">Keys set (${set.length})</h4><div class="hk-set">${set.map(([kind, id, label, k]) =>
+    `<button class="hk-chip" data-hk-kind="${kind}" data-hk="${esc(id)}" data-hk-label="${esc(label)}"><kbd>${esc(keyLabel(k))}</kbd> ${esc(label)}</button>`).join("")}</div>`
+    : '<p class="hint">No keys set yet.</p>';
+  $("#hotkey-list").innerHTML = summary + sections.map(([title, html]) => `<h4 class="hk-section">${esc(title)}</h4><div class="hotkey-list">${html}</div>`).join("");
   $("#hotkey-prompt").textContent = hotkeyTarget ? `Press a key for ${hotkeyTarget.label}…` : "";
 }
 

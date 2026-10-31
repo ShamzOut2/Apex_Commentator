@@ -405,7 +405,9 @@ def _unclassed(profile, result):
     classes = profile.get("classes") or []
     if not classes or not profile.get("hide_unclassed", True) or result.get("has_main", True):
         return False
-    roster = next((d for d in profile.get("drivers", []) if driver_key(d) == result["driver"]), {})
+    roster = next((d for d in profile.get("drivers", []) if driver_key(d) == result["driver"]), None)
+    if roster is None:
+        return False  # not in the roster: never left out
     return not any(c["id"] == roster.get("class2_id") and c.get("role") == "secondary" for c in classes)
 
 

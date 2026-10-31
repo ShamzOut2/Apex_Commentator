@@ -662,3 +662,10 @@ p.hint .desk { margin-left: 6px; }
 /* Import from a spreadsheet: which column is which. */
 .csv-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 14px; margin: 8px 0 12px; }
 #csv-modal .modal { max-width: 780px; }
+
+/* Hotkeys window: every key that's set, at the top. */
+.hk-set { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.hk-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 4px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel-2); color: var(--text); font-size: 12px; cursor: pointer; }
+.hk-chip kbd { min-width: 22px; text-align: center; }
+.hk-chip:hover { border-color: var(--accent); }

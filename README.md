@@ -43,26 +43,19 @@ walk, Overlays, Boards and Race control.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.9**
-
-### Improvements
-
-- Driver on camera: the card now leaves with an animation of its own, the
-  entrance in reverse (details fade, a light sweep, the card closes to the
-  middle and drops away).
-- Season calendar board: a race meeting lists each of its races by name with
-  its length (Race 1 · 20 min, Race 2 · 20 min, Race 3 · 40 min).
-- Race gaps update more smoothly (the overlays get new numbers twice as
-  often).
+**Coming in the next update**
 
 ### Fixes
 
-- Replays of a race watched after the server has moved on to the next
-  session are shown as a race again: the class leaders' lap counter in the
-  gap / interval column, race gaps and the race header.
-- Race gaps in replays: no longer stuck or lagging. The app's own timing is
-  kept for the whole race, so a replay of any lap (also after the flag)
-  shows the gaps as they were, instead of iRacing's laggy ones.
+- Overlays in a session outside the league (practice, testing) no longer go
+  empty: only drivers in the league's roster left without a class are
+  hidden, not everyone who isn't in the roster. This also brings back the
+  qualifying lap tracker there.
+- Boards: the next page of a board keeps the board and its background in
+  place; just the rows change.
+- Hotkeys are kept by the app itself, so every window (the app, pop-outs, a
+  browser) has the same keys and they survive updates. The Hotkeys window
+  lists every key that's set at the top.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

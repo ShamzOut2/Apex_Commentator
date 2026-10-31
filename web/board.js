@@ -187,6 +187,9 @@ function render(snap) {
     ? `<span class="sub"><span class="chip" style="${b.accent ? `background:${esc(b.accent)};color:${inkFor(b.accent)}` : "background:rgba(255,255,255,.12)"}">${esc(b.subtitle)}</span></span>` : "";
   const key = [b.kind, b.title, b.subtitle, b.page].join("|");
   const steady = key === boardKey;
+  // Another page of the same board: the board (and its background) stays,
+  // just the rows change, cascading in.
+  const paging = !steady && boardKey && key.replace(/\|[^|]*$/, "") === boardKey.replace(/\|[^|]*$/, "");
   boardKey = key;
   const html = `<div class="board ${b.kind}" style="${b.accent ? `--accent-c:${esc(b.accent)}` : ""}">
     ${edge("left")}
@@ -201,10 +204,11 @@ function render(snap) {
     ${edge("right")}</div>`;
   if (html !== shown) {
     shown = html;
-    if (steady) {
+    if (steady || paging) {
       // Same board with new numbers: swap them in without animating again.
       const cur = stage.querySelector(".board:not(.leaving)");
-      if (cur) cur.outerHTML = html.replace('class="board ', 'class="board steady ');
+      const cls = steady ? 'class="board steady ' : 'class="board paging ';
+      if (cur) cur.outerHTML = html.replace('class="board ', cls);
       else stage.innerHTML = html;
     } else {
       // Another board: the old one fades out as the new one comes in over it.

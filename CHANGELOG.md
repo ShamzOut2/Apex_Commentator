@@ -11,6 +11,20 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- Overlays in a session outside the league (practice, testing) no longer go
+  empty: only drivers in the league's roster left without a class are
+  hidden, not everyone who isn't in the roster. This also brings back the
+  qualifying lap tracker there.
+- Boards: the next page of a board keeps the board and its background in
+  place; just the rows change.
+- Hotkeys are kept by the app itself, so every window (the app, pop-outs, a
+  browser) has the same keys and they survive updates. The Hotkeys window
+  lists every key that's set at the top.
+
 ## v0.4.9
 
 ### Improvements

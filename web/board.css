@@ -11,7 +11,9 @@
 .board:not(.leaving) { z-index: 1; }
 @keyframes board-out { to { opacity: 0; transform: scale(.98); } }
 /* A new board's header slides in and its rows / rounds cascade in. */
-.board:not(.steady) .bhead { animation: head-in .5s .1s cubic-bezier(.2, .8, .2, 1) both; }
+.board:not(.steady):not(.paging) .bhead { animation: head-in .5s .1s cubic-bezier(.2, .8, .2, 1) both; }
+/* The next page of the same board: it stays, its rows cascade in. */
+.board.paging { animation: none; }
 @keyframes head-in { from { opacity: 0; transform: translateY(-14px); } }
 .board:not(.steady) .btable tbody tr,
 .board:not(.steady) .cal .round { animation: row-in .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.2s + var(--i, 0) * 35ms); }

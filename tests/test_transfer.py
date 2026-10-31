@@ -103,7 +103,8 @@ class TransferTests(unittest.TestCase):
         drivers = [dict(d, class_id="pro") if d["cust_id"] == 2 else d for d in self.league["drivers"]]
         league = self.store.save(dict(self.league, classes=self.league["classes"] + [
             {"id": "gt3", "name": "GT3", "match": ["GT3 2025"]}],
-            drivers=drivers + [{"cust_id": 3, "name": "Gone Early", "class_id": "am"}]))
+            drivers=drivers + [{"cust_id": 3, "name": "Gone Early", "class_id": "am"},
+                               {"cust_id": 99, "name": "Safety Car"}]))  # in the roster, given no class
         fmt, rows = transfer.expect(text.encode(), "round", csv_ok=True)
         profile, info = transfer.import_round(self.store, league, "r2", fmt, rows)
         rd = profile["championship"]["rounds"][1]
