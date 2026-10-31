@@ -55,6 +55,14 @@ OBS dock.
 
 ### Improvements
 
+- Overlay and board settings are tidier: each is split into short sections
+  (What it shows, Header, Columns, Drivers…) that open and close, and the app
+  remembers which you left open. Settings that depend on another (like the
+  red-interval threshold or the fastest lap flash timer) only appear when
+  that one is on.
+- Pick the screen for **Show on my screen** once, at the top of the
+  Overlays tab or the Boards tab, instead of under every overlay. It's
+  remembered, and changing it moves whatever is already up.
 - The season calendar board can show your own round names ("Round 3 ·
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
@@ -326,10 +334,13 @@ on stream or put on a monitor (open it, then F11).
 
 ![full-screen standings board](docs/standings-screen.png)
 
-The **Overlays** tab has each overlay's address for OBS, a live preview and
-its settings. Add each one as a *Browser Source* at 1920×1080 (the background
-is transparent). Settings changed in the tab show on stream straight away and
-are kept in `data/overlays.json`.
+The **Overlays** tab has each overlay's address for OBS, a **Preview ↗**
+button and its settings. Add each one as a *Browser Source* at 1920×1080 (the
+background is transparent). Settings changed in the tab show on stream
+straight away and are kept in `data/overlays.json`. Each overlay's (and
+board's) settings are in sections that open and close (What it shows,
+Header, Columns, Drivers, Size & background…); settings that only matter
+when another is on, like the fastest lap flash timer, appear once it's on.
 
 - **Standings** (`/standings.html`): in a race, the running order with the gap
   to the leader. In qualifying and practice, it shows the fastest clean lap,
@@ -563,7 +574,9 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
   **windowed or borderless** mode: a game in exclusive full screen covers it.
 - It never takes the keyboard, and your mouse goes straight through to the
   game or the app underneath.
-- With more than one monitor, pick which one; changing it moves the overlay.
+- With more than one monitor, pick which one once, at the top of the
+  Overlays tab (for every overlay and the grid walk) or the Boards tab. The
+  app remembers it; changing it moves anything from that tab already up.
 - **Remove** takes it down; *Remove all from my screen* clears everything.
   They also close with the app.
 - The first time (and the first time after each update), the app asks

@@ -363,8 +363,12 @@
           transparent background); <b>Preview ↗</b> opens one in a window of its own to have a look. The <b>full screen</b> version is a complete screen of its own, with a background and every
           driver, to cut to on stream or show on a monitor (Open, then F11). Changes here show straight away.</p>
         <p class="hint desk-help">Or skip OBS: <b>Show on my screen</b> puts it straight over whatever's on that monitor (iRacing in
-          windowed or borderless mode), always on top. Your mouse and keyboard go straight through to the game.
-          <button class="btn subtle" id="desk-hide-all" hidden>Remove all from my screen</button></p>
+          windowed or borderless mode), always on top. Your mouse and keyboard go straight through to the game.</p>
+        <div class="row desk-bar desk-help">
+          <label class="desk-screen" hidden>Show on my screen on <select data-desk-tab="overlays" aria-label="Which screen overlays go on"></select>
+            <span class="hint">for every overlay and the grid walk</span></label>
+          <button class="btn subtle" id="desk-hide-all" hidden>Remove all from my screen</button>
+        </div>
         <div class="row transfer-row">
           <span class="hint">Every overlay's and board's settings, with their background images:</span>
           <button class="btn subtle" data-export="overlays">⤓ Export settings</button>
@@ -430,7 +434,11 @@
           Add <code id="url-board"></code> <button class="btn subtle" data-copy="url-board">Copy</button>
           <a class="btn subtle" href="/board.html?preview=1" target="_blank" rel="noopener">Open ↗</a>
           to OBS as a Browser Source at 1920×1080: it's empty (transparent) until you put a board on screen here.
-          <span class="desk" data-desk="board"></span></p>
+</p>
+        <div class="row desk-bar desk-help">
+          <span class="desk" data-desk="board"></span>
+          <label class="desk-screen" hidden>on <select data-desk-tab="boards" aria-label="Which screen boards go on"></select></label>
+        </div>
         <div class="boards-layout">
           <div class="board-buttons" id="board-buttons"></div>
           <div class="board-preview"><div class="preview-frame"><iframe src="/board.html?preview=1" title="Board preview" loading="lazy"></iframe></div></div>

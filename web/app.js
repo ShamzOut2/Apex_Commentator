@@ -1303,90 +1303,116 @@ async function importRound(rd) {
 const NAME_FORMATS = [["full", "Full name"], ["initial_last", "A. Driver"], ["last_initial", "Driver A."],
   ["last", "Last name"], ["first", "First name"], ["abbrev", "DRI (3 letters)"], ["nickname", "Nickname"]];
 
-// [key, label, kind, options]
+// Each overlay's settings, in named sections that open and close:
+// [title, fields]. A field is [key, label, kind, opts]; `iff(when, field)`
+// shows it only while when(values) holds (e.g. a timer for a flash that's on).
+const iff = (when, field) => Object.assign(field, { when });
+const LOOK = ["Size & background", [["scale", "Size", "size"], ["bg", "Background", "background"]]];
 const OVERLAY_FIELDS = {
   standings: [
-    ["visible", "On screen", "bool"],
-    ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
-    ["class_key", "Class", "class"],
-    ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
-    ["rows_last", "Extra drivers under the top ones (overall, when there are more; 0 = none)", "number", { min: 0, max: 30 }],
-    ["rows_extra_mode", "Extra drivers show", "select", [["rotate", "The rest of the field, a set at a time"], ["last", "The last ones"]]],
-    ["rows_extra_s", "Seconds per set of extra drivers", "number", { min: 1, max: 120, step: 1 }],
-    ["rows_extra_opacity", "Extra drivers' opacity (%)", "number", { min: 10, max: 100, step: 5 }],
-    ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
-    ["name_format", "Names", "select", NAME_FORMATS],
-    ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
-      ["time", "Time left"], ["none", "Nothing"]]],
-    ["reveal", "Race start: only the header until each driver completes lap 1 (they appear from the start of lap 2)", "bool"],
-    ["show_series", "Series name in the header (the league's name)", "bool"],
-    ["show_track", "Track name in the header", "bool"],
-    ["title_race", "Race name (blank = RACE)", "text"],
-    ["title_qualify", "Qualifying name (blank = QUALIFYING)", "text"],
-    ["title_practice", "Practice / warm-up name (blank = iRacing's)", "text"],
-    ["title_wrap", "Wrap a long session name onto two lines (off: one line, the tower widens for it)", "bool"],
-    ["show_gap", "Gap to leader / pole", "bool"],
-    ["show_interval", "Interval to car ahead", "bool"],
-    ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }],
-    ["show_pos_change", "Places gained / lost (race)", "bool"],
-    ["show_best_lap", "Best lap", "bool"],
-    ["show_last_lap", "Last lap", "bool"],
-    ["show_laps", "Laps completed", "bool"],
-    ["show_pits", "Pit stops", "bool"],
-    ["show_pit_status", "PIT badge on pit road", "bool"],
-    ["show_number", "Car numbers", "bool"],
-    ["color_number", "Car number background, in the driver's class colour (off: just the number)", "bool"],
-    ["show_stripe", "Coloured bar by each driver", "bool"],
-    ["show_col_labels", "Column headings (GAP, INT…)", "bool"],
-    ["leader_cell", "The leader's gap shows", "select", [["leader", "Leader"], ["lap", "Their current lap (Lap 12)"]]],
-    ["show_team", "Team names", "bool"],
-    ["show_logo", "Team logos", "bool"],
-    ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
-    ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
-    ["fl_flash_s", "Fastest lap flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }],
-    ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"],
-    ["scale", "Size", "size"], ["bg", "Background", "background"],
+    ["What it shows", [
+      ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
+      ["class_key", "Class", "class"],
+      ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
+      iff((v) => v.mode === "overall", ["rows_last", "Extra drivers under the top ones, when there are more (0 = none)", "number", { min: 0, max: 30 }]),
+      iff((v) => v.mode === "overall" && v.rows_last > 0, ["rows_extra_mode", "Extra drivers show", "select",
+        [["rotate", "The rest of the field, a set at a time"], ["last", "The last ones"]]]),
+      iff((v) => v.mode === "overall" && v.rows_last > 0 && v.rows_extra_mode === "rotate",
+        ["rows_extra_s", "Seconds per set of extra drivers", "number", { min: 1, max: 120, step: 1 }]),
+      iff((v) => v.mode === "overall" && v.rows_last > 0, ["rows_extra_opacity", "Extra drivers' opacity (%)", "number", { min: 10, max: 100, step: 5 }]),
+      ["reveal", "Race start: only the header until each driver completes lap 1 (they appear from the start of lap 2)", "bool"],
+    ]],
+    ["Header", [
+      ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
+        ["time", "Time left"], ["none", "Nothing"]]],
+      ["show_series", "Series name (the league's name)", "bool"],
+      ["show_track", "Track name", "bool"],
+      ["title_race", "Race name (blank = RACE)", "text"],
+      ["title_qualify", "Qualifying name (blank = QUALIFYING)", "text"],
+      ["title_practice", "Practice / warm-up name (blank = iRacing's)", "text"],
+      ["title_wrap", "Wrap a long session name onto two lines (off: one line, the tower widens for it)", "bool"],
+      ["show_col_labels", "Column headings (GAP, INT…)", "bool"],
+    ]],
+    ["Columns", [
+      ["show_gap", "Gap to leader / pole", "bool"],
+      iff((v) => v.show_gap, ["leader_cell", "The leader's gap shows", "select", [["leader", "Leader"], ["lap", "Their current lap (Lap 12)"]]]),
+      ["show_interval", "Interval to car ahead", "bool"],
+      iff((v) => v.show_interval, ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }]),
+      ["show_pos_change", "Places gained / lost (race)", "bool"],
+      ["show_best_lap", "Best lap", "bool"],
+      ["show_last_lap", "Last lap", "bool"],
+      ["show_laps", "Laps completed", "bool"],
+      ["show_pits", "Pit stops", "bool"],
+      ["show_pit_status", "PIT badge on pit road", "bool"],
+    ]],
+    ["Drivers", [
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_number", "Car numbers", "bool"],
+      iff((v) => v.show_number, ["color_number", "Car number background, in the driver's class colour (off: just the number)", "bool"]),
+      ["show_stripe", "Coloured bar by each driver", "bool"],
+      ["show_team", "Team names", "bool"],
+      ["show_logo", "Team logos", "bool"],
+    ]],
+    ["Fastest lap", [
+      ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
+      ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
+      iff((v) => v.fl_flash, ["fl_flash_s", "Flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }]),
+      iff((v) => v.fl_flash, ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"]),
+    ]],
+    ["Size & background", [
+      ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
+      ["scale", "Size", "size"], ["bg", "Background", "background"],
+    ]],
   ],
   laps: [
-    ["visible", "On screen", "bool"],
-    ["count", "Small trackers", "number", { min: 0, max: 12 }],
-    ["name_format", "Names", "select", NAME_FORMATS],
-    ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
-    ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"]]],
-    ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
-    ["hide_s", "Hide finished lap after (s)", "number", { min: 0, max: 60, step: 0.5 }],
-    ["show_number", "Car numbers", "bool"],
-    ["show_driver_number", "Driver numbers", "bool"],
-    ["show_team", "Team names", "bool"],
-    ["show_logo", "Team logos", "bool"],
-    ["show_invalid", "Track invalid laps too", "bool"],
-    ["practice", "Also in practice", "bool"],
-    ["scale", "Size", "size"], ["bg", "Background", "background"],
+    ["What it shows", [
+      ["count", "Small trackers", "number", { min: 0, max: 12 }],
+      ["practice", "Also in practice", "bool"],
+      ["show_invalid", "Track invalid laps too", "bool"],
+      ["hide_s", "Hide finished lap after (s)", "number", { min: 0, max: 60, step: 0.5 }],
+    ]],
+    ["Sectors", [
+      ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
+      ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"]]],
+      ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
+    ]],
+    ["Drivers", [
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_number", "Car numbers", "bool"],
+      ["show_driver_number", "Driver numbers", "bool"],
+      ["show_team", "Team names", "bool"],
+      ["show_logo", "Team logos", "bool"],
+    ]],
+    LOOK,
   ],
   sponsors: [
-    ["visible", "On screen", "bool"],
-    ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
-      ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
-    ["layout", "Show", "select", [["rotate", "One at a time"], ["row", "All together"]]],
-    ["interval_s", "Seconds per logo (one at a time)", "number", { min: 1, max: 120, step: 1 }],
-    ["size", "Logo height (px)", "number", { min: 30, max: 300, step: 5 }],
-    ["background", "Dark panel behind", "bool"],
-    ["title", "Caption above (e.g. Partners)", "text"],
-    ["sponsor_ids", "Sponsors", "sponsors"],
-    ["scale", "Size", "size"], ["bg", "Background", "background"],
+    ["Logos", [
+      ["sponsor_ids", "Sponsors", "sponsors"],
+      ["layout", "Show", "select", [["rotate", "One at a time"], ["row", "All together"]]],
+      iff((v) => v.layout === "rotate", ["interval_s", "Seconds per logo", "number", { min: 1, max: 120, step: 1 }]),
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["size", "Logo height (px)", "number", { min: 30, max: 300, step: 5 }],
+      ["title", "Caption above (e.g. Partners)", "text"],
+    ]],
+    ["Size & background", [
+      ["background", "Dark panel behind", "bool"],
+      ["scale", "Size", "size"], ["bg", "Background", "background"],
+    ]],
   ],
-  gridwalk: [["scale", "Size", "size"], ["bg", "Background", "background"]],
+  gridwalk: [LOOK],
   driver: [
-    ["visible", "On screen", "bool"],
-    ["hide_s", "Hide after (s; 0 = while they're on camera)", "number", { min: 0, max: 60, step: 1 }],
-    ["name_format", "Names", "select", NAME_FORMATS],
-    ["show_position", "Position (and in class)", "bool"],
-    ["show_number", "Car number", "bool"],
-    ["show_team", "Team", "bool"],
-    ["show_logo", "Team logo", "bool"],
-    ["show_make", "Car badge", "bool"],
-    ["show_class", "Class (multiclass)", "bool"],
-    ["scale", "Size", "size"], ["bg", "Background", "background"],
+    ["What it shows", [
+      ["hide_s", "Hide after (s; 0 = while they're on camera)", "number", { min: 0, max: 60, step: 1 }],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_position", "Position (and in class)", "bool"],
+      ["show_number", "Car number", "bool"],
+      ["show_team", "Team", "bool"],
+      iff((v) => v.show_team, ["show_logo", "Team logo", "bool"]),
+      ["show_make", "Car badge", "bool"],
+      ["show_class", "Class (multiclass)", "bool"],
+    ]],
+    LOOK,
   ],
 };
 
@@ -1475,6 +1501,58 @@ function fieldValue(el) {
 
 let overlayFormKey = "";
 
+// Which settings sections are open, remembered between visits ("standings/Header": true).
+const SECTIONS_OPEN = "apex.settingsOpen";
+let sectionsOpen = {};
+try {
+  sectionsOpen = JSON.parse(localStorage.getItem(SECTIONS_OPEN)) || {};
+} catch (e) { /* storage unavailable */ }
+
+// "toggle" doesn't bubble: listen while it's on its way down.
+document.addEventListener("toggle", (e) => {
+  const group = e.target.closest && e.target.closest("details[data-group]");
+  if (!group || group !== e.target) return;
+  sectionsOpen[group.dataset.group] = group.open;
+  try {
+    localStorage.setItem(SECTIONS_OPEN, JSON.stringify(sectionsOpen));
+  } catch (err) { /* storage unavailable */ }
+}, true);
+
+// One setting, as its input. `section` is the overlay or board it belongs to.
+function fieldHtml(section, values, [k, label, kind, opts], s) {
+  const v = values[k];
+  const attrs = `data-key="${k}" data-kind="${kind === "banner" || kind === "class" ? "select" : kind}"`;
+  if (kind === "background") return backgroundFields(section, values);
+  if (kind === "size") return sizeField(v);
+  if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
+  if (kind === "number") {
+    return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
+  }
+  if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
+  if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v);
+  if (kind === "class" && values.mode !== "class") return "";
+  const options = kind === "class" ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
+    : kind === "banner" ? [["", "The first of the right shape"], ...((s.league && s.league.banners) || []).map((b, i) =>
+      [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
+      : opts;
+  return `<label class="ov-field">${label}<select ${attrs}>${options.map(([o, l]) =>
+    `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+}
+
+// An overlay's or board's settings: its On screen switch, then its sections
+// (the first one open until you choose otherwise).
+function settingsHtml(section, values, groups, s) {
+  const top = "visible" in values
+    ? `<label class="ov-field check ov-visible"><input type="checkbox" data-key="visible" data-kind="bool" ${values.visible ? "checked" : ""}> Showing <span class="hint">(untick to hide it everywhere)</span></label>` : "";
+  return top + groups.map(([title, fields], i) => {
+    const id = `${section}/${title}`;
+    const open = sectionsOpen[id] ?? i === 0;
+    const body = fields.filter((f) => !f.when || f.when(values)).map((f) => fieldHtml(section, values, f, s)).join("");
+    return `<details class="ov-group" data-group="${esc(id)}" ${open ? "open" : ""}><summary>${esc(title)}</summary>
+      <div class="ov-grid">${body}</div></details>`;
+  }).join("");
+}
+
 function renderOverlaySettings(s) {
   const ov = s.overlays;
   if (!ov) return;
@@ -1483,26 +1561,8 @@ function renderOverlaySettings(s) {
   const key = JSON.stringify([ov.settings, (s.classes || []).map((c) => [c.key, c.name]), (s.league && s.league.sponsors) || []]);
   if (key === overlayFormKey || document.activeElement.closest(".ov-form")) return;
   overlayFormKey = key;
-  for (const [overlay, fields] of Object.entries(OVERLAY_FIELDS)) {
-    const values = ov.settings[overlay];
-    $(`#ov-${overlay}`).innerHTML = fields.map(([k, label, kind, opts]) => {
-      const v = values[k];
-      const attrs = `data-key="${k}" data-kind="${kind}"`;
-      if (kind === "background") return backgroundFields(overlay, values);
-      if (kind === "size") return sizeField(v);
-      if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
-      if (kind === "number") {
-        return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
-      }
-      if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
-      if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v);
-      const options = kind === "class"
-        ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
-        : opts;
-      if (kind === "class" && values.mode !== "class") return "";
-      return `<label class="ov-field">${label}<select ${attrs}>${options.map(([ov2, l]) =>
-        `<option value="${esc(ov2)}" ${String(ov2) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
-    }).join("");
+  for (const [overlay, groups] of Object.entries(OVERLAY_FIELDS)) {
+    $(`#ov-${overlay}`).innerHTML = settingsHtml(overlay, ov.settings[overlay], groups, s);
   }
 }
 
@@ -1520,12 +1580,14 @@ document.querySelectorAll(".ov-form").forEach((form) => form.addEventListener("c
 // ---------------------------------------------------------------------------
 
 // Every board: the league logo in its header, and a banner where (and which).
-const BOARD_LOOK = [["league_logo", "League logo in the header", "bool"],
+const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   ["banner", "Banner", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"],
-    ["right", "Down the right"]]], ["banner_id", "Which banner", "banner"],
+    ["right", "Down the right"]]],
+  iff((v) => v.banner !== "none", ["banner_id", "Which banner", "banner"]),
   ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
-    ["left", "Down the left"], ["right", "Down the right"]]], ["sponsor_ids", "Which sponsors", "sponsors"],
-  ["scale", "Size", "size"], ["bg", "Background", "background"]];
+    ["left", "Down the left"], ["right", "Down the right"]]],
+  iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"])];
+const cards = (v) => v.style === "cards";
 
 const BOARD_FIELDS = {
   board_championship: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
@@ -1540,12 +1602,13 @@ const BOARD_FIELDS = {
   board_makes: [["rows", "Manufacturers shown", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
     ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"]],
   board_calendar: [["style", "Show", "select", [["cards", "The calendar built from the rounds"], ["image", "The league's own calendar image"]]],
-    ["show_date", "Dates", "bool"], ["show_time", "Start times", "bool"], ["show_config", "Track layouts", "bool"],
-    ["round_title", "Round titles", "select", [["both", "Round 3 · your round name"], ["name", "Your round name"], ["number", "Round 3"]]],
-    ["date_format", "Dates as", "select", [["weekday_short", "Sun 22 Nov"], ["numeric", "22/11/26"], ["day_month", "22nd November"],
-      ["full", "22nd November 2026"], ["weekday", "Sunday 22nd November"]]],
-    ["show_length", "Race lengths", "bool"], ["show_winners", "Winners of past rounds", "bool"],
-    ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"]],
+    iff(cards, ["round_title", "Round titles", "select", [["both", "Round 3 · your round name"], ["name", "Your round name"], ["number", "Round 3"]]]),
+    iff(cards, ["show_date", "Dates", "bool"]),
+    iff((v) => cards(v) && v.show_date, ["date_format", "Dates as", "select", [["weekday_short", "Sun 22 Nov"], ["numeric", "22/11/26"],
+      ["day_month", "22nd November"], ["full", "22nd November 2026"], ["weekday", "Sunday 22nd November"]]]),
+    iff(cards, ["show_time", "Start times", "bool"]), iff(cards, ["show_config", "Track layouts", "bool"]),
+    iff(cards, ["show_length", "Race lengths", "bool"]), iff(cards, ["show_winners", "Winners of past rounds", "bool"]),
+    iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"])],
   board_results: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
@@ -1603,23 +1666,9 @@ function renderBoards(s) {
 function renderBoardSettings(s) {
   const settings = s.overlays && s.overlays.settings;
   if (!settings) return;
-  const banners = (s.league && s.league.banners) || [];
   $("#board-settings").innerHTML = Object.entries(BOARD_FIELDS).map(([section, fields]) => `
     <div class="overlay-card"><h3>${BOARD_SECTION_NAMES[section]}</h3><div class="ov-form" data-overlay="${section}">
-    ${[...BOARD_LOOK, ...fields].map(([k, label, kind, opts]) => {
-      const v = settings[section][k];
-      const attrs = `data-key="${k}" data-kind="${kind === "banner" ? "select" : kind}"`;
-      if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
-      if (kind === "number") return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" value="${v}"></label>`;
-      if (kind === "sponsors") return settings[section].sponsors === "none" ? "" : sponsorPicker((s.league && s.league.sponsors) || [], v);
-      if (kind === "background") return backgroundFields(section, settings[section]);
-      if (kind === "size") return sizeField(v);
-      const choices = kind === "banner"
-        ? [["", "The first of the right shape"], ...banners.map((b, i) => [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
-        : opts;
-      return `<label class="ov-field">${label}<select ${attrs}>${choices.map(([o, l]) =>
-        `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
-    }).join("")}</div></div>`).join("");
+    ${settingsHtml(section, settings[section], [["What it shows", fields], ["Logo, banner & sponsors", BOARD_BRAND], LOOK], s)}</div></div>`).join("");
 }
 
 $("#board-buttons").addEventListener("click", async (e) => {
@@ -1681,22 +1730,39 @@ function screenName(sc, i, all) {
   return all.length > 1 ? `Screen ${i + 1} · ${sc.width}×${sc.height}` : "";
 }
 
+// The screen picked at the top of the Overlays tab (every overlay and the grid
+// walk) or the Boards tab, remembered on this PC.
+const DESK_SCREEN = "apex.deskScreen.";
+const deskTab = (page) => (page === "board" ? "boards" : "overlays");
+
+function deskScreen(tab, screens = (ui.snap && ui.snap.desktop && ui.snap.desktop.screens) || []) {
+  let n = 0;
+  try {
+    n = +localStorage.getItem(DESK_SCREEN + tab) || 0;
+  } catch (e) { /* storage unavailable */ }
+  return n < screens.length ? n : 0;
+}
+
 function renderDesktop(s) {
   const d = s.desktop || { available: false, on_screen: {}, screens: [] };
   const key = JSON.stringify(d);
   if (key === deskKey) return;
   deskKey = key;
+  const several = d.screens.length > 1;
   document.querySelectorAll("[data-desk]").forEach((el) => {
     const page = el.dataset.desk;
     el.hidden = !d.available;
     if (!d.available) return;
     const on = d.on_screen[page];
-    const pick = d.screens.length > 1
-      ? `<select data-desk-screen="${page}" aria-label="Which screen">${d.screens.map((sc, i) =>
-        `<option value="${i}" ${(on ?? 0) === i ? "selected" : ""}>${esc(screenName(sc, i, d.screens))}</option>`).join("")}</select>` : "";
     el.innerHTML = on != null
-      ? `<span class="desk-on">● On your screen</span>${pick}<button class="btn subtle" data-desk-hide="${page}">Remove</button>`
-      : `<button class="btn" data-desk-show="${page}" title="Put it straight on your screen, over the game">Show on my screen</button>${pick}`;
+      ? `<span class="desk-on">● On ${several ? `screen ${on + 1}` : "your screen"}</span><button class="btn subtle" data-desk-hide="${page}">Remove</button>`
+      : `<button class="btn" data-desk-show="${page}" title="Put it straight on your screen, over the game">Show on my screen</button>`;
+  });
+  document.querySelectorAll("[data-desk-tab]").forEach((pick) => {
+    pick.closest(".desk-screen").hidden = !d.available || !several;
+    const n = deskScreen(pick.dataset.deskTab, d.screens);
+    pick.innerHTML = d.screens.map((sc, i) =>
+      `<option value="${i}" ${n === i ? "selected" : ""}>${esc(screenName(sc, i, d.screens))}</option>`).join("");
   });
   $("#desk-hide-all").hidden = !Object.keys(d.on_screen).length;
   document.querySelectorAll(".desk-help").forEach((el) => { el.hidden = !d.available; });
@@ -1751,20 +1817,21 @@ $("#desk-check-no").addEventListener("click", () => {
 });
 document.addEventListener("click", (e) => {
   const show = e.target.closest("[data-desk-show]");
-  if (show) {
-    const pick = document.querySelector(`[data-desk-screen="${show.dataset.deskShow}"]`);
-    deskShow(show.dataset.deskShow, pick ? +pick.value : 0);
-  }
+  if (show) deskShow(show.dataset.deskShow, deskScreen(deskTab(show.dataset.deskShow)));
   const hide = e.target.closest("[data-desk-hide]");
   if (hide) cmd("desktop_hide", { page: hide.dataset.deskHide });
 });
-document.addEventListener("change", (e) => {
-  const pick = e.target.closest("[data-desk-screen]");
-  // Already on screen: move it to the screen picked.
-  if (pick && ui.snap && ui.snap.desktop && ui.snap.desktop.on_screen[pick.dataset.deskScreen] != null) {
-    cmd("desktop_show", { page: pick.dataset.deskScreen, screen: +pick.value });
+document.querySelectorAll("[data-desk-tab]").forEach((pick) => pick.addEventListener("change", () => {
+  const tab = pick.dataset.deskTab;
+  try {
+    localStorage.setItem(DESK_SCREEN + tab, pick.value);
+  } catch (e) { /* storage unavailable */ }
+  // Whatever from this tab is already on screen moves to the screen picked.
+  const on = (ui.snap && ui.snap.desktop && ui.snap.desktop.on_screen) || {};
+  for (const [page, screen] of Object.entries(on)) {
+    if (deskTab(page) === tab && screen !== +pick.value) cmd("desktop_show", { page, screen: +pick.value });
   }
-});
+}));
 $("#desk-hide-all").addEventListener("click", () => cmd("desktop_hide", {}));
 
 // Scrolling the page with the mouse over a number box you'd clicked in

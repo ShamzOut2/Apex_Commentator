@@ -29,6 +29,14 @@ How each version's entry is written:
 
 ### Improvements
 
+- Overlay and board settings are tidier: each is split into short sections
+  (What it shows, Header, Columns, Drivers…) that open and close, and the app
+  remembers which you left open. Settings that depend on another (like the
+  red-interval threshold or the fastest lap flash timer) only appear when
+  that one is on.
+- Pick the screen for **Show on my screen** once, at the top of the
+  Overlays tab or the Boards tab, instead of under every overlay. It's
+  remembered, and changing it moves whatever is already up.
 - The season calendar board can show your own round names ("Round 3 ·
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
