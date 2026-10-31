@@ -1,13 +1,12 @@
-"""League builder: fetch league rosters from the iRacing Data API and keep
-editable league profiles on disk.
+"""League builder: editable league profiles on disk.
 
 A league profile is a small JSON file in ``data/leagues/``::
 
     {
-      "id": "12345",
-      "league_id": 12345,
+      "id": "sunday-night-gt3",
+      "league_id": null,            # iRacing's League ID (leagues fetched from iRacing in older versions)
       "name": "Sunday Night GT3",
-      "source": "iracing",          # iracing | session | manual
+      "source": "session",          # session | manual (iracing: fetched in an older version)
       "updated_at": "2026-10-27T19:00:00Z",
       "classes": [
         {"id": "pro", "name": "Pro", "color": "#e8463c", "match": ["GT3"],
@@ -39,25 +38,15 @@ exactly; other images have their background detected and recoloured
 (``logo_bg``: ``auto`` detects it, a ``#rrggbb`` value names it, ``keep``
 leaves the logo untouched).
 
-Commentator edits (nicknames, teams, notes, classes) live in the profile, so
-they survive re-fetching: a refresh only adds new members and updates names
-and numbers.
-
-Authentication uses iRacing's OAuth "password limited" grant, which needs a
-client ID and secret issued by iRacing in addition to your login. See
-README.md for details.
+Leagues are set up by hand: from the drivers in the current session, from
+a blank league, or from a league exported by the app.
 """
 
-import base64
 import hashlib
 import json
 import re
 import shutil
 import threading
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,8 +57,6 @@ from .paths import WEB_DIR
 LOGO_LIBRARY_DIR = WEB_DIR / "logos"
 UPLOADED_LOGO = re.compile(r"[a-z0-9-]+\.(png|jpg|webp|svg)")
 LIBRARY_LOGO = re.compile(r"lib:([a-z0-9-]+\.svg)")
-TOKEN_URL = "https://oauth.iracing.com/oauth2/token"
-DATA_URL = "https://members-ng.iracing.com/data"
 EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "class2_id", "car_image", "helmet_image", "driver_number", "car_make")
 DRIVER_IMAGES = ("car_image", "helmet_image")
 # Distinct defaults handed to new classes, in order.
@@ -172,178 +159,12 @@ class LeagueError(Exception):
     """A user-facing error from the league builder."""
 
 
-def mask_secret(secret, identifier):
-    """iRacing credential masking: base64(sha256(secret + lower(trim(id))))."""
-    combined = f"{secret}{identifier.strip().lower()}".encode("utf-8")
-    return base64.b64encode(hashlib.sha256(combined).digest()).decode("ascii")
-
-
-class IRacingDataClient:
-    def __init__(self, username, password, client_id, client_secret, timeout=20):
-        self.username = username
-        self.password = password
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.timeout = timeout
-        self._token = None
-        self._token_expires = 0.0
-        self._refresh_token = None
-        self._lock = threading.Lock()
-
-    @property
-    def configured(self):
-        return all((self.username, self.password, self.client_id, self.client_secret))
-
-    def _post_token(self, params):
-        data = urllib.parse.urlencode(params).encode("ascii")
-        req = urllib.request.Request(
-            TOKEN_URL, data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                body = json.load(resp)
-        except urllib.error.HTTPError as e:
-            detail = e.read().decode("utf-8", "replace")[:300]
-            raise LeagueError(f"iRacing login failed ({e.code}): {detail}") from e
-        except urllib.error.URLError as e:
-            raise LeagueError(f"Could not reach iRacing login server: {e.reason}") from e
-        self._token = body["access_token"]
-        self._token_expires = time.time() + float(body.get("expires_in", 600)) - 30
-        self._refresh_token = body.get("refresh_token")
-
-    def _access_token(self):
-        with self._lock:
-            if self._token and time.time() < self._token_expires:
-                return self._token
-            if not self.configured:
-                raise LeagueError(
-                    "iRacing API credentials are not set. Add your username, password, "
-                    "client ID and client secret to config.json (or the IRACING_* "
-                    "environment variables), or build the league from the current session."
-                )
-            masked_secret = mask_secret(self.client_secret, self.client_id)
-            if self._refresh_token:
-                try:
-                    self._post_token({
-                        "grant_type": "refresh_token",
-                        "client_id": self.client_id,
-                        "client_secret": masked_secret,
-                        "refresh_token": self._refresh_token,
-                    })
-                    return self._token
-                except LeagueError:
-                    self._refresh_token = None
-            self._post_token({
-                "grant_type": "password_limited",
-                "client_id": self.client_id,
-                "client_secret": masked_secret,
-                "username": self.username,
-                "password": mask_secret(self.password, self.username),
-                "scope": "iracing.auth",
-            })
-            return self._token
-
-    def get(self, endpoint, **params):
-        """GET a Data API endpoint, following the signed ``link`` it returns."""
-        url = f"{DATA_URL}/{endpoint}?{urllib.parse.urlencode(params)}"
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {self._access_token()}"})
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                body = json.load(resp)
-            if isinstance(body, dict) and "link" in body:
-                with urllib.request.urlopen(body["link"], timeout=self.timeout) as resp:
-                    body = json.load(resp)
-        except urllib.error.HTTPError as e:
-            if e.code == 401:
-                self._token = None
-            if e.code == 404:
-                raise LeagueError("League not found (check the League ID).") from e
-            detail = e.read().decode("utf-8", "replace")[:300]
-            raise LeagueError(f"iRacing API error ({e.code}): {detail}") from e
-        except urllib.error.URLError as e:
-            raise LeagueError(f"Could not reach the iRacing API: {e.reason}") from e
-        return body
-
-    def league(self, league_id):
-        return self.get("league/get", league_id=int(league_id), include_licenses="false")
-
-    def seasons(self, league_id):
-        """The league's seasons, current and past: [{season_id, season_name, active}]."""
-        data = self.get("league/seasons", league_id=int(league_id), retired="true")
-        return [{"season_id": s.get("season_id"), "season_name": s.get("season_name") or f"Season {s.get('season_id')}",
-                 "active": bool(s.get("active"))} for s in (data or {}).get("seasons") or [] if isinstance(s, dict)]
-
-    def season_sessions(self, league_id, season_id):
-        """A season's scheduled sessions (the league's calendar in iRacing)."""
-        data = self.get("league/season_sessions", league_id=int(league_id), season_id=int(season_id))
-        return [s for s in (data or {}).get("sessions") or [] if isinstance(s, dict)]
-
-
 def _now_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _slug(text):
     return re.sub(r"[^a-z0-9]+", "-", str(text).lower()).strip("-") or "league"
-
-
-def profile_from_api(data):
-    """Turn a ``league/get`` response into a league profile."""
-    league_id = data.get("league_id")
-    drivers = []
-    for member in data.get("roster") or []:
-        drivers.append({
-            "cust_id": member.get("cust_id"),
-            "name": member.get("display_name", ""),
-            "nickname": member.get("nick_name") or "",
-            "car_number": str(member.get("car_number") or ""),
-            "team": "",
-            "notes": "",
-        })
-    drivers.sort(key=lambda d: d["name"].lower())
-    return {
-        "id": str(league_id),
-        "league_id": league_id,
-        "name": data.get("league_name", f"League {league_id}"),
-        "source": "iracing",
-        "updated_at": _now_iso(),
-        "drivers": drivers,
-    }
-
-
-def merge_profiles(existing, fresh):
-    """Refresh ``existing`` with ``fresh`` API data, keeping commentator edits."""
-    if not existing:
-        return fresh
-    old = {d.get("cust_id"): d for d in existing.get("drivers", []) if d.get("cust_id") is not None}
-    merged = []
-    seen = set()
-    for d in fresh["drivers"]:
-        prev = old.get(d["cust_id"])
-        if prev:
-            for key in EDITABLE_FIELDS:
-                if prev.get(key):
-                    d[key] = prev[key]
-        merged.append(d)
-        seen.add(d["cust_id"])
-    # Keep hand-added drivers (no cust_id, or no longer in the roster but annotated).
-    for d in existing.get("drivers", []):
-        cid = d.get("cust_id")
-        if cid is None or (cid not in seen and any(d.get(k) for k in EDITABLE_FIELDS)):
-            merged.append(d)
-    result = dict(fresh)
-    result["drivers"] = merged
-    result["classes"] = existing.get("classes", [])
-    result["teams"] = existing.get("teams", [])
-    result["strip_class_prefix"] = existing.get("strip_class_prefix", False)
-    result["banners"] = existing.get("banners", [])
-    result["sponsors"] = existing.get("sponsors", [])
-    result["logo"] = existing.get("logo")
-    result["calendar_image"] = existing.get("calendar_image")
-    if existing.get("championship"):
-        result["championship"] = existing["championship"]
-    return result
 
 
 def _classes_from_session(drivers):
@@ -580,10 +401,9 @@ def sniff_logo(data):
 class LeagueStore:
     """League profiles on disk plus the currently active one."""
 
-    def __init__(self, directory, client=None):
+    def __init__(self, directory):
         self.dir = Path(directory)
         self.dir.mkdir(parents=True, exist_ok=True)
-        self.client = client
         self._lock = threading.Lock()
         self.active_id = None
         self._active = None
@@ -737,16 +557,6 @@ class LeagueStore:
         shutil.rmtree(self._logo_dir(profile_id), ignore_errors=True)
         if profile_id == self.active_id:
             self.set_active(None)
-
-    def fetch(self, league_id):
-        try:
-            league_id = int(str(league_id).strip())
-        except ValueError as e:
-            raise LeagueError("League ID must be a number.") from e
-        if self.client is None:
-            raise LeagueError("iRacing API client is not configured.")
-        fresh = profile_from_api(self.client.league(league_id))
-        return self.save(merge_profiles(self.get(fresh["id"]), fresh))
 
     def set_active(self, profile_id):
         with self._lock:

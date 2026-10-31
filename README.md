@@ -12,8 +12,8 @@ OBS dock.
   pick a line and replay it from 5 to 30 seconds before. Camera buttons with
   your own hotkeys sit along the top, and replay controls and **LIVE** along
   the bottom.
-- **League builder**: pull a league roster from iRacing by **League ID**, from
-  the current session, or add drivers by hand. Add nicknames, teams, team
+- **League builder**: set a league up from the drivers in the current
+  session, or add drivers by hand. Add nicknames, teams, team
   logos, notes and car and helmet photos. Define **classes** with your own
   names, colours and logos.
 - **Grid walk**: an on-stream graphic that walks the starting grid two drivers
@@ -38,6 +38,13 @@ OBS dock.
 
 <!-- whats-new:start -->
 **Coming in the next update**
+
+### Improvements
+
+- Leagues are set up by hand or from the session you're in: the iRacing
+  login (loading a league by its League ID, building rounds from the
+  iRacing season, fetching the official track list) is gone, and with it
+  the API settings. Existing leagues are unchanged.
 
 ### Fixes
 
@@ -642,9 +649,6 @@ standings update from what's saved.
   - Add the season's rounds, with a points multiplier (2 for double points)
     and *Can't drop* for rounds that always count.
   - **Build the rounds from a calendar** makes the whole season at once, from:
-    - **the iRacing season**: the sessions scheduled in the league's season
-      in iRacing (track, layout, date and start time at your PC's local time,
-      race length). Needs the league's iRacing League ID and API credentials.
     - **a scan of the league's calendar graphic**: the calendar image from the
       League builder, or any image you choose. The app reads its text (with
       Windows' own text recognition, so nothing to install) and finds each
@@ -705,12 +709,13 @@ standings update from what's saved.
 
 Open the **League builder** tab.
 
-1. **Fetch by League ID**: pulls the league name and roster (names, customer
-   IDs, car numbers, nicknames) from the iRacing Data API. Needs API
-   credentials (below).
-2. **Build from the current session**: no credentials needed. It takes the
-   drivers in the session you are in.
-3. **Blank league**: type it in by hand.
+1. **Build from the current session**: takes the drivers in the iRacing
+   session you're in (names, customer IDs, car numbers, teams).
+2. **Blank league**: type it in by hand.
+3. **Import league…**: a league exported from Apex Commentator, on this PC
+   or another.
+
+No iRacing login is needed for any of it.
 
 The league's settings are on three tabs: **Drivers** (the roster),
 **Classes**, and **Logos, banners & sponsors**. *Teams ↗* and *Season &
@@ -719,8 +724,9 @@ points ↗* jump to the team builder and the championship.
 Edit nicknames, teams and notes (for example "Championship leader" or a
 pronunciation hint), **Save**, then **Use in overlay**. Drivers are matched by
 iRacing customer ID, or by car number for hand-added entries without one.
-Re-fetching a league updates names and numbers, adds new members and keeps your
-notes. Profiles are plain JSON in `data/leagues/`.
+**Add drivers from session** adds anyone new from the session you're in and
+fills in blanks, keeping your edits. Profiles are plain JSON in
+`data/leagues/`.
 
 **Car**: each driver's car make (Porsche, BMW, Mercedes-AMG…), with its
 badge, for the manufacturers' championship and the boards. Badges show
@@ -755,18 +761,16 @@ a track and a **configuration** picked from lists, plus date, start time and
 length (e.g. "60 min").
 - Type to search the track list; the configuration list then shows that
   track's layouts.
-- With iRacing API credentials set, **Fetch official track list** downloads
-  iRacing's complete list of tracks and layouts.
-- Without credentials, a built-in list of iRacing's tracks and main layouts
-  is used, plus every track the app has seen in a session. A track not in
-  the lists can be typed in.
+- The list is a built-in one of iRacing's tracks and main layouts, plus
+  every track the app has seen in a session. A track not in the list can be
+  typed in.
 
 **Hide the class tag in front of names**: some leagues put the class in front of
 driver names, like `(P) Dave Price` or `(PA) Mat Gatter`. Tick this box
 (on the Classes tab) and:
 - Every driver with a tag like that gets the name without it, minus the
   space, as their **Nickname** (`Dave Price`). Nicknames you've already typed
-  are kept. Drivers added later (from the session or a re-fetch) get one when
+  are kept. Drivers added later (from the session) get one when
   the league is saved.
 - The overlays (standings, lap tracker, grid walk, full-screen boards) show
   that nickname as the driver's name, so the name styles work properly
@@ -859,27 +863,6 @@ python tools/logo_to_svg.py my-logo.png --out-dir web/logos
 Drop the result in `web/logos/` to add it to the library, or upload it to a
 class. In a hand-made SVG, mark the part that should take the class colour
 with `data-apex-fill="class"`, and the lettering with `data-apex-fill="ink"`.
-
-### iRacing API credentials
-
-iRacing retired username/password API logins in December 2025. The Data
-API now uses OAuth, and a script like this needs a **client ID and client
-secret** issued by iRacing ("password limited" grant) plus your iRacing login.
-iRacing support handles client ID requests, and has paused new ones at times.
-See their [OAuth client credentials article](https://support.iracing.com/support/solutions/articles/31000177790-oauth-client-credentials).
-
-Put them in `config.json` (copy `config.example.json`; `config.json` is
-git-ignored) or set environment variables:
-
-```bat
-set IRACING_USERNAME=you@example.com
-set IRACING_PASSWORD=...
-set IRACING_CLIENT_ID=...
-set IRACING_CLIENT_SECRET=...
-```
-
-Credentials are masked as iRacing requires before they are sent, and only go
-to `oauth.iracing.com` and `members-ng.iracing.com`.
 
 ## Updates
 
@@ -984,7 +967,7 @@ apex/
   overlays.py  stream overlay settings
   championship.py  championship points, drop rounds, penalties and live projection
   transfer.py  import and export (leagues, teams, championships, results, settings)
-  league.py    iRacing Data API client and league profiles
+  league.py    league profiles
   server.py    stdlib HTTP server + Server-Sent Events
   updater.py   update checks and in-app updates from GitHub releases
   desktop.py   app window, single instance, message boxes, log file

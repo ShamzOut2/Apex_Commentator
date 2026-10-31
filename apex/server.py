@@ -15,8 +15,6 @@
 * ``POST /api/export/show``      ``{"path"}``: show an export in the file manager
 * ``POST /api/import?what=...&league=...&round=...``  import a file (raw body)
 * ``GET  /api/update``           update status; ``POST /api/update/{check,skip,install}``
-* ``GET  /api/leagues/<id>/seasons``   the league's seasons in iRacing
-* ``POST /api/leagues/<id>/schedule``  ``{"season_id"}``: a season's sessions as rounds
 * ``POST /api/calendar/scan?day_first=1``  a calendar image (raw PNG body) read into rounds
 * ``POST /api/calendar/parse``     ``{"text", "day_first"}``: pasted calendar text into rounds
 """
@@ -24,7 +22,6 @@
 import json
 import mimetypes
 import threading
-import time
 from pathlib import Path
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -90,7 +87,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json({
                 "replay_preroll_s": cfg["replay_preroll_s"],
                 "replay_auto_return_s": cfg["replay_auto_return_s"],
-                "api_configured": bool(self.app.leagues.client and self.app.leagues.client.configured),
             })
         if path == "/api/update":
             updater = getattr(self.app, "updater", None)
@@ -114,12 +110,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._logo(path)
         if path == "/api/leagues":
             return self._send_json({"leagues": self.app.leagues.list(), "active": self.app.leagues.active_id})
-        if path.startswith("/api/leagues/") and path.endswith("/seasons"):
-            try:
-                return self._send_json({"seasons": self._client().seasons(self._league_id(path.split("/")[3])),
-                                        "ocr": ocr.available()})
-            except LeagueError as e:
-                return self._error(str(e))
         if path.startswith("/api/leagues/") and path.endswith("/championship"):
             profile = self.app.leagues.get(path.split("/")[3])
             if profile is None:
@@ -169,8 +159,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_json({"ok": True, **result})
             if path == "/api/leagues":
                 return self._send_json({"ok": True, "league": self.app.leagues.save(body)})
-            if path == "/api/leagues/fetch":
-                return self._send_json({"ok": True, "league": self.app.leagues.fetch(body.get("league_id", ""))})
             if path == "/api/leagues/active":
                 profile = self.app.leagues.set_active(body.get("id") or None)
                 self.app.publish()
@@ -182,22 +170,10 @@ class Handler(BaseHTTPRequestHandler):
                 league, added = self.app.leagues.import_session(path.split("/")[3], drivers)
                 self.app.publish()
                 return self._send_json({"ok": True, "league": league, "added": added})
-            if path == "/api/tracks/refresh":
-                try:
-                    count = self.app.tracks.refresh(time.strftime("%Y-%m-%d %H:%M"))
-                except ValueError as e:
-                    return self._error(str(e))
-                return self._send_json({"ok": True, "count": count, **self.app.tracks.status()})
             if path == "/api/calendar/parse":
                 rounds = schedule.rounds_from_text(str(body.get("text") or ""), self.app.tracks.grouped(),
                                                    day_first=body.get("day_first", True) is not False)
                 return self._send_json({"ok": True, "rounds": rounds})
-            if path.startswith("/api/leagues/") and path.endswith("/schedule"):
-                client = self._client()
-                sessions = client.season_sessions(self._league_id(path.split("/")[3]), int(body.get("season_id") or 0))
-                if not sessions:
-                    return self._error("That season has no sessions scheduled in iRacing yet.")
-                return self._send_json({"ok": True, "rounds": schedule.rounds_from_iracing(sessions)})
             if path.startswith("/api/leagues/") and path.endswith("/championship/import-meeting"):
                 return self._import_meeting(path.split("/")[3], [str(r) for r in body.get("round_ids") or []])
             if path.startswith("/api/leagues/") and path.endswith("/championship/import"):
@@ -422,21 +398,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(str(e))
         self.app.publish()
         return self._send_json({"ok": True, "league": profile, "info": info})
-
-    def _client(self):
-        client = self.app.leagues.client
-        if not (client and client.configured):
-            raise LeagueError("This needs iRacing API credentials (see the README). You can scan the league's calendar "
-                              "image or paste its text instead.")
-        return client
-
-    def _league_id(self, profile_id):
-        profile = self.app.leagues.get(profile_id)
-        if profile is None:
-            raise LeagueError("Save the league first.")
-        if not profile.get("league_id"):
-            raise LeagueError("Add the league's iRacing League ID in the League builder first.")
-        return profile["league_id"]
 
     def _scan_calendar(self):
         """Read the text in a calendar image (sent as a PNG) and find the rounds in it."""

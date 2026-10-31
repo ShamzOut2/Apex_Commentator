@@ -1044,10 +1044,8 @@ function renderTrackStatus() {
   const st = trackList.status;
   if (!st) return;
   $("#track-source").textContent = st.official
-    ? `${st.official} official layouts from iRacing (fetched ${st.fetched_at})${st.seen ? `, plus ${st.seen} seen in sessions` : ""}.`
-    : `Built-in list of iRacing tracks${st.seen ? `, plus ${st.seen} layouts seen in sessions` : ""}. ` +
-      (st.api ? "Fetch the official list for every layout." : "Set iRacing API credentials to fetch the official list.");
-  $("#btn-fetch-tracks").hidden = !st.api;
+    ? `${st.official} official layouts from iRacing${st.seen ? `, plus ${st.seen} seen in sessions` : ""}. A track not in the list can be typed in.`
+    : `Built-in list of iRacing tracks${st.seen ? `, plus ${st.seen} layouts seen in sessions` : ""}. A track not in the list can be typed in.`;
 }
 
 function renderChampRounds() {
@@ -1341,16 +1339,6 @@ $("#tab-championship").addEventListener("click", async (e) => {
   renderChampionship();
 });
 
-$("#btn-fetch-tracks").addEventListener("click", async () => {
-  try {
-    const r = await api("/api/tracks/refresh", { method: "POST", body: {} });
-    toast(`Fetched ${r.count} track layouts from iRacing`);
-    await loadTracks(true);
-  } catch (err) {
-    toast(err.message, true);
-  }
-});
-
 $("#btn-add-round").addEventListener("click", () => {
   if (!ui.editing) return toast("Pick a league first", true);
   const c = champData();
@@ -1373,10 +1361,10 @@ $("#btn-add-meeting").addEventListener("click", () => {
 });
 
 // -- building the rounds from a calendar ------------------------------------------
-// From the league's season in iRacing, a scanned calendar image or pasted
-// text: the server finds the rounds, they're checked and corrected here, then made.
+// From a scanned calendar image or pasted text: the server finds the rounds,
+// they're checked and corrected here, then made.
 
-const build = { mode: null, busy: "", seasons: null, rounds: null, text: "", races: 1, raceName: "Race", replace: false, note: "" };
+const build = { mode: null, busy: "", rounds: null, text: "", races: 1, raceName: "Race", replace: false, note: "" };
 
 // 22/11 or 11/22: what this PC's language writes (a date that can only be one decides anyway).
 const dayFirst = () => !/^en-US|^en-CA|^es-US|^fil/.test(navigator.language || "");
@@ -1389,11 +1377,7 @@ function renderBuild() {
     return;
   }
   let html = "";
-  if (build.mode === "iracing" && build.seasons) {
-    html = build.seasons.length ? `<div class="row"><label class="field">Season <select data-b="season">${build.seasons.map((x) =>
-      `<option value="${x.season_id}">${esc(x.season_name)}${x.active ? " (current)" : ""}</option>`).join("")}</select></label>
-      <button class="btn primary" data-build="season">Read its sessions</button></div>` : '<p class="hint">The league has no seasons in iRacing.</p>';
-  } else if (build.mode === "paste" && !build.rounds) {
+  if (build.mode === "paste" && !build.rounds) {
     html = `<textarea data-b="text" rows="8" placeholder="Paste the calendar here, e.g.&#10;Round 1 - Spa - Sun 8th November - 8PM - 60 min&#10;Round 2 - Monza - 15/11/26 - 20:00 - 45 mins">${esc(build.text)}</textarea>
       <div class="row"><button class="btn primary" data-build="read">Find the rounds</button></div>`;
   }
@@ -1510,21 +1494,7 @@ $("#build-rounds").addEventListener("click", async (e) => {
   }
   const what = b.dataset.build;
   try {
-    if (what === "iracing") {
-      build.mode = "iracing";
-      build.rounds = null;
-      build.busy = "Asking iRacing for the league's seasons…";
-      renderBuild();
-      const saved = ui.editing.id ? ui.editing : await saveEditor();
-      build.seasons = (await api(`/api/leagues/${encodeURIComponent(saved.id)}/seasons`)).seasons;
-      build.busy = "";
-    } else if (what === "season") {
-      const season = $("#build-step [data-b=season]").value;
-      build.busy = "Reading the season's sessions…";
-      renderBuild();
-      const data = await api(`/api/leagues/${encodeURIComponent(ui.editing.id)}/schedule`, { method: "POST", body: { season_id: season } });
-      return buildFound(data, "iracing", "From the season's sessions in iRacing, at your PC's local time.");
-    } else if (what === "scan") {
+    if (what === "scan") {
       if (!ui.editing.calendar_image) return toast("Add the calendar image in the League builder (Logos tab), or choose an image to scan", true);
       return scanImage(logoSrc(ui.editing.calendar_image));
     } else if (what === "paste") {
@@ -1537,7 +1507,7 @@ $("#build-rounds").addEventListener("click", async (e) => {
       const data = await api("/api/calendar/parse", { method: "POST", body: { text: build.text, day_first: dayFirst() } });
       return buildFound({ ...data, text: build.text }, "paste", "Found in the text: check every round, then make them.");
     } else if (what === "cancel") {
-      Object.assign(build, { mode: null, rounds: null, seasons: null, note: "" });
+      Object.assign(build, { mode: null, rounds: null, note: "" });
     } else if (what === "create") {
       return createBuiltRounds();
     }
@@ -1606,7 +1576,7 @@ function createBuiltRounds() {
     if (gone.has(c.live_round)) c.live_round = "";
   }
   c.rounds.push(...made);
-  Object.assign(build, { mode: null, rounds: null, seasons: null, note: "" });
+  Object.assign(build, { mode: null, rounds: null, note: "" });
   $("#build-rounds").open = false;
   markChampDirty();
   renderChampionship();
@@ -2390,11 +2360,8 @@ async function loadLeagues() {
       ui.library = (await api("/api/logo-library")).logos;
       ui.libraryLoaded = true;
     }
-    const [{ leagues, active }, cfg] = await Promise.all([api("/api/leagues"), api("/api/config")]);
+    const { leagues, active } = await api("/api/leagues");
     ui.activeLeague = active;
-    $("#api-hint").textContent = cfg.api_configured
-      ? "Pulls the roster from the iRacing Data API."
-      : "iRacing API credentials aren't set (see README), so fetching won't work. You can still build a league from the current session or by hand.";
     $("#league-list").innerHTML = leagues.length ? leagues.map((l) => `
       <li data-league="${esc(l.id)}" class="${ui.editing && ui.editing.id === l.id ? "selected" : ""}">
         <div><div>${esc(l.name)} ${l.active ? '<span class="badge live">ACTIVE</span>' : ""}</div>
@@ -2410,7 +2377,6 @@ function openEditor(profile) {
   ui.editing = profile;
   $("#league-editor").hidden = false;
   $("#edit-name").value = profile.name || "";
-  $("#edit-league-id").value = profile.league_id ?? "";
   $("#edit-strip-class").checked = !!profile.strip_class_prefix;
   $("#btn-activate-league").textContent = profile.id && profile.id === ui.activeLeague ? "Active in overlay" : "Use in overlay";
   profile.classes = profile.classes || [];
@@ -3046,7 +3012,6 @@ $("#btn-add-class").addEventListener("click", () => {
 function readEditor() {
   const p = ui.editing;
   p.name = $("#edit-name").value.trim();
-  p.league_id = $("#edit-league-id").value.trim() || null;
   p.strip_class_prefix = $("#edit-strip-class").checked;
   return p;
 }
@@ -3137,26 +3102,6 @@ $("#league-list").addEventListener("click", async (e) => {
     } catch (err) {
       toast(err.message, true);
     }
-  }
-});
-
-$("#fetch-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const id = $("#fetch-id").value.trim();
-  if (!/^\d+$/.test(id)) return toast("Enter a numeric League ID", true);
-  const btn = e.submitter;
-  btn.disabled = true;
-  btn.textContent = "Fetching…";
-  try {
-    const { league } = await api("/api/leagues/fetch", { method: "POST", body: { league_id: id } });
-    toast(`Loaded ${league.name} (${league.drivers.length} drivers)`);
-    await loadLeagues();
-    openEditor(league);
-  } catch (err) {
-    toast(err.message, true);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Fetch";
   }
 });
 

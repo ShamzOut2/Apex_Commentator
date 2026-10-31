@@ -2,8 +2,8 @@
 
 Settings come from ``config.json`` in the project root (copy
 ``config.example.json``). Every key is optional; anything missing falls back
-to ``DEFAULTS``. iRacing credentials may also be supplied via environment
-variables so they never need to be written to disk.
+to ``DEFAULTS``. The GitHub token may also be supplied via an environment
+variable so it never needs to be written to disk.
 """
 
 import json
@@ -45,11 +45,6 @@ DEFAULTS = {
     "contact_jolt_kph": 20.0,
     "event_cooldown_s": 8.0,      # min seconds between incidents of the same kind per car
     "max_events": 300,
-    # iRacing Data API (league builder). Prefer the env vars below.
-    "iracing_username": "",
-    "iracing_password": "",
-    "iracing_client_id": "",
-    "iracing_client_secret": "",
     "leagues_dir": "data/leagues",
     # Photo booth: where iRacing saves screenshots ("" = Documents\\iRacing\\screenshots)
     # and how long to let the camera settle on each car before the shot.
@@ -62,10 +57,6 @@ DEFAULTS = {
 }
 
 ENV_KEYS = {
-    "iracing_username": "IRACING_USERNAME",
-    "iracing_password": "IRACING_PASSWORD",
-    "iracing_client_id": "IRACING_CLIENT_ID",
-    "iracing_client_secret": "IRACING_CLIENT_SECRET",
     "github_token": "APEX_GITHUB_TOKEN",
 }
 

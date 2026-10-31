@@ -2,47 +2,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from apex.league import (
-    LeagueError, LeagueStore, mask_secret, merge_profiles, normalise_profile, profile_from_api,
-)
-
-API_LEAGUE = {
-    "league_id": 4242,
-    "league_name": "Thursday Night Thunder",
-    "roster": [
-        {"cust_id": 2, "display_name": "Zed Last", "car_number": "99", "nick_name": None},
-        {"cust_id": 1, "display_name": "Amy First", "car_number": 7, "nick_name": "Ames"},
-    ],
-}
-
-
-class MaskTests(unittest.TestCase):
-    def test_matches_iracing_masking(self):
-        # base64(sha256("MyPass" + "jane@example.com")), checked against a reference client.
-        self.assertEqual(mask_secret("MyPass", " Jane@Example.com "), "FWb1HN/82wksm+/4HWSleKQbWSsIiqJIpx6ycAacRAY=")
+from apex.league import LeagueError, LeagueStore, normalise_profile
 
 
 class ProfileTests(unittest.TestCase):
-    def test_profile_from_api(self):
-        p = profile_from_api(API_LEAGUE)
-        self.assertEqual(p["id"], "4242")
-        self.assertEqual(p["name"], "Thursday Night Thunder")
-        self.assertEqual([d["name"] for d in p["drivers"]], ["Amy First", "Zed Last"])
-        self.assertEqual(p["drivers"][0]["car_number"], "7")
-        self.assertEqual(p["drivers"][0]["nickname"], "Ames")
-
-    def test_refresh_keeps_commentator_edits(self):
-        old = profile_from_api(API_LEAGUE)
-        old["drivers"][1]["notes"] = "Champion 2025"
-        old["drivers"].append({"cust_id": None, "name": "Guest", "car_number": "5", "nickname": "", "team": "", "notes": ""})
-        fresh = profile_from_api(dict(API_LEAGUE, roster=API_LEAGUE["roster"] + [
-            {"cust_id": 3, "display_name": "New Person", "car_number": "3"}]))
-        merged = merge_profiles(old, fresh)
-        by_name = {d["name"]: d for d in merged["drivers"]}
-        self.assertEqual(by_name["Zed Last"]["notes"], "Champion 2025")
-        self.assertIn("New Person", by_name)
-        self.assertIn("Guest", by_name)
-
     def test_normalise_validates(self):
         with self.assertRaises(LeagueError):
             normalise_profile({"name": ""})
@@ -68,31 +31,23 @@ class ProfileTests(unittest.TestCase):
         with self.assertRaises(LeagueError):
             normalise_profile({"name": "L", "classes": [{"name": " "}]})
 
-    def test_refresh_keeps_classes(self):
-        old = normalise_profile(dict(profile_from_api(API_LEAGUE), classes=[{"name": "Am", "color": "#2f80ed"}]))
-        old["drivers"][0]["class_id"] = "am"
-        merged = merge_profiles(old, profile_from_api(API_LEAGUE))
-        self.assertEqual([c["id"] for c in merged["classes"]], ["am"])
-        self.assertEqual(merged["drivers"][0]["class_id"], "am")
-
-
-class FakeClient:
-    configured = True
-
-    def league(self, league_id):
-        return dict(API_LEAGUE, league_id=league_id)
-
 
 class StoreTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.store = LeagueStore(self.tmp.name, FakeClient())
+        self.store = LeagueStore(self.tmp.name)
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_fetch_save_activate_lookup(self):
-        p = self.store.fetch(" 4242 ")
+    def seed(self):
+        """A league with two drivers, Amy (7) and Zed (99)."""
+        return self.store.save({"id": "4242", "league_id": 4242, "name": "Thursday Night Thunder", "drivers": [
+            {"cust_id": 1, "name": "Amy First", "car_number": "7", "nickname": "Ames"},
+            {"cust_id": 2, "name": "Zed Last", "car_number": "99"}]})
+
+    def test_save_activate_lookup(self):
+        p = self.seed()
         self.assertEqual(len(p["drivers"]), 2)
         self.assertEqual([l["id"] for l in self.store.list()], ["4242"])
         p["drivers"][0]["team"] = "Apex Racing"
@@ -106,14 +61,13 @@ class StoreTests(unittest.TestCase):
         # Active league survives a restart.
         again = LeagueStore(self.tmp.name)
         self.assertEqual(again.active_id, "4242")
-        # Re-fetching keeps the edit.
-        self.assertEqual(self.store.fetch(4242)["drivers"][0]["team"], "Apex Racing")
+        self.assertEqual(self.store.get("4242")["drivers"][0]["team"], "Apex Racing")
         self.store.delete("4242")
         self.assertEqual(self.store.list(), [])
         self.assertIsNone(self.store.active())
 
     def test_class_for_prefers_driver_pick_then_car_class(self):
-        p = self.store.fetch(4242)
+        p = self.seed()
         p["classes"] = [{"name": "Pro", "color": "#e8463c", "match": ["GT3"]}, {"name": "Am", "color": "#2f80ed"}]
         p["drivers"][0]["class_id"] = "am"
         self.store.save(p)
@@ -124,7 +78,7 @@ class StoreTests(unittest.TestCase):
         self.assertIsNone(self.store.class_for(None, "GT4"))
 
     def test_secondary_classes_never_show_on_overlays(self):
-        p = self.store.fetch(4242)
+        p = self.seed()
         p["classes"] = [{"name": "Rookie", "match": ["GT3"], "role": "secondary"}, {"name": "Pro", "match": ["GT3"]}]
         p["drivers"][0].update(class_id="rookie", class2_id="rookie")   # Amy: Rookie can only be her secondary class
         p["drivers"][1].update(class_id="pro", class2_id="pro")         # Zed: Pro can't be his secondary one
@@ -140,7 +94,7 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(self.store.lookup(1, "7")["class2_id"], "rookie")
 
     def test_logos(self):
-        p = self.store.fetch(4242)
+        p = self.seed()
         p["classes"] = [{"name": "Pro", "color": "#e8463c"}]
         self.store.save(p)
         png = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
@@ -190,7 +144,7 @@ class StoreTests(unittest.TestCase):
 
     def test_driver_and_team_images(self):
         from apex.league import driver_key
-        p = self.store.fetch(4242)
+        p = self.seed()
         p["drivers"][0]["team"] = "Apex Racing"
         p["drivers"].append({"name": "No ID", "car_number": "55"})
         self.store.save(p)
@@ -208,8 +162,8 @@ class StoreTests(unittest.TestCase):
             self.store.save_image("4242", "car:cust:999", png)
         with self.assertRaises(LeagueError):
             self.store.save_image("4242", "wheel:cust:1", png)
-        # Re-fetching keeps photos; dropping a photo deletes its file.
-        refreshed = self.store.fetch(4242)
+        # Saving again keeps photos; dropping a photo deletes its file.
+        refreshed = self.store.get("4242")
         self.assertEqual(refreshed["drivers"][0]["car_image"], amy["car_image"])
         self.assertTrue(self.store.logo_file("4242", amy["car_image"]))
         refreshed["drivers"][0]["car_image"] = ""
@@ -222,7 +176,7 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(junk["teams"], [{"name": "T", "short": "", "color": "", "logo": None}])
 
     def test_import_session_merges_without_losing_edits(self):
-        p = self.store.fetch(4242)
+        p = self.seed()
         p["drivers"][0]["nickname"] = "Ames"
         p["drivers"][0]["car_number"] = ""
         p["drivers"].append({"name": "Hand Added", "car_number": "55"})
@@ -240,10 +194,6 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(by_name["Hand Added"]["cust_id"], 77)
         self.assertEqual(by_name["New Person"]["team"], "Newcomers")
         self.assertEqual(self.store.import_session("4242", session)[1], 0)  # idempotent
-
-    def test_bad_league_id(self):
-        with self.assertRaises(LeagueError):
-            self.store.fetch("abc")
 
 
 if __name__ == "__main__":

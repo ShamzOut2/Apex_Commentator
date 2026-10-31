@@ -3,7 +3,7 @@ import tempfile
 import threading
 import unittest
 import urllib.request
-from datetime import date, timezone
+from datetime import date
 
 from apex import boards, championship, ocr, schedule
 from apex.server import make_server
@@ -129,19 +129,6 @@ Round 3 - Road Atlanta Full Course - Nov 22 - 7:30pm - 30 laps"""
         words = [{"text": t, "x": x, "y": 10, "w": w, "h": 20} for t, x, w in
                  (("Brands", 0, 60), ("Hatch", 66, 50), ("Sun", 400, 30), ("8", 436, 10), ("Nov", 452, 30))]
         self.assertEqual([p["text"] for p in ocr.pieces([words])], ["Brands Hatch", "Sun 8 Nov"])
-
-    def test_iracing_season(self):
-        sessions = [
-            {"launch_at": "2026-11-08T20:00:00Z", "session_name": "", "race_laps": 0, "race_length": 120,
-             "track": {"track_name": "Circuit de Spa-Francorchamps", "config_name": "Endurance", "track_id": 163}},
-            {"launch_at": "2026-11-01T19:30:00Z", "session_name": "Season opener", "race_laps": 25,
-             "track": {"track_name": "Autodromo Nazionale Monza", "config_name": "Grand Prix"}},
-        ]
-        rounds = schedule.rounds_from_iracing(sessions, timezone.utc)
-        self.assertEqual([(r["name"], r["date"], r["time"], r["length"], r["config"]) for r in rounds], [
-            ("Season opener", "2026-11-01", "19:30", "25 laps", "Grand Prix"),
-            ("Round 2", "2026-11-08", "20:00", "2 h", "Endurance"),
-        ])
 
     def test_races_per_event(self):
         rounds = schedule.races_per_event([{"name": "Spa night", "track": "Spa"}], 3, "Heat")

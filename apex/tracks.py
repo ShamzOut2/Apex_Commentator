@@ -1,15 +1,13 @@
 """iRacing tracks and configurations, for the season calendar.
 
-Three sources, merged:
+Merged from:
 
-1. **iRacing's Data API** (``/data/track/get``): the official, complete list.
-   Used when API credentials are set; fetched on demand and kept in
-   ``data/tracks.json``.
-2. **Tracks seen in sessions**: every track (and layout) the app connects to
-   is remembered in the same file.
-3. **A built-in list** of iRacing's tracks and their main layouts, so the
-   calendar works without API credentials. It's compiled by hand and may
-   miss newer content or odd layouts; anything can also be typed in.
+1. **Tracks seen in sessions**: every track (and layout) the app connects to
+   is remembered in ``data/tracks.json``. (iRacing's official list, fetched
+   there by older versions, is still used if it's in the file.)
+2. **A built-in list** of iRacing's tracks and their main layouts. It's
+   compiled by hand and may miss newer content or odd layouts; anything can
+   also be typed in.
 """
 
 import json
@@ -149,9 +147,8 @@ def _key(t):
 
 
 class TrackCatalogue:
-    def __init__(self, path=None, client=None):
+    def __init__(self, path=None):
         self.path = Path(path) if path else None
-        self.client = client
         self._lock = threading.Lock()
         self.saved = {"iracing": [], "seen": [], "fetched_at": None}
         if self.path:
@@ -193,8 +190,7 @@ class TrackCatalogue:
 
     def status(self):
         return {"official": len(self.saved["iracing"]), "seen": len(self.saved["seen"]),
-                "builtin": len(_parse_builtin()), "fetched_at": self.saved["fetched_at"],
-                "api": bool(self.client and self.client.configured)}
+                "builtin": len(_parse_builtin()), "fetched_at": self.saved["fetched_at"]}
 
     def remember(self, track_id, track, config):
         """Note a track the app has seen in a session."""
@@ -206,16 +202,3 @@ class TrackCatalogue:
                 return
             self.saved["seen"].append(entry)
             self._write()
-
-    def refresh(self, now):
-        """Fetch the official list from iRacing's Data API. Returns how many layouts."""
-        if not (self.client and self.client.configured):
-            raise ValueError("iRacing API credentials aren't set, so the official list can't be fetched.")
-        data = self.client.get("/data/track/get")
-        tracks = [{"id": t.get("track_id"), "track": t.get("track_name", ""), "config": t.get("config_name") or "",
-                   "source": "iracing"} for t in data or [] if isinstance(t, dict) and t.get("track_name")]
-        with self._lock:
-            self.saved["iracing"] = tracks
-            self.saved["fetched_at"] = now
-            self._write()
-        return len(tracks)

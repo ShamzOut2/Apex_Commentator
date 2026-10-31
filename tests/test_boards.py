@@ -70,10 +70,6 @@ class TrackTests(unittest.TestCase):
             hits = TrackCatalogue(f"{tmp}/t.json").search("mock raceway")
             self.assertEqual((hits[0]["id"], hits[0]["config"]), (999, "Grand Prix"))
 
-    def test_official_list_needs_credentials(self):
-        with self.assertRaises(ValueError):
-            TrackCatalogue().refresh("now")
-
 
 class BoardTests(unittest.TestCase):
     def setUp(self):

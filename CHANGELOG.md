@@ -13,6 +13,13 @@ How each version's entry is written:
 
 ## Unreleased
 
+### Improvements
+
+- Leagues are set up by hand or from the session you're in: the iRacing
+  login (loading a league by its League ID, building rounds from the
+  iRacing season, fetching the official track list) is gone, and with it
+  the API settings. Existing leagues are unchanged.
+
 ### Fixes
 
 - "Show on my screen" overlays covered the whole screen in some cases. Each

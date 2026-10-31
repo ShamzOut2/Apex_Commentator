@@ -234,8 +234,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(snap["league"]["name"], "Test League")
         nicknames = [d["league"]["nickname"] for d in snap["drivers"] if d["league"]]
         self.assertIn("Rocket", nicknames)
-        status, body = self.request("/api/leagues/fetch", {"league_id": "123"})
-        self.assertEqual(status, 400)  # no API client configured
+        self.assertEqual(self.request("/api/leagues/fetch", {"league_id": "123"})[0], 404)  # no iRacing login any more
         # Session-built leagues get one class per iRacing class, coloured like iRacing.
         self.assertEqual(sorted(c["name"] for c in league["classes"]), ["GT3", "GT4"])
         names = {c["key"]: c for c in snap["classes"]}
