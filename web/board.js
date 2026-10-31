@@ -250,7 +250,7 @@ function leave() {
   stage.querySelectorAll(".preview-hint").forEach((el) => el.remove());
   for (const old of stage.querySelectorAll(".board:not(.leaving)")) {
     old.classList.add("leaving");
-    setTimeout(() => old.remove(), 600);
+    setTimeout(() => old.remove(), 700);
   }
 }
 

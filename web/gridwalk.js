@@ -26,25 +26,27 @@ const classFor = (classes, e) => classes.get(e.class_key) || DEFAULT_CLASS;
 // (the camera's side), ROAD_W at the far one; z: up.
 const ROAD_W = 13;
 const LANE = { far: 9.1, near: 3.9 };    // the odd places (pole's side) on the far lane
-const SLOT_GAP = 8;                      // metres from one car to the next one behind
+const SLOT_GAP = 7;                      // metres from one car to the next one behind (a TV grid, drawn snug)
 const BOX = { len: 5.6, wid: 2.9 };      // a painted grid box
 const WALL_Y = ROAD_W + 4.5;             // the wall, beyond a grass verge
 const PIT_WALL_Y = -5;                   // the pit wall on the camera's side, the pit lane behind it
 const STAND_Y = WALL_Y + 16;             // the grandstand, behind the fence
 const PX = 30;                           // texture pixels a metre on the planes
-const X_BACK = 40, X_AHEAD = 150;        // how much of the world, from the pair
+const X_BACK = 90, X_AHEAD = 110;        // how much of the world, from the pair
 
 // Where grid slot n (1 = pole) is: its box front, on its lane.
 const slotX = (n) => -(n - 1) * SLOT_GAP;
 const slotY = (n) => (n % 2 ? LANE.far : LANE.near);
 
-// The camera, relative to the front car of the pair: behind and to the side
-// of the grid, at head height on a step, looking a little up the road.
-// (back / ahead: from the middle of the pair; side: from the near edge.)
-const CAM = { back: 12, side: -12, up: 7, ahead: 2, lookY: 6.5, lookZ: 0.4, f: 1500, cx: 960, cy: 540 };
-try {  // ?cam=back,side,up,ahead,lookY,f: for trying out other angles
+// The camera: high up on the near side, a little ahead of the pair, looking
+// down across the road at it with a long lens, so the grid runs gently
+// downhill from left to right across the screen, the front of the grid on the
+// right. az: degrees round from straight across the road towards the front of
+// the grid; el: degrees down; dist: metres from the middle of the pair.
+const CAM = { az: 12, el: 36, dist: 40, f: 3500, ahead: 0, lookY: 6.4, cx: 900, cy: 560 };
+try {  // ?cam=az,el,dist,f,ahead,lookY: for trying out other angles
   const q = new URLSearchParams(location.search).get("cam");
-  if (q) q.split(",").map(Number).forEach((v, i) => { if (isFinite(v)) CAM[["back", "side", "up", "ahead", "lookY", "f"][i]] = v; });
+  if (q) q.split(",").map(Number).forEach((v, i) => { if (isFinite(v)) CAM[["az", "el", "dist", "f", "ahead", "lookY"][i]] = v; });
 } catch (e) { /* no override */ }
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -54,8 +56,11 @@ const norm = (a) => { const l = Math.hypot(...a); return [a[0] / l, a[1] / l, a[
 
 function camera(x0) {
   const mid = x0 - BOX.len / 2 - SLOT_GAP / 2;
-  const pos = [mid - CAM.back, CAM.side, CAM.up];
-  const fwd = norm(sub([mid + CAM.ahead, CAM.lookY, CAM.lookZ], pos));
+  const target = [mid + CAM.ahead, CAM.lookY, 0.5];
+  const az = CAM.az * Math.PI / 180, el = CAM.el * Math.PI / 180;
+  const pos = [target[0] + CAM.dist * Math.cos(el) * Math.sin(az), target[1] - CAM.dist * Math.cos(el) * Math.cos(az),
+    target[2] + CAM.dist * Math.sin(el)];
+  const fwd = norm(sub(target, pos));
   const right = norm(cross(fwd, [0, 0, 1]));
   const up = cross(right, fwd);
   return { pos, fwd, right, up };
@@ -167,15 +172,19 @@ function planeTransform(cam, spec) {
 }
 
 // What's painted on the road, in its own pixels (x0: the road's start).
-function paint(x0, slots, pole) {
+// In front of each box, its number and, under it, the car's qualifying gap
+// (pole: its lap time), as painted for a TV grid.
+function paint(x0, slots, pole, entries) {
   const at = (x, y) => [Math.round((x - x0) * PX), Math.round((ROAD_W - y) * PX)];
   const out = [];
   for (const n of slots) {
     const [l, t] = at(slotX(n) - BOX.len, slotY(n) + BOX.wid / 2);
     // The box: the line across the front, and down both sides, open at the back.
     out.push(`<div class="box" style="left:${l}px;top:${t}px;width:${BOX.len * PX}px;height:${BOX.wid * PX}px"></div>`);
-    const [nl, nt] = at(slotX(n) + 0.9, slotY(n) + 1.55);
-    out.push(`<div class="slot-num" style="left:${nl}px;top:${nt}px">${n}</div>`);
+    const [nl, nt] = at(slotX(n) + 0.7, slotY(n) + 1.45);
+    const e = entries[n - 1];
+    const qual = e ? qualText(e) : "";
+    out.push(`<div class="slot-num" style="left:${nl}px;top:${nt}px">${n}${qual ? `<small>${esc(qual)}</small>` : ""}</div>`);
   }
   if (pole) {  // the start line, just ahead of pole
     const [l] = at(slotX(1) + 9, 0);
@@ -206,23 +215,26 @@ function qualText(e) {  // pole: its lap time; everyone else: the gap to their c
   return "";
 }
 
+// Each driver's card, in the style of the driver-on-camera card (driver.html):
+// the grid place on the class colour, the car number, the name with the
+// nickname under it, the team with its logo, the qualifying time, the car badge.
 function infoHtml(e, i, cls, cfg, multiclass) {
   const status = !e.in_session ? "NOT IN SESSION" : !e.in_world ? "NOT ON TRACK" : "";
   const qual = qualText(e);
-  const badge = multiclass || cls.logo ? `<span class="gw-class">${classHeaderHtml(cls, "", rerender)}</span>` : "";
+  const color = cls.color || "";
   const nick = cfg.show_nickname !== false && e.nickname && cfg.name_format !== "nickname" ? e.nickname : "";
-  return `<div class="gw-info ${i ? "rear" : "front"}" style="--cls:${esc(cls.color)}">
-      <div class="gw-top">
-        <span class="gw-pos"><small>P</small>${e.grid_pos}</span>
-        ${multiclass ? `<span class="gw-cpos">P${e.class_pos} in class</span>` : ""}
-        ${badge}
-        ${e.make_logo ? `<img class="gw-make" src="${esc(e.make_logo)}" alt="${esc(e.make)}">` : ""}
-      </div>
-      <div class="gw-name"><span class="gw-num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span>
-        <span class="gw-driver">${esc(formatName(e, cfg.name_format))}</span></div>
-      ${nick ? `<div class="gw-nick">“${esc(nick)}”</div>` : ""}
-      ${e.team ? `<div class="gw-team">${e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}<span>${esc(e.team)}</span></div>` : ""}
-      <div class="gw-foot">${qual ? `<span class="gw-qual">${esc(qual)}</span>` : ""}${status ? `<span class="gw-status">${status}</span>` : ""}</div>
+  const logo = (multiclass || cls.logo) && classLogo(cls, rerender);  // the class logo, laid on its colour
+  const klass = logo ? `<span class="klass has-logo" style="background:${esc(color)}"><img class="klass-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}"></span>`
+    : multiclass && cls.name ? `<span class="klass" style="background:${esc(color)};color:${inkFor(color)}">${esc(cls.name)}</span>` : "";
+  const team = e.team || e.team_logo
+    ? `<div class="team">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}${e.team ? `<span class="team-name">${esc(e.team)}</span>` : ""}</div>` : "";
+  return `<div class="gw-info ${i ? "rear" : "front"}" style="--cls:${esc(color || "var(--accent)")}">
+      <div class="pos" style="color:${color ? inkFor(color) : "#fff"}"><span class="p">P${e.grid_pos}</span>${multiclass ? `<span class="cp">P${e.class_pos} IN CLASS</span>` : ""}</div>
+      <div class="who"><span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(e.number)}</span>
+        <div class="names"><div class="name">${esc(formatName(e, cfg.name_format))}${klass}</div>
+          ${nick ? `<div class="nick">“${esc(nick)}”</div>` : ""}${team}</div></div>
+      ${qual || status ? `<div class="qual">${qual ? `<span class="t">${esc(qual)}</span>` : ""}${status ? `<span class="status">${status}</span>` : ""}</div>` : ""}
+      ${e.make_logo ? `<span class="make"><img src="${esc(e.make_logo)}" alt="${esc(e.make)}"></span>` : ""}
     </div>`;
 }
 
@@ -234,12 +246,13 @@ function sceneHtml(x0, x1, first, entries, cfg) {
   const league = (snap.league && snap.league.name) || "";
   const boards = Array.from({ length: Math.ceil((b - a) / 9) }, (_, i) =>
     `<span class="${i % 3 === 1 ? "alt" : ""}">${esc(league || "STARTING GRID")}</span>`).join("");
-  const nearest = Math.min(first, ...[x0, x1].map((x) => 1 - Math.round(x / SLOT_GAP)));
+  // The slots in view wherever the camera is between x0 and x1: some ahead
+  // (to the right) and some behind (to the left).
+  const [lo, hi] = [x0, x1].map((x) => 1 - Math.round(x / SLOT_GAP)).sort((u, v) => u - v);
   const slots = [];
-  for (let n = Math.max(1, nearest - 18); n <= first + 3; n++) slots.push(n);
-  const cars = [];
-  for (let n = Math.max(1, nearest - 10); n <= Math.min(entries.length, first + 1); n++) cars.push(n);
-  const art = cars.map((n) => `<div class="gw-car ${n === first || n === first + 1 ? "focus" : "ahead"}" data-slot="${n}">${carArt(entries[n - 1], cfg)}</div>`).join("");
+  for (let n = Math.max(1, lo - 14); n <= hi + 13; n++) slots.push(n);
+  const cars = slots.filter((n) => n >= lo - 8 && n <= Math.min(entries.length, hi + 9));
+  const art = cars.map((n) => `<div class="gw-car ${n === first || n === first + 1 ? "focus" : "other"}" data-slot="${n}">${carArt(entries[n - 1], cfg)}</div>`).join("");
   const shadows = cars.map((n) => {
     const l = Math.round((slotX(n) - BOX.len + 0.2 - a) * PX), t = Math.round((ROAD_W - slotY(n) - 1.15) * PX);
     return `<i class="shadow" style="left:${l}px;top:${t}px;width:${(BOX.len - 0.4) * PX}px;height:${2.3 * PX}px"></i>`;
@@ -255,7 +268,7 @@ function sceneHtml(x0, x1, first, entries, cfg) {
     ${ground(a, b, ROAD_W + 1.1, ROAD_W, "kerb far")}
     ${ground(a, b, 0, -1.1, "kerb near")}
     ${ground(a, b, -1.1, -2.5, "apron", "", `background-image:url(${asphalt()})`)}
-    ${ground(a, b, ROAD_W, 0, "road", `<div class="rubber"></div>${paint(a, slots, slots.includes(1))}${shadows}`,
+    ${ground(a, b, ROAD_W, 0, "road", `<div class="rubber"></div>${paint(a, slots, slots.includes(1), entries)}${shadows}`,
       `background-image:url(${asphalt()})`)}
     ${upright(a, b, WALL_Y, 1.1, 0, "wall", `<div class="ads">${boards}</div>`, `background-image:url(${concrete()})`)}
     ${upright(a, b, WALL_Y, 4.6, 1.1, "fence")}
@@ -278,7 +291,7 @@ function placeScene(root, x) {
     st.top = `${(p.sy - p.h * 0.86).toFixed(1)}px`;
     st.width = `${p.w.toFixed(1)}px`;
     st.height = `${p.h.toFixed(1)}px`;
-    st.setProperty("--haze", Math.min(0.55, Math.max(0, (p.z - 25) / 180)).toFixed(2));
+    st.setProperty("--haze", Math.min(0.55, Math.max(0, (p.z - CAM.dist - 6) / 120)).toFixed(2));
     st.zIndex = String(1000 - Math.round(p.z));  // the near ones stand in front
   }
 }

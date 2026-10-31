@@ -7,7 +7,7 @@
 }
 @keyframes board-in { from { opacity: 0; transform: scale(1.02); } }
 /* Swapping boards: the old one fades out under the new one. */
-.board.leaving, .board.steady.leaving { animation: board-out .5s ease both; z-index: 0; }
+.board.leaving, .board.steady.leaving { animation: board-out .55s .1s ease-in both; z-index: 0; }
 .board:not(.leaving) { z-index: 1; }
 @keyframes board-out { to { opacity: 0; transform: scale(.98); } }
 /* A new board's header slides in and its rows / rounds cascade in. */
@@ -18,6 +18,13 @@
 .board:not(.steady) .btable tbody tr,
 .board:not(.steady) .cal .round { animation: row-in .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.2s + var(--i, 0) * 35ms); }
 @keyframes row-in { from { opacity: 0; transform: translateX(-24px); } }
+/* Leaving: the same, backwards. The rows slide back out, the header lifts
+   away, and the board fades. */
+.board.leaving .bhead { animation: head-out .35s cubic-bezier(.55, 0, .75, .2) both; }
+.board.leaving .btable tbody tr,
+.board.leaving .cal .round { animation: row-out .3s cubic-bezier(.55, 0, .75, .2) both; animation-delay: calc(min(var(--i, 0), 12) * 15ms); }
+@keyframes head-out { to { opacity: 0; transform: translateY(-14px); } }
+@keyframes row-out { to { opacity: 0; transform: translateX(-24px); } }
 .center { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
 .edge { flex: 0 0 auto; display: flex; gap: 24px; align-items: center; justify-content: center; }
 .edge.across { flex-direction: column; }

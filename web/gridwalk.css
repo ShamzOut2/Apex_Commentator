@@ -13,8 +13,12 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 
 /* Fixed 1920x1080 stage, scaled to fit the window (fitStage in common.js). */
 .stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
-.walk { position: absolute; inset: 0; transition: opacity .45s ease, transform .45s ease; }
-.stage.hidden .walk { opacity: 0; transform: translateY(24px); }
+.walk { position: absolute; inset: 0; transition: opacity .45s ease; }
+/* Off screen: the entrance backwards. The cards close, the title lifts
+   away, then the track fades. */
+.stage.hidden .walk { opacity: 0; transition: opacity .5s .35s ease; }
+.stage.hidden .gw-title { animation: title-out .45s .1s cubic-bezier(.55, 0, .75, .2) both; }
+@keyframes title-out { to { opacity: 0; transform: translateY(-20px); } }
 
 /* --- title: league, track, row, and the time left on this pair ---------- */
 .gw-title {
@@ -72,8 +76,9 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 .road .box { position: absolute; border: 9px solid rgba(242, 242, 242, .93); border-left: none; border-radius: 2px; }
 .road .slot-num {
   position: absolute; font: 900 italic 66px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: rgba(242, 242, 242, .9); letter-spacing: -.02em;
+  color: rgba(242, 242, 242, .9); letter-spacing: -.02em; display: flex; flex-direction: column; align-items: flex-start;
 }
+.road .slot-num small { font-size: 30px; font-weight: 800; letter-spacing: 0; margin-top: 2px; }
 .road .start-line {
   position: absolute; top: 14px; bottom: 14px; width: 60px;
   background: repeating-conic-gradient(#f2f2f2 0 25%, #1a1a1a 0 50%) 0 0 / 30px 30px;
@@ -117,40 +122,62 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 .gw-car.focus > * { animation: car-in .9s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes car-in { from { opacity: 0; transform: translateY(-14px); } }
 
+/* --- the drivers' cards: the driver-on-camera card's look (driver.css) ------ */
 .gw-info {
-  position: absolute; z-index: 2000; width: 640px; padding: 18px 26px 18px 28px;
-  display: flex; flex-direction: column; gap: 8px; background: var(--panel); border-radius: 14px;
-  border-left: 10px solid var(--cls, var(--accent)); box-shadow: 0 14px 40px rgba(0, 0, 0, .4);
-  animation: info-in .6s .3s cubic-bezier(.2, .8, .2, 1) both;
+  position: absolute; z-index: 2000; display: flex; align-items: center; gap: 22px; min-width: 620px; max-width: 900px;
+  min-height: 112px; padding: 0 26px 0 0; border-radius: 14px; overflow: hidden;
+  background: var(--panel); box-shadow: 0 14px 40px rgba(0, 0, 0, .45); border-bottom: 5px solid var(--cls, var(--accent));
+  animation: gw-card-in .6s .35s cubic-bezier(.2, .9, .25, 1) both;
 }
-.gw-info.rear { animation-delay: .45s; }
-.gw-info.front { right: 60px; top: 190px; translate: none; }
-.gw-info.rear { left: 60px; bottom: 60px; top: auto; translate: none; }
-.gw-info.leaving { animation: info-out .35s ease-in both; }
-@keyframes info-out { to { opacity: 0; transform: translateY(16px); } }
-@keyframes info-in { from { opacity: 0; transform: translateY(16px); } }
-.gw-top { display: flex; align-items: center; gap: 14px; }
-.gw-pos { font-size: 54px; font-weight: 900; line-height: 1; letter-spacing: -.02em; }
-.gw-pos small { font-size: 28px; margin-right: 2px; opacity: .8; }
-.gw-cpos { font-size: 20px; font-weight: 700; color: var(--muted); }
-.gw-make { margin-left: auto; height: 46px; max-width: 120px; object-fit: contain; }
-.gw-class .class-head { display: flex; align-items: center; height: 40px; border-radius: 8px; overflow: hidden; font-weight: 800; }
-.gw-class .class-logo { height: 40px; max-width: 180px; object-fit: contain; display: block; }
-.gw-class .class-name { font-size: 20px; padding: 0 12px; letter-spacing: .04em; }
-.gw-class .class-detail { display: none; }
-.gw-name { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.gw-num {
-  flex: none; min-width: 74px; height: 56px; padding: 0 12px; border-radius: 9px;
-  display: inline-flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 900;
+.gw-info.rear { animation-delay: .5s; }
+.gw-info.front { right: 60px; top: 176px; }
+.gw-info.rear { left: 60px; bottom: 60px; }
+.gw-info > * { animation: gw-content-in .45s .6s ease both; }
+.gw-info.rear > * { animation-delay: .75s; }
+.gw-info::after {  /* a light sweep as it opens */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .26) 50%, transparent 65%);
+  transform: translateX(-110%); animation: gw-sweep .9s .7s ease-out both;
 }
-.gw-driver { font-size: 44px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gw-nick { font-size: 24px; font-weight: 700; font-style: italic; color: var(--accent); }
-.gw-team { display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: 600; color: #d9dde3; }
-.gw-team img { height: 44px; max-width: 120px; object-fit: contain; }
-.gw-foot { display: flex; align-items: center; gap: 14px; }
-.gw-foot:empty { display: none; }
-.gw-qual { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.gw-status { font-size: 16px; font-weight: 800; letter-spacing: .08em; padding: 4px 10px; border-radius: 6px; background: #d7263d; }
+.gw-info.rear::after { animation-delay: .85s; }
+/* Opens from the middle as it rises; leaves the same way, backwards. */
+@keyframes gw-card-in {
+  from { opacity: 0; transform: translateY(40px); clip-path: inset(0 45% 0 45% round 14px); }
+  60% { opacity: 1; }
+  to { clip-path: inset(0 0 0 0 round 14px); }
+}
+@keyframes gw-card-out {
+  0%, 30% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 14px); }
+  100% { opacity: 0; transform: translateY(40px); clip-path: inset(0 45% 0 45% round 14px); }
+}
+@keyframes gw-content-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes gw-content-out { to { opacity: 0; transform: translateY(8px); } }
+@keyframes gw-sweep { to { transform: translateX(110%); } }
+.gw-info.leaving, .stage.hidden .gw-info { animation: gw-card-out .6s cubic-bezier(.55, 0, .75, .1) both; }
+.gw-info.leaving > *, .stage.hidden .gw-info > * { animation: gw-content-out .25s ease-in both; }
+.gw-info.leaving::after, .stage.hidden .gw-info::after { animation: none; opacity: 0; }
+
+.gw-info .pos {
+  align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 118px; padding: 0 18px; background: var(--cls, var(--accent));
+}
+.gw-info .pos .p { font-size: 42px; font-weight: 900; line-height: 1; }
+.gw-info .pos .cp { font-size: 13px; font-weight: 800; letter-spacing: .06em; opacity: .9; white-space: nowrap; }
+.gw-info .who { display: flex; align-items: center; gap: 18px; min-width: 0; flex: 1; padding: 14px 0; }
+.gw-info .num { font-size: 30px; font-weight: 900; min-width: 64px; height: 50px; padding: 0 10px; border-radius: 8px; flex: none; }
+.gw-info .names { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.gw-info .name { font-size: 38px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 14px; }
+.gw-info .klass { font-size: 14px; font-weight: 800; letter-spacing: .08em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; flex: none; }
+.gw-info .klass.has-logo { padding: 0; height: 32px; display: flex; overflow: hidden; }
+.gw-info .klass-logo { height: 32px; max-width: 140px; object-fit: contain; display: block; }
+.gw-info .nick { font-size: 20px; font-weight: 700; font-style: italic; color: var(--accent); }
+.gw-info .team { font-size: 20px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.gw-info .team-logo { height: 30px; max-width: 90px; }
+.gw-info .qual { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+.gw-info .qual .t { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.gw-info .make { flex: none; display: flex; align-items: center; height: 60px; }
+.gw-info .make img { max-height: 100%; max-width: 110px; object-fit: contain; }
+.gw-info .status { font-size: 16px; font-weight: 800; letter-spacing: .08em; padding: 4px 10px; border-radius: 6px; background: #d7263d; }
 
 /* Background setting: an image inside the panels, under their contents. */
 body.panel-image .gw-title, body.panel-image .gw-info { isolation: isolate; }

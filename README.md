@@ -61,6 +61,13 @@ walk, Overlays, Boards and Race control.
 - **Show all on my screen**, and hotkeys to put every overlay or the boards
   on your screen (or take everything off).
 - Timing screen: name style (full name, D. Price…) and nicknames on or off.
+- A hotkey for **everything off screen and back**: every overlay, the board
+  and the grid walk go; press again and they come back.
+- A hotkey to switch the timing tower's header between laps left and time
+  left.
+- Timing tower: the coloured bar can take its colour from the main or the
+  secondary class on its own, separately from the car number.
+- Teams: **✕** on a league under *Also in* takes the team out of that league.
 
 ### Improvements
 
@@ -80,9 +87,19 @@ walk, Overlays, Boards and Race control.
 - Driver on camera: show the overall position, the class position or both.
 - Pit stops: the position follows the standings tower (overall or in class).
 - Championship battle and pit stops: a matching sleek entrance and exit.
+- Every overlay and board now leaves with its entrance in reverse: sponsors
+  fade out, lap trackers drop away, a board's rows slide back out and its
+  header lifts away, and the grid walk's cards close before it fades.
+- Grid walk: seen from high up at an angle across the grid, like a TV grid
+  graphic, with each box's number and qualifying gap painted on the track;
+  the drivers' cards look like the other overlays' (the driver-on-camera
+  card).
 
 ### Fixes
 
+- Teams no longer end up in every league: sharing a team with one league
+  doesn't share it with all the others that league shares with, and a
+  league taken off a team stays off.
 - Overlays in a session outside the league (practice, testing) no longer go
   empty: only drivers in the league's roster left without a class are
   hidden, not everyone who isn't in the roster. This also brings back the
@@ -196,8 +213,11 @@ shows something else. Camera hotkeys work in whichever window has focus.
 Boards tabs) also sets keys for:
 - each overlay: the standings tower, lap tracker, driver on camera,
   sponsors, championship battle and pit stops, on and off;
-- the timing tower: its sponsor bar under the header on and off, and
-  overall / by class;
+- everything at once: every overlay, the board and the grid walk off
+  screen; pressed again, whatever it took off comes back (with nothing up,
+  every overlay comes on);
+- the timing tower: its sponsor bar under the header on and off, overall /
+  by class, and its header between laps left and time left;
 - the championship battle's quick picks (the car on camera and the one
   ahead, the cars either side, the top 3), which also put it on screen;
 - the grid walk: on / off (starting from P1), and the next and previous pair;
@@ -292,17 +312,20 @@ Things to know:
 
 The **Grid walk** tab runs a broadcast graphic that goes through the whole
 field, front to back, two drivers at a time. The grid is seen in
-perspective from a camera beside the track, over the pit wall: textured
-tarmac with the racing line rubbered in, red and white kerbs, grass, a wall
-with advertising boards (the league's name) and a catch fence, and a full
-grandstand behind. The front car of the row stands in its painted grid box
-on the far lane, further up the road, and the second one in the box
-staggered behind it, as on a real grid; each box has its number painted in
-front of it, and pole has the start line ahead. The cars further up the grid
-wait in their boxes up the road, and moving on to the next pair the camera
-glides back down the grid to it. The driver panels sit over the top right
-(the front car) and bottom left (the second one) with the driver's
-details: grid position (and class position in multiclass races), car
+perspective from high up beside the track, looking down across it at an
+angle, the grid running gently downhill from left to right (the front of
+the grid on the right), like a TV grid graphic: textured tarmac with the
+racing line rubbered in, red and white kerbs, grass, and beyond them a wall
+with advertising boards (the league's name), a catch fence and a grandstand.
+The front car of the row stands in its painted grid box on the far lane,
+further up the road, and the second one in the box staggered behind it, as
+on a real grid. In front of each box its number is painted, with the car's
+qualifying gap under it (pole: its lap time); pole has the start line ahead.
+The cars either side on the grid stand in their boxes too, and moving on to
+the next pair the camera glides down the grid to it. Each driver has a card
+in the driver-on-camera card's style (top right for the front car, bottom
+left for the second): the card opens from the middle with a light sweep,
+and closes the same way as it goes, with the driver's details: grid position (and class position in multiclass races), car
 number in the class colour, class badge, car badge, name, nickname, team and
 team logo, and their qualifying time (the class pole's lap, the gap to it
 for everyone else). **Names** sets the name style (full name, A. Driver…)
@@ -436,7 +459,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     the driver's class colour; with it off, just the number shows. Both the
     tower and the full-screen version follow these.
   - **Class colours from**: the driver's **main** class or their
-    **secondary** class (League builder). A driver without one (no main
+    **secondary** class (League builder), for the car number's background;
+    **Coloured bar's colour from** sets the bar's on its own (the same class
+    as the car number, the main or the secondary class), so the number can
+    show one class and the bar the other. A driver without one (no main
     class in the league, say, only a secondary one) shows no colour: just
     the number, with no background, and no bar. With no league active, the
     iRacing class colours are used.
@@ -625,7 +651,12 @@ for drivers without one) are put in it there. From then on:
 - moving a driver to another shared team moves them in the other leagues
   too. Taking a driver out of a team only changes the league you're in.
 
+Links are between two leagues: sharing a team from one league to another
+doesn't link it with every league the other one shares teams with.
 Unticking a league stops the link; that league keeps its copy of the team.
+**✕** on a ticked league takes the team out of that league altogether: its
+copy there is deleted and its drivers there are left without a team (the
+league you're in keeps it).
 Teams are matched by name, so a renamed team starts a new team in the other
 leagues (the old one stays there until you delete it).
 

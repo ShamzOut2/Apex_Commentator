@@ -774,6 +774,8 @@ function hotkeyActions(s = ui.snap || {}) {
   resultGroups(opts).forEach((g) => add("results", g.key, `Finishing order · ${g.name}`));
   const on = (k) => !!(ov[k] && ov[k].visible);
   return [
+    ["Everything", [["all:toggle", "Every overlay and board off screen, and back again", () => cmd("hotkey", { action: "all:toggle" },
+      (r) => (r && r.shown ? "Overlays back on screen" : "Everything off screen"))]]],
     ["Overlays (on / off)", OVERLAY_TOGGLES.map(([k, label]) => [`ov:${k}`, label,
       () => cmd("overlay_settings", { overlay: k, values: { visible: !on(k) } }, `${label} ${on(k) ? "off" : "on"}`)])],
     ["Timing tower", [
@@ -781,6 +783,7 @@ function hotkeyActions(s = ui.snap || {}) {
         `Sponsor bar ${ov.standings && ov.standings.sponsor_bar ? "off" : "on"}`)],
       ["tower:mode", "Overall / by class", () => cmd("hotkey", { action: "tower:mode" },
         ov.standings && ov.standings.mode === "class" ? "Tower: overall" : "Tower: by class")],
+      ["tower:header", "Header: laps left / time left", () => cmd("hotkey", { action: "tower:header" }, "Tower header changed")],
     ]],
     ["Grid walk", [
       ["gw:toggle", "On / off (starts from P1)", () => (s.gridwalk && s.gridwalk.visible
@@ -2239,9 +2242,11 @@ const OVERLAY_FIELDS = {
       ["name_format", "Names", "select", NAME_FORMATS],
       ["show_number", "Car numbers", "bool"],
       iff((v) => v.show_number, ["color_number", "Car number background, in the driver's class colour (off: just the number)", "bool"]),
-      ["class_colors", "Class colours (car number, bar) from", "select", [["main", "The driver's main class"],
+      ["class_colors", "Car number background colour from", "select", [["main", "The driver's main class"],
         ["secondary", "The driver's secondary class"]]],
       ["show_stripe", "Coloured bar by each driver", "bool"],
+      iff((v) => v.show_stripe, ["stripe_colors", "Coloured bar's colour from", "select", [["same", "The same class as the car number"],
+        ["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]]),
       ["show_team", "Team names (a column of their own)", "bool"],
       iff((v) => v.show_team, ["team_name_place", "Team name on the tower", "select", [["under", "Under the driver's name"],
         ["column", "In its own column, after the driver's name"]]]),
@@ -3610,9 +3615,13 @@ function renderTeams() {
         <option value="">+ Add driver…</option>
         ${others.map(([d, j]) => `<option value="${j}">${label(d)}${d.team ? ` (${esc(d.team)})` : ""}</option>`).join("")}
       </select>
-      ${otherLeagues.length ? `<div class="team-shared"><span class="hint" title="The team, and its drivers who race there too, in these leagues as well. Drivers who join one later are put in the team by themselves.">Also in:</span>
-        ${otherLeagues.map((l) => `<label class="chip ${(t.shared || []).includes(l.id) ? "active" : ""}">
-          <input type="checkbox" data-team-share="${i}" value="${esc(l.id)}" ${(t.shared || []).includes(l.id) ? "checked" : ""} hidden>${esc(l.name)}</label>`).join("")}</div>` : ""}
+      ${otherLeagues.length ? `<div class="team-shared"><span class="hint" title="Tick a league to put the team, and its drivers who race there too, in that league as well (drivers who join it later are put in the team by themselves). ✕ takes the team out of that league.">Also in:</span>
+        ${otherLeagues.map((l) => {
+    const on = (t.shared || []).includes(l.id);
+    return `<label class="chip ${on ? "active" : ""}" title="${on ? `Untick: stop keeping ${esc(l.name)}'s copy in step` : `Tick: put the team in ${esc(l.name)} too`}">
+          <input type="checkbox" data-team-share="${i}" value="${esc(l.id)}" ${on ? "checked" : ""} hidden>${esc(l.name)}${on
+    ? `<button class="clear" data-team-remove-from="${esc(l.id)}" data-team-i="${i}" title="Take ${esc(t.name)} out of ${esc(l.name)}">✕</button>` : ""}</label>`;
+  }).join("")}</div>` : ""}
     </div>`;
   }).join("") : '<p class="hint">No teams yet: add one, or fill in the Team column in the League builder roster.</p>';
   const free = drivers.map((d, j) => [d, j]).filter(([d]) => !String(d.team || "").trim());
@@ -3693,11 +3702,28 @@ $("#team-cards").addEventListener("change", async (e) => {
   renderTeams();
 });
 
-$("#team-cards").addEventListener("click", (e) => {
+$("#team-cards").addEventListener("click", async (e) => {
   const teams = editorTeams();
   const b = e.target.closest("button");
   if (!b) return;
   const d = b.dataset;
+  if (d.teamRemoveFrom != null) {
+    e.preventDefault();  // not the chip's tick box
+    const team = teams[+d.teamI];
+    const other = (ui.leagueList || []).find((l) => l.id === d.teamRemoveFrom);
+    const name = other ? other.name : d.teamRemoveFrom;
+    if (!confirm(`Take ${team.name} out of ${name}? Its drivers there are left without a team. ${ui.editing.name} keeps it.`)) return;
+    try {
+      // Saved first, so nothing changed here is lost.
+      await saveEditor();
+      const r = await api(`/api/leagues/${encodeURIComponent(ui.editing.id)}/remove-team-from`, { method: "POST", body: { team: team.name, league: d.teamRemoveFrom } });
+      openEditor(r.league);
+      toast(`${team.name} taken out of ${name}`);
+    } catch (err) {
+      toast(err.message, true);
+    }
+    return;
+  }
   if (d.teamUnassign != null) ui.editing.drivers[+d.teamUnassign].team = "";
   else if (d.teamNocolor != null) teams[+d.teamNocolor].color = "";
   else if (d.teamNologo != null) teams[+d.teamNologo].logo = null;

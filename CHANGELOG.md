@@ -28,6 +28,13 @@ How each version's entry is written:
 - **Show all on my screen**, and hotkeys to put every overlay or the boards
   on your screen (or take everything off).
 - Timing screen: name style (full name, D. Price…) and nicknames on or off.
+- A hotkey for **everything off screen and back**: every overlay, the board
+  and the grid walk go; press again and they come back.
+- A hotkey to switch the timing tower's header between laps left and time
+  left.
+- Timing tower: the coloured bar can take its colour from the main or the
+  secondary class on its own, separately from the car number.
+- Teams: **✕** on a league under *Also in* takes the team out of that league.
 
 ### Improvements
 
@@ -47,9 +54,19 @@ How each version's entry is written:
 - Driver on camera: show the overall position, the class position or both.
 - Pit stops: the position follows the standings tower (overall or in class).
 - Championship battle and pit stops: a matching sleek entrance and exit.
+- Every overlay and board now leaves with its entrance in reverse: sponsors
+  fade out, lap trackers drop away, a board's rows slide back out and its
+  header lifts away, and the grid walk's cards close before it fades.
+- Grid walk: seen from high up at an angle across the grid, like a TV grid
+  graphic, with each box's number and qualifying gap painted on the track;
+  the drivers' cards look like the other overlays' (the driver-on-camera
+  card).
 
 ### Fixes
 
+- Teams no longer end up in every league: sharing a team with one league
+  doesn't share it with all the others that league shares with, and a
+  league taken off a team stays off.
 - Overlays in a session outside the league (practice, testing) no longer go
   empty: only drivers in the league's roster left without a class are
   hidden, not everyone who isn't in the roster. This also brings back the

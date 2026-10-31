@@ -105,6 +105,35 @@ class HotkeyActionTests(unittest.TestCase):
         finally:
             self.app.desktop = None
 
+    def test_everything_off_and_back(self):
+        app = self.app
+        ov = lambda k: app.overlays.get()[k]["visible"]  # noqa: E731
+        app.cmd_overlay_settings("laps", {"visible": True})
+        app.cmd_overlay_settings("driver", {"visible": False})
+        self.press("board:calendar:")
+        self.press("all:toggle")
+        self.assertEqual((ov("laps"), ov("driver"), app.board["kind"]), (False, False, None))
+        self.press("all:toggle")  # what was up comes back, nothing else
+        self.assertEqual((ov("laps"), ov("driver"), app.board["kind"]), (True, False, "calendar"))
+        self.press("board:off")
+        for k in app.TOGGLE_ALL:
+            app.cmd_overlay_settings(k, {"visible": False})
+        self.press("all:toggle")  # nothing up: every overlay comes on
+        self.assertTrue(all(ov(k) for k in app.TOGGLE_ALL))
+        self.press("all:toggle")
+
+    def test_tower_header_key(self):
+        app = self.app
+        app.cmd_overlay_settings("standings", {"header_info": "laps"})
+        self.press("tower:header")
+        self.assertEqual(app.overlays.get()["standings"]["header_info"], "time")
+        self.press("tower:header")
+        self.assertEqual(app.overlays.get()["standings"]["header_info"], "laps")
+        app.cmd_overlay_settings("standings", {"header_info": "auto"})
+        app._header_mode = "time"  # automatic, showing the time: the key goes to laps
+        self.press("tower:header")
+        self.assertEqual(app.overlays.get()["standings"]["header_info"], "laps")
+
     def test_cameras(self):
         group = self.app._camera_groups[1]
         self.source.commands.clear()

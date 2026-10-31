@@ -224,6 +224,8 @@ class App:
         self._logged_until = {}    # session num -> race time logged so far
         self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
+        self._header_mode = "laps" # what the tower's header last showed: "laps", "time" or "none"
+        self._put_away = None      # what the all:toggle hotkey took off screen, to bring back
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
         self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
         self.backgrounds = Backgrounds()  # __main__ gives it a folder: overlay / board background images
@@ -889,6 +891,7 @@ class App:
         time_total = _session_limit(session.get("SessionTime"))
         if mode == "auto":
             mode = "laps" if laps_total else "time" if time_total else "none"
+        self._header_mode = mode  # what the header shows now (the tower:header hotkey swaps it)
         lead = max((r["laps_completed"] or 0 for r in rows if r["laps_completed"] is not None), default=0)
         remain = frame.session_time_remain
         time_remain = remain if remain is not None and 0 <= remain < 604000 else None
@@ -1596,7 +1599,9 @@ class App:
         board:next, board:prev (its pages), board:<kind>:<group> (on screen,
         or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick),
         desk:overlays / desk:boards (all of them on the user's screen), desk:off,
-        tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class)."""
+        tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class),
+        tower:header (its header: laps left / time left), all:toggle (every
+        overlay and board off screen, and back again; see cmd_toggle_all)."""
         kind, _, rest = str(action).partition(":")
         if kind == "cam":
             group = next((g["num"] for g in self._camera_groups if g["name"] == rest), None)
@@ -1633,7 +1638,39 @@ class App:
                 return self.cmd_overlay_settings("standings", {"sponsor_bar": not tower["sponsor_bar"]})
             if rest == "mode":
                 return self.cmd_overlay_settings("standings", {"mode": "class" if tower["mode"] == "overall" else "overall"})
+            if rest == "header":
+                now = tower["header_info"] if tower["header_info"] in ("laps", "time") else self._header_mode
+                return self.cmd_overlay_settings("standings", {"header_info": "time" if now == "laps" else "laps"})
+        if kind == "all":
+            return self.cmd_toggle_all()
         raise CommandError(f"Unknown hotkey '{action}'")
+
+    TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits")
+
+    def cmd_toggle_all(self):
+        """Every overlay, the board and the grid walk off screen at once; again,
+        and whatever that took off comes back (nothing was up: every overlay
+        comes on). Returns {"shown": True / False}."""
+        ov = self.overlays.get()
+        up = [k for k in self.TOGGLE_ALL if ov.get(k, {}).get("visible")]
+        if up or self.board.get("kind") or self.gridwalk.visible:
+            self._put_away = {"overlays": up, "board": dict(self.board) if self.board.get("kind") else None,
+                              "gridwalk": self.gridwalk.index if self.gridwalk.visible else None}
+            for k in up:
+                self.cmd_overlay_settings(k, {"visible": False})
+            self.cmd_board_hide()
+            self.gridwalk.hide()
+            return {"shown": False}
+        away, self._put_away = self._put_away, None
+        if not away:
+            away = {"overlays": list(self.TOGGLE_ALL), "board": None, "gridwalk": None}
+        for k in away["overlays"]:
+            self.cmd_overlay_settings(k, {"visible": True})
+        if away["board"]:
+            self.board = away["board"]
+        if away["gridwalk"] is not None and self._grid_count():
+            self.gridwalk.start(away["gridwalk"])
+        return {"shown": True}
 
     def cmd_hotkeys(self, keys=None, cameras=None, actions=None):
         """The Hotkeys window's keys ({key: action}): those with Ctrl or Alt work

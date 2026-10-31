@@ -304,7 +304,9 @@ def import_teams(store, profile, obj):
     _put_images(store, profile["id"], obj.get("images"))
     mine = {t["name"].lower(): t for t in profile.get("teams", [])}
     for t in teams:
-        mine[str(t["name"]).lower()] = t
+        # Links to leagues are this PC's own: an imported team keeps the ones it had here.
+        had = mine.get(str(t["name"]).lower())
+        mine[str(t["name"]).lower()] = dict(t, shared=list((had or {}).get("shared") or []))
     profile["teams"] = list(mine.values())
     by_key = {driver_key(d): d for d in profile.get("drivers", [])}
     by_name = {str(d.get("name", "")).lower(): d for d in profile.get("drivers", [])}

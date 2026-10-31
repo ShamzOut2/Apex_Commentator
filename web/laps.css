@@ -13,8 +13,10 @@
   animation: tracker-in .35s ease both;
   transition: opacity .35s ease;
 }
-.tracker.gone { opacity: 0; position: absolute; visibility: hidden; }
+/* Leaving: the way it came in, backwards (down and fading out). */
+.tracker.gone { animation: tracker-out .35s ease-in both; pointer-events: none; }
 @keyframes tracker-in { from { opacity: 0; transform: translateY(20px); } }
+@keyframes tracker-out { to { opacity: 0; transform: translateY(20px); } }
 .tracker.big { width: 620px; }
 .tracker.small { width: var(--small-w, 290px); }
 
