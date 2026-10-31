@@ -217,6 +217,7 @@ DEFAULTS = {
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
                        "show_winners": True,
+                       "winner_groups": "",  # whose winners: championship keys, comma separated ("" all, "none" none)
                        # Each race's box: its name (show_race_name), and the
                        # winners' class names (show_winner_class) and names as.
                        "show_race_name": True, "show_winner_class": True, "winner_name_format": "initial_last",

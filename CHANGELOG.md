@@ -49,6 +49,7 @@ How each version's entry is written:
   in the app window).
 - **Team logo size** for every overlay and board with team logos.
 - Timing tower: **driver name column width** of your own (0 = automatic).
+- Season calendar: tick which classes' winners show under past races.
 
 ### Improvements
 

@@ -2444,6 +2444,16 @@ function sponsorPicker(sponsors, value, key = "sponsor_ids", label = "Sponsors")
     <img src="${esc(sp.url)}" alt="">${esc(sp.name || `Sponsor ${i + 1}`)}</label>`).join("")}</div></div>`;
 }
 
+// Tick boxes for which championships (Overall, each class) to show ("" = all,
+// "none" = none): the same values as the sponsor picker's.
+function groupPicker(groups, value, key, label) {
+  if (!groups.length) return '<p class="hint">No championships yet: they appear once the league has results.</p>';
+  const ids = value === "" ? null : new Set(value.split(","));
+  return `<div class="ov-field wide sponsor-pick"><span>${esc(label)}</span><div>${groups.map((g) => `<label class="check">
+    <input type="checkbox" data-key="${key}" data-kind="sponsors" value="${esc(g.key)}" ${!ids || ids.has(g.key) ? "checked" : ""}>
+    <span class="dot" style="background:${esc(g.color || "#8b93a3")}"></span>${esc(g.name)}</label>`).join("")}</div></div>`;
+}
+
 // A settings field's new value.
 function fieldValue(el) {
   if (el.dataset.kind === "colopacity") {
@@ -2491,6 +2501,7 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   }
   if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
   if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v, k, label);
+  if (kind === "groups") return groupPicker(((s.board_options || {}).groups) || [], v, k, label);
   if (kind === "color") return `<label class="ov-field">${label}<input type="color" ${attrs} value="${esc(v)}"></label>`;
   if (kind === "swatches") {
     // Colours from the background image (filled in by fillSwatches once it's loaded).
@@ -2729,6 +2740,7 @@ const BOARD_FIELDS = {
     iff(cards, ["show_length", "Race lengths", "bool"]),
     iff(cards, ["show_race_name", "Each race's name in its box (Sprint, Feature…)", "bool"]),
     iff(cards, ["show_winners", "Winners of past rounds (each class's, under its race)", "bool"]),
+    iff((v) => cards(v) && v.show_winners, ["winner_groups", "Winners shown (tick the classes)", "groups"]),
     iff((v) => cards(v) && v.show_winners, ["show_winner_class", "The class name by each winner (Gold: D. Price)", "bool"]),
     iff((v) => cards(v) && v.show_winners, ["winner_name_format", "Winners' names", "select", NAME_FORMATS]),
     iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"]),

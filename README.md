@@ -82,6 +82,7 @@ walk, Overlays, Boards and Race control.
   in the app window).
 - **Team logo size** for every overlay and board with team logos.
 - Timing tower: **driver name column width** of your own (0 = automatic).
+- Season calendar: tick which classes' winners show under past races.
 
 ### Improvements
 
@@ -865,7 +866,8 @@ built from the active league:
     run, each class's winner under it, one a line (Gold: A. Konig, Silver:
     M. Frederik…). A race meeting has a box for each race, side by side.
     *Each race's name in its box*, *The class name by each winner* and the
-    winners' name style can be set.
+    winners' name style can be set. **Winners shown** has a tick box for
+    Overall and each class: only the ticked ones' winners show.
   - **Dates as**: Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or
     Sunday 22nd November.
   - A round with a points multiplier other than 1 (Championship → Calendar

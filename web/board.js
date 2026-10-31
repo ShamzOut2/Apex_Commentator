@@ -144,9 +144,12 @@ function roundTitle(r, how) {
 // Each race of a card (one for a round, each heat for a race meeting): its
 // name and length, and once it's run, each class's winner under it.
 function racesHtml(r, s) {
+  // Whose winners: the classes ticked (winner_groups: "" all, "none" none).
+  const only = s.winner_groups ? new Set(s.winner_groups === "none" ? [] : s.winner_groups.split(",")) : null;
   const boxes = (r.sessions || []).map((x) => {
     const head = [s.show_race_name !== false && x.name, s.show_length && x.length].filter(Boolean);
-    const wins = s.show_winners && x.winners && x.winners.length ? x.winners.map((w) => `<div class="rb-win">
+    const shown = (x.winners || []).filter((w) => !only || only.has(w.group));
+    const wins = s.show_winners && shown.length ? shown.map((w) => `<div class="rb-win">
         <span class="dot" style="background:${esc(w.color || "#8b93a3")}"></span>${s.show_winner_class !== false && w.group_name ? `<span class="cls">${esc(w.group_name)}:</span> ` : "🏆 "}${esc(formatName(w, s.winner_name_format))}</div>`).join("") : "";
     if (!head.length && !wins) return "";
     return `<div class="race-box">${head.length ? `<div class="rb-head"><b>${esc(head[0])}</b>${head[1] ? ` <span class="len">${esc(head[1])}</span>` : ""}</div>` : ""}${wins}</div>`;
