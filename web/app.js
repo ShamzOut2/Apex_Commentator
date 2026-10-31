@@ -105,7 +105,6 @@ function render() {
   lb.classList.toggle("muted", !league);
   renderGridwalk(s);
   renderHome(s);
-  renderPhotoboothFolder(s.photobooth);
   renderUpdates(s.update);
   renderResultsAuto(s.results_auto);
   renderOverlaySettings(s);
@@ -143,7 +142,6 @@ function render() {
   $("#btn-live").classList.toggle("on-air", !!s.replay.live);
 
   renderCamButtons(s.camera);
-  renderPhotobooth(s);
   renderStandings(s);
   renderLog(s);
 }
@@ -506,7 +504,8 @@ function renderGridwalk(s) {
   const classes = new Map((s.classes || []).map((c) => [c.key, c]));
   $("#gridwalk-badge").textContent = g.visible ? (g.running ? "● on air" : "❚❚ on air") : "";
   $("#gw-toggle").textContent = g.running ? "❚❚ Pause" : "▶ Resume";
-  for (const [id, value, prop] of [["#gw-interval", g.interval, "value"], ["#gw-style", g.style, "value"],
+  renderThumbs(g);
+  for (const [id, value, prop] of [["#gw-interval", g.interval, "value"],
     ["#gw-loop", g.loop, "checked"], ["#gw-absent", g.include_absent, "checked"]]) {
     const el = $(id);
     if (document.activeElement !== el) el[prop] = value;
@@ -521,7 +520,7 @@ function renderGridwalk(s) {
   $("#gw-empty").hidden = entries.length > 0;
   // Rebuild rows only when they change, so buttons aren't replaced mid-click.
   const key = JSON.stringify([g.index, g.visible, entries.map((e) => [e.key, e.number, e.name, e.nickname, e.team,
-    e.in_session, e.in_world, (classes.get(e.class_key) || {}).color])]);
+    e.in_session, e.in_world, e.has_thumb, e.car_name, (classes.get(e.class_key) || {}).color])]);
   if (key === gwRowsKey) return;
   gwRowsKey = key;
   $("#gw-rows").innerHTML = entries.map((e, i) => {
@@ -529,15 +528,18 @@ function renderGridwalk(s) {
     const color = (classes.get(e.class_key) || {}).color || "var(--muted)";
     const status = !e.in_session ? '<span class="tag out">NOT IN SESSION</span>'
       : !e.in_world ? '<span class="tag out">NOT ON TRACK</span>' : "";
+    // No picture in the folder: what it should be called.
+    const want = e.cust_id ? `${e.cust_id}.${e.car_name || "Car name"}.png` : "";
+    const pic = e.has_thumb ? '<span class="tag ok" title="Car picture found">✓ Picture</span>'
+      : `<span class="tag" title="${want ? `No picture: name it ${esc(want)}` : "No iRacing ID to match a picture"}">No picture</span>`;
     return `<tr class="${onScreen ? "on-screen" : ""}">
       <td class="pos">P${e.grid_pos}</td>
       <td><span class="num" style="border-left-color:${esc(color)}">${esc(e.number)}</span></td>
       <td><span class="name">${esc(e.name)}</span>${e.nickname ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
       <td class="sub">${esc(e.team)}</td>
-      <td>${status}</td>
+      <td>${pic} ${status}</td>
       <td><div class="actions">
         <button class="btn" data-gw-goto="${i}" title="Show this driver's pair now">Show</button>
-        <button class="btn icon" data-pb-car="${e.car_idx ?? ""}" ${e.in_world ? "" : "disabled"} title="${e.in_world ? "Take this car's photo in iRacing" : "Only cars loaded onto the track can be photographed"}">📷</button>
         <button class="btn icon" data-gw-move="${esc(e.key)}" data-dir="-1" ${i ? "" : "disabled"} title="Move up the grid">↑</button>
         <button class="btn icon" data-gw-move="${esc(e.key)}" data-dir="1" ${i < entries.length - 1 ? "" : "disabled"} title="Move down the grid">↓</button>
       </div></td>
@@ -557,7 +559,6 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
     return cmd(action, {});
   }
   if (btn.dataset.gwGoto != null) return cmd("gridwalk_goto", { index: +btn.dataset.gwGoto });
-  if (btn.dataset.pbCar) return startPhotobooth(+btn.dataset.pbCar);
   if (btn.dataset.gwMove) return cmd("gridwalk_move", { key: btn.dataset.gwMove, direction: +btn.dataset.dir });
   if (btn.id === "gw-reset-order") return cmd("gridwalk_reset_order", {}, "Grid order reset");
   if (btn.id === "gw-copy") {
@@ -566,133 +567,37 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
 });
 
 $("#gw-interval").addEventListener("change", (e) => cmd("gridwalk_settings", { interval: +e.target.value }));
-$("#gw-style").addEventListener("change", (e) => cmd("gridwalk_settings", { style: e.target.value }));
 $("#gw-loop").addEventListener("change", (e) => cmd("gridwalk_settings", { loop: e.target.checked }));
 $("#gw-absent").addEventListener("change", (e) => cmd("gridwalk_settings", { include_absent: e.target.checked }));
 $("#gw-url").textContent = `${location.origin}/gridwalk.html`;
 
-// ---------------------------------------------------------------------------
-// photo booth
-// ---------------------------------------------------------------------------
-
-const PB_CAMERA_KEY = "apex.photoboothCamera";
-let pbGroupsKey = "";
-let pbResultsKey = "";
-
-function renderPhotoboothFolder(pb) {
-  if (!pb) return;
-  const input = $("#pb-folder");
-  if (document.activeElement !== input) input.value = pb.screenshots_custom ? pb.screenshots_dir : "";
-  input.placeholder = pb.screenshots_custom ? "iRacing's own folder" : pb.screenshots_dir;
-  $("#pb-folder-reset").hidden = !pb.screenshots_custom;
+// The grid walk's car pictures: a folder of iRacingID.Carname pictures.
+let gwFolderShown = null;
+function renderThumbs(g) {
+  const th = g.thumbs || {};
+  const input = $("#gw-folder");
+  if (th.folder !== gwFolderShown && document.activeElement !== input) {
+    gwFolderShown = th.folder;
+    input.value = th.folder || "";
+  }
+  $("#gw-folder-clear").hidden = !th.folder;
+  $("#gw-thumbs").textContent = th.error ? th.error
+    : !th.folder ? "No folder picked yet: cars show as drawings in their livery colours."
+      : `${th.count} picture${th.count === 1 ? "" : "s"} in the folder · ${th.matched} of ${th.drivers} drivers on the grid have one.`;
 }
 
-async function setPhotoboothFolder(folder) {
-  try {
-    const r = await api("/api/cmd", { method: "POST", body: { action: "photobooth_folder", params: { folder } } });
-    toast(`Screenshots folder: ${r.folder}`);
-  } catch (err) {
-    toast(err.message, true);
+async function setThumbsFolder(folder) {
+  const r = await cmd("gridwalk_folder", { folder });
+  if (r) {
+    gwFolderShown = null;
+    toast(r.folder ? `Car pictures: ${r.count} found` : "Car pictures folder cleared");
   }
 }
-$("#pb-folder-save").addEventListener("click", () => setPhotoboothFolder($("#pb-folder").value.trim()));
-$("#pb-folder").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") setPhotoboothFolder(e.target.value.trim());
+$("#gw-folder-save").addEventListener("click", () => setThumbsFolder($("#gw-folder").value.trim()));
+$("#gw-folder").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") setThumbsFolder(e.target.value.trim());
 });
-$("#pb-folder-reset").addEventListener("click", () => setPhotoboothFolder(""));
-
-function renderPhotobooth(s) {
-  const pb = s.photobooth;
-  if (!pb) return;
-  // Camera choice: the groups iRacing offers, remembering the last pick.
-  const groups = s.camera.groups || [];
-  const key = groups.map((g) => g.num + g.name).join("|");
-  const sel = $("#pb-camera");
-  if (key !== pbGroupsKey) {
-    pbGroupsKey = key;
-    let saved = null;
-    try {
-      saved = localStorage.getItem(PB_CAMERA_KEY);
-    } catch (e) { /* storage unavailable */ }
-    // A camera looking at the car from the front-side suits the grid walk best.
-    const preferred = ["Rear Chase", "Chase", "TV1"].map((n) => groups.find((g) => g.name === n)).find(Boolean);
-    sel.innerHTML = groups.map((g) => `<option value="${g.num}">${esc(g.name)}</option>`).join("");
-    const pick = groups.find((g) => g.name === saved) || preferred;
-    if (pick) sel.value = String(pick.num);
-  }
-  const busy = ["downloading", "capturing", "processing"].includes(pb.state);
-  $("#pb-start").disabled = busy;
-  $("#pb-cancel").hidden = !busy;
-  $("#pb-cutout").disabled = busy || !pb.cutout_available;
-  if (!pb.cutout_available) $("#pb-cutout").checked = false;
-  // Automatic photos: on or off is kept by the app, so every window agrees.
-  const auto = pb.auto || {};
-  if (document.activeElement !== $("#pb-auto")) $("#pb-auto").checked = !!auto.on;
-  const autoText = auto.error ? `Automatic photos stopped: ${auto.error}`
-    : !auto.on ? "" : auto.paused ? `Automatic photos: ${auto.paused}.`
-      : auto.waiting ? `Automatic photos: ${auto.waiting} car${auto.waiting === 1 ? "" : "s"} just loaded in, photographing in a few seconds…`
-        : `Automatic photos: on${auto.camera ? ` (${auto.camera} camera)` : ""}, waiting for drivers without a photo.`;
-  $("#pb-auto-status").textContent = autoText;
-  $("#pb-auto-status").hidden = !autoText;
-  $("#pb-auto-status").classList.toggle("error-text", !!auto.error);
-  const dl = pb.model_download || {};
-  const pct = dl.total ? Math.round((dl.done / dl.total) * 100) : 0;
-  const n = pb.total;
-  const status = {
-    idle: pb.model_ready || !pb.cutout_available ? "" : "The cut-out model downloads the first time you use it (about 170 MB).",
-    downloading: `Downloading the cut-out model (first time only): ${pct}%…`,
-    capturing: `Photographing ${pb.current || ""} (${pb.captured + 1}/${n})… leave iRacing's camera alone.`,
-    processing: `${pb.use_cutout ? "Cutting out" : "Saving"} ${pb.current || ""} (${pb.processed + 1}/${n})…`,
-    done: `Done: ${pb.results.filter((r) => r.state === "saved").length} of ${n} photos saved to the league.`,
-    cancelled: `Cancelled: ${pb.results.filter((r) => r.state === "saved").length} photos saved.`,
-    error: pb.error || "Something went wrong.",
-  }[pb.state] || "";
-  const el = $("#pb-status");
-  el.textContent = status;
-  el.classList.toggle("error-text", pb.state === "error");
-  const resultsKey = JSON.stringify(pb.results);
-  if (resultsKey === pbResultsKey) return;
-  pbResultsKey = resultsKey;
-  $("#pb-results").innerHTML = pb.results.map((r) => `<figure class="pb-shot ${r.state}" title="${esc(r.error || r.state)}">
-      <div class="pb-img">${r.image ? `<img src="${esc(r.image)}" alt="">` : `<span>${esc(r.state === "failed" ? "✕" : "…")}</span>`}</div>
-      <figcaption><span class="num">${esc(r.number)}</span> ${esc(r.name)}</figcaption>
-    </figure>`).join("");
-}
-
-function startPhotobooth(carIdx) {
-  const params = { group: +$("#pb-camera").value || undefined, cutout: $("#pb-cutout").checked };
-  if (carIdx != null) params.car_idx = carIdx;
-  else params.missing_only = $("#pb-missing").checked;
-  return cmd("photobooth_start", params, (r) => `Photographing ${r.cars} car${r.cars === 1 ? "" : "s"}…`);
-}
-
-$("#pb-start").addEventListener("click", () => startPhotobooth(null));
-$("#pb-cancel").addEventListener("click", () => cmd("photobooth_cancel", {}, "Cancelling…"));
-$("#pb-camera").addEventListener("change", (e) => {
-  try {
-    localStorage.setItem(PB_CAMERA_KEY, e.target.selectedOptions[0].textContent);
-  } catch (err) { /* storage unavailable */ }
-  if ($("#pb-auto").checked) setAutoPhotos(true);  // automatic photos use the new camera
-});
-
-// Automatic photos, with the camera and cut-out picked here.
-function setAutoPhotos(on) {
-  return cmd("photobooth_auto", { enabled: on, group: +$("#pb-camera").value || undefined, cutout: $("#pb-cutout").checked },
-    on ? "Automatic photos on: each driver without a photo is photographed as their car loads in" : "Automatic photos off");
-}
-$("#pb-auto").addEventListener("change", (e) => setAutoPhotos(e.target.checked));
-$("#pb-cutout").addEventListener("change", () => {
-  if ($("#pb-auto").checked) setAutoPhotos(true);
-});
-const PB_MISSING_KEY = "apex.pbMissing";
-try {
-  $("#pb-missing").checked = localStorage.getItem(PB_MISSING_KEY) === "1";
-} catch (e) { /* storage unavailable */ }
-$("#pb-missing").addEventListener("change", (e) => {
-  try {
-    localStorage.setItem(PB_MISSING_KEY, e.target.checked ? "1" : "");
-  } catch (err) { /* storage unavailable */ }
-});
+$("#gw-folder-clear").addEventListener("click", () => setThumbsFolder(""));
 
 // ---------------------------------------------------------------------------
 // interactions
@@ -2256,7 +2161,7 @@ const OVERLAY_FIELDS = {
       ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
-  gridwalk: [OVERLAY_LOOK],
+  gridwalk: [["Car pictures", [["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
   battle: [
     ["What it shows", [
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],

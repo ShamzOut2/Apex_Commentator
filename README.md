@@ -17,9 +17,9 @@ OBS dock.
   logos, notes and car and helmet photos. Define **classes** with your own
   names, colours and logos.
 - **Grid walk**: an on-stream graphic that walks the starting grid two drivers
-  at a time, with livery, helmet, name, team and team logo. It's shown as cars
-  standing on the grid, on a grid map or as a head-to-head, and advances on a
-  timer you set. The **photo booth** photographs every car in iRacing for it.
+  at a time: a track across the screen, each car in its grid box (your own
+  car pictures, matched to each driver and car) with the driver's details
+  beside it. It advances on a timer you set.
 - **Standings overlay**: a timing tower for stream, overall or by class. In
   qualifying it starts empty and fills as drivers set clean laps.
 - **Qualifying lap tracker**: live sector bars (purple, green, yellow) and lap
@@ -43,62 +43,20 @@ walk, Overlays, Boards and Race control.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.7**
+**Coming in the next update**
 
 ### New features
 
-- **Move any overlay**: every overlay has Move right / Move down, to keep
-  them clear of each other and fit your layout.
-- **Sponsor logo bar** under the timing tower's header.
-- **Race control tab**: give any driver a drive-through, stop & go or stop
-  & hold (seconds, minutes or laps), clear one driver's or everyone's
-  penalties, set the grid time, start the race and message every driver,
-  straight to iRacing (you need to be a session admin).
-- **Hotkeys that work from anywhere**: give a camera, overlay, board or the
-  grid walk a key with Ctrl or Alt (e.g. Ctrl+Alt+1) and it works whichever
-  program is in front, iRacing and OBS included. Plain keys still work in
-  the app's own windows.
-- **Hotkeys for overlays and boards**: a key for each overlay (on / off),
-  the grid walk and every board (on screen, and off again), set in the
-  Hotkeys window, now also on the Overlays and Boards tabs.
-- **Championship battle overlay**: pick two to six drivers (or the car on
-  camera and the cars around it, or the top 3) in any championship, overall
-  or a class, and show their places, points and the gaps between them; live
-  during a race, with the points this race would give them.
-- **Board pages**: set how many drivers each board shows a page, and go
-  through the rest with Next / Prev (or hotkeys) until the end.
+- **New grid walk**: a track across the screen with the two cars of each
+  row in their staggered grid boxes and the drivers' details beside them,
+  using your own car pictures: point the app at a folder of pictures named
+  `iRacingID.Carname` (e.g. `123456.Porsche 911 GT3 R (992).png`) and each
+  driver gets the right car and livery.
 
 ### Improvements
 
-- Finishing order: Gap and Interval columns; DNF, DNS and DSQ show there
-  instead of a column of their own.
-- Board backgrounds: an image fills the whole screen at its own size again,
-  whatever the board's size.
-- Timing tower and full screen: "LEFT" after the time left can be turned
-  off, and the accent colour (time / lap, the header's bar and line) can be
-  your own or follow the session: white practice, purple qualifying, red
-  race.
-- Standings (tower and full screen): the leader's interval can show
-  "Leader" or the lap they're on, like the gap column.
-- Heat racing: heats, the consolation and the feature are recognised, can
-  have names of your own, and on the day of a heat event each race takes the
-  name of its league round for that date, with its results saved to that
-  round.
-- The tabs are in a new order: Home, League builder, Teams, Championship,
-  Timing, Grid walk, Overlays, Boards, Race control.
-- Finishing order: a button for every class of the league, secondary
-  classes and classes without points of their own included.
-- The finishing order board can show any session of the event in iRacing:
-  practice, qualifying, warm-up, each heat or the race (practice and
-  qualifying by best lap, without points).
-- Standings (tower and full screen): put the team logo before or after the
-  team name.
-- Driver on camera: swap the team and the car badge (badge under the name,
-  team at the end), and put the team logo before or after the team name.
-- Driver on camera: set how long the card stays on screen (1 to 120
-  seconds), or keep it up while they're on camera. A new driver replaces the
-  card and starts the time again, picking the same driver again in the app
-  brings their card back, and it now goes on time even with iRacing paused.
+- The photo booth (taking car photos in iRacing) and the grid map and head
+  to head grid walk styles are gone; the grid walk uses your own pictures.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -288,11 +246,35 @@ Things to know:
 
 ## Grid walk
 
-![grid walk: cars standing in their grid boxes](docs/gridwalk-track.png)
+![grid walk: two cars in their grid boxes on a track across the screen](docs/gridwalk-track.png)
 
 The **Grid walk** tab runs a broadcast graphic that goes through the whole
-field, front to back, two drivers at a time:
+field, front to back, two drivers at a time. A stretch of track runs across
+the screen; the front car of the row stands in its painted grid box on the
+upper lane, further up the road, and the second one in the box staggered
+behind it below, as on a real grid. Beside each car are the driver's
+details: grid position (and class position in multiclass races), car
+number in the class colour, class badge, car badge, name, nickname, team and
+team logo, and their qualifying time (the class pole's lap, the gap to it
+for everyone else).
 
+- **Car pictures**: you make them, the app puts them in the right place.
+  Put them in one folder and point *Car pictures → Folder* at it. Name each
+  picture **`iRacingID.Carname`**, e.g. `123456.Porsche 911 GT3 R (992).png`
+  (PNG, JPG or WebP):
+  - the **iRacing ID** is the driver's customer ID;
+  - the **car name** is the car they're driving: iRacing's name for it
+    (`Porsche 911 GT3 R (992)`), its short name (`Porsche 911 GT3 R`) or its
+    folder name (`porsche992rgt3`) all work, in any case.
+  Each driver in the session is matched by ID and the car they're in, so a
+  driver with a picture for each of several cars gets the right one; a
+  driver with only one picture gets it whatever the car. Pictures with a
+  see-through background and the car pointing right look best (*Flip the
+  car pictures* turns pictures of cars pointing left around). New or
+  changed pictures in the folder show up by themselves. The grid list shows
+  who has a picture, and what to call the missing ones (hover *No
+  picture*). A driver without one gets the league's car photo if they have
+  one, else a car drawn in their iRacing paint colours.
 - **Order**: the grid comes from qualifying. If there are no qualifying
   results yet, the latest qualifying session's results are used, then current
   positions, then car number. Every driver entered in the session is included,
@@ -301,89 +283,16 @@ field, front to back, two drivers at a time:
   hand (inverted grids, penalties), and **Reset order** to go back.
   *League drivers not in session* adds the active league's remaining roster at
   the back.
-- **Each driver** shows grid position (and class position in multiclass
-  races), car number in the class colour, class logo, name, nickname, team,
-  team logo, car livery and helmet. *Grid on track* also paints each slot's
-  qualifying time on the tarmac: the lap time for the class pole, and the gap
-  to it for everyone else.
-- **Photos**: upload a car livery photo and a helmet photo per driver in the
-  league builder (**Photos** column), and team logos in the **Teams**
-  section. For *Grid on track*, the ideal car image is a **transparent PNG
-  render** of the car in 3/4 view, nose pointing right, so it stands in the
-  grid box like a TV grid walk. A driver without photos gets a car and helmet
-  drawn in their actual iRacing paint colours (from the sim's design
-  strings), so nobody shows up blank.
 - **Controls**: *Start from P1*, *Pause/Resume*, *Prev/Next* pair, *Show*
   on any driver to jump to their pair, and *Hide* to take it off screen.
   *Seconds per pair* sets the timer, and *Loop* restarts from the front.
   Without Loop, the graphic leaves the screen after the last pair.
-- **Style**:
-  - *Grid on track* (default): the pair stands in painted, staggered grid
-    boxes on an angled stretch of track, with slot numbers and qualifying
-    gaps on the tarmac. Name, number and team go in opposite corners with
-    the team logos. It's a full-frame scene with its own background.
-  - *Grid map* draws the whole grid with the current pair lit up, and the
-    two driver cards in their boxes.
-  - *Head to head* puts the pair side by side.
-
-| Grid map | Head to head |
-| --- | --- |
-| ![grid map](docs/gridwalk-grid.png) | ![head to head](docs/gridwalk-h2h.png) |
 
 **On stream**: in OBS add a **Browser Source** of 1920×1080 pointing at
-`http://localhost:8180/gridwalk.html`. The *Grid map* and *Head to head*
-styles have a transparent background, so they sit over your game feed. The walk runs on the server, so the OBS source, the
-preview in the tab, and any other copy all stay in step. Add `?preview=1` to
-the URL to view it on a backdrop in a normal browser.
-
-### Photo booth: real car photos from iRacing
-
-The **Photo booth** in the Grid walk tab takes each driver's car photo
-inside iRacing itself, so it shows their real livery, whether that's a
-Trading Paints paint or an iRacing paint-shop design. For every car loaded
-into the session, it points the chosen camera at the car, hides iRacing's
-on-screen panels, takes iRacing's screenshot, then puts your camera and panels
-back. Each shot is then **cut out** with an AI background-removal model (the
-open IS-Net model, about 170 MB, downloaded the first time you use it), cropped
-to the car, and saved as that driver's car photo in the active league. The
-grid walk uses it straight away. 📷 on a driver's row retakes just that car.
-
-- **Turn on screenshots in iRacing first**: *Settings → Interface → Camera &
-  Screen Capture → Video and Screen Capture*, then restart iRacing. The app
-  looks in `Documents\iRacing\screenshots`. If yours are saved elsewhere,
-  set the **Screenshots folder** under the photo booth.
-- **Moved your iRacing documents folder?** If `Documents\iRacing` is a
-  junction (a folder link) to another drive, newer Windows 11 builds refuse
-  to open it through the link ("WinError 448: untrusted mount point"). The
-  app follows the link to the real folder itself. If it still can't, set
-  the **Screenshots folder** to the real one (e.g. `D:\iRacing\screenshots`).
-- **When**: it takes over the camera for about 2 seconds per car, so run it
-  before you go live. The cut-outs are made afterwards, in the background.
-- **Only cars without a photo yet**: tick it and *Photograph the grid* skips
-  drivers who already have a car photo, so you can press it again as people
-  join and it only takes the new ones.
-- **Photograph drivers as they load in**: with it on, each driver without a
-  car photo is photographed automatically a few seconds after their car
-  loads into the session (cars that load in together are taken in one go),
-  with the camera and cut-out setting picked above. It never runs during a
-  race once it's green, and tries each driver once a session: one that fails
-  can be retaken with 📷. It stays on until you turn it off, even after a
-  restart. Photos are kept in the league, so a photo taken in practice is
-  used on race day.
-- **A front three-quarter view**: the app can pick a camera but can't move
-  one. Make one in iRacing's camera tool (Ctrl+F12): take a camera fixed to
-  the car (e.g. *Chase*), move it ahead of the car and to one side, turn it
-  back to face the car's front corner and save the camera set. Then pick it
-  in the *Camera* list.
-- **Cars spread out make better photos**: the cut-out keeps the car in the
-  middle of the shot and drops cars that merely touch it. A car that
-  overlaps another in the frame can't be separated, so practice and
-  qualifying, when cars are apart, are a better time than the grid. Try
-  cameras such as *Chase*, *Rear Chase* or a TV camera, and retake any that
-  come out wrong.
-- Cars not loaded into the session can't be photographed. They keep their
-  uploaded or drawn car. Untick *Cut out background* to keep the track behind
-  the car. Raw shots are kept in `data\photobooth\raw`.
+`http://localhost:8180/gridwalk.html`. Everything but the title, the track
+and the drivers' panels is see-through. The walk runs on the server, so the
+OBS source, the preview in the tab, and any other copy all stay in step. Add
+`?preview=1` to the URL to view it on a backdrop in a normal browser.
 
 ## Stream overlays
 
@@ -696,8 +605,8 @@ The choices:
 Colour and image both have an **Opacity** slider (0–100%).
 
 What it colours depends on what it is:
-- **On an overlay** (the standings tower, lap trackers, sponsors panel, grid
-  walk cards), the setting is the overlay's own panels: their background
+- **On an overlay** (the standings tower, lap trackers, sponsors panel, the
+  grid walk's title and driver panels), the setting is the overlay's own panels: their background
   takes the colour, or shows the image inside them, behind the text. The
   rest of the screen stays see-through, so the race is never covered.
 - **On a board**, it's the whole screen behind the board: an image shows at
@@ -1059,7 +968,7 @@ A driver's class comes from:
 
 On the **Timing** screen, each driver's class position is underlined and
 their car number edged in the class colour, and the class chips above the
-standings show one class at a time. Class logos head the grid walk cards.
+standings show one class at a time. Class logos show by the drivers in the grid walk.
 
 **Built-in logos.** The league's tier logos ship with the app as layered
 SVGs in `web/logos/`: PRO, SEMI-PRO, PRO-AM, AM, GOLD, SILVER and BRONZE.

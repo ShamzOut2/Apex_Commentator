@@ -45,11 +45,6 @@ def documents_dir():
     return Path.home() / "Documents"
 
 
-def iracing_screenshots_dir():
-    """Where iRacing saves screenshots: Documents\\iRacing\\screenshots."""
-    return documents_dir() / "iRacing" / "screenshots"
-
-
 def real_path(path):
     """``path`` with any junctions or symlinks along it replaced by their targets.
 

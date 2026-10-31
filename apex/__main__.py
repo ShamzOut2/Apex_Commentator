@@ -10,7 +10,6 @@ import sys
 import time
 import urllib.request
 import webbrowser
-from pathlib import Path
 
 from . import __version__, desktop
 from .config import ROOT, load_config
@@ -19,10 +18,8 @@ from .overlays import OverlaySettings
 from .settings import UserSettings
 from .tracks import TrackCatalogue
 from .core import App
-from .cutout import Cutout
 from .league import LeagueStore
-from .paths import APP_DIR, FROZEN, iracing_screenshots_dir
-from .photobooth import PhotoBooth
+from .paths import APP_DIR, FROZEN
 from .server import make_server, serve_in_thread
 from .updater import Updater, restart_options, restart_requested
 
@@ -59,16 +56,11 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
     app.settings = UserSettings(ROOT / "data" / "settings.json")
     app.tracks = TrackCatalogue(ROOT / "data" / "tracks.json")
     app.backgrounds = Backgrounds(ROOT / "data" / "backgrounds")
-    if mock:
-        # The mock "iRacing" writes its screenshots here.
-        source.screenshots_dir = ROOT / "data" / "mock-screenshots"
-        shots = source.screenshots_dir
-    else:
-        shots = Path(cfg["screenshots_dir"]) if cfg["screenshots_dir"] else iracing_screenshots_dir()
-    app.photobooth = PhotoBooth(app, shots, ROOT / "data" / "photobooth", Cutout(ROOT / "data" / "models"),
-                                settle_s=float(cfg["photobooth_settle_s"]))
-    if app.settings.get("screenshots_dir") and not mock:
-        app.photobooth.set_folder(app.settings.get("screenshots_dir"))
+    try:
+        # The grid walk's car pictures: the folder picked last time.
+        app.thumbnails.set_folder(app.settings.get("gridwalk_thumbs_dir") or "")
+    except ValueError as e:
+        print(f"[apex] grid walk pictures: {e}")
     from .hotkeys import IS_WINDOWS, GlobalHotkeys
     if IS_WINDOWS:
         # Keys with Ctrl / Alt work whichever program is in front (see hotkeys.py).
@@ -99,10 +91,6 @@ def smoke_test(cfg):
                 body = resp.read()
             if expect not in body:
                 raise AssertionError(f"{path} did not contain {expect!r}")
-        if FROZEN:
-            from .cutout import dependencies_available
-            if not dependencies_available():
-                raise AssertionError("photo booth cut-out libraries (onnxruntime, numpy, Pillow) aren't bundled")
         print(f"smoke test passed (v{__version__})")
         return 0
     except Exception as e:

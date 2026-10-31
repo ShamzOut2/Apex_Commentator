@@ -130,6 +130,8 @@ main.fixed { overflow: hidden; }
 .tag.pit { background: var(--info); color: #001428; }
 .tag.off { background: var(--warn); color: #1d1600; }
 .tag.out { background: var(--line); color: var(--muted); }
+.gw-table .tag { white-space: nowrap; }
+.tag.ok { background: rgba(47, 214, 107, .18); color: var(--good, #2fd66b); }
 .best { color: #c08cff; }
 .actions { display: flex; gap: 4px; justify-content: flex-end; }
 .ev-count { min-width: 22px; text-align: center; }
@@ -253,18 +255,6 @@ main.fixed { overflow: hidden; }
 .gw-table tr.on-screen td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .booth { margin-top: 14px; }
 .error-text { color: var(--bad); }
-.pb-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
-.pb-shot { margin: 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
-.pb-shot.failed { border-color: var(--bad); }
-.pb-img {
-  height: 64px; display: flex; align-items: center; justify-content: center; color: var(--muted);
-  /* checkerboard so cut-out transparency is visible */
-  background: repeating-conic-gradient(#2a2f3a 0 25%, #1e222b 0 50%) 0 0 / 14px 14px;
-}
-.pb-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.pb-shot.failed .pb-img span { color: var(--bad); }
-.pb-shot figcaption { font-size: 11px; padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pb-shot .num { min-width: 22px; font-size: 10px; padding: 0 3px; }
 code { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
 @media (max-width: 900px) { .gw-layout { grid-template-columns: 1fr; } }
 

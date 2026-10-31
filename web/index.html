@@ -199,51 +199,29 @@
           </div>
           <div class="gw-settings">
             <label>Seconds per pair <input id="gw-interval" type="number" min="2" max="120" step="1"></label>
-            <label>Style
-              <select id="gw-style">
-                <option value="track">Grid on track</option>
-                <option value="grid">Grid map</option>
-                <option value="h2h">Head to head</option>
-              </select>
-            </label>
             <label class="toggle"><input type="checkbox" id="gw-loop"> Loop</label>
             <label class="toggle" title="Add drivers from the active league who are not in this session, at the back">
               <input type="checkbox" id="gw-absent"> League drivers not in session</label>
           </div>
           <p class="hint">On stream: add a <b>Browser Source</b> in OBS (1920×1080) with
             <code id="gw-url"></code> <button class="btn subtle icon" id="gw-copy" title="Copy URL">Copy</button>.
-            Grid map and Head to head have a transparent background. <span class="desk" data-desk="gridwalk"></span></p>
+            Everything but the track and the panels is see-through. <span class="desk" data-desk="gridwalk"></span></p>
           <div id="ov-gridwalk" class="ov-form" data-overlay="gridwalk"></div>
           <div class="gw-preview"><iframe id="gw-frame" title="Grid walk preview" src="gridwalk.html?preview=1"></iframe></div>
           <div class="booth">
-            <h3 class="section-title">Photo booth</h3>
-            <p class="hint">Photographs each car loaded into the session in iRacing and uses it as the driver's car
-              photo in the grid walk, saved to the active league. Needs iRacing's <i>Video and Screen Capture</i>
-              setting on. It takes over the camera for about 2 seconds per car, so run it before you go live.</p>
-            <div class="gw-settings">
-              <label>Camera <select id="pb-camera"></select></label>
-              <label class="toggle" title="Remove the track behind the car (an AI model, about 170 MB downloaded the first time)">
-                <input type="checkbox" id="pb-cutout" checked> Cut out background</label>
-              <label class="toggle" title="Photograph the grid only takes the cars whose driver has no car photo yet">
-                <input type="checkbox" id="pb-missing"> Only cars without a photo yet</label>
-              <label class="toggle" title="Each driver without a car photo is photographed by themselves a few seconds after their car loads in. Never during a race once it's green.">
-                <input type="checkbox" id="pb-auto"> Photograph drivers as they load in</label>
-            </div>
-            <p id="pb-auto-status" class="hint" hidden></p>
-            <div class="gw-controls">
-              <button class="btn primary" id="pb-start">📷 Photograph the grid</button>
-              <button class="btn subtle" id="pb-cancel" hidden>Cancel</button>
-            </div>
+            <h3 class="section-title">Car pictures</h3>
+            <p class="hint">Point the app at the folder of car pictures you've made for the grid walk. Name each picture
+              <code>iRacingID.Carname</code>, e.g. <code>123456.Porsche 911 GT3 R (992).png</code> (PNG, JPG or WebP;
+              a see-through background looks best, the car pointing right). Each driver is matched by their iRacing ID
+              and the car they're in, so the right car and livery show for the right person; a driver with only one
+              picture gets it whatever the car. New pictures dropped in the folder show up by themselves.</p>
             <div class="row pb-folder">
-              <label class="grow">Screenshots folder
-                <input id="pb-folder" placeholder="iRacing's own folder" aria-label="iRacing screenshots folder"></label>
-              <button class="btn" id="pb-folder-save">Save</button>
-              <button class="btn subtle" id="pb-folder-reset" hidden>Use iRacing's folder</button>
+              <label class="grow">Folder
+                <input id="gw-folder" placeholder="e.g. C:\Users\you\Pictures\Grid walk" aria-label="Car pictures folder"></label>
+              <button class="btn" id="gw-folder-save">Use this folder</button>
+              <button class="btn subtle" id="gw-folder-clear" hidden>Clear</button>
             </div>
-            <p class="hint">Where iRacing saves screenshots, normally Documents\iRacing\screenshots. If you moved your
-              iRacing documents folder to another drive, put the real folder here.</p>
-            <p id="pb-status" class="hint" aria-live="polite"></p>
-            <div id="pb-results" class="pb-results"></div>
+            <p id="gw-thumbs" class="hint" aria-live="polite"></p>
           </div>
         </div>
         <div class="gw-order">

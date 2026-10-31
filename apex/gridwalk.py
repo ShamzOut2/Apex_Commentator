@@ -13,14 +13,13 @@ covers the whole field. The commentator can reorder entries by hand; a manual
 order survives until it is reset.
 
 ``GridWalk`` holds the shared walk state (shown/running, current pair,
-interval, style). It advances on the server so every page showing the walk,
+interval). It advances on the server so every page showing the walk,
 such as the control panel preview and the OBS broadcast page, stays in step.
 """
 
 import re
 import time
 
-STYLES = ("track", "grid", "h2h")
 MIN_INTERVAL_S = 2.0
 MAX_INTERVAL_S = 120.0
 HEX = re.compile(r"^[0-9a-fA-F]{6}$")
@@ -93,10 +92,9 @@ def grid_order(drivers, info, official_positions=None):
 
 
 class GridWalk:
-    def __init__(self, interval=8.0, style="track", clock=time.monotonic):
+    def __init__(self, interval=8.0, clock=time.monotonic):
         self.clock = clock
         self.interval = float(interval)
-        self.style = style if style in STYLES else "track"
         self.loop = False
         self.include_absent = False
         self.visible = False
@@ -167,13 +165,9 @@ class GridWalk:
         self.visible = False
         self.running = False
 
-    def configure(self, interval=None, style=None, loop=None, include_absent=None):
+    def configure(self, interval=None, loop=None, include_absent=None):
         if interval is not None:
             self.interval = min(MAX_INTERVAL_S, max(MIN_INTERVAL_S, float(interval)))
-        if style is not None:
-            if style not in STYLES:
-                raise ValueError(f"Style must be one of {', '.join(STYLES)}")
-            self.style = style
         if loop is not None:
             self.loop = bool(loop)
         if include_absent is not None:
@@ -207,7 +201,6 @@ class GridWalk:
             "index": self.index,
             "interval": self.interval,
             "elapsed": round(min(elapsed, self.interval), 2),
-            "style": self.style,
             "loop": self.loop,
             "include_absent": self.include_absent,
             "manual_order": self.manual_order is not None,

@@ -408,75 +408,6 @@ function carSvg(design, number, { mirror = false } = {}) {
   </svg>`;
 }
 
-function helmetSvg(design, { mirror = false } = {}) {
-  const id = `lv${++liveryIds}`;
-  const [c1, c2, c3] = designColors(design, ["#f2f2f2", "#d7263d", "#111111"]);
-  const shell = "M28 128 Q14 52 92 30 Q166 14 184 86 L186 124 Q152 140 100 144 L40 144 Q30 140 28 128 Z";
-  return `<svg class="livery livery-helmet" viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg" ${mirror ? 'style="transform:scaleX(-1)"' : ""}>
-    <defs><clipPath id="${id}"><path d="${shell}"/></clipPath></defs>
-    <path d="${shell}" fill="${c1}"/>
-    <g clip-path="url(#${id})">${liveryAccents(((design && design.pattern) || 0) + 1, 200, 160, c2, c3)}</g>
-    <path d="${shell}" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.5"/>
-    <path d="M106 62 Q160 56 182 80 L183 100 Q150 98 108 98 Q98 80 106 62 Z" fill="#1d2633" stroke="#0c0f14" stroke-width="2"/>
-    <path d="M116 66 Q150 62 170 74 L150 76 Q128 74 116 78 Z" fill="rgba(255,255,255,.25)"/>
-    <rect x="96" y="58" width="12" height="44" rx="5" fill="${c3}"/>
-    <path d="M60 30 Q100 16 140 24" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="5" stroke-linecap="round"/>
-  </svg>`;
-}
-
-// A 3/4 front view for the "grid on track" style, where cars stand on an
-// angled road. Built from a tiny projection: s runs nose-ward along the car,
-// t across it (0 = near side), h up from the ground.
-function car34Svg(design, number) {
-  const id = `lv${++liveryIds}`;
-  const [c1, c2, c3] = designColors(design, ["#d0d4da", "#1b76d1", "#111111"]);
-  // Matches the "grid on track" road: the car points down-right, its far side up-right.
-  const P = (s, t, h) => [40 + s * 470 + t * 70, 186 + s * 68 - t * 88 - h * 100];
-  const poly = (...pts) => pts.map((p) => P(...p).map((v) => v.toFixed(1)).join(",")).join(" ");
-  const wheel = (s, t, r = 1) => {
-    const [x, y] = P(s, t, 0.13);
-    return `<ellipse cx="${x}" cy="${y}" rx="${30 * r}" ry="${36 * r}" fill="#121212"/>
-      <ellipse cx="${x + 3}" cy="${y}" rx="${18 * r}" ry="${23 * r}" fill="#7d838c"/>
-      <ellipse cx="${x + 4}" cy="${y}" rx="${7 * r}" ry="${9 * r}" fill="#2f3339"/>`;
-  };
-  // Near side of the body, slightly tucked in at both ends.
-  const side = poly([0.02, 0, 0.13], [0, 0, 0.5], [0.06, 0, 0.56], [0.94, 0, 0.5], [1, 0, 0.36], [1, 0, 0.18], [0.97, 0, 0.13]);
-  // Rectangle (w 470 x h 100) -> the side face, for painting the livery on it.
-  const [ox, oy] = P(0, 0, 0.56);
-  const sideMap = `matrix(1 ${(68 / 470).toFixed(4)} 0 ${(0.43 * 100 / 100).toFixed(4)} ${ox} ${oy})`;
-  const [nx, ny] = P(0.52, 0, 0.33);
-  return `<svg class="livery livery-car34" viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
-    <defs><clipPath id="${id}"><polygon points="${side}"/></clipPath></defs>
-    <polygon points="${poly([-0.04, -0.05, 0], [1.05, -0.05, 0], [1.05, 1.08, 0], [-0.04, 1.08, 0])}" fill="rgba(0,0,0,.38)"/>
-    ${wheel(0.8, 1, 0.92)}${wheel(0.2, 1, 0.92)}
-    <polygon points="${poly([0, 0, 0.5], [0, 1, 0.5], [0.94, 1, 0.5], [0.94, 0, 0.5])}" fill="${c1}"/>
-    <polygon points="${poly([0.94, 0, 0.5], [0.94, 1, 0.5], [1, 1, 0.36], [1, 0, 0.36])}" fill="${c1}"/>
-    <polygon points="${poly([0.94, 0, 0.5], [0.94, 1, 0.5], [1, 1, 0.36], [1, 0, 0.36])}" fill="rgba(255,255,255,.12)"/>
-    <polygon points="${poly([1, 0, 0.36], [1, 1, 0.36], [1, 1, 0.16], [1, 0, 0.16])}" fill="${c2}"/>
-    <polygon points="${poly([1, 0.06, 0.33], [1, 0.3, 0.33], [1, 0.3, 0.26], [1, 0.06, 0.26])}" fill="#e9eef5"/>
-    <polygon points="${poly([1, 0.7, 0.33], [1, 0.94, 0.33], [1, 0.94, 0.26], [1, 0.7, 0.26])}" fill="#e9eef5"/>
-    <polygon points="${poly([1, 0.02, 0.15], [1, 0.98, 0.15], [1.03, 0.98, 0.1], [1.03, 0.02, 0.1])}" fill="#151515"/>
-    <polygon points="${poly([0.28, 0.12, 0.5], [0.4, 0.16, 0.86], [0.62, 0.16, 0.86], [0.75, 0.12, 0.5])}" fill="#1b2430"/>
-    <polygon points="${poly([0.4, 0.16, 0.86], [0.62, 0.16, 0.86], [0.62, 0.84, 0.86], [0.4, 0.84, 0.86])}" fill="${c1}"/>
-    <polygon points="${poly([0.4, 0.16, 0.86], [0.62, 0.16, 0.86], [0.62, 0.84, 0.86], [0.4, 0.84, 0.86])}" fill="rgba(255,255,255,.14)"/>
-    <polygon points="${poly([0.62, 0.16, 0.86], [0.75, 0.12, 0.5], [0.75, 0.88, 0.5], [0.62, 0.84, 0.86])}" fill="#253244"/>
-    <polygon points="${poly([0.64, 0.24, 0.8], [0.72, 0.22, 0.56], [0.72, 0.4, 0.56], [0.64, 0.4, 0.8])}" fill="rgba(255,255,255,.2)"/>
-    <polygon points="${side}" fill="${c1}"/>
-    <g clip-path="url(#${id})"><g transform="${sideMap}">${liveryAccents(design && design.pattern, 470, 100, c2, c3)}</g></g>
-    <polygon points="${side}" fill="none" stroke="rgba(0,0,0,.3)" stroke-width="2"/>
-    <polygon points="${poly([0.02, 0, 0.17], [0.97, 0, 0.17], [0.97, 0, 0.13], [0.02, 0, 0.13])}" fill="#151515"/>
-    ${wheel(0.2, 0)}${wheel(0.8, 0)}
-    <polygon points="${poly([0, 0.04, 0.5], [0.03, 0.04, 0.78], [0.05, 0.04, 0.78], [0.04, 0.04, 0.5])}" fill="#202020"/>
-    <polygon points="${poly([0, 0.96, 0.5], [0.03, 0.96, 0.78], [0.05, 0.96, 0.78], [0.04, 0.96, 0.5])}" fill="#202020"/>
-    <polygon points="${poly([-0.03, 0, 0.78], [0.08, 0, 0.8], [0.08, 1, 0.8], [-0.03, 1, 0.78])}" fill="${c3}"/>
-    <polygon points="${poly([-0.03, 0, 0.78], [0.08, 0, 0.8], [0.08, 0, 0.74], [-0.03, 0, 0.72])}" fill="#151515"/>
-    <g transform="${sideMap.replace(/ [\d.]+ [\d.]+\)$/, ` ${nx} ${ny})`)}">
-      <ellipse cx="0" cy="0" rx="26" ry="26" fill="#fff" stroke="#111" stroke-width="2"/>
-      <text x="0" y="9" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="900" font-size="26" fill="#111">${esc(number)}</text>
-    </g>
-  </svg>`;
-}
-
 // ---------------------------------------------------------------------------
 // broadcast pages
 // ---------------------------------------------------------------------------
@@ -577,7 +508,7 @@ const DESK_PARTS = {
   "/laps.html": ".tracker",
   "/driver.html": "#slot > *",
   "/sponsors.html": ".sp",
-  "/gridwalk.html": "#stage > *",
+  "/gridwalk.html": ".gw-title, .gw-track, .gw-info",
   "/board.html": "#stage > *",
   "/battle.html": ".battle:not(.out)",
 };

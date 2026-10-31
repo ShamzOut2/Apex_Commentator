@@ -125,7 +125,9 @@ class CoreTests(unittest.TestCase):
         self.assertEqual([e["grid_pos"] for e in entries], list(range(1, 19)))
         # The mock's grid follows its qualifying order.
         self.assertEqual([e["car_idx"] for e in entries], [i + 1 for i in self.source.qual_order])
-        self.assertTrue(all(e["car_design"] and e["helmet_design"] for e in entries))
+        self.assertTrue(all(e["car_design"] for e in entries))
+        self.assertTrue(all(e["car_image"] is None and not e["has_thumb"] for e in entries))  # no pictures folder
+        self.assertEqual(g["thumbs"]["folder"], "")
         self.assertEqual(entries[0]["team"], self.source.drivers[entries[0]["car_idx"]]["TeamName"])
         # Qualifying gaps are to each class's pole, which shows a gap of zero.
         seen = set()
@@ -144,7 +146,7 @@ class CoreTests(unittest.TestCase):
         self.app.command("gridwalk_reset_order", {})
         self.app.command("gridwalk_hide", {})
         with self.assertRaises(CommandError):
-            self.app.command("gridwalk_settings", {"style": "nope"})
+            self.app.command("gridwalk_settings", {"interval": "nope"})
 
     def test_logging_follows_live_and_replay_without_duplicates(self):
         app, source = self.app, self.source
@@ -263,7 +265,6 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(mine["nickname"], "Rocket")
         self.assertTrue(mine["car_image"].startswith(f"/api/logos/{league['id']}/car-"))
         self.assertTrue(mine["team_logo"].startswith(f"/api/logos/{league['id']}/team-"))
-        self.assertIsNone(mine["helmet_image"])
         absent = entries[-1]
         self.assertEqual((absent["name"], absent["in_session"], absent["grid_pos"]), ("Absent Andy", False, len(entries)))
         with urllib.request.urlopen(self.base + mine["car_image"], timeout=5) as r:

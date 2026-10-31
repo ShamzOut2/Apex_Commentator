@@ -11,6 +11,21 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- **New grid walk**: a track across the screen with the two cars of each
+  row in their staggered grid boxes and the drivers' details beside them,
+  using your own car pictures: point the app at a folder of pictures named
+  `iRacingID.Carname` (e.g. `123456.Porsche 911 GT3 R (992).png`) and each
+  driver gets the right car and livery.
+
+### Improvements
+
+- The photo booth (taking car photos in iRacing) and the grid map and head
+  to head grid walk styles are gone; the grid walk uses your own pictures.
+
 ## v0.4.7
 
 ### New features

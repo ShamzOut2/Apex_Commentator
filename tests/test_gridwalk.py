@@ -108,10 +108,10 @@ class GridWalkTests(unittest.TestCase):
         self.assertFalse(self.walk.running)    # stepping alone doesn't start the timer
 
     def test_settings_are_validated(self):
-        self.walk.configure(interval=0.5, style="h2h")
-        self.assertEqual((self.walk.interval, self.walk.style), (2.0, "h2h"))
-        with self.assertRaises(ValueError):
-            self.walk.configure(style="carousel")
+        self.walk.configure(interval=0.5)
+        self.assertEqual(self.walk.interval, 2.0)
+        self.walk.configure(interval=500)
+        self.assertEqual(self.walk.interval, 120.0)
 
     def test_manual_order(self):
         keys = ["a", "b", "c"]
