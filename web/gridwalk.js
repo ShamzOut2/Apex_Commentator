@@ -183,7 +183,7 @@ function paint(x0, slots, pole, entries) {
     out.push(`<div class="box" style="left:${l}px;top:${t}px;width:${BOX.len * PX}px;height:${BOX.wid * PX}px"></div>`);
     const [nl, nt] = at(slotX(n) + 0.7, slotY(n) + 1.45);
     const e = entries[n - 1];
-    const qual = e ? qualText(e) : "";
+    const qual = e && look.track_qual !== false ? qualText(e, look.qual_shown) : "";
     out.push(`<div class="slot-num" style="left:${nl}px;top:${nt}px">${n}${qual ? `<small>${esc(qual)}</small>` : ""}</div>`);
   }
   if (pole) {  // the start line, just ahead of pole
@@ -204,15 +204,30 @@ function carArt(e, cfg) {
 function carPlace(cam, n) {
   const x = slotX(n) - BOX.len / 2, y = slotY(n);
   const [sx, sy, z] = project(cam, [x, y, 0]);
-  const scale = CAM.f / z;  // pixels a metre there
+  const scale = (CAM.f / z) * ((look.car_scale || 100) / 100);  // pixels a metre there, at the size set
   return { sx, sy, z, w: 4.9 * scale, h: 2.2 * scale };
 }
 
+let look = {};  // the grid walk's settings, as last drawn
+
 // --- the driver panels ------------------------------------------------------------
-function qualText(e) {  // pole: its lap time; everyone else: the gap to their class pole
-  if (e.qual_gap) return `+${e.qual_gap.toFixed(3)}`;
-  if (e.qual_time) return fmtLap(e.qual_time);
-  return "";
+// Their qualifying, as picked (qual_shown): the gap to their class pole, the
+// interval to the car ahead of them in class, or the lap time. The class
+// pole shows its lap time with a gap or an interval.
+function qualText(e, how = "gap") {
+  if (how === "none" || !e.qual_time) return "";
+  if (how === "gap" && e.qual_gap) return `+${e.qual_gap.toFixed(3)}`;
+  if (how === "interval" && e.qual_int) return `+${e.qual_int.toFixed(3)}`;
+  return fmtLap(e.qual_time);
+}
+
+// The grid place, as the driver card shows a position: overall, in class, or both.
+function placeHtml(e, cfg, cls) {
+  const which = cfg.position_shown || "overall";
+  const name = cfg.pos_class_name !== false && cls.name ? esc(cls.name) : "";
+  if (which === "class" && e.class_pos) return `<span class="p">P${e.class_pos}</span>${name ? `<span class="cp">${name}</span>` : ""}`;
+  if (which === "both" && e.class_pos) return `<span class="p">P${e.grid_pos}</span><span class="cp">P${e.class_pos}${name ? ` ${name}` : ""}</span>`;
+  return `<span class="p">P${e.grid_pos}</span>`;
 }
 
 // Each driver's card, in the style of the driver-on-camera card (driver.html):
@@ -220,21 +235,25 @@ function qualText(e) {  // pole: its lap time; everyone else: the gap to their c
 // nickname under it, the team with its logo, the qualifying time, the car badge.
 function infoHtml(e, i, cls, cfg, multiclass) {
   const status = !e.in_session ? "NOT IN SESSION" : !e.in_world ? "NOT ON TRACK" : "";
-  const qual = qualText(e);
-  const color = cls.color || "";
+  const qual = qualText(e, cfg.qual_shown);
+  // Their class colour (main or secondary, as set), or none.
+  const color = paintFor(e, cls, cfg.class_colors) || "";
   const nick = cfg.show_nickname !== false && e.nickname && cfg.name_format !== "nickname" ? e.nickname : "";
-  const logo = (multiclass || cls.logo) && classLogo(cls, rerender);  // the class logo, laid on its colour
-  const klass = logo ? `<span class="klass has-logo" style="background:${esc(color)}"><img class="klass-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}"></span>`
+  const logo = cfg.show_class !== false && (multiclass || cls.logo) && classLogo(cls, rerender);  // the class logo, laid on its colour
+  const klass = cfg.show_class === false ? "" : logo ? `<span class="klass has-logo" style="background:${esc(color)}"><img class="klass-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}"></span>`
     : multiclass && cls.name ? `<span class="klass" style="background:${esc(color)};color:${inkFor(color)}">${esc(cls.name)}</span>` : "";
-  const team = e.team || e.team_logo
-    ? `<div class="team">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}${e.team ? `<span class="team-name">${esc(e.team)}</span>` : ""}</div>` : "";
+  const teamLogo = cfg.show_logo !== false && e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : "";
+  const teamName = cfg.show_team !== false && e.team ? `<span class="team-name">${esc(e.team)}</span>` : "";
+  const team = teamLogo || teamName ? `<div class="team">${teamLogo}${teamName}</div>` : "";
+  const number = cfg.show_number === false || !e.number ? ""
+    : color ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(e.number)}</span>` : `<span class="num plain">${esc(e.number)}</span>`;
   return `<div class="gw-info ${i ? "rear" : "front"}" style="--cls:${esc(color || "var(--accent)")}">
-      <div class="pos" style="color:${color ? inkFor(color) : "#fff"}"><span class="p">P${e.grid_pos}</span>${multiclass ? `<span class="cp">P${e.class_pos} IN CLASS</span>` : ""}</div>
-      <div class="who"><span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(e.number)}</span>
+      ${cfg.show_position !== false ? `<div class="pos" style="color:${color ? inkFor(color) : "#fff"}">${placeHtml(e, cfg, cls)}</div>` : ""}
+      <div class="who">${number}
         <div class="names"><div class="name">${esc(formatName(e, cfg.name_format))}${klass}</div>
           ${nick ? `<div class="nick">“${esc(nick)}”</div>` : ""}${team}</div></div>
       ${qual || status ? `<div class="qual">${qual ? `<span class="t">${esc(qual)}</span>` : ""}${status ? `<span class="status">${status}</span>` : ""}</div>` : ""}
-      ${e.make_logo ? `<span class="make"><img src="${esc(e.make_logo)}" alt="${esc(e.make)}"></span>` : ""}
+      ${cfg.show_make !== false && e.make_logo ? `<span class="make"><img src="${esc(e.make_logo)}" alt="${esc(e.make)}"></span>` : ""}
     </div>`;
 }
 
@@ -349,6 +368,7 @@ function render() {
   const g = snap && snap.gridwalk;
   if (!g) return;
   const cfg = (snap.overlays && snap.overlays.settings.gridwalk) || {};
+  look = cfg;
   const entries = g.entries || [];
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const pair = entries.slice(g.index, g.index + 2);
@@ -359,6 +379,8 @@ function render() {
   // Only rebuild when what's on screen changes, so the animations play once.
   const key = JSON.stringify([show, g.index, pair, entries.slice(Math.max(0, g.index - 8), g.index).map((e) => [e.key, e.car_image, e.car_design]),
     pair.map((e) => classes.get(e.class_key) || null), cfg.flip_cars, cfg.name_format, cfg.show_nickname, cfg.neighbours,
+    ["car_scale", "show_position", "position_shown", "pos_class_name", "show_number", "show_team", "show_logo", "show_make",
+      "show_class", "class_colors", "qual_shown", "track_qual", "logo_scale"].map((k) => cfg[k]),
     snap.league && snap.league.name, snap.session && snap.session.track]);
   if (key === shownKey) return;
   const samePair = shownKey && JSON.parse(shownKey)[1] === g.index && JSON.parse(shownKey)[0] === show;

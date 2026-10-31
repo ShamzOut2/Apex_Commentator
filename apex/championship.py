@@ -441,15 +441,23 @@ def standings(profile, live_round=None):
     # another key (e.g. results saved before their iRacing ID was in the
     # roster): it's theirs, matched by name, so it comes off every
     # championship they score in (their class's as well as overall).
+    def plain(name):  # "(P) Dave  PRICE" -> "dave price"
+        return " ".join(re.sub(r"^\s*\([^()]*\)\s*", "", str(name or "")).lower().split())
+
     by_name = {}
     for d in latest:
-        n = str((roster.get(d) or {}).get("name") or names.get(d) or "").strip().lower()
-        if n:
-            by_name.setdefault(n, d)
+        for n in {plain((roster.get(d) or {}).get("name")), plain(names.get(d)),
+                  plain(d[len("name:"):]) if d.startswith("name:") else ""}:
+            if n:
+                by_name.setdefault(n, d)
     for p in champ["penalties"]:
         d = p["driver"]
         if d not in latest:
-            d = by_name.get(str((roster.get(d) or {}).get("name") or "").strip().lower(), d)
+            entry = roster.get(d) or {}
+            for n in (plain(entry.get("name")), plain(entry.get("nickname")), plain(d[len("name:"):]) if d.startswith("name:") else ""):
+                if n and n in by_name:
+                    d = by_name[n]
+                    break
         penalties[d] = penalties.get(d, 0) + p["points"]
         licence[d] = licence.get(d, 0) + p["licence"]
     for d in list(penalties) + list(licence):
