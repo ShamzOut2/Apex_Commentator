@@ -17,6 +17,9 @@ A league profile can carry a ``championship``:
   among each other, on the class's own points table or the class one.
 * **rounds**: each round's results, imported from iRacing or typed in, with a
   points multiplier (double points finales) and a "can't be dropped" flag.
+  Rounds next to each other with the same ``event`` are the races of one
+  race meeting (e.g. three heat races at one track on one night): each race
+  is a round of its own for the points, and the calendar shows the meeting.
 * **penalties**: points taken off after a race, and licence penalty points,
   each with a reason. Penalties can't be dropped.
 
@@ -153,6 +156,7 @@ def normalise(champ):
         rounds.append({
             "id": _id(rd.get("id")),
             "name": str(rd.get("name") or f"Round {len(rounds) + 1}").strip(),
+            "event": str(rd.get("event") or "").strip()[:80],     # the race meeting it's a race of
             "track": str(rd.get("track") or "").strip(),
             "config": str(rd.get("config") or "").strip()[:80],      # the track's layout
             "track_id": rd.get("track_id") if isinstance(rd.get("track_id"), int) else None,
@@ -660,7 +664,7 @@ def calendar(profile):
             # Overall first, then the classes in the league's order.
             order = [OVERALL] + [c["id"] for c in profile.get("classes", [])]
             winners.sort(key=lambda w: order.index(w["group"]) if w["group"] in order else 99)
-        out.append({"round": i, "id": rd["id"], "name": rd["name"], "track": rd["track"], "config": rd["config"],
+        out.append({"round": i, "id": rd["id"], "name": rd["name"], "event": rd["event"], "track": rd["track"], "config": rd["config"],
                     "date": rd["date"], "time": rd["time"], "length": rd["length"], "done": bool(rd["results"]),
                     "multiplier": rd["multiplier"], "winners": winners})
     return out

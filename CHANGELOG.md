@@ -15,6 +15,12 @@ How each version's entry is written:
 
 ### New features
 
+- **Build the season's rounds from a calendar**: from the league's season in
+  iRacing, by scanning the league's calendar image, or from its text pasted
+  in. Check and correct the rounds found, then make them all at once.
+- **Race meetings** for leagues that run several races in one event (heat
+  races) and count each as a round. Import every race of the event in one
+  go, and the calendar board shows the meeting as one.
 - **Secondary classes**: a driver can be in a second class as well as their
   main one (e.g. a Rookie Cup or Pro-Am trophy). It works in the background:
   the overlays show the main class, and the secondary class gets its own

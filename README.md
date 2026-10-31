@@ -41,6 +41,12 @@ OBS dock.
 
 ### New features
 
+- **Build the season's rounds from a calendar**: from the league's season in
+  iRacing, by scanning the league's calendar image, or from its text pasted
+  in. Check and correct the rounds found, then make them all at once.
+- **Race meetings** for leagues that run several races in one event (heat
+  races) and count each as a round. Import every race of the event in one
+  go, and the calendar board shows the meeting as one.
 - **Secondary classes**: a driver can be in a second class as well as their
   main one (e.g. a Rookie Cup or Pro-Am trophy). It works in the background:
   the overlays show the main class, and the secondary class gets its own
@@ -618,6 +624,8 @@ built from the active league:
   length, which rounds are done (with their winners) and which is next.
   - **Round titles**: "Round 3 · your round name", just your round name, or
     just "Round 3". A round you haven't named is always "Round 3".
+  - A race meeting of several races (heat races, say) is one card: "Rounds
+    4–6", the number of races, and each race's winner.
   - **Dates as**: Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or
     Sunday 22nd November.
   - A round with a points multiplier other than 1 (Championship → Calendar
@@ -694,6 +702,35 @@ standings update from what's saved.
 - **Rounds & results**
   - Add the season's rounds, with a points multiplier (2 for double points)
     and *Can't drop* for rounds that always count.
+  - **Build the rounds from a calendar** makes the whole season at once, from:
+    - **the iRacing season**: the sessions scheduled in the league's season
+      in iRacing (track, layout, date and start time at your PC's local time,
+      race length). Needs the league's iRacing League ID and API credentials.
+    - **a scan of the league's calendar graphic**: the calendar image from the
+      League builder, or any image you choose. The app reads its text (with
+      Windows' own text recognition, so nothing to install) and finds each
+      round's track and layout, date, start time and length. It copes with
+      tables (a round per row), lists and grids of cards. Tracks it doesn't
+      know are marked to check.
+    - **pasted text**: the calendar copied from Discord or a website, a round
+      a line or in blocks ("Round 1 - Spa - Sun 8th Nov - 8PM - 60 min").
+      Dates like 22/11/26 are read day first, or month first on a US PC (a
+      date that can only be one way round settles it).
+
+    Every round found is listed to check and correct (or leave out) before
+    any are made, and they can be added after the existing rounds or replace
+    the rounds that have no results yet.
+  - **Race meetings**: for leagues that run several races in one event (three
+    heat races, say) and count each race as a round. Each race is a round of
+    its own for the points; the meeting groups them. Make them with *Races at
+    each* when building from a calendar (each entry becomes a meeting of that
+    many races, called Race or Heat 1, 2…), or with **+ Add race meeting**.
+    **Import every race from session** fills a meeting's races from the race
+    sessions of the event you're in, in order (heat 1 into the first race,
+    and so on), including races that already finished: those come from
+    iRacing's results, so their statuses and starting places are worth a
+    check. During the event, the live standings count the race in progress
+    as the first race without results.
   - After a race, press **Import from session** while still in the session.
     This fills in finishing order, class, grid, laps, laps led, fastest lap
     and incidents from iRacing, and adds drivers missing from the roster.

@@ -376,10 +376,13 @@ class App:
         self._track_sectors = sector_starts(info)
         self._apply_sectors()
 
-    def session_key(self):
-        """Identifies the session on screen (iRacing's subsession and session number)."""
+    def session_key(self, session_num=None):
+        """Identifies the session on screen, or race ``session_num`` of this
+        event (iRacing's subsession and session number)."""
         sub, frame = self._session_meta.get("subsession"), self._frame
-        return f"{sub}:{frame.session_num}" if sub and frame else None
+        if session_num is None and frame:
+            session_num = frame.session_num
+        return f"{sub}:{session_num}" if sub and session_num is not None else None
 
     def _session(self, frame):
         return self._session_meta.get("sessions", {}).get(frame.session_num, {})
@@ -498,8 +501,35 @@ class App:
 
     # -- championship -------------------------------------------------------
 
-    def session_results(self, profile, rows=None, add_missing=False):
-        """The current session as championship results for ``profile``.
+    def race_sessions(self):
+        """The race sessions of the event on screen (heats and a feature, say),
+        in order: [{"num", "name", "results": bool}]."""
+        out = []
+        for num, s in sorted(self._session_meta.get("sessions", {}).items(), key=lambda kv: kv[0] if kv[0] is not None else -1):
+            if str(s.get("SessionType", "")).lower() == "race":
+                out.append({"num": num, "name": str(s.get("SessionName") or f"Race {len(out) + 1}"),
+                            "results": bool(s.get("ResultsPositions"))})
+        return out
+
+    def _finished_rows(self, session):
+        """A race session that's over (not the one on screen) as rows for
+        ``session_results``, from iRacing's official results."""
+        rows = []
+        for res in session.get("ResultsPositions") or []:
+            d = self._drivers.get(res.get("CarIdx")) if isinstance(res, dict) else None
+            if not d:
+                continue
+            laps = res.get("LapsComplete")
+            rows.append({"car_idx": d["car_idx"], "cust_id": d["cust_id"], "number": d["number"], "name": d["name"],
+                         "team": d["team"], "car_class": d["car_class"], "make": d["make"],
+                         "pos": res.get("Position") or None, "start_pos": None,
+                         "lap": laps + 1 if isinstance(laps, int) and laps >= 0 else None,
+                         "best_lap": None, "in_world": True, "incidents": res.get("Incidents") or 0})
+        return rows
+
+    def session_results(self, profile, rows=None, add_missing=False, session_num=None):
+        """The current session (or race session ``session_num`` of this event)
+        as championship results for ``profile``.
 
         Uses iRacing's official results (laps, laps led, fastest lap, why a car
         is out) where it has them, and the live order otherwise. With
@@ -507,11 +537,17 @@ class App:
         Returns ``(results, added)``.
         """
         frame = self._frame
-        if rows is None:
-            rows = self.build_snapshot().get("drivers") or []
-        session = self._session(frame) if frame else {}
+        if session_num is not None and frame and session_num != frame.session_num:
+            # An earlier race of the event (a heat): only iRacing's results are left.
+            session = self._session_meta.get("sessions", {}).get(session_num, {})
+            rows, checkered = self._finished_rows(session), True
+        else:
+            session_num = frame.session_num if frame else None
+            if rows is None:
+                rows = self.build_snapshot().get("drivers") or []
+            session = self._session(frame) if frame else {}
+            checkered = bool(frame) and frame.session_state >= STATE_CHECKERED
         official = {r.get("CarIdx"): r for r in session.get("ResultsPositions") or [] if isinstance(r, dict)}
-        checkered = bool(frame) and frame.session_state >= STATE_CHECKERED
         results, added = [], 0
         for r in sorted(rows, key=lambda r: r["pos"] or 10_000):
             entry = self.leagues.lookup(r["cust_id"], r["number"], profile)
@@ -530,7 +566,7 @@ class App:
                 laps = max(0, (r["lap"] or 1) - 1)
             fastest = off.get("FastestTime")
             reason = str(off.get("ReasonOutStr") or "Running").strip().lower()
-            status = self._race.status(r["car_idx"], frame.session_num if frame else None, laps, r["in_world"], reason)
+            status = self._race.status(r["car_idx"], session_num, laps, r["in_world"], reason)
             if status is None:
                 # Not watched to the flag: iRacing's reason the car is out,
                 # and mid-race a car that has left the world is out.

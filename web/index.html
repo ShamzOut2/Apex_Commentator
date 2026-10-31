@@ -502,8 +502,24 @@
             round marked <b>live</b> (by default the first round without results).</p>
           <p class="hint"><span id="track-source"></span> <button id="btn-fetch-tracks" class="btn subtle" hidden>Fetch official track list</button></p>
           <datalist id="track-names"></datalist>
+          <details class="build-rounds" id="build-rounds">
+            <summary>Build the rounds from a calendar</summary>
+            <p class="hint">Fill in the season in one go: from the league's season in iRacing, by scanning the league's
+              calendar graphic, or from its text pasted in (from Discord or the league's website, say). You check and
+              correct everything before any rounds are made.</p>
+            <div class="row build-sources">
+              <button class="btn" data-build="iracing" title="The sessions scheduled in the league's season in iRacing (needs API credentials)">From the iRacing season</button>
+              <button class="btn" data-build="scan" title="Read the calendar image added in the League builder">Scan the calendar image</button>
+              <label class="btn" title="Read the rounds from any image of the calendar">Scan another image…<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif,image/bmp" id="build-scan-file" hidden></label>
+              <button class="btn" data-build="paste">Paste text</button>
+            </div>
+            <div id="build-step"></div>
+          </details>
           <div id="champ-rounds"></div>
-          <button id="btn-add-round" class="btn subtle">+ Add round</button>
+          <div class="row">
+            <button id="btn-add-round" class="btn subtle">+ Add round</button>
+            <button id="btn-add-meeting" class="btn subtle" title="Several races on one night (heat races, say), each a round of its own">+ Add race meeting (several races)</button>
+          </div>
         </div>
 
         <div class="champ-view" data-view="penalties" hidden>

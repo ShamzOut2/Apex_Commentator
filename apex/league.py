@@ -268,6 +268,17 @@ class IRacingDataClient:
     def league(self, league_id):
         return self.get("league/get", league_id=int(league_id), include_licenses="false")
 
+    def seasons(self, league_id):
+        """The league's seasons, current and past: [{season_id, season_name, active}]."""
+        data = self.get("league/seasons", league_id=int(league_id), retired="true")
+        return [{"season_id": s.get("season_id"), "season_name": s.get("season_name") or f"Season {s.get('season_id')}",
+                 "active": bool(s.get("active"))} for s in (data or {}).get("seasons") or [] if isinstance(s, dict)]
+
+    def season_sessions(self, league_id, season_id):
+        """A season's scheduled sessions (the league's calendar in iRacing)."""
+        data = self.get("league/season_sessions", league_id=int(league_id), season_id=int(season_id))
+        return [s for s in (data or {}).get("sessions") or [] if isinstance(s, dict)]
+
 
 def _now_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

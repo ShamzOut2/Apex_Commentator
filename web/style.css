@@ -475,6 +475,23 @@ kbd {
 .round-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .round-head .round-num { font-weight: 800; color: var(--accent); min-width: 2.2em; }
 .round-head input[data-rkey=name] { width: 180px; }
+/* A race meeting: its races (each a round) in one box. */
+.meeting { border: 1px dashed var(--accent); border-radius: var(--radius); padding: 8px 10px 0; margin-bottom: 10px; }
+.meeting-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.meeting-head input { width: 220px; font-weight: 700; }
+.meeting .round-card { margin-left: 14px; }
+/* Building the rounds from a calendar. */
+.build-rounds { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 8px 12px; margin: 6px 0 12px; }
+.build-rounds > summary { cursor: pointer; font-weight: 700; }
+.build-rounds[open] > summary { margin-bottom: 4px; }
+.build-sources { flex-wrap: wrap; }
+#build-step textarea { width: 100%; font: inherit; font-size: 13px; padding: 8px; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--radius); }
+.build-table input, .build-table select { width: 100%; min-width: 90px; }
+.build-table td:nth-child(2) input { min-width: 220px; }
+.build-table tr.warn td { background: rgba(245, 197, 66, .12); }
+.build-table tr.warn input[data-bkey=track] { border-color: var(--warn); }
+.build-options { flex-wrap: wrap; margin-top: 8px; }
 .round-head input[data-rkey=track] { width: 200px; }
 .round-head input.narrow { width: 56px; }
 .results-table { margin-top: 8px; }

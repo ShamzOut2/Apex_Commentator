@@ -143,12 +143,14 @@ def build(league, board, settings, live_results=None):
         if cfg["style"] == "image" and league.get("calendar_image"):
             out["image"] = logo_url(league["id"], league["calendar_image"])
         cal = championship.calendar(league)
-        nxt = next((r for r in cal if not r["done"]), None)
         for r in cal:
-            r["next"] = r is nxt
             for w in r["winners"]:
                 w["name"] = _person(league, w["name"], w["nickname"])
                 w["group_name"], w["color"], _ = _group_info(league, w["group"])
+        cal = meetings(cal)
+        nxt = next((r for r in cal if not r["done"]), None)
+        for r in cal:
+            r["next"] = r is nxt
         out["rows"] = cal
     elif kind == "results":
         champ = championship.normalise(league.get("championship"))
@@ -170,7 +172,29 @@ def build(league, board, settings, live_results=None):
                                  gained=(r["start"] - r["rank"]) if r["start"] and r["rank"] else None))
             if rd["id"] != "live":
                 n = champ["rounds"].index(rd) + 1
-                out["title"] = f"Round {n} result" if not rd["name"] else f"{rd['name']} result"
+                name = " · ".join(filter(None, [rd["event"], rd["name"]]))
+                out["title"] = f"{name} result" if name else f"Round {n} result"
                 out["subtitle"] = " · ".join(filter(None, [out["subtitle"], rd["track"]]))
         out["rows"] = rows[:cfg["rows"]]
+    return out
+
+
+def meetings(cal):
+    """The calendar with each race meeting (rounds next to each other with the
+    same ``event``) as one entry: its first race's details, ``last`` (its last
+    round's number), and each race's winners named by race."""
+    out = []
+    for r in cal:
+        prev = out[-1] if out else None
+        if r["event"] and prev and prev.get("event") == r["event"]:
+            prev["last"] = r["round"]
+            prev["races"].append(r["name"])
+            prev["done"] = prev["done"] and r["done"]
+            prev["winners"] += [dict(w, race=r["name"]) for w in r["winners"]]
+            continue
+        entry = dict(r, last=None, races=[r["name"]])
+        if r["event"]:
+            entry["name"] = r["event"]
+            entry["winners"] = [dict(w, race=r["name"]) for w in r["winners"]]
+        out.append(entry)
     return out

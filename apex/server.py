@@ -15,6 +15,10 @@
 * ``POST /api/export/show``      ``{"path"}``: show an export in the file manager
 * ``POST /api/import?what=...&league=...&round=...``  import a file (raw body)
 * ``GET  /api/update``           update status; ``POST /api/update/{check,skip,install}``
+* ``GET  /api/leagues/<id>/seasons``   the league's seasons in iRacing
+* ``POST /api/leagues/<id>/schedule``  ``{"season_id"}``: a season's sessions as rounds
+* ``POST /api/calendar/scan?day_first=1``  a calendar image (raw PNG body) read into rounds
+* ``POST /api/calendar/parse``     ``{"text", "day_first"}``: pasted calendar text into rounds
 """
 
 import json
@@ -26,7 +30,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from . import championship, transfer
+from . import championship, ocr, schedule, transfer
 from .core import CommandError
 from .makes import catalogue as makes_catalogue
 from .league import LOGO_TYPES, MAX_IMAGE_BYTES, LeagueError, logo_library, profile_from_session
@@ -110,6 +114,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._logo(path)
         if path == "/api/leagues":
             return self._send_json({"leagues": self.app.leagues.list(), "active": self.app.leagues.active_id})
+        if path.startswith("/api/leagues/") and path.endswith("/seasons"):
+            try:
+                return self._send_json({"seasons": self._client().seasons(self._league_id(path.split("/")[3])),
+                                        "ocr": ocr.available()})
+            except LeagueError as e:
+                return self._error(str(e))
         if path.startswith("/api/leagues/") and path.endswith("/championship"):
             profile = self.app.leagues.get(path.split("/")[3])
             if profile is None:
@@ -135,6 +145,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._upload_background()
         if path == "/api/import":
             return self._import()
+        if path == "/api/calendar/scan":
+            return self._scan_calendar()
         if len(parts) == 5 and parts[:3] == ["", "api", "leagues"] and parts[4] == "images":
             target = parse_qs(urlparse(self.path).query).get("target", [""])[0]
             return self._upload_image(parts[3], target)
@@ -176,6 +188,18 @@ class Handler(BaseHTTPRequestHandler):
                 except ValueError as e:
                     return self._error(str(e))
                 return self._send_json({"ok": True, "count": count, **self.app.tracks.status()})
+            if path == "/api/calendar/parse":
+                rounds = schedule.rounds_from_text(str(body.get("text") or ""), self.app.tracks.grouped(),
+                                                   day_first=body.get("day_first", True) is not False)
+                return self._send_json({"ok": True, "rounds": rounds})
+            if path.startswith("/api/leagues/") and path.endswith("/schedule"):
+                client = self._client()
+                sessions = client.season_sessions(self._league_id(path.split("/")[3]), int(body.get("season_id") or 0))
+                if not sessions:
+                    return self._error("That season has no sessions scheduled in iRacing yet.")
+                return self._send_json({"ok": True, "rounds": schedule.rounds_from_iracing(sessions)})
+            if path.startswith("/api/leagues/") and path.endswith("/championship/import-meeting"):
+                return self._import_meeting(path.split("/")[3], [str(r) for r in body.get("round_ids") or []])
             if path.startswith("/api/leagues/") and path.endswith("/championship/import"):
                 return self._import_round(path.split("/")[3], str(body.get("round_id") or ""))
             if path == "/api/leagues/from-session":
@@ -224,6 +248,40 @@ class Handler(BaseHTTPRequestHandler):
             league = app.leagues.save(profile)
         app.publish()
         return self._send_json({"ok": True, "league": league, "added": added, "count": len(results)})
+
+    def _import_meeting(self, profile_id, round_ids):
+        """Fill a race meeting's rounds with this event's race sessions, in
+        order: heat 1 into its first race, heat 2 into the second, and so on."""
+        app = self.app
+        with app._lock:
+            if not app._drivers or app._frame is None:
+                return self._error("Not connected to a session")
+            current = app._frame.session_num
+            races = [r for r in app.race_sessions() if r["results"] or r["num"] == current]
+            if not races:
+                return self._error("This event has no race sessions with results yet")
+            profile = app.leagues.get(profile_id)
+            if profile is None:
+                return self._error("League not found", HTTPStatus.NOT_FOUND)
+            champ = profile.setdefault("championship", championship.normalise({}))
+            rules = championship.normalise_rules(champ.get("rules"))
+            by_id = {r["id"]: r for r in champ["rounds"]}
+            rounds = [by_id[i] for i in round_ids if i in by_id]
+            if not rounds:
+                return self._error("Save the rounds first")
+            done, added = [], 0
+            for race, rd in zip(races, rounds):
+                results, n = app.session_results(profile, add_missing=True, session_num=race["num"])
+                rd["results"] = championship.apply_distance_rule(results, rules)
+                rd["session"] = app.session_key(race["num"]) or ""
+                if not rd["track"]:
+                    rd["track"] = app._session_meta.get("track", "")
+                added += n
+                done.append({"round": rd["name"], "race": race["name"], "count": len(results)})
+            league = app.leagues.save(profile)
+        app.publish()
+        return self._send_json({"ok": True, "league": league, "added": added, "imported": done,
+                                "races": len(races), "rounds": len(rounds)})
 
     def _stream(self):
         self.send_response(HTTPStatus.OK)
@@ -364,6 +422,37 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(str(e))
         self.app.publish()
         return self._send_json({"ok": True, "league": profile, "info": info})
+
+    def _client(self):
+        client = self.app.leagues.client
+        if not (client and client.configured):
+            raise LeagueError("This needs iRacing API credentials (see the README). You can scan the league's calendar "
+                              "image or paste its text instead.")
+        return client
+
+    def _league_id(self, profile_id):
+        profile = self.app.leagues.get(profile_id)
+        if profile is None:
+            raise LeagueError("Save the league first.")
+        if not profile.get("league_id"):
+            raise LeagueError("Add the league's iRacing League ID in the League builder first.")
+        return profile["league_id"]
+
+    def _scan_calendar(self):
+        """Read the text in a calendar image (sent as a PNG) and find the rounds in it."""
+        length = int(self.headers.get("Content-Length") or 0)
+        if not 0 < length <= 4 * MAX_IMAGE_BYTES:
+            return self._error("Image must be between 1 byte and 32 MB")
+        data = self.rfile.read(length)
+        day_first = parse_qs(urlparse(self.path).query).get("day_first", ["1"])[0] != "0"
+        try:
+            pieces = ocr.read(data)
+        except ocr.OcrError as e:
+            return self._error(str(e))
+        rounds = schedule.rounds_from_pieces(pieces, self.app.tracks.grouped(), day_first=day_first)
+        # The text as read, line by line, for pasting and correcting if the rounds are off.
+        text = "\n".join(p["text"] for p in sorted(pieces, key=lambda p: (round(p["y"] / max(p["h"], 1)), p["x"])))
+        return self._send_json({"ok": True, "rounds": rounds, "text": text})
 
     def _upload_background(self):
         length = int(self.headers.get("Content-Length") or 0)

@@ -1025,15 +1025,18 @@ function trackGroup(name) {
   return trackList.groups.find((g) => g.track.toLowerCase() === n);
 }
 
-function configField(rd, i) {
+// A round's layout: a list of the track's layouts when it's a known track.
+// ``attrs`` says which field it is (data-round / data-build-row...).
+function configField(rd, attrs) {
   const g = trackGroup(rd.track);
   if (!g) {
-    return `<input data-round="${i}" data-rkey="config" value="${esc(rd.config || "")}" placeholder="Configuration" aria-label="Configuration">`;
+    return `<input ${attrs} value="${esc(rd.config || "")}" placeholder="Configuration" aria-label="Configuration">`;
   }
   const configs = g.configs.map((c) => c.config);
   const current = rd.config || "";
-  const extra = current && !configs.includes(current) ? `<option selected>${esc(current)}</option>` : "";
-  return `<select data-round="${i}" data-rkey="config" aria-label="Configuration">${extra}${configs.map((c) =>
+  const extra = current && !configs.includes(current) ? `<option selected>${esc(current)}</option>`
+    : !current && !configs.includes("") ? '<option value="" selected>Pick a layout</option>' : "";
+  return `<select ${attrs} aria-label="Configuration">${extra}${configs.map((c) =>
     `<option value="${esc(c)}" ${c === current ? "selected" : ""}>${esc(c || "(one layout)")}</option>`).join("")}</select>`;
 }
 
@@ -1051,7 +1054,7 @@ function renderChampRounds() {
   loadTracks();
   const c = champData();
   const classes = ui.editing.classes || [];
-  $("#champ-rounds").innerHTML = c.rounds.length ? c.rounds.map((rd, i) => {
+  const cards = c.rounds.map((rd, i) => {
     const open = champ.open.has(rd.id);
     const isLive = c.live_round ? c.live_round === rd.id : c.rounds.find((r) => !(r.results || []).length) === rd;
     const pts = roundPoints(rd.id);
@@ -1062,7 +1065,7 @@ function renderChampRounds() {
         <span class="round-num">R${i + 1}</span>
         <input data-round="${i}" data-rkey="name" value="${esc(rd.name)}" placeholder="Round name" aria-label="Round name">
         <input data-round="${i}" data-rkey="track" class="track-input" list="track-names" value="${esc(rd.track || "")}" placeholder="Track (type to search)" aria-label="Track">
-        ${configField(rd, i)}
+        ${configField(rd, `data-round="${i}" data-rkey="config"`)}
         <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
         <input type="time" data-round="${i}" data-rkey="time" value="${esc(rd.time || "")}" aria-label="Start time" title="Start time">
         <input data-round="${i}" data-rkey="length" class="narrow-text" value="${esc(rd.length || "")}" placeholder="Length" aria-label="Race length" title="e.g. 60 min, 30 laps">
@@ -1098,7 +1101,57 @@ function renderChampRounds() {
         </tr>`).join("")}</tbody></table></div>
         <button class="btn subtle" data-res-add="${i}">+ Add result</button>` : ""}
     </div>`;
-  }).join("") : '<p class="hint">No rounds yet.</p>';
+  });
+  // A race meeting's rounds (next to each other, same event) go in one box.
+  const html = [];
+  for (let i = 0; i < c.rounds.length;) {
+    const ev = c.rounds[i].event;
+    let j = i + 1;
+    while (ev && j < c.rounds.length && c.rounds[j].event === ev) j++;
+    html.push(ev ? meetingHtml(i, j - 1, cards.slice(i, j).join("")) : cards[i]);
+    i = j;
+  }
+  $("#champ-rounds").innerHTML = html.join("") || '<p class="hint">No rounds yet.</p>';
+}
+
+function meetingHtml(first, last, inner) {
+  const c = champData();
+  const n = last - first + 1;
+  return `<div class="meeting">
+    <div class="meeting-head">
+      <span class="badge">RACE MEETING</span>
+      <input data-meeting="${first}" value="${esc(c.rounds[first].event)}" aria-label="Race meeting name" title="Rename the meeting (empty: its races become separate rounds)">
+      <span class="sub">${n} race${n === 1 ? "" : "s"} · round${n === 1 ? "" : "s"} ${first + 1}${n > 1 ? `–${last + 1}` : ""}</span>
+      <span class="grow"></span>
+      <button class="btn" data-meeting-import="${first}" title="Each race session of the event you're in (heats, then the feature...) into these races, in order">⤓ Import every race from session</button>
+      <button class="btn subtle" data-meeting-add="${last}">+ Add a race</button>
+    </div>
+    ${inner}
+  </div>`;
+}
+
+// The rounds of the race meeting starting at round ``first``.
+function meetingRounds(first) {
+  const c = champData();
+  const ev = c.rounds[first].event;
+  const out = [];
+  for (let i = first; i < c.rounds.length && c.rounds[i].event === ev; i++) out.push(c.rounds[i]);
+  return out;
+}
+
+async function importMeeting(rounds) {
+  if (rounds.some((rd) => (rd.results || []).length) && !confirm("Replace the results already in these races with the session's?")) return;
+  try {
+    const saved = await saveEditor();
+    const r = await api(`/api/leagues/${encodeURIComponent(saved.id)}/championship/import-meeting`,
+      { method: "POST", body: { round_ids: rounds.map((rd) => rd.id) } });
+    openEditor(r.league);
+    const list = r.imported.map((x) => `${x.race} → ${x.round} (${x.count})`).join(", ");
+    const more = r.races > r.rounds ? ` The session has ${r.races} races but the meeting ${r.rounds}: add a race for the rest.` : "";
+    toast(`Imported ${list}${r.added ? `; ${r.added} new drivers added to the roster` : ""}.${more}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
 }
 
 // -- penalties -------------------------------------------------------------------
@@ -1219,6 +1272,10 @@ function champChange(e, final) {
       r[d.key] = el.value === "" ? null : +el.value;
       rerender = final && d.key === "position";
     } else r[d.key] = el.value;
+  } else if (d.meeting != null) {
+    if (!final) return;
+    for (const rd of meetingRounds(+d.meeting)) rd.event = el.value.trim();
+    rerender = true;
   } else if (d.round != null && d.rkey) {
     const rd = c.rounds[+d.round];
     rd[d.rkey] = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
@@ -1273,6 +1330,12 @@ $("#tab-championship").addEventListener("click", async (e) => {
     c.penalties.splice(+d.penDelete, 1);
   } else if (d.roundImport != null) {
     return importRound(c.rounds[+d.roundImport]);
+  } else if (d.meetingImport != null) {
+    return importMeeting(meetingRounds(+d.meetingImport));
+  } else if (d.meetingAdd != null) {
+    const last = c.rounds[+d.meetingAdd];
+    const n = meetingRounds(c.rounds.findIndex((r) => r.event === last.event)).length;
+    c.rounds.splice(+d.meetingAdd + 1, 0, { ...last, id: newId(), name: `Race ${n + 1}`, results: [], session: "" });
   } else return;
   markChampDirty();
   renderChampionship();
@@ -1295,6 +1358,261 @@ $("#btn-add-round").addEventListener("click", () => {
   markChampDirty();
   renderChampionship();
 });
+
+$("#btn-add-meeting").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  const n = parseInt(prompt("How many races at this meeting? Each race is a round of its own.", "3"), 10);
+  if (!(n >= 1 && n <= 10)) return;
+  const c = champData();
+  const event = `Event ${new Set(c.rounds.filter((r) => r.event).map((r) => r.event)).size + 1}`;
+  for (let k = 1; k <= n; k++) {
+    c.rounds.push({ id: newId(), event, name: `Race ${k}`, track: "", date: "", multiplier: 1, no_drop: false, results: [] });
+  }
+  markChampDirty();
+  renderChampionship();
+});
+
+// -- building the rounds from a calendar ------------------------------------------
+// From the league's season in iRacing, a scanned calendar image or pasted
+// text: the server finds the rounds, they're checked and corrected here, then made.
+
+const build = { mode: null, busy: "", seasons: null, rounds: null, text: "", races: 1, raceName: "Race", replace: false, note: "" };
+
+// 22/11 or 11/22: what this PC's language writes (a date that can only be one decides anyway).
+const dayFirst = () => !/^en-US|^en-CA|^es-US|^fil/.test(navigator.language || "");
+
+function renderBuild() {
+  const box = $("#build-step");
+  if (!box) return;
+  if (build.busy) {
+    box.innerHTML = `<p class="hint">${esc(build.busy)}</p>`;
+    return;
+  }
+  let html = "";
+  if (build.mode === "iracing" && build.seasons) {
+    html = build.seasons.length ? `<div class="row"><label class="field">Season <select data-b="season">${build.seasons.map((x) =>
+      `<option value="${x.season_id}">${esc(x.season_name)}${x.active ? " (current)" : ""}</option>`).join("")}</select></label>
+      <button class="btn primary" data-build="season">Read its sessions</button></div>` : '<p class="hint">The league has no seasons in iRacing.</p>';
+  } else if (build.mode === "paste" && !build.rounds) {
+    html = `<textarea data-b="text" rows="8" placeholder="Paste the calendar here, e.g.&#10;Round 1 - Spa - Sun 8th November - 8PM - 60 min&#10;Round 2 - Monza - 15/11/26 - 20:00 - 45 mins">${esc(build.text)}</textarea>
+      <div class="row"><button class="btn primary" data-build="read">Find the rounds</button></div>`;
+  }
+  if (build.rounds) html += buildReviewHtml();
+  box.innerHTML = html;
+}
+
+function buildReviewHtml() {
+  const rows = build.rounds;
+  if (!rows.length) {
+    return `<p class="hint">No rounds found${build.mode === "scan" ? " in the image" : ""}: the track names have to be readable.
+      ${build.text ? 'Correct the text below and try again.' : ""}</p>${build.text ? `<textarea data-b="text" rows="8">${esc(build.text)}</textarea>
+      <div class="row"><button class="btn primary" data-build="read">Find the rounds</button></div>` : ""}`;
+  }
+  const races = Math.max(1, Math.min(10, build.races | 0));
+  const total = rows.length * races;
+  const c = champData();
+  const unscored = c.rounds.filter((r) => !(r.results || []).length).length;
+  return `${build.note ? `<p class="hint">${esc(build.note)}</p>` : ""}
+    <div class="table-scroll"><table class="grid build-table">
+      <thead><tr><th>Name</th><th>Track</th><th>Layout</th><th>Date</th><th>Time</th><th>Length</th><th></th></tr></thead>
+      <tbody>${rows.map((r, i) => `<tr class="${r.unknown_track ? "warn" : ""}" title="${esc(r.text || "")}">
+        <td><input data-build-row="${i}" data-bkey="name" value="${esc(r.name)}"></td>
+        <td><input data-build-row="${i}" data-bkey="track" list="track-names" value="${esc(r.track)}" placeholder="Track"
+          ${r.unknown_track ? 'title="Not in the track list: check it"' : ""}></td>
+        <td>${configField(r, `data-build-row="${i}" data-bkey="config"`)}</td>
+        <td><input type="date" data-build-row="${i}" data-bkey="date" value="${esc(r.date)}"></td>
+        <td><input type="time" data-build-row="${i}" data-bkey="time" value="${esc(r.time)}"></td>
+        <td><input class="narrow-text" data-build-row="${i}" data-bkey="length" value="${esc(r.length)}" placeholder="60 min"></td>
+        <td><button class="btn icon danger" data-build-remove="${i}" title="Leave this one out">✕</button></td>
+      </tr>`).join("")}</tbody></table></div>
+    <div class="row build-options">
+      <label class="field" title="For leagues that run several races a night (heat races, say) and count each as a round">Races at each
+        <input type="number" class="narrow" min="1" max="10" data-b="races" value="${races}"></label>
+      <label class="field" ${races > 1 ? "" : "hidden"}>called <select data-b="raceName">${["Race", "Heat"].map((n) =>
+        `<option ${build.raceName === n ? "selected" : ""}>${n}</option>`).join("")}</select> 1, 2…</label>
+      <label class="field"><input type="checkbox" data-b="replace" ${build.replace ? "checked" : ""}> Replace the ${unscored} round${unscored === 1 ? "" : "s"} without results</label>
+      <span class="grow"></span>
+      <button class="btn subtle" data-build="cancel">Cancel</button>
+      <button class="btn primary" data-build="create">Make ${total} round${total === 1 ? "" : "s"}</button>
+    </div>
+    ${races > 1 ? `<p class="hint">Each calendar entry becomes a race meeting of ${races} races, each a round of its own for the points;
+      the calendar board shows the meeting as one.</p>` : ""}`;
+}
+
+function buildFound(data, mode, note) {
+  build.busy = "";
+  build.mode = mode;
+  build.rounds = (data.rounds || []).map((r) => ({ ...r }));
+  if (data.text != null) build.text = data.text;
+  build.note = note || "";
+  renderBuild();
+}
+
+// The image as a PNG the reader can use: SVG and WebP drawn out, small ones
+// enlarged, and a see-through background filled to contrast with the text.
+async function imagePng(src) {
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  const w0 = img.naturalWidth || 1600, h0 = img.naturalHeight || 900;
+  const scale = Math.max(1, Math.min(3, 2000 / Math.max(w0, h0)));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(w0 * scale);
+  canvas.height = Math.round(h0 * scale);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  let light = 0, solid = 0, see = 0;
+  for (let i = 0; i < px.length; i += 4 * 97) {
+    if (px[i + 3] < 200) { see++; continue; }
+    solid++;
+    if (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11 > 128) light++;
+  }
+  if (see) {
+    // Light text on a see-through background needs a dark one, and dark text a light one.
+    const back = document.createElement("canvas");
+    back.width = canvas.width;
+    back.height = canvas.height;
+    const b = back.getContext("2d");
+    b.fillStyle = solid && light / solid > 0.5 ? "#000" : "#fff";
+    b.fillRect(0, 0, back.width, back.height);
+    b.drawImage(canvas, 0, 0);
+    return new Promise((ok) => back.toBlob(ok, "image/png"));
+  }
+  return new Promise((ok) => canvas.toBlob(ok, "image/png"));
+}
+
+async function scanImage(src) {
+  build.mode = "scan";
+  build.rounds = null;
+  build.busy = "Reading the calendar… (this can take a few seconds)";
+  renderBuild();
+  try {
+    const png = await imagePng(src);
+    const res = await fetch(`/api/calendar/scan?day_first=${dayFirst() ? 1 : 0}`, { method: "POST", headers: { "Content-Type": "image/png" }, body: png });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) throw new Error(data.error || "Couldn't read the image");
+    buildFound(data, "scan", "Read from the image: check every round (tracks the list didn't know are marked), then make them.");
+  } catch (err) {
+    build.busy = "";
+    build.mode = "paste";
+    renderBuild();
+    toast(err.message, true);
+  }
+}
+
+$("#build-rounds").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-build], [data-build-remove]");
+  if (!b || !ui.editing) return;
+  if (b.dataset.buildRemove != null) {
+    build.rounds.splice(+b.dataset.buildRemove, 1);
+    return renderBuild();
+  }
+  const what = b.dataset.build;
+  try {
+    if (what === "iracing") {
+      build.mode = "iracing";
+      build.rounds = null;
+      build.busy = "Asking iRacing for the league's seasons…";
+      renderBuild();
+      const saved = ui.editing.id ? ui.editing : await saveEditor();
+      build.seasons = (await api(`/api/leagues/${encodeURIComponent(saved.id)}/seasons`)).seasons;
+      build.busy = "";
+    } else if (what === "season") {
+      const season = $("#build-step [data-b=season]").value;
+      build.busy = "Reading the season's sessions…";
+      renderBuild();
+      const data = await api(`/api/leagues/${encodeURIComponent(ui.editing.id)}/schedule`, { method: "POST", body: { season_id: season } });
+      return buildFound(data, "iracing", "From the season's sessions in iRacing, at your PC's local time.");
+    } else if (what === "scan") {
+      if (!ui.editing.calendar_image) return toast("Add the calendar image in the League builder (Logos tab), or choose an image to scan", true);
+      return scanImage(logoSrc(ui.editing.calendar_image));
+    } else if (what === "paste") {
+      build.mode = "paste";
+      build.rounds = null;
+    } else if (what === "read") {
+      build.text = $("#build-step [data-b=text]").value;
+      build.busy = "Finding the rounds…";
+      renderBuild();
+      const data = await api("/api/calendar/parse", { method: "POST", body: { text: build.text, day_first: dayFirst() } });
+      return buildFound({ ...data, text: build.text }, "paste", "Found in the text: check every round, then make them.");
+    } else if (what === "cancel") {
+      Object.assign(build, { mode: null, rounds: null, seasons: null, note: "" });
+    } else if (what === "create") {
+      return createBuiltRounds();
+    }
+  } catch (err) {
+    build.busy = "";
+    toast(err.message, true);
+  }
+  renderBuild();
+});
+
+$("#build-scan-file").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file || !ui.editing) return;
+  const url = URL.createObjectURL(file);
+  scanImage(url).finally(() => URL.revokeObjectURL(url));
+});
+
+$("#build-rounds").addEventListener("change", (e) => {
+  const el = e.target;
+  if (el.dataset.buildRow != null) {
+    const r = build.rounds[+el.dataset.buildRow];
+    r[el.dataset.bkey] = el.value;
+    if (el.dataset.bkey === "track") {
+      const g = trackGroup(r.track);
+      r.config = g ? g.configs[0].config : r.config;
+      r.unknown_track = !g;
+    }
+    if (el.dataset.bkey === "track" || el.dataset.bkey === "config") {
+      const g = trackGroup(r.track);
+      const layout = g && g.configs.find((x) => x.config === r.config);
+      r.track_id = layout ? layout.id : null;
+      renderBuild();
+    }
+    return;
+  }
+  const key = el.dataset.b;
+  if (key === "races") build.races = Math.max(1, Math.min(10, +el.value || 1));
+  else if (key === "raceName") build.raceName = el.value;
+  else if (key === "replace") build.replace = el.checked;
+  else if (key === "text") return void (build.text = el.value);  // no redraw: the click on Find would be lost
+  else return;
+  renderBuild();
+});
+
+function createBuiltRounds() {
+  const c = champData();
+  const races = Math.max(1, Math.min(10, build.races | 0));
+  const made = [];
+  let meetings = new Set(c.rounds.filter((r) => r.event).map((r) => r.event)).size;
+  for (const r of build.rounds) {
+    // Each race is a "round", so a meeting called "Round 2" would confuse: "Event 2".
+    const event = races > 1 ? (/^round \d+$/i.test(r.name.trim()) ? `Event ${++meetings}` : r.name) : "";
+    for (let k = 1; k <= races; k++) {
+      made.push({
+        id: newId(), name: races > 1 ? `${build.raceName} ${k}` : r.name, event,
+        track: r.track, config: r.config || "", track_id: r.track_id ?? null, date: r.date, time: r.time, length: r.length,
+        multiplier: 1, no_drop: false, results: [],
+      });
+    }
+  }
+  if (build.replace) {
+    const gone = new Set(c.rounds.filter((r) => !(r.results || []).length).map((r) => r.id));
+    c.rounds = c.rounds.filter((r) => !gone.has(r.id));
+    c.penalties = c.penalties.filter((p) => !gone.has(p.round_id));
+    if (gone.has(c.live_round)) c.live_round = "";
+  }
+  c.rounds.push(...made);
+  Object.assign(build, { mode: null, rounds: null, seasons: null, note: "" });
+  $("#build-rounds").open = false;
+  markChampDirty();
+  renderChampionship();
+  renderBuild();
+  toast(`Made ${made.length} rounds. Save to keep them.`);
+}
 
 $("#btn-add-penalty").addEventListener("click", () => {
   if (!ui.editing) return toast("Pick a league first", true);

@@ -100,10 +100,18 @@ function dateText(r, format) {
 
 // "Round 3", the round's own name, or both, as picked; a round without a
 // name of its own is "Round 3" whatever's picked.
+// A race meeting of several races is several rounds: "Rounds 4–6".
 function roundTitle(r, how) {
-  const own = r.name && r.name !== `Round ${r.round}` ? r.name : "";
-  if (how === "number" || !own) return `Round ${r.round}`;
-  return how === "name" ? own : `Round ${r.round} · ${own}`;
+  const own = r.name && r.name !== `Round ${r.round}` && !(r.last && /^(round|event) \d+$/i.test(r.name)) ? r.name : "";
+  const num = r.last ? `Rounds ${r.round}–${r.last}` : `Round ${r.round}`;
+  if (how === "number" || !own) return num;
+  return how === "name" ? own : `${num} · ${own}`;
+}
+
+// A winner's label: which race (at a meeting) and which championship, if there's more than one.
+function winnerLabel(w, r) {
+  const groups = new Set(r.winners.map((x) => x.group)).size;
+  return [w.race, groups > 1 ? w.group_name : ""].filter(Boolean).join(" · ");
 }
 
 function calendarHtml(b) {
@@ -113,8 +121,9 @@ function calendarHtml(b) {
       <div class="rn"><span class="rt">${esc(roundTitle(r, s.round_title))}</span>${s.show_multiplier && r.multiplier !== 1 ? `<span class="mult">×${r.multiplier} points</span>` : ""}<span class="tag">${r.next ? "Next" : r.done ? "Done" : ""}</span></div>
       <div class="tr">${esc(r.track || "Track to be confirmed")}</div>
       ${s.show_config && r.config ? `<div class="cf">${esc(r.config)}</div>` : ""}
-      <div class="when">${[s.show_date && dateText(r, s.date_format), s.show_time && r.time, s.show_length && r.length].filter(Boolean).map(esc).join(" · ")}</div>
-      ${s.show_winners && r.winners.length ? `<div class="wins">${r.winners.map((w) => `<span style="${w.color ? `background:${esc(w.color)};color:${inkFor(w.color)}` : ""}">🏆 ${esc(r.winners.length === 1 ? "" : `${w.group_name}: `)}${esc(w.name)}</span>`).join("")}</div>` : ""}
+      <div class="when">${[s.show_date && dateText(r, s.date_format), s.show_time && r.time, r.races.length > 1 && `${r.races.length} races`,
+        s.show_length && r.length].filter(Boolean).map(esc).join(" · ")}</div>
+      ${s.show_winners && r.winners.length ? `<div class="wins">${r.winners.map((w) => `<span style="${w.color ? `background:${esc(w.color)};color:${inkFor(w.color)}` : ""}">🏆 ${esc(winnerLabel(w, r) ? `${winnerLabel(w, r)}: ` : "")}${esc(w.name)}</span>`).join("")}</div>` : ""}
     </div>`).join("")}</div>`;
 }
 
