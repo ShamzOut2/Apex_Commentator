@@ -20,7 +20,7 @@ DEFAULTS = {
     # spin detection looks at 0.2 s windows, so keep it at 20 or more.
     "poll_hz": 30,
     # How often the overlay is pushed a fresh snapshot (Hz).
-    "push_hz": 4,
+    "push_hz": 8,
     # Replay behaviour.
     "replay_preroll_s": 6.0,      # start replays this many seconds before the event
     "replay_auto_return_s": 0,    # >0: jump back to live after this many seconds

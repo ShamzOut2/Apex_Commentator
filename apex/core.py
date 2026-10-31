@@ -322,6 +322,8 @@ class App:
                 self._chequered[num] = t
             self._last_state[num] = frame.session_state
             self._race.update(timeline_frame)
+            # Gap timing: race time not timed yet (live, or a replay of a part
+            # the app didn't see); a replay of time already timed reads it back.
             self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
         self.laps.green_s = self.overlays.get()["laps"]["green_s"]
         self.laps.update(timeline_frame, self._lap_class)
@@ -511,7 +513,8 @@ class App:
                 })
                 rows.append(row)
             self._assign_positions(rows, racing)
-            if racing:
+            if racing or (is_race and not frame.is_live):
+                # Our own gaps while racing, and in a replay of the race (also after the flag).
                 self._live_gaps(rows, frame)
             in_class = {}
             for r in rows:

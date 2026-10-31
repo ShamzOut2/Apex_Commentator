@@ -11,6 +11,22 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- Driver on camera: the card now leaves with an animation of its own, the
+  entrance in reverse (details fade, a light sweep, the card closes to the
+  middle and drops away).
+- Race gaps update more smoothly (the overlays get new numbers twice as
+  often).
+
+### Fixes
+
+- Race gaps in replays: no longer stuck or lagging. The app's own timing is
+  kept for the whole race, so a replay of any lap (also after the flag)
+  shows the gaps as they were, instead of iRacing's laggy ones.
+
 ## v0.4.8
 
 ### New features
