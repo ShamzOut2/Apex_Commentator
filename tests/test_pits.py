@@ -57,6 +57,13 @@ class OverlayTests(unittest.TestCase):
             self.assertAlmostEqual(last["lane_s"], 22.0, delta=0.3)
             self.assertAlmostEqual(last["box_s"], 8.0, delta=0.3)
             self.assertTrue(last["name"])
+            # A card's own time limit: gone after 10 s in the pit lane, also after the exit.
+            app.command("overlay_settings", {"overlay": "pits", "values": {"show_s": 10}})
+            self.assertFalse([s for s in app.build_snapshot()["overlays"]["pits"]["stops"] if s["car_idx"] == i + 1])
+            app.command("overlay_settings", {"overlay": "pits", "values": {"show_s": 0, "hold_s": 0}})
+            self.assertFalse([s for s in app.build_snapshot()["overlays"]["pits"]["stops"] if s["car_idx"] == i + 1])
+            app.command("overlay_settings", {"overlay": "pits", "values": {"hold_s": 30, "count": 1}})
+            self.assertEqual(len(app.build_snapshot()["overlays"]["pits"]["stops"]), 1)
             app.command("overlay_settings", {"overlay": "pits", "values": {"who": "camera"}})
             stops = app.build_snapshot()["overlays"]["pits"]["stops"]
             self.assertTrue(all(s["camera"] for s in stops))

@@ -17,7 +17,9 @@ How each version's entry is written:
 
 - **Pit stops overlay**: when a car comes into the pit lane in a race, a card
   with its pit lane time (entry line to exit line) and its time in the pit
-  box, ticking, and the final times for a few seconds after it leaves.
+  box, ticking, and the final times for a few seconds after it leaves. Set
+  how many drivers it shows at once, how long each driver's card stays up,
+  and how long it stays after the exit line.
 - **New grid walk**: a track across the screen with the two cars of each
   row in their staggered grid boxes and the drivers' details beside them,
   using your own car pictures: point the app at a folder of pictures named

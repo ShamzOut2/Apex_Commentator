@@ -2176,8 +2176,9 @@ const OVERLAY_FIELDS = {
   pits: [
     ["What it shows", [
       ["who", "Show", "select", [["all", "Every car in the pit lane (the one on camera first)"], ["camera", "Only the car on camera"]]],
-      iff((v) => v.who === "all", ["count", "Most cards at once", "number", { min: 1, max: 12, step: 1 }]),
-      ["hold_s", "Stays after the pit exit line, with the final times (seconds)", "number", { min: 0, max: 60, step: 1 }],
+      iff((v) => v.who === "all", ["count", "How many drivers at once (the most cards on screen)", "number", { min: 1, max: 12, step: 1 }]),
+      ["show_s", "Each driver's card goes after (seconds in the pit lane; 0 = stays until they leave)", "number", { min: 0, max: 300, step: 1 }],
+      ["hold_s", "Card stays after they cross the pit exit line, with the final times (seconds; 0 = goes at once)", "number", { min: 0, max: 60, step: 1 }],
       ["race_only", "Races only", "bool"],
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
         ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],

@@ -1013,6 +1013,8 @@ class App:
             on_camera = s["car_idx"] == frame.cam_car_idx
             if cfg["who"] == "camera" and not on_camera:
                 continue
+            if cfg["show_s"] > 0 and s["lane_s"] > cfg["show_s"]:
+                continue  # up for as long as it's allowed (before the exit too): off until their next stop
             stops.append(dict(e, **s, pos=r["pos"], class_pos=r["class_pos"], camera=on_camera))
         stops.sort(key=lambda x: not x["camera"])
         return {"stops": stops[:max(1, cfg["count"])], "speed": speed}

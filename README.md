@@ -49,7 +49,9 @@ walk, Overlays, Boards and Race control.
 
 - **Pit stops overlay**: when a car comes into the pit lane in a race, a card
   with its pit lane time (entry line to exit line) and its time in the pit
-  box, ticking, and the final times for a few seconds after it leaves.
+  box, ticking, and the final times for a few seconds after it leaves. Set
+  how many drivers it shows at once, how long each driver's card stays up,
+  and how long it stays after the exit line.
 - **New grid walk**: a track across the screen with the two cars of each
   row in their staggered grid boxes and the drivers' details beside them,
   using your own car pictures: point the app at a folder of pictures named
@@ -509,10 +511,13 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     exit line;
   - **In box**: the time it spends in its pit box (added up if it moves in
     and out), lit up while it's stopped; "—" for a drive-through.
-  The tag says *PIT LANE*, *STOPPED* or *OUT*. After the exit line the card
-  keeps the final times for a few seconds (*Stays after the pit exit line*),
-  then slides away. **Show**: every car in the pit lane (the one on camera
-  first, at most the number set) or only the car on camera. Races only,
+  The tag says *PIT LANE*, *STOPPED* or *OUT*. **Show**: every car in the
+  pit lane (the one on camera first) or only the car on camera, and **how
+  many drivers at once** (the most cards on screen). **Each driver's card
+  goes after** a number of seconds in the pit lane, if you set one (0: it
+  stays until they leave); a card gone that way stays off until their next
+  stop. **Card stays after they cross the pit exit line**: how many seconds
+  it keeps the final times (0: it goes at once). Races only,
   unless you untick it. Position, car number (in its class colour), name,
   team name and logo can each be turned off. The clocks are the sim's own,
   so they're right in replays too (paused with the replay).
