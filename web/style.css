@@ -551,3 +551,6 @@ p.hint .desk { margin-left: 6px; }
 #roster-head .sorted { color: var(--accent); }
 #roster-head .sorted[data-dir="asc"]::after { content: " ▲"; opacity: 1; }
 #roster-head .sorted[data-dir="desc"]::after { content: " ▼"; opacity: 1; }
+
+/* Overlays tab: a button to open an overlay's preview, instead of a preview pane. */
+.preview-link { margin: 2px 0 10px; }

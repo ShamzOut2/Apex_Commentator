@@ -59,6 +59,8 @@ OBS dock.
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- The Overlays tab is shorter: the preview panes are replaced by a
+  **Preview ↗** button that opens an overlay in its own window.
 - The standings' column headings (GAP, INT…) can be turned off, and the
   race leader's gap box can show the lap they're on ("Lap 12") instead of
   "Leader".
