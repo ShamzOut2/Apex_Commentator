@@ -18,6 +18,11 @@ How each version's entry is written:
 - **Driver on camera**: a small board at the bottom centre names the driver
   you're spectating (position, number, name, team and car). It slides in each
   time the camera moves to someone, and can hide itself after a few seconds.
+- **Import and export** leagues (with all their images), teams,
+  championships, round results, the driver roster and overlay settings.
+  Exports go to `Documents\Apex Commentator\Exports`, and the app shows
+  where each one went, with a button to open the folder. Standings, results
+  and the roster also export as spreadsheets (CSV).
 
 ### Fixes
 

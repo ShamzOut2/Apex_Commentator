@@ -7,6 +7,7 @@ app falls back to the default browser.
 
 import ctypes
 import importlib.util
+import os
 import sys
 import threading
 
@@ -45,6 +46,23 @@ def alert(message, error=False):
     if IS_WINDOWS and FROZEN:
         flags = 0x10 if error else 0x40  # MB_ICONERROR / MB_ICONINFORMATION
         ctypes.windll.user32.MessageBoxW(None, str(message), APP_NAME, flags)
+
+
+def reveal(path):
+    """Show a file (selected) or folder in the file manager. False if it couldn't."""
+    import subprocess
+
+    path = str(path)
+    try:
+        if IS_WINDOWS:
+            subprocess.Popen(["explorer", f"/select,{path}"] if not os.path.isdir(path) else ["explorer", path])
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", "-R", path])
+        else:
+            subprocess.Popen(["xdg-open", path if os.path.isdir(path) else os.path.dirname(path)])
+        return True
+    except OSError:
+        return False
 
 
 def claim_single_instance():

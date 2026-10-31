@@ -684,6 +684,16 @@ class LeagueStore:
         owner[field] = name
         return self.save(profile)
 
+    def put_image(self, profile_id, name, data):
+        """Store an image under its own (uploaded-style) name, e.g. from an import.
+        The profile still has to refer to it, or the next save tidies it away."""
+        if not UPLOADED_LOGO.fullmatch(name or ""):
+            raise LeagueError("Not an image name this app uses.")
+        sniff_logo(data)
+        folder = self._logo_dir(profile_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_bytes(data)
+
     def logo_file(self, profile_id, filename):
         """Path of a stored logo, or None. Guards against path tricks."""
         if not UPLOADED_LOGO.fullmatch(filename or ""):

@@ -1070,7 +1070,12 @@ function renderChampRounds() {
         <button class="btn" data-round-import="${i}" title="Fill this round with the results of the race session you're in">⤓ Import from session</button>
         <button class="btn icon danger" data-round-delete="${i}" title="Delete round">✕</button>
       </div>
-      ${open ? `<div class="table-scroll"><table class="grid champ-table results-table">
+      ${open ? `<div class="row transfer-row"><span class="hint">This round's results:</span>
+        <button class="btn subtle" data-export="round" data-export-round="${esc(rd.id)}" title="To import into a round, here or on another PC">⤓ Export</button>
+        <button class="btn subtle" data-export="round_csv" data-export-round="${esc(rd.id)}" title="As a spreadsheet (CSV)">⤓ CSV</button>
+        <label class="btn subtle" title="From a round export (.json) or a CSV with the same columns as the CSV export">⤒ Import…<input type="file" accept=".json,.csv,application/json,text/csv" data-import="round" data-import-round="${esc(rd.id)}" hidden></label>
+      </div>
+      <div class="table-scroll"><table class="grid champ-table results-table">
         <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored (after saving)">${c.rules.scoring === "both" ? "Pts overall / class" : "Pts"}</th><th></th></tr></thead>
         <tbody>${results.map(([r, j]) => `<tr>
           <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"></td>
@@ -1734,6 +1739,98 @@ document.addEventListener("change", (e) => {
   }
 });
 $("#desk-hide-all").addEventListener("click", () => cmd("desktop_hide", {}));
+
+// -- export and import (apex/transfer.py) -----------------------------------------
+
+let lastExport = null;
+
+// Save the export (unsaved edits first) and say where it went.
+async function exportFile(what, round) {
+  try {
+    let league = "";
+    if (what !== "overlays") {
+      if (!ui.editing) throw new Error("Pick a league first");
+      league = (await saveEditor()).id;
+    }
+    const r = await api("/api/export", { method: "POST", body: { what, league, round: round || "" } });
+    lastExport = r.path;
+    $("#export-name").textContent = r.name;
+    $("#export-folder").textContent = r.folder;
+    $("#export-path").textContent = r.path;
+    $("#exports-folder").textContent = r.folder;
+    $("#export-modal").hidden = false;
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+const IMPORT_CHECKS = {
+  championship: "Replace this league's championship (points rules, calendar, results and penalties) with the one in the file?",
+  overlays: "Replace all your overlay and board settings with the ones in the file?",
+};
+
+async function importFile(what, file, round) {
+  if (IMPORT_CHECKS[what] && !confirm(IMPORT_CHECKS[what])) return;
+  try {
+    let league = "";
+    if (what !== "league" && what !== "overlays") {
+      if (!ui.editing) throw new Error("Pick a league first");
+      league = (await saveEditor()).id;
+      const rd = round && (champData().rounds || []).find((r) => r.id === round);
+      if (rd && (rd.results || []).length && !confirm(`Replace the results of ${rd.name} with the ones in the file?`)) return;
+    }
+    const q = new URLSearchParams({ what, league, round: round || "" });
+    const res = await fetch(`/api/import?${q}`, { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || "Import failed");
+    const info = data.info || {};
+    if (what === "league") {
+      await loadLeagues();
+      openEditor(data.league);
+      showPage("league");
+      return toast(`Imported ${data.league.name}`);
+    }
+    if (data.league) {
+      if (round) champ.open.add(round);
+      openEditor(data.league);
+      await loadLeagues();
+    }
+    toast({
+      teams: `Imported ${info.teams} teams${info.drivers ? `; ${info.drivers} drivers put in their team` : ""}`,
+      championship: `Imported the championship: ${info.rounds} rounds`,
+      round: `Imported ${info.results} results`,
+      drivers: `Roster: ${info.added} drivers added, ${info.updated} updated`,
+      overlays: `Imported the settings of ${info.sections} overlays and boards`,
+    }[what] || "Imported");
+    if (what === "overlays") {
+      overlayFormKey = "";
+      boardSettingsKey = "";
+      loadBackgrounds();
+    }
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const ex = e.target.closest("[data-export]");
+  if (ex) exportFile(ex.dataset.export, ex.dataset.exportRound);
+  if (e.target.closest("[data-show-exports]")) api("/api/export/show", { method: "POST", body: {} }).catch((err) => toast(err.message, true));
+});
+document.addEventListener("change", (e) => {
+  const input = e.target.closest("[data-import]");
+  if (!input || !input.files.length) return;
+  importFile(input.dataset.import, input.files[0], input.dataset.importRound);
+  input.value = "";
+});
+$("#export-close").addEventListener("click", () => { $("#export-modal").hidden = true; });
+$("#export-show").addEventListener("click", () => {
+  api("/api/export/show", { method: "POST", body: { path: lastExport } }).catch((err) => toast(err.message, true));
+});
+$("#export-copy").addEventListener("click", () => {
+  navigator.clipboard.writeText(lastExport || "").then(() => toast("Path copied"), () => toast(lastExport || ""));
+});
+api("/api/export/folder").then((r) => { $("#exports-folder").textContent = r.folder; }).catch(() => {});
 
 // Pop out: the app opens the page in its own window; in a browser, a new browser window.
 document.addEventListener("click", async (e) => {

@@ -44,6 +44,11 @@ OBS dock.
 - **Driver on camera**: a small board at the bottom centre names the driver
   you're spectating (position, number, name, team and car). It slides in each
   time the camera moves to someone, and can hide itself after a few seconds.
+- **Import and export** leagues (with all their images), teams,
+  championships, round results, the driver roster and overlay settings.
+  Exports go to `Documents\Apex Commentator\Exports`, and the app shows
+  where each one went, with a button to open the folder. Standings, results
+  and the roster also export as spreadsheets (CSV).
 
 ### Fixes
 
@@ -389,6 +394,35 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 *Team* column in the League builder is the same thing. **Save** saves the
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
+
+## Import & export
+
+Everything you set up can be saved to a file: a backup, to move to another
+PC, or to send to someone. Each kind is exported and imported where it's
+made.
+
+| What | Where | Export | Import |
+| --- | --- | --- | --- |
+| A whole league (classes, teams, drivers, championship, logos, banners, sponsors, photos) | League builder | **Export league** (.json) | **Import league…** (left side): added as a new league, never over one you have |
+| Driver roster | League builder | **Roster (CSV)** | **Import roster (CSV)…**: drivers matched by customer ID (else name) are updated, new ones added |
+| Teams (names, short names, colours, logos, who drives for whom) | Teams | **Export teams** (.json) | **Import teams…**: teams with the same name are replaced, drivers join their team |
+| Championship (points rules, calendar, every round's results, penalties) | Championship | **Export championship** (.json) | **Import championship…**: replaces this league's championship |
+| Championship standings (every table, round by round) | Championship | **Standings (CSV)** | |
+| One round's results | Championship → Calendar & results → open a round | **Export** (.json) or **CSV** | **Import…**: from a round export or a CSV with the same columns; replaces that round's results |
+| Every overlay's and board's settings, with background images | Overlays | **Export settings** (.json) | **Import settings…**: replaces your settings |
+
+**Where exports go:** `Documents\Apex Commentator\Exports` on the PC the
+app runs on. Files are named after the league, what's in them and the date,
+e.g. `Sunday Cup - Teams - 2026-10-31.json`, and never overwrite each other.
+After each export the app shows the file's name and full path, with **Show
+in folder** (opens File Explorer with it selected) and **Copy path**. The Home
+tab's *Import & export* panel has **Open exports folder**.
+
+**.json** files are for importing back into Apex Commentator (they carry their
+images inside them). **.csv** files open in Excel or Google Sheets; round
+results and the roster can be edited there and imported back. Classes are
+matched by name, so a league with the same class names picks results up
+directly.
 
 ## Backgrounds
 
@@ -805,6 +839,7 @@ apex/
   laps.py      lap and sector timing for the lap tracker and standings
   overlays.py  stream overlay settings
   championship.py  championship points, drop rounds, penalties and live projection
+  transfer.py  import and export (leagues, teams, championships, results, settings)
   league.py    iRacing Data API client and league profiles
   server.py    stdlib HTTP server + Server-Sent Events
   updater.py   update checks and in-app updates from GitHub releases

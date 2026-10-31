@@ -67,6 +67,18 @@
           </button>
         </div>
         <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>; the other overlays are in the Overlays tab.</p>
+        <div class="updates-card">
+          <div class="row">
+            <h3>Import &amp; export</h3>
+            <span class="grow"></span>
+            <button class="btn" data-show-exports>Open exports folder</button>
+          </div>
+          <p class="hint">Exports are saved in <code id="exports-folder">Documents\Apex Commentator\Exports</code>. Export and
+            import are where each thing is made: <b>League builder</b> (whole league, driver roster), <b>Teams</b>,
+            <b>Championship</b> (championship, standings, each round's results) and <b>Overlays</b> (all overlay and board
+            settings). <b>.json</b> files import back into Apex Commentator, on this PC or another; <b>.csv</b> files open in
+            Excel or Google Sheets.</p>
+        </div>
         <div id="updates-card" class="updates-card">
           <div class="row">
             <h3>Updates</h3>
@@ -255,6 +267,8 @@
             <button class="btn" type="submit">Build</button>
           </form>
           <button id="btn-new-league" class="btn subtle">+ Blank league</button>
+          <label class="btn subtle">⤒ Import league…<input type="file" accept=".json,application/json" data-import="league" hidden></label>
+          <p class="hint">A league exported from Apex Commentator (.json), from this PC or another. It's added as a new league.</p>
           <h3>Saved leagues</h3>
           <ul id="league-list" class="league-list"></ul>
         </aside>
@@ -266,6 +280,12 @@
               <input type="checkbox" id="edit-strip-class"> Remove driver class in name</label>
             <button id="btn-save-league" class="btn primary">Save</button>
             <button id="btn-activate-league" class="btn">Use in overlay</button>
+          </div>
+          <div class="row transfer-row">
+            <span class="hint">Export / import:</span>
+            <button class="btn subtle" data-export="league" title="Everything about this league, images included, to import on this PC or another">⤓ Export league</button>
+            <button class="btn subtle" data-export="drivers" title="The roster as a spreadsheet (CSV)">⤓ Roster (CSV)</button>
+            <label class="btn subtle">⤒ Import roster (CSV)…<input type="file" accept=".csv,text/csv" data-import="drivers" hidden></label>
           </div>
           <h3 class="section-title">Classes</h3>
           <p class="hint">Each class gets its own colour and header in the driver list. Drivers join a class by their iRacing car class (the "iRacing classes" field) or by picking it in the roster below. A logo's background is recoloured to the class colour.</p>
@@ -321,6 +341,8 @@
           <h2>Teams</h2>
           <label class="field">League <select id="teams-league" class="league-picker" aria-label="League"></select></label>
           <span class="grow"></span>
+          <button class="btn subtle" data-export="teams" title="Teams, their logos and who drives for each">⤓ Export teams</button>
+          <label class="btn subtle">⤒ Import teams…<input type="file" accept=".json,application/json" data-import="teams" hidden></label>
           <button id="btn-add-team" class="btn subtle">+ Add team</button>
           <button id="btn-save-teams" class="btn primary">Save</button>
         </div>
@@ -342,6 +364,11 @@
         <p class="hint desk-help">Or skip OBS: <b>Show on my screen</b> puts it straight over whatever's on that monitor (iRacing in
           windowed or borderless mode), always on top. Your mouse and keyboard go straight through to the game.
           <button class="btn subtle" id="desk-hide-all" hidden>Remove all from my screen</button></p>
+        <div class="row transfer-row">
+          <span class="hint">Every overlay's and board's settings, with their background images:</span>
+          <button class="btn subtle" data-export="overlays">⤓ Export settings</button>
+          <label class="btn subtle">⤒ Import settings…<input type="file" accept=".json,application/json" data-import="overlays" hidden></label>
+        </div>
         <div class="overlay-cards">
           <div class="overlay-card">
             <h3>Standings</h3>
@@ -419,6 +446,9 @@
           <label class="field">League <select id="champ-league" class="league-picker" aria-label="League"></select></label>
           <span class="grow"></span>
           <span id="champ-dirty" class="hint" hidden>Unsaved changes</span>
+          <button class="btn subtle" data-export="championship" title="Points rules, calendar, every round's results and penalties">⤓ Export championship</button>
+          <button class="btn subtle" data-export="standings" title="Every championship table as a spreadsheet (CSV)">⤓ Standings (CSV)</button>
+          <label class="btn subtle">⤒ Import championship…<input type="file" accept=".json,application/json" data-import="championship" hidden></label>
           <button id="btn-save-champ" class="btn primary">Save</button>
         </div>
         <div id="champ-views" class="chips champ-views">
@@ -474,6 +504,22 @@
       <div class="modal-actions">
         <button class="btn subtle" id="hotkey-reset">Reset to 1–9</button>
         <button class="btn primary" id="hotkey-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- After an export: where the file went. -->
+  <div id="export-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="export-title">
+      <h2 id="export-title">Exported</h2>
+      <p class="update-versions">Saved as <b id="export-name"></b></p>
+      <p class="hint">In this folder:</p>
+      <p><code id="export-folder" class="export-path"></code></p>
+      <p class="hint">Full path: <code id="export-path" class="export-path"></code></p>
+      <div class="modal-actions">
+        <button class="btn" id="export-copy">Copy path</button>
+        <button class="btn" id="export-show">Show in folder</button>
+        <button class="btn primary" id="export-close">Done</button>
       </div>
     </div>
   </div>

@@ -537,3 +537,7 @@ p.hint .desk { margin-left: 6px; }
 .bg-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ov-form input[type="color"] { width: 64px; height: 30px; padding: 2px; }
 .ov-form input[type="range"] { width: 100%; }
+
+/* Export / import buttons, and the path of an export. */
+.transfer-row { gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+.export-path { user-select: all; word-break: break-all; }

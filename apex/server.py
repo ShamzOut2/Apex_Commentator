@@ -11,6 +11,9 @@
 * ``GET  /api/logo-library``     the built-in class logos (``web/logos/``)
 * ``GET  /api/backgrounds``      uploaded overlay / board backgrounds; ``POST`` uploads one (raw image body)
 * ``GET  /api/backgrounds/<file>``  serve one
+* ``POST /api/export``           ``{"what", "league", "round"}``: save an export to the Exports folder
+* ``POST /api/export/show``      ``{"path"}``: show an export in the file manager
+* ``POST /api/import?what=...&league=...&round=...``  import a file (raw body)
 * ``GET  /api/update``           update status; ``POST /api/update/{check,skip,install}``
 """
 
@@ -18,11 +21,12 @@ import json
 import mimetypes
 import threading
 import time
+from pathlib import Path
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from . import championship
+from . import championship, transfer
 from .core import CommandError
 from .makes import catalogue as makes_catalogue
 from .league import LOGO_TYPES, MAX_IMAGE_BYTES, LeagueError, logo_library, profile_from_session
@@ -94,6 +98,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json({"tracks": self.app.tracks.grouped(), **self.app.tracks.status()})
         if path == "/api/makes":
             return self._send_json({"makes": makes_catalogue()})
+        if path == "/api/export/folder":
+            return self._send_json({"folder": str(transfer.exports_dir())})
         if path == "/api/backgrounds":
             return self._send_json({"backgrounds": self.app.backgrounds.list()})
         if path.startswith("/api/backgrounds/"):
@@ -127,6 +133,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._upload_image(parts[3], f"class:{parts[5]}")
         if path == "/api/backgrounds":
             return self._upload_background()
+        if path == "/api/import":
+            return self._import()
         if len(parts) == 5 and parts[:3] == ["", "api", "leagues"] and parts[4] == "images":
             target = parse_qs(urlparse(self.path).query).get("target", [""])[0]
             return self._upload_image(parts[3], target)
@@ -136,6 +144,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(f"Bad request: {e}")
         if path.startswith("/api/update/"):
             return self._update_action(path.rsplit("/", 1)[1], body)
+        if path == "/api/export":
+            return self._export(body)
+        if path == "/api/export/show":
+            return self._show_export(body)
         try:
             if path == "/api/cmd":
                 params = body.get("params") or {}
@@ -264,6 +276,94 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(str(e))
         self.app.publish()
         return self._send_json({"ok": True, "league": league})
+
+    # -- export / import (see transfer.py) -------------------------------------
+
+    def _league(self, league_id):
+        profile = self.app.leagues.get(str(league_id or ""))
+        if profile is None:
+            raise transfer.TransferError("Pick a league first (and save it).")
+        return profile
+
+    def _export(self, body):
+        what = body.get("what")
+        try:
+            if what == "overlays":
+                parts, ext = ["Overlay settings"], "json"
+                data = transfer.export_overlays(self.app.overlays.get(), self.app.backgrounds)
+            else:
+                p = self._league(body.get("league"))
+                rid = body.get("round")
+                label = None
+                if rid:
+                    n, rd = transfer._round(p, rid)
+                    label = f"R{n} {rd['name']}" if rd["name"] and rd["name"] != f"Round {n}" else f"Round {n}"
+                exports = {
+                    "league": (["League"], "json", lambda: transfer.export_league(self.app.leagues, p)),
+                    "teams": (["Teams"], "json", lambda: transfer.export_teams(self.app.leagues, p)),
+                    "championship": (["Championship"], "json", lambda: transfer.export_championship(p)),
+                    "standings": (["Championship standings"], "csv", lambda: transfer.standings_csv(p)),
+                    "round": ([label, "Results"], "json", lambda: transfer.export_round(p, rid)),
+                    "round_csv": ([label, "Results"], "csv", lambda: transfer.round_csv(p, rid)),
+                    "drivers": (["Drivers"], "csv", lambda: transfer.drivers_csv(p)),
+                }
+                if what not in exports:
+                    return self._error("Unknown export")
+                parts, ext, make = exports[what]
+                parts, data = [p["name"], *parts], make()
+            path = transfer.save_export(parts, ext, data)
+        except (transfer.TransferError, LeagueError) as e:
+            return self._error(str(e))
+        except OSError as e:
+            return self._error(f"Couldn't save the export: {e}")
+        return self._send_json({"ok": True, "path": str(path), "name": path.name, "folder": str(path.parent)})
+
+    def _show_export(self, body):
+        """Open the file manager at an export (on the PC the app runs on)."""
+        folder = transfer.exports_dir().resolve()
+        target = Path(str(body.get("path") or folder)).resolve()
+        if target != folder and folder not in target.parents:
+            return self._error("Not an export")
+        from .desktop import reveal
+        if not reveal(target):
+            return self._error("Couldn't open the folder")
+        return self._send_json({"ok": True})
+
+    def _import(self):
+        q = parse_qs(urlparse(self.path).query)
+        what, league_id, round_id = (q.get(k, [""])[0] for k in ("what", "league", "round"))
+        length = int(self.headers.get("Content-Length") or 0)
+        if not 0 < length <= transfer.MAX_IMPORT_BYTES:
+            return self._error("Pick a file to import")
+        data = self.rfile.read(length)
+        store = self.app.leagues
+        try:
+            if what == "league":
+                _, obj = transfer.expect(data, "league")
+                profile, info = transfer.import_league(store, obj), {}
+            elif what == "overlays":
+                _, obj = transfer.expect(data, "overlays")
+                profile, info = None, transfer.import_overlays(self.app.overlays, self.app.backgrounds, obj)
+            else:
+                p = self._league(league_id)
+                if what == "teams":
+                    profile, info = transfer.import_teams(store, p, transfer.expect(data, "teams")[1])
+                elif what == "championship":
+                    profile, info = transfer.import_championship(store, p, transfer.expect(data, "championship")[1])
+                elif what == "round":
+                    fmt, obj = transfer.expect(data, "round", csv_ok=True)
+                    profile, info = transfer.import_round(store, p, round_id, fmt, obj)
+                elif what == "drivers":
+                    fmt, obj = transfer.expect(data, "drivers", csv_ok=True)
+                    if fmt != "csv":
+                        raise transfer.TransferError("The roster imports from a CSV file (like the Drivers export).")
+                    profile, info = transfer.import_drivers_csv(store, p, obj)
+                else:
+                    return self._error("Unknown import")
+        except (transfer.TransferError, LeagueError) as e:
+            return self._error(str(e))
+        self.app.publish()
+        return self._send_json({"ok": True, "league": profile, "info": info})
 
     def _upload_background(self):
         length = int(self.headers.get("Content-Length") or 0)
