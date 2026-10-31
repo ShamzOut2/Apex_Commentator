@@ -1372,6 +1372,9 @@ function renderChampRounds() {
         ${lengthField(rd, i)}
         <label class="field" title="Points multiplier: 1 for normal points, 2 for double points, and so on">Points ×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
         <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
+        ${c.rules.custom_schemes && (c.rules.schemes || []).length ? `<label class="field" title="The points system this round is scored with">Points
+          <select data-round="${i}" data-rkey="scheme"><option value="">Usual points</option>${c.rules.schemes.map((sc) =>
+            `<option value="${esc(sc.id)}" ${rd.scheme === sc.id ? "selected" : ""}>${esc(sc.name || "Unnamed")}</option>`).join("")}</select></label>` : ""}
         <label class="field" title="The race in progress counts as this round in the live standings"><input type="radio" name="live-round" data-live-round="${esc(rd.id)}" ${isLive ? "checked" : ""}> Live</label>
         <span class="grow"></span>
         <span class="sub">${(rd.results || []).length ? `${rd.results.length} results` : "No results"}</span>
@@ -1545,6 +1548,17 @@ function renderChampRules() {
       <input data-rule="qualifying_points" value="${esc((r.qualifying_points || []).join(", "))}"></label>
     <label class="ov-field">Drop rounds (each driver's worst N don't count)
       <input type="number" min="0" max="50" data-rule="drop_rounds" value="${r.drop_rounds || 0}"></label>
+    <label class="ov-field check" title="A race meeting (heats, a sprint and a feature…) drops as one: its races' points added up, all of them dropped together"><input type="checkbox" data-rule="drop_meetings" ${r.drop_meetings ? "checked" : ""}> A race meeting drops as a whole (its races together, as one)</label>
+    <h3 class="section-title wide">Custom points systems</h3>
+    <label class="ov-field check wide"><input type="checkbox" data-rule="custom_schemes" ${r.custom_schemes ? "checked" : ""}> <b>Custom points system</b>
+      <span class="hint">points tables of your own for different kinds of race (a sprint, a feature…); pick one for each round under Calendar &amp; results</span></label>
+    ${r.custom_schemes ? `<div class="wide schemes">${(r.schemes || []).map((sc, i) => `<div class="scheme">
+        <input data-scheme="${i}" data-skey="name" value="${esc(sc.name)}" placeholder="Name (e.g. Sprint)" aria-label="Points system name">
+        <label class="ov-field grow">Points (1st, 2nd, 3rd…)<input data-scheme="${i}" data-skey="points" value="${esc((sc.points || []).join(", "))}" placeholder="e.g. 15, 12, 10, 8"></label>
+        ${hasOverall ? `<label class="ov-field grow">Overall points (empty: the same)<input data-scheme="${i}" data-skey="overall_points" value="${esc((sc.overall_points || []).join(", "))}"></label>` : ""}
+        <button class="btn icon danger" data-scheme-remove="${i}" title="Remove this points system">✕</button>
+      </div>`).join("")}
+      <button class="btn subtle" data-scheme-add>+ Add a points system</button></div>` : ""}
     <label class="ov-field">Fastest-lap bonus only in the top N (0 = anyone)
       <input type="number" min="0" data-rule="fastest_lap_top" value="${r.fastest_lap_top || 0}"></label>
     <label class="ov-field">Must complete this % of the race (their class winner's laps) to score; anyone short is a DNF with no points (0 = off)
@@ -1587,7 +1601,14 @@ function champChange(e, final) {
       if (!final) return;
       r[d.rule] = el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
       rerender = true;
-    } else if (el.type === "checkbox") r[d.rule] = el.checked;
+    } else if (el.type === "checkbox") {
+      r[d.rule] = el.checked;
+      if (d.rule === "custom_schemes" && final) {
+        r.schemes = r.schemes || [];
+        if (el.checked && !r.schemes.length) r.schemes.push({ id: `s${Date.now().toString(36)}`, name: "Sprint", points: [], overall_points: [] });
+        rerender = true;
+      }
+    }
     else r[d.rule] = el.type === "number" ? +el.value : el.value;
     if (d.rule === "scoring" && final) rerender = true;
   } else if (d.secondaryScoring) {
@@ -1623,6 +1644,11 @@ function champChange(e, final) {
       r[d.key] = el.value === "" ? null : +el.value;
       rerender = final && d.key === "position";
     } else r[d.key] = el.value;
+  } else if (d.scheme != null && d.skey) {
+    // A custom points system's name or points.
+    const sc = c.rules.schemes[+d.scheme];
+    sc[d.skey] = d.skey === "name" ? el.value : el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
+    if (final && d.skey === "name") rerender = true;
   } else if (d.meeting != null) {
     if (!final) return;
     for (const rd of meetingRounds(+d.meeting)) rd.event = el.value.trim();
@@ -1658,6 +1684,18 @@ $("#tab-championship").addEventListener("change", (e) => {
 $("#tab-championship").addEventListener("click", async (e) => {
   const b = e.target.closest("button");
   if (!b || !ui.editing) return;
+  if (b.dataset.schemeAdd != null || b.dataset.schemeRemove != null) {
+    const r = champData().rules;
+    r.schemes = r.schemes || [];
+    if (b.dataset.schemeAdd != null) r.schemes.push({ id: `s${Date.now().toString(36)}`, name: "", points: [], overall_points: [] });
+    else {
+      const [gone] = r.schemes.splice(+b.dataset.schemeRemove, 1);
+      for (const rd of champData().rounds) if (rd.scheme === gone.id) rd.scheme = "";  // back on the usual points
+    }
+    markChampDirty();
+    renderChampionship();
+    return;
+  }
   const d = b.dataset;
   const c = champData();
   if (d.champView) {

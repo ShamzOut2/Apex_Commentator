@@ -45,6 +45,13 @@ walk, Overlays, Boards and Race control.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- **Custom points systems**: points tables of your own for different kinds
+  of race (a sprint, a feature…), as many as you like, picked for each round.
+- **Drop a race meeting as a whole**: its races count as one for the drop
+  rounds and drop together.
+
 ### Improvements
 
 - Boards: gold, silver and bronze for places 1–3; an accent colour of your
@@ -845,6 +852,15 @@ standings update from what's saved.
     overall points don't change.
   - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
+  - **A race meeting drops as a whole**: a meeting's races (heats, a sprint
+    and a feature…) count as one for the drop rounds, their points added up,
+    and drop together.
+  - **Custom points system**: tick it to give different kinds of race their
+    own points (a sprint, a feature…). Add as many points systems as you
+    like, each with a name, its points (1st, 2nd, 3rd…) and, with an overall
+    championship, its own overall points (empty: the same). Then pick one for
+    each round under *Calendar & results* (*Points*); a round left on *Usual
+    points* uses the class and overall points above.
   - The fastest-lap bonus can be limited to the top N finishers.
   - **Race distance to score** (75% by default): a driver must complete this
     share of their class winner's laps. Anyone short is a DNF and scores no

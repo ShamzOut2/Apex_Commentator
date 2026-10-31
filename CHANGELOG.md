@@ -13,6 +13,13 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- **Custom points systems**: points tables of your own for different kinds
+  of race (a sprint, a feature…), as many as you like, picked for each round.
+- **Drop a race meeting as a whole**: its races count as one for the drop
+  rounds and drop together.
+
 ### Improvements
 
 - Boards: gold, silver and bronze for places 1–3; an accent colour of your

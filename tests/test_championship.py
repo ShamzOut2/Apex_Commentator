@@ -257,6 +257,41 @@ class ScoringTests(unittest.TestCase):
         dropped = [s["round"] for s in rows["b"]["rounds"] if s["dropped"]]
         self.assertEqual(dropped, ["r1"])
 
+    def test_custom_points_systems(self):
+        schemes = [{"id": "sprint", "name": "Sprint", "points": [10, 8, 6]},
+                   {"id": "feature", "name": "Feature", "points": [50, 40, 30], "overall_points": [60, 45, 35]}]
+        rules = {"points": [25, 18, 15], "scoring": "both", "custom_schemes": True, "schemes": schemes}
+        rounds = [{"id": "r1", "scheme": "sprint", "results": [res("a", 1, "pro"), res("b", 2, "pro")]},
+                  {"id": "r2", "scheme": "feature", "results": [res("b", 1, "pro"), res("a", 2, "pro")]},
+                  {"id": "r3", "results": [res("a", 1, "pro"), res("b", 2, "pro")]}]
+        rows = {(g["key"], r["driver"]): r for g in ch.standings(profile(rules, rounds))["groups"] for r in g["drivers"]}
+        self.assertEqual(rows[("pro", "a")]["points"], 10 + 40 + 25)      # sprint, feature, usual
+        self.assertEqual(rows[("overall", "b")]["points"], 8 + 60 + 18)   # the feature's own overall points
+        # Turned off: every round on the usual points.
+        off = dict(rules, custom_schemes=False)
+        rows = {(g["key"], r["driver"]): r for g in ch.standings(profile(off, rounds))["groups"] for r in g["drivers"]}
+        self.assertEqual(rows[("pro", "a")]["points"], 25 + 18 + 25)
+        norm = ch.normalise_rules(rules)
+        self.assertEqual([sc["name"] for sc in norm["schemes"]], ["Sprint", "Feature"])
+
+    def test_dropping_a_whole_race_meeting(self):
+        rules = {"points": [10, 5], "drop_rounds": 1, "drop_meetings": True}
+        rounds = [
+            {"id": "h1", "event": "Fuji", "results": [res("a", 2), res("b", 1)]},   # a: 5
+            {"id": "h2", "event": "Fuji", "results": [res("a", 2), res("b", 1)]},   # a: 5 (Fuji = 10)
+            {"id": "r3", "results": [res("a", 1), res("b", 2)]},                    # a: 10
+            {"id": "r4", "results": [res("a", 2), res("b", 1)]},                    # a: 5
+        ]
+        rows, _ = table(profile(rules, rounds))
+        # a's worst: r4 alone (5) beats the meeting (10): the meeting counts as one.
+        self.assertEqual([s["round"] for s in rows["a"]["rounds"] if s["dropped"]], ["r4"])
+        self.assertEqual(rows["a"]["points"], 20)
+        # b: Fuji 20, r3 5, r4 10 -> drops r3.
+        self.assertEqual([s["round"] for s in rows["b"]["rounds"] if s["dropped"]], ["r3"])
+        # Two drops: the meeting's races go together.
+        rows, _ = table(profile(dict(rules, drop_rounds=2), rounds))
+        self.assertEqual(sorted(s["round"] for s in rows["a"]["rounds"] if s["dropped"]), ["h1", "h2", "r4"])
+
     def test_drops_wait_until_there_are_more_rounds(self):
         rows, _ = table(profile({"points": [10, 5], "drop_rounds": 2}, [{"id": "r1", "results": [res("a", 1)]}]))
         self.assertEqual(rows["a"]["points"], 10)

@@ -677,3 +677,9 @@ p.hint .desk { margin-left: 6px; }
 
 .len-field { display: inline-flex; align-items: center; gap: 4px; }
 .len-field input { width: 70px; }
+
+/* Custom points systems. */
+.schemes { display: flex; flex-direction: column; gap: 8px; }
+.scheme { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.scheme > input { width: 170px; }
+.scheme .grow { flex: 1; min-width: 200px; }

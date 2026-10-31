@@ -64,6 +64,11 @@ DEFAULT_RULES = {
     "class_points": {},         # a class's own points table, by class id (else "points")
     "secondary_scoring": {},    # a secondary class's points: "own" (default), "class" or "overall", by class id
     "drop_rounds": 0,           # each driver's worst N rounds don't count (once they've more than N)
+    "drop_meetings": False,     # a race meeting's races drop together, as one (its points added up)
+    # Custom points systems: named points tables a round can use instead of
+    # the usual ones (e.g. "Sprint", "Feature"), on when custom_schemes is ticked.
+    "custom_schemes": False,
+    "schemes": [],              # [{"id", "name", "points": [...], "overall_points": [...] ([] = the same)}]
     "fastest_lap_top": 0,       # fastest-lap bonus only if finishing in the top N (0 = anyone)
     "classified_pct": 75,       # must complete this % of the class winner's laps to score, else DNF (0 = off)
     "dnf_scores": True,         # a DNF still scores the points for where it was classified
@@ -126,6 +131,11 @@ def normalise_rules(rules):
         "secondary_scoring": {str(k)[:60]: v for k, v in (rules.get("secondary_scoring") or {}).items()
                               if v in SECONDARY_SCORING and v != "own"} if isinstance(rules.get("secondary_scoring"), dict) else {},
         "drop_rounds": _num(rules.get("drop_rounds"), 0, lo=0, hi=50, cast=int),
+        "drop_meetings": bool(rules.get("drop_meetings")),
+        "custom_schemes": bool(rules.get("custom_schemes")),
+        "schemes": [{"id": _id(sc.get("id")), "name": str(sc.get("name") or "Points").strip()[:40] or "Points",
+                     "points": parse_points(sc.get("points", [])), "overall_points": parse_points(sc.get("overall_points", []))}
+                    for sc in (rules.get("schemes") or []) if isinstance(sc, dict)][:50],
         "fastest_lap_top": _num(rules.get("fastest_lap_top"), 0, lo=0, hi=200, cast=int),
         "classified_pct": _num(rules.get("classified_pct", DEFAULT_RULES["classified_pct"]), 0, lo=0, hi=100),
         "dnf_scores": bool(rules.get("dnf_scores", True)),
@@ -174,6 +184,7 @@ def normalise(champ):
             "length": str(rd.get("length") or "").strip()[:40],     # "60 min", "30 laps", ...
             "multiplier": _num(rd.get("multiplier"), 1.0, lo=0, hi=10),
             "no_drop": bool(rd.get("no_drop")),
+            "scheme": str(rd.get("scheme") or "")[:40],  # a custom points system's id ("" = the usual points)
             # The iRacing session the results were imported from.
             "session": str(rd.get("session") or "")[:40],
             "results": [r for r in results if r["driver"]],
@@ -256,13 +267,26 @@ def apply_distance_rule(results, rules):
     return results
 
 
+def round_rules(rd, rules):
+    """The rules a round is scored with: its custom points system's tables
+    (with custom points systems on), else the usual ones."""
+    if not rules.get("custom_schemes") or not rd.get("scheme"):
+        return rules
+    scheme = next((sc for sc in rules.get("schemes") or [] if sc["id"] == rd["scheme"]), None)
+    if scheme is None or not scheme["points"]:
+        return rules
+    return dict(rules, points=scheme["points"], overall_points=scheme["overall_points"], class_points={})
+
+
 def score_round(rd, rules, second=None):
     """Points for every result in a round: {championship key: {driver: {"total", "position", "bonus", ...}}}.
 
     ``second``: {driver: secondary class id} (``secondary_classes``).
     A provisional round (the race in progress) skips the race-distance rule:
-    mid-race, nobody has covered the distance yet.
+    mid-race, nobody has covered the distance yet. A round with a custom
+    points system is scored with its tables (``round_rules``).
     """
+    rules = round_rules(rd, rules)
     groups = {}
     for r in rd["results"]:
         for key in _group_keys(r, rules, second):
@@ -425,7 +449,7 @@ def standings(profile, live_round=None):
     for d, keys in latest.items():
         for group in keys:
             groups.setdefault(group, []).append(_driver_row(d, group, scored, per_round, live_round, drop,
-                                                            penalties, licence, roster, names))
+                                                            penalties, licence, roster, names, rules["drop_meetings"]))
     out_groups = []
     for key, members in groups.items():
         # Ties: most wins, then most seconds, and so on (countback).
@@ -479,18 +503,28 @@ def _basis(key, secondary, rules):
     return f"Scored on {basis}: {_points_text(_points_table(key, rules))}"
 
 
-def _driver_row(d, group, scored, per_round, live_round, drop, penalties, licence, roster, names):
+def _driver_row(d, group, scored, per_round, live_round, drop, penalties, licence, roster, names, by_meeting=False):
     scores = []
     for rd in scored:
         res = per_round[rd["id"]].get(group, {}).get(d)
         # Rounds a driver missed score 0 and are the first to drop.
         scores.append({"round": rd["id"], "points": res["total"] if res else 0, "result": res,
                        "droppable": not rd["no_drop"], "dropped": False, "live": rd is live_round})
-    droppable = sorted((s for s in scores if s["droppable"]), key=lambda s: (s["points"], s["result"] is not None))
+    # What drops: each round, or with by_meeting a race meeting's races as one
+    # (their points added up; it can drop only if none of them is "can't drop").
+    units = []
+    for rd, s in zip(scored, scores):
+        if by_meeting and rd.get("event") and units and units[-1]["event"] == rd["event"]:
+            units[-1]["scores"].append(s)
+        else:
+            units.append({"event": rd.get("event") if by_meeting else None, "scores": [s]})
+    droppable = sorted((u for u in units if all(s["droppable"] for s in u["scores"])),
+                       key=lambda u: (sum(s["points"] for s in u["scores"]), any(s["result"] is not None for s in u["scores"])))
     # Early in a season there's nothing to drop yet: at least one round
-    # always counts.
-    for s in droppable[:min(drop, len(scores) - 1)]:
-        s["dropped"] = True
+    # (or meeting) always counts.
+    for u in droppable[:min(drop, len(units) - 1)]:
+        for s in u["scores"]:
+            s["dropped"] = True
     kept = sum(s["points"] for s in scores if not s["dropped"])
     finishes = sorted(s["result"]["rank"] for s in scores if s["result"] and s["result"]["rank"])
     info = roster.get(d) or {}
