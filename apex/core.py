@@ -464,6 +464,9 @@ class App:
                                  "laps": {"active": False, "camera": None, "trackers": [], "all": [],
                                           "sectors": len(self.laps.starts)}},
                 }
+            # The session on screen: in a replay, the one being replayed (a race
+            # watched once the server has moved on to the next session, say).
+            frame = replace(frame, session_num=frame.timeline()[0])
             is_race = self._is_race(frame)
             racing = is_race and frame.session_state == STATE_RACING
             events = self.detector.events

@@ -78,6 +78,11 @@
 .round .rn .rt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .round .rn .mult { flex: none; font-size: 12px; padding: 2px 7px; border-radius: 4px; background: var(--accent); color: #1a0d00; letter-spacing: .04em; }
 .round .tr { font-size: 26px; font-weight: 800; line-height: 1.15; }
+/* A race meeting: each race with its length. */
+.round .races { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; }
+.round .race { font-size: 16px; padding: 3px 10px; border-radius: 6px; background: rgba(255, 255, 255, .08); }
+.round .race b { font-weight: 800; }
+.round .race .len { color: var(--muted); font-weight: 600; margin-left: 4px; }
 .round .cf { font-size: 18px; color: var(--muted); font-weight: 600; }
 .round .when { font-size: 18px; font-weight: 700; }
 .round .wins { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }

@@ -50,11 +50,16 @@ walk, Overlays, Boards and Race control.
 - Driver on camera: the card now leaves with an animation of its own, the
   entrance in reverse (details fade, a light sweep, the card closes to the
   middle and drops away).
+- Season calendar board: a race meeting lists each of its races by name with
+  its length (Race 1 · 20 min, Race 2 · 20 min, Race 3 · 40 min).
 - Race gaps update more smoothly (the overlays get new numbers twice as
   often).
 
 ### Fixes
 
+- Replays of a race watched after the server has moved on to the next
+  session are shown as a race again: the class leaders' lap counter in the
+  gap / interval column, race gaps and the race header.
 - Race gaps in replays: no longer stuck or lagging. The app's own timing is
   kept for the whole race, so a replay of any lap (also after the flag)
   shows the gaps as they were, instead of iRacing's laggy ones.
@@ -723,7 +728,8 @@ built from the active league:
   - **Round titles**: "Round 3 · your round name", just your round name, or
     just "Round 3". A round you haven't named is always "Round 3".
   - A race meeting of several races (heat races, say) is one card: "Rounds
-    4–6", the number of races, and each race's winner.
+    4–6", each race by its name with its length (Race 1 · 20 min, Race 2 ·
+    20 min…), and each race's winner.
   - **Dates as**: Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or
     Sunday 22nd November.
   - A round with a points multiplier other than 1 (Championship → Calendar
