@@ -262,7 +262,9 @@ function rowSpec(cfg, cols) {
   if (cfg.show_number) spec.push(["number", "50px", false]);
   const logoW = `${Math.round(34 * Math.min(1.5, (cfg.logo_scale || 100) / 100))}px`;  // the logo column grows with the logos
   if (cfg.logo_col && !cfg.logo_last) spec.push(["logo", logoW, false]);
-  spec.push(["name", "minmax(60px, 1fr)", true]);
+  // The driver name column: set by hand (name_width px; longer names end in
+  // "…"), or 0: it takes the room left / fits the names.
+  spec.push(cfg.name_width > 0 ? ["name", `${cfg.name_width}px`, false] : ["name", "minmax(60px, 1fr)", true]);
   if (cfg.team_col) spec.push(["team", "minmax(60px, .6fr)", true]);
   if (cfg.logo_col && cfg.logo_last) spec.push(["logo", logoW, false]);
   return spec.concat(cols.map((c) => [c[0], c[1], true]));
@@ -322,7 +324,7 @@ function autoFit(cfg, cols) {
     return was && want <= was && want > was - 14 ? was : want;
   });
   // The name column takes any spare room (when the header needs more width than the columns).
-  tower.style.setProperty("--grid", fit.widths.map((w, i) => (spec[i][0] === "name" ? `minmax(${w}px, 1fr)` : `${w}px`)).join(" "));
+  tower.style.setProperty("--grid", fit.widths.map((w, i) => (spec[i][0] === "name" && spec[i][2] ? `minmax(${w}px, 1fr)` : `${w}px`)).join(" "));
   const total = fit.widths.reduce((n, w) => n + w, 0) + (colBg ? 0 : ROW_GAP * (spec.length - 1) + ROW_PAD);
   // Room for the header too: the session name and laps / time left side by
   // side, unless the name may wrap onto two lines.

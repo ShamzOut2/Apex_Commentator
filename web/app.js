@@ -2270,6 +2270,7 @@ const OVERLAY_FIELDS = {
     ]],
     ["Size, position & background", [
       ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
+      ["name_width", "Driver name column width in px (0 = automatic; longer names end in …)", "number", { min: 0, max: 600, step: 5 }],
       ["scale", "Size", "size"], LOGO_SIZE, ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],

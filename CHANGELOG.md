@@ -48,6 +48,7 @@ How each version's entry is written:
   screen to take that colour (the colour picker's own eyedropper doesn't work
   in the app window).
 - **Team logo size** for every overlay and board with team logos.
+- Timing tower: **driver name column width** of your own (0 = automatic).
 
 ### Improvements
 

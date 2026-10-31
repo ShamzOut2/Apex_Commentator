@@ -81,6 +81,7 @@ walk, Overlays, Boards and Race control.
   screen to take that colour (the colour picker's own eyedropper doesn't work
   in the app window).
 - **Team logo size** for every overlay and board with team logos.
+- Timing tower: **driver name column width** of your own (0 = automatic).
 
 ### Improvements
 
@@ -534,7 +535,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     that. It grows straight away when something needs more room, and only
     narrows once there's clearly room to spare, so it doesn't twitch as
     numbers change. With a width set, the name column takes what the other
-    columns leave, and long names end in "…".
+    columns leave, and long names end in "…". **Driver name column width**
+    sets the name column's width in px by itself (0: automatic), on an
+    automatic or a set tower width; longer names end in "…".
   - **Extra drivers**: when there are more drivers than rows, a few more go
     under the top of the order, after a small "• • •" gap; in the By class
     view, under the top of each class, from that class. *Extra drivers show*:
