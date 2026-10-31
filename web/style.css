@@ -181,7 +181,24 @@ main.fixed { overflow: hidden; }
 .league-editor { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
 .league-editor > .row { flex-wrap: wrap; }
 .roster-scroll { overflow-x: auto; }
+/* League editor: name and actions, then its tabs. */
+.league-head { padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.league-tabs { margin: 10px 0 4px; flex-wrap: wrap; }
+.league-tabs .chip .count { color: inherit; opacity: .7; margin-left: 2px; }
+.ltab[hidden] { display: none; }
+.ltab > .hint:first-child { margin-top: 4px; }
+.roster.no-class2 .c-class2 { display: none; }
+.class-card.secondary { border-style: dashed; }
+.looks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 24px; }
 .roster { min-width: 760px; }
+/* Names and teams wide enough to read; the list scrolls sideways if it has to. */
+.roster td:first-child input { min-width: 160px; }
+.roster input[data-field="team"] { min-width: 140px; }
+.roster input[data-field="nickname"], .roster input[data-field="notes"] { min-width: 110px; }
+.roster input[data-field="cust_id"] { min-width: 84px; }
+.roster input[data-field="car_number"], .roster input[data-field="driver_number"] { min-width: 52px; }
+.roster select[data-field="class_id"], .roster select[data-field="class2_id"] { min-width: 120px; }
+.roster select[data-field="car_make"] { min-width: 110px; }
 .roster input { width: 100%; padding: 4px 6px; }
 .roster th { background: var(--panel); }
 
@@ -335,7 +352,9 @@ kbd {
 .kind.spin { background: #ff8a3d; color: #1d0a00; }
 .kind.contact { background: #ff5a5a; color: #fff; }
 .rewind-secs { min-width: 36px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
-.live-btn { margin-left: auto; font-weight: 800; letter-spacing: .06em; background: var(--bad); color: #fff; border-color: transparent; }
+/* Right with the replay buttons, after a small divider. */
+.media-sep { width: 1px; align-self: stretch; margin: 4px 4px; background: var(--line); }
+.live-btn { font-weight: 800; letter-spacing: .06em; background: var(--bad); color: #fff; border-color: transparent; }
 .live-btn.on-air { background: transparent; color: var(--good); border-color: var(--good); }
 .hotkey-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin: 10px 0; }
 .btn.hk { display: flex; justify-content: space-between; align-items: center; }
@@ -412,10 +431,33 @@ kbd {
 .obs-url { display: flex; align-items: center; gap: 8px; }
 .preview-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: #111; margin: 8px 0 10px; }
 .preview-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.ov-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 14px; }
+/* Settings: an On screen switch, then sections that open and close. */
+.ov-form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.ov-visible { font-weight: 700; margin-bottom: 2px; }
+.ov-group { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.ov-group > summary {
+  cursor: pointer; padding: 7px 10px; font-size: 13px; font-weight: 700; list-style: none; user-select: none;
+  display: flex; align-items: center; gap: 8px;
+}
+.ov-group > summary::-webkit-details-marker { display: none; }
+.ov-group > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+.ov-group[open] > summary::before { transform: rotate(90deg); }
+.ov-group > summary:hover { color: var(--accent); }
+.ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 14px; padding: 4px 10px 10px; }
 .ov-field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
 .ov-field.check { flex-direction: row; align-items: center; gap: 6px; color: var(--text); font-size: 13px; }
-.ov-form .wide { grid-column: 1 / -1; }
+.ov-grid .wide, .ov-grid .hint { grid-column: 1 / -1; }
+/* A column order: chips to drag or move with their arrows. */
+.order-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.order-item { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel-2); color: var(--text); font-size: 12px; cursor: grab; user-select: none; }
+.order-item > span { padding: 0 4px; }
+.order-item.off { opacity: .45; }
+.order-item.dragging { opacity: .3; }
+.order-item button { background: none; border: none; color: var(--muted); cursor: pointer; padding: 2px 5px; border-radius: 999px; font-size: 10px; }
+.order-item button:hover:not(:disabled) { color: var(--accent); background: var(--watch); }
+.order-item button:disabled { visibility: hidden; }
+.team-logo:has(img) { background: none; }
 
 /* --- championship ------------------------------------------------------------ */
 .home.wide { max-width: 1400px; }
@@ -444,11 +486,30 @@ kbd {
 .round-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .round-head .round-num { font-weight: 800; color: var(--accent); min-width: 2.2em; }
 .round-head input[data-rkey=name] { width: 180px; }
+/* A race meeting: its races (each a round) in one box. */
+.meeting { border: 1px dashed var(--accent); border-radius: var(--radius); padding: 8px 10px 0; margin-bottom: 10px; }
+.meeting-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.meeting-head input { width: 220px; font-weight: 700; }
+.meeting .round-card { margin-left: 14px; }
+/* Building the rounds from a calendar. */
+.build-rounds { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 8px 12px; margin: 6px 0 12px; }
+.build-rounds > summary { cursor: pointer; font-weight: 700; }
+.build-rounds[open] > summary { margin-bottom: 4px; }
+.build-sources { flex-wrap: wrap; }
+#build-step textarea { width: 100%; font: inherit; font-size: 13px; padding: 8px; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--radius); }
+.build-table input, .build-table select { width: 100%; min-width: 90px; }
+.build-table td:nth-child(2) input { min-width: 220px; }
+.build-table tr.warn td { background: rgba(245, 197, 66, .12); }
+.build-table tr.warn input[data-bkey=track] { border-color: var(--warn); }
+.build-options { flex-wrap: wrap; margin-top: 8px; }
 .round-head input[data-rkey=track] { width: 200px; }
 .round-head input.narrow { width: 56px; }
 .results-table { margin-top: 8px; }
 .champ-rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 16px; }
 .champ-rules .wide { grid-column: 1 / -1; }
+.class-points > summary { cursor: pointer; font-weight: 600; }
+.class-points-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 16px; }
 .obs-kind { min-width: 80px; font-size: 12px; color: var(--muted); font-weight: 600; }
 
 /* --- updates (Home) ----------------------------------------------------------- */
@@ -464,8 +525,7 @@ kbd {
 .pb-folder label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
 .make-cell { white-space: nowrap; }
 .make-cell select { max-width: 150px; }
-.make-badge { display: inline-flex; width: 34px; height: 22px; align-items: center; justify-content: center; vertical-align: middle; margin-right: 4px; background: #fff; border-radius: 3px; }
-.make-badge:empty { background: none; }
+.make-badge { display: inline-flex; width: 34px; height: 22px; align-items: center; justify-content: center; vertical-align: middle; margin-right: 4px; }
 .make-badge img { max-width: 30px; max-height: 18px; object-fit: contain; }
 
 /* --- league banners ------------------------------------------------------------ */
@@ -517,7 +577,11 @@ a.btn { color: inherit; text-decoration: none; }
 .obs-url.desk-line:has(.desk[hidden]) { display: none; }
 p.hint .desk { margin-left: 6px; }
 .desk[hidden] { display: none; }
-.desk select { padding: 3px 6px; }
+/* The screen picked at the top of the Overlays and Boards tabs. */
+.desk-bar { gap: 10px; flex-wrap: wrap; align-items: center; margin: 4px 0 8px; }
+.desk-bar[hidden], .desk-screen[hidden] { display: none; }
+.desk-screen { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.desk-screen select { padding: 3px 6px; }
 .desk-on { color: var(--good); font-weight: 700; font-size: 12px; }
 .desk-help { margin-top: -4px; }
 /* The first time: is it see-through? Pinned at the top, over everything. */
@@ -529,7 +593,7 @@ p.hint .desk { margin-left: 6px; }
 .desk-check[hidden] { display: none; }
 
 /* Background setting: pick an uploaded image (or upload one). */
-.ov-form .bg-pick { grid-column: 1 / -1; }
+.ov-grid .bg-pick { grid-column: 1 / -1; }
 .bg-pick > div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 3px; }
 .bg-thumb { position: relative; width: 96px; height: 54px; border-radius: 6px; overflow: hidden; border: 2px solid var(--line); cursor: pointer; }
 .bg-thumb.on { border-color: var(--accent); }
@@ -537,3 +601,18 @@ p.hint .desk { margin-left: 6px; }
 .bg-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ov-form input[type="color"] { width: 64px; height: 30px; padding: 2px; }
 .ov-form input[type="range"] { width: 100%; }
+
+/* Export / import buttons, and the path of an export. */
+.transfer-row { gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+.export-path { user-select: all; word-break: break-all; }
+
+/* Roster: click a column heading to sort by it. */
+#roster-head [data-sort] { cursor: pointer; user-select: none; white-space: nowrap; }
+#roster-head [data-sort]:hover { color: var(--text); }
+#roster-head [data-sort]::after { content: " ↕"; opacity: .35; font-size: .9em; }
+#roster-head .sorted { color: var(--accent); }
+#roster-head .sorted[data-dir="asc"]::after { content: " ▲"; opacity: 1; }
+#roster-head .sorted[data-dir="desc"]::after { content: " ▼"; opacity: 1; }
+
+/* Overlays tab: a button to open an overlay's preview, instead of a preview pane. */
+.preview-link { margin: 2px 0 10px; }

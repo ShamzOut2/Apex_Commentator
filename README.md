@@ -37,18 +37,95 @@ OBS dock.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.4**
+**v0.4.5**
+
+### New features
+
+- **Build the season's rounds from a calendar**: from the league's season in
+  iRacing, by scanning the league's calendar image, or from its text pasted
+  in. Check and correct the rounds found, then make them all at once.
+- **Race meetings** for leagues that run several races in one event (heat
+  races) and count each as a round. Import every race of the event in one
+  go, and the calendar board shows the meeting as one.
+- **Secondary classes**: a driver can be in a second class as well as their
+  main one (e.g. a Rookie Cup or Pro-Am trophy). It works in the background:
+  the overlays show the main class, and the secondary class gets its own
+  championship, standings, results and board.
+- **Class and overall points added together**: a new way to score, where
+  each driver gets the points for their class position plus the points for
+  their overall position. Any class can also have its own points table.
+- **Driver on camera**: a small board at the bottom centre names the driver
+  you're spectating (position, number, name, team and car). It slides in each
+  time the camera moves to someone, and can hide itself after a few seconds.
+- **Import and export** leagues (with all their images), teams,
+  championships, round results, the driver roster and overlay settings.
+  Exports go to `Documents\Apex Commentator\Exports`, and the app shows
+  where each one went, with a button to open the folder. Standings, results
+  and the roster also export as spreadsheets (CSV).
+
+- **Size** for every overlay and board (50–200%). An overlay grows or
+  shrinks from where it sits; a board from the middle of the screen.
+
+### Improvements
+
+- Car badges and team logos no longer sit in a white box anywhere. Team logos
+  that come with a white background show without it, and dark badges and
+  logos are shown light so they stand out on the dark panels.
+- Choose the order of the columns on the standings tower and on the
+  full-screen standings: drag them, or use their arrows.
+- The League builder is tidier: its settings are on three tabs (Drivers,
+  Classes, and Logos, banners & sponsors), with shortcuts to Teams and the
+  season. The driver list has room for full names and teams.
+- Overlay and board settings are tidier: each is split into short sections
+  (What it shows, Header, Columns, Drivers…) that open and close, and the app
+  remembers which you left open. Settings that depend on another (like the
+  red-interval threshold or the fastest lap flash timer) only appear when
+  that one is on.
+- Pick the screen for **Show on my screen** once, at the top of the
+  Overlays tab or the Boards tab, instead of under every overlay. It's
+  remembered, and changing it moves whatever is already up.
+- The season calendar board can show your own round names ("Round 3 ·
+  Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
+  Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
+  November. The "×2 points" note on rounds worth more can be turned off.
+- The Overlays tab is shorter: the preview panes are replaced by a
+  **Preview ↗** button that opens an overlay in its own window.
+- The standings' column headings (GAP, INT…) can be turned off, and the
+  race leader's gap box can show the lap they're on ("Lap 12") instead of
+  "Leader".
+- The standings (tower and full screen) can turn off the coloured bar by
+  each driver, and the background behind the car number (it's in the
+  driver's class colour when on).
+- When the chequered flag comes out, the standings header turns into a
+  waving black-and-white chequered flag, on the tower and the full-screen
+  standings. It flashes in, then keeps waving until the session changes or
+  the overlay is taken off.
+- The extra drivers under the Overall tower's top rows can rotate through
+  the rest of the field, a few at a time on a timer, then start again. They
+  can also be dimmed with their own opacity.
+- The standings header (tower and full screen) can hide the series name
+  and/or the track name, and the session names can be your own (e.g.
+  "FEATURE RACE" instead of "RACE"). A long session name can wrap onto two
+  lines, or stay on one line with the tower widening for it.
+- The standings tower's width fits its contents: each column (the name
+  column too) is as wide as what's in it, so there's no big empty gap. Or set
+  the width yourself in pixels.
+- Sort the League builder's driver list by clicking a column heading (name,
+  customer ID, car number, driver number, nickname, team, notes, class or
+  car). Click again for the reverse order, a third time for the original
+  order.
+- The Timing tab's **LIVE** button sits with the replay buttons instead of
+  at the far end of the bar.
+- The Sponsors overlay's panel sits closer around the logos. In "one at a
+  time" mode it fits whichever logo is showing.
 
 ### Fixes
 
-- An overlay's or board's background now only colours the overlay or board
-  itself (the tower, the lap trackers, the sponsors panel, the grid walk
-  cards, the board), not the whole screen.
-- Buttons and settings stopped responding once several tabs, pop-outs or
-  on-screen overlays were open. That's why changing things during a session
-  and after an update often didn't work. They now always respond.
-- "Show on my screen", **Remove** and **Remove all from my screen** work
-  reliably.
+- Scrolling with the mouse over a number box you'd clicked in (like a
+  round's points multiplier) no longer changes its value by accident.
+- "Show on my screen" overlays covered the whole monitor in dark instead of
+  being see-through (since v0.4.4). They're see-through again, and the app
+  checks with you after each update in case they ever come up solid.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -278,10 +355,13 @@ on stream or put on a monitor (open it, then F11).
 
 ![full-screen standings board](docs/standings-screen.png)
 
-The **Overlays** tab has each overlay's address for OBS, a live preview and
-its settings. Add each one as a *Browser Source* at 1920×1080 (the background
-is transparent). Settings changed in the tab show on stream straight away and
-are kept in `data/overlays.json`.
+The **Overlays** tab has each overlay's address for OBS, a **Preview ↗**
+button and its settings. Add each one as a *Browser Source* at 1920×1080 (the
+background is transparent). Settings changed in the tab show on stream
+straight away and are kept in `data/overlays.json`. Each overlay's (and
+board's) settings are in sections that open and close (What it shows,
+Header, Columns, Drivers, Size & background…); settings that only matter
+when another is on, like the fastest lap flash timer, appear once it's on.
 
 - **Standings** (`/standings.html`): in a race, the running order with the gap
   to the leader. In qualifying and practice, it shows the fastest clean lap,
@@ -302,6 +382,12 @@ are kept in `data/overlays.json`.
   - **Green flag**: when a race goes green, the header (tower and full
     screen) flashes green five times with a light sweeping across it, then
     stops. Races only, and only if the overlay was open for the start.
+  - **Chequered flag**: when the leader takes the chequered flag, the header
+    (tower and full screen) turns into a black-and-white chequered flag. It
+    flashes in a few times with a light sweep, then keeps waving until the
+    session changes (e.g. to the next race) or the overlay is taken off
+    screen. The session name, track and "FINISHED" stay readable on dark
+    plates. Races only, and only if the app saw the finish.
   - **Columns** (each on or off):
     - gap to the leader (or to pole);
     - interval to the car ahead;
@@ -313,9 +399,45 @@ are kept in `data/overlays.json`.
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
-  - **Last N drivers** (Overall view): when there are more drivers than rows,
-    the last few (last place included) are added at the bottom, after a
-    small gap. 0 turns it off.
+  - **Column headings** (the small GAP, INT… row) can be turned off.
+  - **Column order**: drag the columns into the order you want (or use their
+    arrows), separately for the tower and the full-screen standings. Columns
+    that are switched off keep their place for when they're on. The full
+    screen's usual order differs between races and qualifying until you
+    change it.
+  - **The leader's gap shows**: "Leader", or the lap they're on ("Lap 12").
+    By class, each class leader shows their own lap.
+  - **Colours**: *Coloured bar by each driver* (the class or team colour)
+    and *Car number background* can each be turned off. The background is in
+    the driver's class colour; with it off, just the number shows. Both the
+    tower and the full-screen version follow these.
+  - **Header**: the session name, laps or time left, and under them the
+    series (the active league's name) and the track. *Series name* and
+    *Track name* turn each of those on or off. *Race name*, *Qualifying
+    name* and *Practice / warm-up name* replace RACE, QUALIFYING and
+    iRacing's name for practice, e.g. "FEATURE RACE" or "SUPERPOLE"; leave
+    one blank for the usual name. Both the tower and the full-screen version
+    use these. *Wrap a long session name* puts a long name on two lines in the
+    tower; off, it stays on one line and the tower widens for it (or ends in
+    "…" if you've set the width).
+  - **Width**: automatic (0, the default) or a width in pixels. In
+    automatic mode each column, the name column included, is as wide as its
+    widest entry plus a little room, and the tower is exactly as wide as
+    that. It grows straight away when something needs more room, and only
+    narrows once there's clearly room to spare, so it doesn't twitch as
+    numbers change. With a width set, the name column takes what the other
+    columns leave, and long names end in "…".
+  - **Extra drivers** (Overall view): when there are more drivers than
+    rows, a few more go under the top of the order, after a small "• • •"
+    gap. *Extra drivers show*:
+    - **The rest of the field, a set at a time** (default): with 20 rows and
+      3 extra, P21–23, then P24–26, and so on to the end, then back to
+      P21–23. *Seconds per set* sets how long each set stays. Every copy
+      of the overlay changes set at the same moment.
+    - **The last ones**: always the last few, last place included.
+
+    *Extra drivers' opacity* dims them (10–100%). 0 extra drivers turns it
+    off.
   - **Close racing**: with the *Interval* column on, a driver within 0.15 s
     of the car ahead has their interval in red text. It stays red until they get
     past (then whoever is now right behind turns red, if close enough) or
@@ -334,6 +456,16 @@ are kept in `data/overlays.json`.
     time. Set how many seconds it stays (3 or more). It can also flash each
     class's new fastest lap. Races skip the first lap; laps set before the
     app connected don't flash.
+- **Driver on camera** (`/driver.html`): a small board at the bottom centre
+  naming the driver the camera is on. It shows their position (and in class,
+  in multiclass races), car number in the class colour, name, class, team and
+  logo, and car badge.
+  - When the camera moves to someone else, the old board slides away and the
+    new one slides up, opening from the middle with a light sweep.
+  - **Hide after**: how many seconds it stays up after each camera change
+    (0 keeps it up while that driver is on camera).
+  - Choose the details shown, the name style and the panel background. It
+    only shows when the camera is on a driver, not on scenic cameras.
 - **Sponsors** (`/sponsors.html`): the active league's sponsor logos (added
   in the League builder) over the race. Choose a corner or the middle of an
   edge, all together or one at a time (and how long each shows), the size,
@@ -379,6 +511,51 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
 
+## Import & export
+
+Everything you set up can be saved to a file: a backup, to move to another
+PC, or to send to someone. Each kind is exported and imported where it's
+made.
+
+| What | Where | Export | Import |
+| --- | --- | --- | --- |
+| A whole league (classes, teams, drivers, championship, logos, banners, sponsors, photos) | League builder | **Export league** (.json) | **Import league…** (left side): added as a new league, never over one you have |
+| Driver roster | League builder | **Roster (CSV)** | **Import roster (CSV)…**: drivers matched by customer ID (else name) are updated, new ones added |
+| Teams (names, short names, colours, logos, who drives for whom) | Teams | **Export teams** (.json) | **Import teams…**: teams with the same name are replaced, drivers join their team |
+| Championship (points rules, calendar, every round's results, penalties) | Championship | **Export championship** (.json) | **Import championship…**: replaces this league's championship |
+| Championship standings (every table, round by round) | Championship | **Standings (CSV)** | |
+| One round's results | Championship → Calendar & results → open a round | **Export** (.json) or **CSV** | **Import…**: from a round export or a CSV with the same columns; replaces that round's results |
+| Every overlay's and board's settings, with background images | Overlays | **Export settings** (.json) | **Import settings…**: replaces your settings |
+
+**Where exports go:** `Documents\Apex Commentator\Exports` on the PC the
+app runs on. Files are named after the league, what's in them and the date,
+e.g. `Sunday Cup - Teams - 2026-10-31.json`, and never overwrite each other.
+After each export the app shows the file's name and full path, with **Show
+in folder** (opens File Explorer with it selected) and **Copy path**. The Home
+tab's *Import & export* panel has **Open exports folder**.
+
+**.json** files are for importing back into Apex Commentator (they carry their
+images inside them). **.csv** files open in Excel or Google Sheets; round
+results and the roster can be edited there and imported back. Classes are
+matched by name, so a league with the same class names picks results up
+directly.
+
+## Size
+
+Every overlay and board has a **Size** slider (50–200%, 100% as designed):
+- **Overlays tab:** standings, lap tracker, driver on camera and sponsors.
+- **Boards tab:** each board.
+- **Grid walk tab:** the grid walk.
+
+An overlay grows or shrinks from where it sits:
+- **Standings tower:** from its top-left corner.
+- **Lap trackers:** from the bottom.
+- **Sponsors:** from their corner or edge.
+- **Driver board:** from the bottom centre.
+
+Boards, the grid walk and the full-screen versions grow or shrink around the
+middle of the screen. Changes show straight away, in OBS and on screen.
+
 ## Backgrounds
 
 Every overlay and board has a background setting:
@@ -423,10 +600,13 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
   **windowed or borderless** mode: a game in exclusive full screen covers it.
 - It never takes the keyboard, and your mouse goes straight through to the
   game or the app underneath.
-- With more than one monitor, pick which one; changing it moves the overlay.
+- With more than one monitor, pick which one once, at the top of the
+  Overlays tab (for every overlay and the grid walk) or the Boards tab. The
+  app remembers it; changing it moves anything from that tab already up.
 - **Remove** takes it down; *Remove all from my screen* clears everything.
   They also close with the app.
-- The first time, the app asks whether you can see your screen through it.
+- The first time (and the first time after each update), the app asks
+  whether you can see your screen through it.
   If you don't answer within 15 seconds it takes the overlay down by itself
   (in case it came up solid and covered your screen). From then on it just
   appears.
@@ -451,7 +631,16 @@ built from the active league:
   leader and to the team ahead.
 - **Manufacturers**: by the cars' makes, Overall and per class.
 - **Season calendar**: every round with track, layout, date, time and
-  length, which rounds are done (with their winners) and which is next. Or
+  length, which rounds are done (with their winners) and which is next.
+  - **Round titles**: "Round 3 · your round name", just your round name, or
+    just "Round 3". A round you haven't named is always "Round 3".
+  - A race meeting of several races (heat races, say) is one card: "Rounds
+    4–6", the number of races, and each race's winner.
+  - **Dates as**: Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or
+    Sunday 22nd November.
+  - A round with a points multiplier other than 1 (Championship → Calendar
+    & results → *Points ×*, e.g. 2 for double points) shows "×2 points". This
+    can be turned off. Or
   the league's own calendar image instead (see *League builder*).
 - **Finishing order**: Overall or per class, from the latest round, a chosen
   round, or the session going on now (live).
@@ -494,6 +683,18 @@ standings update from what's saved.
       Example (class points 10, 6, 4; overall 20, 15, 10, 5): a PRO driver
       who finishes 3rd overall and 2nd in PRO scores 10 towards Overall and
       6 towards PRO.
+    - *Added together*: every result scores once, as its class position's
+      points plus its overall position's points (the overall points table
+      can be its own). Bonuses count once. Each class's table and the
+      overall table rank the same totals. Same example: the PRO driver
+      scores 6 + 10 = 16, in both PRO and Overall.
+  - **Different points for a class**: any class (a secondary one too) can
+    have its own points table; leave it empty for the usual one.
+  - **Secondary classes** (set up in the League builder) always have their
+    own championship, whichever option above is picked. Their drivers are
+    ranked by where they finished among each other: with a Rookie Cup of
+    drivers who finish 4th, 9th and 12th overall, the 4th-placed one wins
+    the Rookie Cup. Their main class and overall points don't change.
   - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
   - The fastest-lap bonus can be limited to the top N finishers.
@@ -503,7 +704,7 @@ standings update from what's saved.
   - Whether DNFs score for where they're classified.
   - **Team championship**: count every driver, or each team's best N per
     round. With *Both*, teams count their drivers' overall points, or class
-    points if you choose.
+    points if you choose. Secondary classes never count for teams.
   - **Bonus points**: pole, fastest lap, led a lap, each lap led, most laps
     led, most places gained, clean race (no incidents), finished, started, and
     race win. Use 0 for bonuses you don't award; negative values take points
@@ -511,6 +712,35 @@ standings update from what's saved.
 - **Rounds & results**
   - Add the season's rounds, with a points multiplier (2 for double points)
     and *Can't drop* for rounds that always count.
+  - **Build the rounds from a calendar** makes the whole season at once, from:
+    - **the iRacing season**: the sessions scheduled in the league's season
+      in iRacing (track, layout, date and start time at your PC's local time,
+      race length). Needs the league's iRacing League ID and API credentials.
+    - **a scan of the league's calendar graphic**: the calendar image from the
+      League builder, or any image you choose. The app reads its text (with
+      Windows' own text recognition, so nothing to install) and finds each
+      round's track and layout, date, start time and length. It copes with
+      tables (a round per row), lists and grids of cards. Tracks it doesn't
+      know are marked to check.
+    - **pasted text**: the calendar copied from Discord or a website, a round
+      a line or in blocks ("Round 1 - Spa - Sun 8th Nov - 8PM - 60 min").
+      Dates like 22/11/26 are read day first, or month first on a US PC (a
+      date that can only be one way round settles it).
+
+    Every round found is listed to check and correct (or leave out) before
+    any are made, and they can be added after the existing rounds or replace
+    the rounds that have no results yet.
+  - **Race meetings**: for leagues that run several races in one event (three
+    heat races, say) and count each race as a round. Each race is a round of
+    its own for the points; the meeting groups them. Make them with *Races at
+    each* when building from a calendar (each entry becomes a meeting of that
+    many races, called Race or Heat 1, 2…), or with **+ Add race meeting**.
+    **Import every race from session** fills a meeting's races from the race
+    sessions of the event you're in, in order (heat 1 into the first race,
+    and so on), including races that already finished: those come from
+    iRacing's results, so their statuses and starting places are worth a
+    check. During the event, the live standings count the race in progress
+    as the first race without results.
   - After a race, press **Import from session** while still in the session.
     This fills in finishing order, class, grid, laps, laps led, fastest lap
     and incidents from iRacing, and adds drivers missing from the roster.
@@ -553,6 +783,10 @@ Open the **League builder** tab.
    drivers in the session you are in.
 3. **Blank league**: type it in by hand.
 
+The league's settings are on three tabs: **Drivers** (the roster),
+**Classes**, and **Logos, banners & sponsors**. *Teams ↗* and *Season &
+points ↗* jump to the team builder and the championship.
+
 Edit nicknames, teams and notes (for example "Championship leader" or a
 pronunciation hint), **Save**, then **Use in overlay**. Drivers are matched by
 iRacing customer ID, or by car number for hand-added entries without one.
@@ -560,10 +794,24 @@ Re-fetching a league updates names and numbers, adds new members and keeps your
 notes. Profiles are plain JSON in `data/leagues/`.
 
 **Car**: each driver's car make (Porsche, BMW, Mercedes-AMG…), with its
-badge, for the manufacturers' championship and the boards. *Auto* uses the
+badge, for the manufacturers' championship and the boards. Badges show
+without any box behind them, in light versions where the maker's own is
+black or navy, so they read on the dark panels.
+
+**Team logos** never show in a white box: wherever a team logo appears (the
+overlays, boards, grid walk and the app), a white or near-white background
+around it is made see-through, and a logo that was dark on white is shown
+light. Logos that are already see-through, or a coloured badge, show as they
+are. *Auto* uses the
 car they drive in iRacing, worked out from its name. Importing drivers from a
 session fills it in, and each championship result keeps the car driven that
 round.
+
+**Sorting the drivers**: click a column heading in the driver list (Driver,
+Cust ID, Car #, Driver #, Nickname, Team, Notes, Class, 2nd class, Car) to sort by it, A
+to Z. Click again for Z to A, and a third time for the order they were added.
+Numbers sort as numbers (2 before 10) and blanks go last. Only the list on
+screen is sorted; the app remembers your choice.
 
 **League logo, banners and calendar image** (for the boards):
 - **League logo**: shown in the board headers.
@@ -584,9 +832,9 @@ length (e.g. "60 min").
   is used, plus every track the app has seen in a session. A track not in
   the lists can be typed in.
 
-**Remove driver class in name**: some leagues put the class in front of
+**Hide the class tag in front of names**: some leagues put the class in front of
 driver names, like `(P) Dave Price` or `(PA) Mat Gatter`. Tick this box
-(next to the league name) and:
+(on the Classes tab) and:
 - Every driver with a tag like that gets the name without it, minus the
   space, as their **Nickname** (`Dave Price`). Nicknames you've already typed
   are kept. Drivers added later (from the session or a re-fetch) get one when
@@ -621,6 +869,19 @@ A driver's class comes from:
 2. the first class whose **iRacing classes** list contains their car class
    (e.g. `GT3`), or otherwise
 3. their iRacing car class as-is.
+
+**Main and secondary classes.** Each class is one or the other (its
+**Kind**):
+- **Main class** (the usual kind): what the overlays, timing screen and grid
+  walk show. A driver is in one, found as above.
+- **Secondary class**: works in the background, e.g. a Rookie Cup or a
+  Pro-Am trophy that runs across the main classes. Pick a driver's in the
+  roster's **2nd class** column (it appears once the league has a secondary
+  class). The driver keeps their main class everywhere on screen, and also
+  scores in the secondary class's own championship, which has its own
+  standings, results and board. Secondary classes are never picked by car
+  class or name tag. Switching a class's Kind moves the drivers picked for
+  it to the other column.
 
 On the **Timing** screen, each driver's class position is underlined and
 their car number edged in the class colour, and the class chips above the
@@ -793,6 +1054,7 @@ apex/
   laps.py      lap and sector timing for the lap tracker and standings
   overlays.py  stream overlay settings
   championship.py  championship points, drop rounds, penalties and live projection
+  transfer.py  import and export (leagues, teams, championships, results, settings)
   league.py    iRacing Data API client and league profiles
   server.py    stdlib HTTP server + Server-Sent Events
   updater.py   update checks and in-app updates from GitHub releases
@@ -803,6 +1065,7 @@ web/           the overlay UI (plain HTML/CSS/JS, no build step)
   gridwalk.html  grid walk broadcast graphic for OBS (gridwalk.js)
   standings.html, laps.html  standings tower and qualifying lap tracker for OBS
   sponsors.html  sponsor logos for OBS
+  driver.html  the driver on camera, for OBS
   common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos
 packaging/     PyInstaller recipe (apex.spec) and Inno Setup installer script

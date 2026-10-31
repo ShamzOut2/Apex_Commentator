@@ -21,6 +21,7 @@ function render(snap) {
   const logos = chosen((snap.league && snap.league.sponsors) || [], s ? s.sponsor_ids : "");
   const on = s && logos.length && (s.visible || PREVIEW);
   setPanels(s);
+  setSize(s);
   const key = JSON.stringify([on, s, logos]);
   if (key === shownKey) return;
   shownKey = key;

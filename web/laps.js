@@ -103,10 +103,12 @@ function render() {
   if (!ov) return;
   if (SCREEN) {
     setBackground(ov.settings.laps, true);
+    setSize(ov.settings.laps, true);
     return renderScreen(ov);
   }
   const cfg = ov.settings.laps;
   setPanels(cfg);
+  setSize(cfg);
   const laps = ov.laps;
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const want = new Map();

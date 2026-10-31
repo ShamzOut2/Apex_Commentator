@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Driver on camera</title>
+  <link rel="stylesheet" href="overlay.css">
+  <link rel="stylesheet" href="driver.css">
+</head>
+<body>
+  <!-- Who's on camera, for OBS: add as a Browser Source at 1920x1080. A small
+       board at the bottom centre names the driver the camera is on, sliding in
+       each time it moves to someone. Transparent background; add ?preview=1
+       to see it on a backdrop. Settings are in the app's Overlays tab. -->
+  <div id="stage" class="stage"><div id="slot" class="slot"></div></div>
+  <script src="common.js"></script>
+  <script src="driver.js"></script>
+</body>
+</html>

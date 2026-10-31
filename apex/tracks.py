@@ -25,6 +25,7 @@ Atlanta Motor Speedway | Oval; Legends Oval; Road Course; Legends Road Course
 Auto Club Speedway | Oval; Competition; Interior; Infield
 Autodromo Internazionale Enzo e Dino Ferrari | Grand Prix; Moto
 Autodromo Nazionale Monza | Grand Prix; Combined; Combined without chicanes; Grand Prix without first chicane; Junior; Oval
+Autodromo Internazionale del Mugello | Grand Prix
 Autodromo Jose Carlos Pace | Grand Prix; Moto; Historic
 Autódromo Hermanos Rodríguez | Grand Prix; Grand Prix without bus stop; National; Oval
 Barber Motorsports Park | Full Course; Short A; Short B
@@ -65,6 +66,7 @@ Kansas Speedway | Oval; Infield Road Course
 Kentucky Speedway |
 Knockhill Racing Circuit | International; National; Rallycross
 Knoxville Raceway | 1/2 Mile; 1/4 Mile; 3/8 Mile
+Kyalami Grand Prix Circuit | Grand Prix
 Lanier National Speedway | Asphalt; Dirt
 Las Vegas Motor Speedway | Oval; Infield Road Course; Infield Legends Oval; Dirt
 Lime Rock Park | Grand Prix; Classic; Chicane; West Bend Chicane
@@ -73,6 +75,7 @@ Long Beach Street Circuit |
 Lucas Oil Raceway | Oval; Road Course
 Martinsville Speedway |
 Michigan International Speedway |
+Misano World Circuit Marco Simoncelli | Grand Prix
 Mid-Ohio Sports Car Course | Full Course; Chicane; Short
 Mobility Resort Motegi | Grand Prix; East; West; Superspeedway; Moto
 Mount Washington Hillclimb |
@@ -100,12 +103,14 @@ Road Atlanta | Full Course; Club
 Rockingham Speedway | Oval; Road Course
 Sachsenring |
 Sandown International Motor Raceway |
+Sebring International Raceway | International; Club; Modified
 Silverstone Circuit | Grand Prix; International; National; Historical Grand Prix
 Snetterton Circuit | 300; 200; 100
 Sonoma Raceway | Cup; Long; IndyCar 2008-2011; IndyCar 2012-; Club; Drift
 South Boston Speedway |
 Southern National Motorsports Park |
 Suzuka International Racing Course | Grand Prix; East; West; Moto
+Summit Point Raceway | Summit Point Raceway; Jefferson Circuit; School Circuit; Short
 Talladega Superspeedway |
 Texas Motor Speedway | Oval; Legends Oval; Road Course
 The Bullring | Oval; Road Course
@@ -120,6 +125,7 @@ Weedsport Speedway |
 WeatherTech Raceway at Laguna Seca |
 Williams Grove Speedway |
 Winton Motor Raceway | National; Club
+Willow Springs International Raceway | Big Willow; Horse Thief Mile; Streets of Willow Springs
 World Wide Technology Raceway | Oval; Road Course
 """
 

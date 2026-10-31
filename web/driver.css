@@ -1,0 +1,48 @@
+/* "Who's this": the driver on camera, bottom centre. */
+.slot { position: absolute; left: 0; right: 0; bottom: 64px; display: flex; justify-content: center; pointer-events: none; }
+.card {
+  position: absolute; bottom: 0; display: flex; align-items: center; gap: 22px; min-width: 560px; max-width: 1200px;
+  height: 104px; padding: 0 28px 0 0; border-radius: 14px; overflow: hidden;
+  background: var(--panel); box-shadow: 0 14px 40px rgba(0, 0, 0, .45);
+  border-bottom: 5px solid var(--cls, var(--accent));
+}
+body.panel-image .card { isolation: isolate; }
+body.panel-image .card::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
+}
+
+/* Slides up out of the bottom, opening from the middle, with a light sweep. */
+.card.in { animation: card-in .6s cubic-bezier(.2, .9, .25, 1) both; }
+.card.in::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .28) 50%, transparent 65%);
+  transform: translateX(-110%); animation: card-sweep .9s .35s ease-out both;
+}
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(46px); clip-path: inset(0 45% 0 45% round 14px); }
+  60% { opacity: 1; }
+  to { clip-path: inset(0 0 0 0 round 14px); }
+}
+@keyframes card-sweep { to { transform: translateX(110%); } }
+.card.out { animation: card-out .4s ease-in both; }
+@keyframes card-out { to { opacity: 0; transform: translateY(40px); } }
+.card.in > * { animation: card-content .45s .25s ease both; }
+@keyframes card-content { from { opacity: 0; transform: translateY(8px); } }
+
+.pos {
+  align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 112px; padding: 0 18px; background: var(--cls, var(--accent));
+}
+.pos .p { font-size: 40px; font-weight: 900; line-height: 1; }
+.pos .cp { font-size: 14px; font-weight: 800; letter-spacing: .06em; opacity: .9; white-space: nowrap; }
+.card:not(:has(.pos)) { padding-left: 24px; }
+.who { display: flex; align-items: center; gap: 18px; min-width: 0; flex: 1; }
+.who .num { font-size: 30px; font-weight: 900; min-width: 64px; height: 50px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
+.names { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.name { font-size: 38px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 14px; }
+.klass { font-size: 14px; font-weight: 800; letter-spacing: .08em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; }
+.team { font-size: 20px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.team img { height: 26px; max-width: 60px; object-fit: contain; }
+.make { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 56px; width: 104px; padding: 6px 10px; }
+.make img { max-height: 100%; max-width: 100%; object-fit: contain; }

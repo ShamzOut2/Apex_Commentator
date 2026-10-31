@@ -136,6 +136,39 @@ class StandingsOverlayTests(unittest.TestCase):
         late.tick()
         self.assertIsNone(late.build_snapshot()["overlays"]["since_green"])
 
+    def test_driver_on_camera(self):
+        app, source = self.app()
+        self.run_for(app, 20)
+        app.command("watch", {"car_idx": 5})
+        self.run_for(app, 1)
+        snap = app.build_snapshot()
+        d = snap["overlays"]["driver"]
+        row = next(r for r in snap["drivers"] if r["car_idx"] == 5)
+        self.assertEqual((d["car_idx"], d["number"], d["pos"], d["class_pos"]), (5, row["number"], row["pos"], row["class_pos"]))
+        self.assertIn("team_logo", d)
+        source.cam_car_idx = 999  # on nobody (e.g. a scenic camera)
+        self.run_for(app, 1)
+        self.assertIsNone(app.build_snapshot()["overlays"]["driver"])
+
+    def test_chequered_flag_is_marked_for_the_header(self):
+        app, source = self.app(race_laps=1)
+        self.run_for(app, 30)
+        self.assertIsNone(app.build_snapshot()["overlays"]["since_chequered"])
+        for _ in range(3000):  # until the leader takes the flag
+            self.t += 0.1
+            app.tick()
+            if source.checkered:
+                break
+        self.run_for(app, 1)
+        since = app.build_snapshot()["overlays"]["since_chequered"]
+        self.assertIsNotNone(since)
+        self.assertLess(since, 1.5)
+        # Joining after the finish: no flag to show.
+        late, src = self.app(race_laps=1)
+        src.checkered = True
+        late.tick()
+        self.assertIsNone(late.build_snapshot()["overlays"]["since_chequered"])
+
     def test_without_reveal_the_race_shows_everyone(self):
         app, source = self.app(race_laps=5)
         app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": False}})
@@ -239,3 +272,15 @@ class ClassFromTagTests(unittest.TestCase):
         self.assertEqual(store.class_for({"class_id": "am"}, "GT3", profile, "(SP) Ben Gibbons")["id"], "am")
         # The session name wins over the roster's: tags change when drivers move class.
         self.assertEqual(store.class_for({"name": "(P) Ben Gibbons"}, "GT3", profile, "(PA) Ben Gibbons")["id"], "pa")
+
+
+class ColumnOrderTests(unittest.TestCase):
+    def test_orders_keep_every_column_once(self):
+        from apex.overlays import OverlaySettings
+        o = OverlaySettings()
+        self.assertEqual(o.get()["standings"]["column_order"], "pos_change,laps,pits,last_lap,best_lap,gap,interval")
+        self.assertEqual(o.get()["standings"]["screen_column_order"], "")  # the usual order for the session
+        o.update("standings", {"column_order": "interval,gap,nonsense,gap", "screen_column_order": "pits,best_lap"})
+        s = o.get()["standings"]
+        self.assertEqual(s["column_order"], "interval,gap,pos_change,laps,pits,last_lap,best_lap")
+        self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap")

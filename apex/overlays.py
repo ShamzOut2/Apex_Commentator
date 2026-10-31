@@ -11,10 +11,20 @@ from pathlib import Path
 
 # Every overlay and board's background: "default" (overlays see-through,
 # boards and full screens their own look), a solid "color" or an uploaded
-# "image" (see backgrounds.py), at bg_opacity percent.
-BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacity": 100}
+# "image" (see backgrounds.py), at bg_opacity percent; and its size (scale,
+# percent: an overlay grows or shrinks from where it sits, a board or full
+# screen from the middle).
+BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacity": 100, "scale": 100}
 
 NAME_FORMATS = ("full", "initial_last", "last_initial", "last", "first", "abbrev", "nickname")
+
+# The standings' columns after the driver, in the order shown: the tower's
+# (each switched on and off with its show_ setting) and the full screen's
+# (a fixed set: Last and Pits in races only). "" for the full screen keeps
+# its usual order, which differs between races and qualifying.
+TOWER_COLUMNS = ("pos_change", "laps", "pits", "last_lap", "best_lap", "gap", "interval")
+SCREEN_COLUMNS = ("laps", "gap", "interval", "last_lap", "best_lap", "pits")
+ORDERS = {"column_order": TOWER_COLUMNS, "screen_column_order": SCREEN_COLUMNS}
 
 DEFAULTS = {
     "standings": {
@@ -22,11 +32,23 @@ DEFAULTS = {
         "mode": "overall",        # "overall" or "class"
         "class_key": "",          # "class" mode: one class only ("" = every class, one block each)
         "rows": 20,               # most drivers shown (per class in "class" mode)
-        "rows_last": 0,           # "overall": when there are more drivers, also the last N (last place included)
+        # "overall", more drivers than rows: rows_last more under the top of the
+        # order, after a small gap. "rotate": the rest of the field, that many at
+        # a time, a new set every rows_extra_s (then back to the first);
+        # "last": always the last ones (last place included).
+        "rows_last": 0,
+        "rows_extra_mode": "rotate",
+        "rows_extra_s": 6.0,
+        "rows_extra_opacity": 100,
+        "width": 0,               # tower width in px; 0 = automatic (each column fits what's in it)
         "name_format": "last_initial",
         "show_team": True,
         "show_logo": True,
         "show_number": True,
+        "show_stripe": True,      # the coloured bar by each driver (class or team colour)
+        "show_col_labels": True,  # the column headings (GAP, INT...) under the header
+        "leader_cell": "leader",  # race: the leader's gap box shows "leader" (Leader) or "lap" (the lap they're on)
+        "color_number": True,     # the car number on a background in the class colour (off: just the number)
         "show_gap": True,         # race: gap to the leader; qualifying: gap to pole
         "show_interval": False,   # to the car ahead
         "close_s": 0.15,          # race: an interval this close (or closer) shows red (0 = off)
@@ -36,10 +58,18 @@ DEFAULTS = {
         "show_laps": False,       # laps completed
         "show_pits": False,       # pit stops made
         "show_pit_status": True,  # "PIT" while on pit road
+        "column_order": ",".join(TOWER_COLUMNS),
+        "screen_column_order": "",
         # Start of a session: only the header (session, laps / time left), and
         # each driver appears once they've completed a lap.
         "reveal": True,
         "header_info": "auto",    # "auto" (laps or time, whichever the session is limited by), "laps", "time", "none"
+        # The header (tower and full screen): the series (the active league's
+        # name) and the track under the session name, and session names of
+        # your own ("" = RACE, QUALIFYING, or iRacing's name for practice).
+        "show_series": True, "show_track": True,
+        "title_race": "", "title_qualify": "", "title_practice": "",
+        "title_wrap": False,      # a long session name: onto two lines (True) or one line, the tower widening for it
         # Fastest lap: a purple stopwatch by the holder's name (each class's
         # holder in "class" mode), and a purple pill at the top middle of the
         # screen for fl_flash_s when someone sets a new fastest lap.
@@ -59,6 +89,16 @@ DEFAULTS = {
         "background": True,       # a dark panel behind the logos
         "title": "",              # a small caption above them, e.g. "Partners"
         "sponsor_ids": "",        # which sponsors, comma separated ("" = all, "none" = none)
+        **BACKGROUND,
+    },
+    # "Who's this": a board at the bottom centre for the driver on camera (driver.html).
+    "driver": {
+        "visible": True,
+        "hide_s": 8.0,            # seconds it stays up after the camera moves to someone (0 = while they're on camera)
+        "name_format": "full",
+        "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
+        "show_class": True,       # the class, in multiclass races
+        "show_position": True,    # P3 (and P1 in class, in multiclass races)
         **BACKGROUND,
     },
     # The grid walk's own settings are with the grid walk; this is just its background.
@@ -88,7 +128,13 @@ DEFAULTS = {
     "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
-                       "show_winners": True},
+                       "show_winners": True,
+                       # Each round's title: "both" (Round 3 · its name), "name" (its own name) or "number" (Round 3).
+                       "round_title": "both",
+                       # weekday_short: Sun 22 Nov; numeric: 22/11/26; day_month: 22nd November;
+                       # full: 22nd November 2026; weekday: Sunday 22nd November.
+                       "date_format": "weekday_short",
+                       "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
     "board_results": {
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
@@ -112,10 +158,13 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
+LIMITS = {"rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
-           "bg": ("default", "color", "image"), "place": PLACES, "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
+           "bg": ("default", "color", "image"), "place": PLACES,
+           "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
+           "leader_cell": ("leader", "lap"),
+           "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 
 def normalise(settings):
@@ -140,11 +189,23 @@ def _value(key, value, default):
             return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
         if key == "bg_image":
             return value if re.fullmatch(r"(bg-[0-9a-f]{12}\.(png|jpg|webp|svg))?", value) else default
+        if key in ORDERS:
+            return column_order(value, ORDERS[key]) if value else ("" if key == "screen_column_order" else default)
         if key == "sponsor_ids":
             return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
         return value if key not in CHOICES or value in CHOICES[key] else default
     except (TypeError, ValueError):
         return default
+
+
+def column_order(value, known):
+    """A column order: the known columns given, in that order, then any left out."""
+    picked = []
+    for key in str(value).split(","):
+        key = key.strip()
+        if key in known and key not in picked:
+            picked.append(key)
+    return ",".join(picked + [k for k in known if k not in picked])
 
 
 class OverlaySettings:

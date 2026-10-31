@@ -1,6 +1,6 @@
 .tower {
   position: absolute; left: 40px; top: 40px; width: 430px;
-  transition: opacity .4s ease, transform .4s ease;
+  transition: opacity .4s ease, transform .4s ease, width .3s ease;
 }
 .tower.hidden { opacity: 0; transform: translateX(-30px); }
 .head-box { border-radius: 10px 10px 0 0; overflow: hidden; background: var(--panel); }
@@ -10,8 +10,11 @@
   padding: 10px 14px; display: flex; flex-direction: column; gap: 2px;
 }
 .tower-head .h1 { display: flex; align-items: baseline; gap: 10px; }
-.tower-head .t1 { font-size: 22px; font-weight: 900; letter-spacing: .06em; }
-.tower-head .t3 { margin-left: auto; font-size: 20px; font-weight: 900; letter-spacing: .04em; color: var(--accent); }
+.tower-head .t1 { font-size: 22px; font-weight: 900; letter-spacing: .06em; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* "Wrap a long session name": onto two lines instead. */
+.tower.wrap-title .tower-head .t1 { white-space: normal; overflow: visible; }
+.tower.wrap-title .tower-head .h1 { align-items: flex-start; }
+.tower-head .t3 { margin-left: auto; flex: none; white-space: nowrap; font-size: 20px; font-weight: 900; letter-spacing: .04em; color: var(--accent); }
 .tower-head .t2 { font-size: 14px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .block { background: var(--panel); }
 .block:last-child { border-radius: 0 0 10px 10px; overflow: hidden; }
@@ -127,3 +130,44 @@ body.screen .fl-flash { top: 14px; }
 @keyframes go-sweep { 60%, 100% { transform: translateX(120%); } }
 .tower-head.go .t3 { animation: go-text .55s ease-in-out 5 both; animation-delay: var(--go-delay, 0s); }
 @keyframes go-text { 35%, 65% { color: #fff; } }
+
+/* The chequered flag: from the moment it's out, the header is a
+   black-and-white chequered flag. It flashes in a few times with a light
+   sweep, then keeps waving until the session changes or the overlay is taken
+   off (goFlash in standings.js). The text stays on top, on dark plates. */
+.tower-head.chequered, .screen-head.chequered { position: relative; overflow: hidden; isolation: isolate; }
+.tower-head.chequered::before, .screen-head.chequered::before {
+  content: ""; position: absolute; inset: -40% -10%; z-index: -1; pointer-events: none;
+  background: conic-gradient(#f4f4f4 25%, #111 0 50%, #f4f4f4 0 75%, #111 0) 0 0 / 26px 26px;
+  animation: flag-show 4.2s ease-in-out both, flag-wave 3.6s ease-in-out infinite, flag-drift 6s linear infinite;
+  animation-delay: var(--go-delay, 0s);
+}
+/* Waving: the same at the start and the end of each loop, so it never jumps. */
+@keyframes flag-wave {
+  0%, 100% { transform: perspective(600px) rotateY(-9deg) skewY(-2deg); }
+  50% { transform: perspective(600px) rotateY(9deg) skewY(2deg); }
+}
+/* The squares drift across, a whole number of squares per loop. */
+@keyframes flag-drift { from { background-position: 0 0; } to { background-position: 156px 52px; } }
+/* Flashes in and out, then stays. */
+@keyframes flag-show {
+  0% { opacity: 0; }
+  8%, 22%, 38%, 54%, 70% { opacity: .95; }
+  15%, 30%, 46%, 62% { opacity: .4; }
+  86%, 100% { opacity: .9; }
+}
+.tower-head.chequered::after, .screen-head.chequered::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .55) 50%, transparent 70%);
+  transform: translateX(-120%); animation: go-sweep 1.4s ease-in-out 3 both; animation-delay: var(--go-delay, 0s);
+}
+/* Text readable on the flag: a dark plate behind each line. */
+.tower-head.chequered .t1, .tower-head.chequered .t2, .tower-head.chequered .t3,
+.screen-head.chequered .t1, .screen-head.chequered .t2, .screen-head.chequered .t3 {
+  border-radius: 4px; padding: 0 6px;
+  animation: flag-text .35s ease both; animation-delay: var(--go-delay, 0s);
+}
+@keyframes flag-text { from { background-color: transparent; } to { background-color: rgba(10, 12, 16, .82); } }
+
+/* Full screen without column headings. */
+.screen-table.no-labels thead { display: none; }

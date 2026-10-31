@@ -50,7 +50,7 @@ class ProfileTests(unittest.TestCase):
             normalise_profile({"name": "X", "league_id": "abc"})
         p = normalise_profile({"name": "My League!", "drivers": [{"name": " A ", "cust_id": "12"}, {"name": ""}]})
         self.assertEqual(p["id"], "my-league")
-        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": "", "class_id": "", "car_image": "", "helmet_image": "", "driver_number": "", "car_make": ""}])
+        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": "", "class_id": "", "class2_id": "", "car_image": "", "helmet_image": "", "driver_number": "", "car_make": ""}])
 
     def test_normalise_classes(self):
         p = normalise_profile({"name": "L", "classes": [
@@ -122,6 +122,22 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(self.store.class_for(amy, "GT3")["id"], "am")
         self.assertEqual(self.store.class_for(self.store.lookup(2, "99"), "gt3")["id"], "pro")
         self.assertIsNone(self.store.class_for(None, "GT4"))
+
+    def test_secondary_classes_never_show_on_overlays(self):
+        p = self.store.fetch(4242)
+        p["classes"] = [{"name": "Rookie", "match": ["GT3"], "role": "secondary"}, {"name": "Pro", "match": ["GT3"]}]
+        p["drivers"][0].update(class_id="rookie", class2_id="rookie")   # Amy: Rookie can only be her secondary class
+        p["drivers"][1].update(class_id="pro", class2_id="pro")         # Zed: Pro can't be his secondary one
+        saved = self.store.save(p)
+        self.assertEqual([c["role"] for c in saved["classes"]], ["secondary", "main"])
+        amy, zed = sorted(saved["drivers"], key=lambda d: d["cust_id"])
+        self.assertEqual((amy["class_id"], amy["class2_id"]), ("", "rookie"))
+        self.assertEqual((zed["class_id"], zed["class2_id"]), ("pro", ""))
+        self.store.set_active("4242")
+        # Matching by car class or name tag skips the secondary class.
+        self.assertEqual(self.store.class_for(self.store.lookup(1, "7"), "GT3")["id"], "pro")
+        self.assertEqual(self.store.class_for(None, "", name="(R) Amy First"), None)
+        self.assertEqual(self.store.lookup(1, "7")["class2_id"], "rookie")
 
     def test_logos(self):
         p = self.store.fetch(4242)

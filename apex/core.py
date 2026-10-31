@@ -209,6 +209,7 @@ class App:
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
         self._green = {}           # race session number -> session time it went green (the header flash)
+        self._chequered = {}       # race session number -> session time the chequered flag came out
         self._last_state = {}      # session number -> session state last seen
         self._fl_session = None    # fastest laps: the session they're for,
         self._fl_records = {}      # "overall" / class key -> fastest lap so far,
@@ -299,6 +300,9 @@ class App:
             if frame.session_state == STATE_RACING and num not in self._green and (
                     (was is not None and was < STATE_RACING) or (was is None and t < 5.0)):
                 self._green[num] = t
+            # The chequered flag: from racing to chequered, the leader crossing the line.
+            if frame.session_state == STATE_CHECKERED and num not in self._chequered and was == STATE_RACING:
+                self._chequered[num] = t
             self._last_state[num] = frame.session_state
             self._race.update(timeline_frame)
             self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
@@ -372,10 +376,13 @@ class App:
         self._track_sectors = sector_starts(info)
         self._apply_sectors()
 
-    def session_key(self):
-        """Identifies the session on screen (iRacing's subsession and session number)."""
+    def session_key(self, session_num=None):
+        """Identifies the session on screen, or race ``session_num`` of this
+        event (iRacing's subsession and session number)."""
         sub, frame = self._session_meta.get("subsession"), self._frame
-        return f"{sub}:{frame.session_num}" if sub and frame else None
+        if session_num is None and frame:
+            session_num = frame.session_num
+        return f"{sub}:{session_num}" if sub and session_num is not None else None
 
     def _session(self, frame):
         return self._session_meta.get("sessions", {}).get(frame.session_num, {})
@@ -494,8 +501,35 @@ class App:
 
     # -- championship -------------------------------------------------------
 
-    def session_results(self, profile, rows=None, add_missing=False):
-        """The current session as championship results for ``profile``.
+    def race_sessions(self):
+        """The race sessions of the event on screen (heats and a feature, say),
+        in order: [{"num", "name", "results": bool}]."""
+        out = []
+        for num, s in sorted(self._session_meta.get("sessions", {}).items(), key=lambda kv: kv[0] if kv[0] is not None else -1):
+            if str(s.get("SessionType", "")).lower() == "race":
+                out.append({"num": num, "name": str(s.get("SessionName") or f"Race {len(out) + 1}"),
+                            "results": bool(s.get("ResultsPositions"))})
+        return out
+
+    def _finished_rows(self, session):
+        """A race session that's over (not the one on screen) as rows for
+        ``session_results``, from iRacing's official results."""
+        rows = []
+        for res in session.get("ResultsPositions") or []:
+            d = self._drivers.get(res.get("CarIdx")) if isinstance(res, dict) else None
+            if not d:
+                continue
+            laps = res.get("LapsComplete")
+            rows.append({"car_idx": d["car_idx"], "cust_id": d["cust_id"], "number": d["number"], "name": d["name"],
+                         "team": d["team"], "car_class": d["car_class"], "make": d["make"],
+                         "pos": res.get("Position") or None, "start_pos": None,
+                         "lap": laps + 1 if isinstance(laps, int) and laps >= 0 else None,
+                         "best_lap": None, "in_world": True, "incidents": res.get("Incidents") or 0})
+        return rows
+
+    def session_results(self, profile, rows=None, add_missing=False, session_num=None):
+        """The current session (or race session ``session_num`` of this event)
+        as championship results for ``profile``.
 
         Uses iRacing's official results (laps, laps led, fastest lap, why a car
         is out) where it has them, and the live order otherwise. With
@@ -503,11 +537,17 @@ class App:
         Returns ``(results, added)``.
         """
         frame = self._frame
-        if rows is None:
-            rows = self.build_snapshot().get("drivers") or []
-        session = self._session(frame) if frame else {}
+        if session_num is not None and frame and session_num != frame.session_num:
+            # An earlier race of the event (a heat): only iRacing's results are left.
+            session = self._session_meta.get("sessions", {}).get(session_num, {})
+            rows, checkered = self._finished_rows(session), True
+        else:
+            session_num = frame.session_num if frame else None
+            if rows is None:
+                rows = self.build_snapshot().get("drivers") or []
+            session = self._session(frame) if frame else {}
+            checkered = bool(frame) and frame.session_state >= STATE_CHECKERED
         official = {r.get("CarIdx"): r for r in session.get("ResultsPositions") or [] if isinstance(r, dict)}
-        checkered = bool(frame) and frame.session_state >= STATE_CHECKERED
         results, added = [], 0
         for r in sorted(rows, key=lambda r: r["pos"] or 10_000):
             entry = self.leagues.lookup(r["cust_id"], r["number"], profile)
@@ -526,7 +566,7 @@ class App:
                 laps = max(0, (r["lap"] or 1) - 1)
             fastest = off.get("FastestTime")
             reason = str(off.get("ReasonOutStr") or "Running").strip().lower()
-            status = self._race.status(r["car_idx"], frame.session_num if frame else None, laps, r["in_world"], reason)
+            status = self._race.status(r["car_idx"], session_num, laps, r["in_world"], reason)
             if status is None:
                 # Not watched to the flag: iRacing's reason the car is out,
                 # and mid-race a car that has left the world is out.
@@ -744,14 +784,29 @@ class App:
             # Seconds since the race went green (the header flashes green at the start), or None.
             "since_green": round(frame.timeline()[1] - self._green[frame.timeline()[0]], 2)
             if is_race and frame.timeline()[0] in self._green else None,
+            # And since the chequered flag came out (the header's chequered-flag animation).
+            "since_chequered": round(frame.timeline()[1] - self._chequered[frame.timeline()[0]], 2)
+            if is_race and frame.timeline()[0] in self._chequered else None,
             "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
             "fastest_flash": flash,
+            # The driver on camera, for the "who's this" board (driver.html).
+            "driver": self._camera_driver(frame, rows, entries, is_race),
             # "all": every driver, for the full-screen timing page (timed
             # drivers by lap time, then the rest).
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
                      "all": sorted(everyone, key=lambda x: (x["pos"] or 10_000, x["name"].lower()))},
         }
+
+    @staticmethod
+    def _camera_driver(frame, rows, entries, is_race):
+        """Who the camera is on: their overlay details and where they are, or None."""
+        idx = frame.cam_car_idx
+        row = next((r for r in rows if r["car_idx"] == idx), None)
+        if row is None or idx not in entries or not row["in_world"]:
+            return None
+        return dict(entries[idx], pos=row["pos"], class_pos=row["class_pos"],
+                    pos_change=row.get("pos_change") if is_race else None)
 
     def _add_start_positions(self, rows, is_race):
         """Grid position (overall and in class) and places gained since, in races."""
@@ -984,6 +1039,7 @@ class App:
         "sponsors": ("Sponsors", "/sponsors.html"),
         "board": ("Boards", "/board.html"),
         "gridwalk": ("Grid walk", "/gridwalk.html"),
+        "driver": ("Driver on camera", "/driver.html"),
     }
 
     def _desktop_snapshot(self):

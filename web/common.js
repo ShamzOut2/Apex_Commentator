@@ -231,6 +231,129 @@ function classHeaderHtml(cls, detail, onReady) {
 }
 
 // ---------------------------------------------------------------------------
+// team logos: never in a white box
+// ---------------------------------------------------------------------------
+// Team logos often come with a white (or near-white) box around them. Every
+// page shows them without it: the plain light background touching the
+// image's edges becomes see-through, and a logo that was dark on white turns
+// light so it reads on the dark panels. Done once per logo, in the browser
+// (OBS included), whatever page draws it.
+
+const TEAM_LOGO = /^\/api\/logos\/[^/]+\/team-[^/]+$/;
+const clearedLogos = new Map();  // src -> url to show, or a Promise of one
+
+async function clearLogoBackground(src) {
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  let w = img.naturalWidth || 256, h = img.naturalHeight || 256;
+  const scale = Math.min(1, MAX_LOGO_PX / Math.max(w, h));
+  w = Math.max(1, Math.round(w * scale));
+  h = Math.max(1, Math.round(h * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, w, h);
+  const data = ctx.getImageData(0, 0, w, h);
+  const px = data.data;
+  const bg = detectBackground(px, w, h);
+  // Already see-through, or a coloured badge: shown as it is.
+  if (bg.transparent || Math.min(...bg.rgb) < 200) return src;
+  const t = 0.12;
+  const n = w * h;
+  const dist = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    dist[i] = px[o + 3] < ALPHA_CLEAR ? 0 : Math.hypot(px[o] - bg.rgb[0], px[o + 1] - bg.rgb[1], px[o + 2] - bg.rgb[2]) / 441.7;
+  }
+  const gone = new Uint8Array(n);
+  const queue = new Int32Array(n);
+  let head = 0, tail = 0;
+  const seed = (i) => {
+    if (!gone[i] && dist[i] <= t) {
+      gone[i] = 1;
+      queue[tail++] = i;
+    }
+  };
+  for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { seed(y * w); seed(y * w + w - 1); }
+  while (head < tail) {
+    const i = queue[head++];
+    const x = i % w;
+    if (x > 0) seed(i - 1);
+    if (x < w - 1) seed(i + 1);
+    if (i >= w) seed(i - w);
+    if (i < n - w) seed(i + w);
+  }
+  let solid = 0, dark = 0;
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    if (gone[i]) {
+      px[o + 3] = 0;
+      continue;
+    }
+    const x = i % w;
+    const edge = (x > 0 && gone[i - 1]) || (x < w - 1 && gone[i + 1]) || (i >= w && gone[i - w]) || (i < n - w && gone[i + w]);
+    if (edge) {
+      // Anti-aliased edge: take out the share of white it was blended with.
+      const k = Math.min(0.95, Math.max(0, 1 - (dist[i] - t) / (t * 1.5)));
+      for (let c = 0; c < 3; c++) px[o + c] = Math.min(255, Math.max(0, (px[o + c] - k * bg.rgb[c]) / (1 - k)));
+      px[o + 3] *= 1 - k;
+    }
+    if (px[o + 3] > 128) {
+      solid++;
+      if (px[o] * 0.3 + px[o + 1] * 0.59 + px[o + 2] * 0.11 < 90) dark++;
+    }
+  }
+  // Dark on white (black lettering, say): light instead, or it would vanish.
+  if (solid && dark / solid > 0.5) {
+    for (let o = 0; o < px.length; o += 4) {
+      const lum = px[o] * 0.3 + px[o + 1] * 0.59 + px[o + 2] * 0.11;
+      if (px[o + 3] && lum < 110 && Math.max(px[o], px[o + 1], px[o + 2]) - Math.min(px[o], px[o + 1], px[o + 2]) < 60) {
+        px[o] = px[o + 1] = px[o + 2] = 255 - lum * 0.5;
+      }
+    }
+  }
+  ctx.putImageData(data, 0, 0);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  return URL.createObjectURL(blob);
+}
+
+function showClearedLogo(img) {
+  const src = img.getAttribute("src");
+  if (!src || !TEAM_LOGO.test(src)) return;
+  let hit = clearedLogos.get(src);
+  if (typeof hit === "string") {
+    if (hit !== src) img.src = hit;
+    return;
+  }
+  if (!hit) {
+    hit = clearLogoBackground(src).catch(() => src).then((url) => {
+      clearedLogos.set(src, url);
+      return url;
+    });
+    clearedLogos.set(src, hit);
+  }
+  img.style.visibility = "hidden";  // never flash the white box
+  hit.then((url) => {
+    if (img.getAttribute("src") === src && url !== src) img.src = url;
+    img.style.visibility = "";
+  });
+}
+
+// New logos are swapped as they're added, before they're painted.
+new MutationObserver((changes) => {
+  for (const change of changes) {
+    for (const node of change.addedNodes) {
+      if (node.nodeType !== 1) continue;
+      if (node.tagName === "IMG") showClearedLogo(node);
+      else node.querySelectorAll("img").forEach(showClearedLogo);
+    }
+  }
+}).observe(document.documentElement, { childList: true, subtree: true });
+
+// ---------------------------------------------------------------------------
 // liveries: a stylised car and helmet in a driver's iRacing paint colours,
 // used whenever no photo has been uploaded for them
 // ---------------------------------------------------------------------------
@@ -417,12 +540,19 @@ function ongoing(since, ms) {
 // A stopwatch icon (fastest lap), coloured by CSS (currentColor).
 const STOPWATCH = '<svg class="stopwatch" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 1h6v2H9zm10.03 6.39 1.42-1.42-1.41-1.41-1.42 1.42A8.96 8.96 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61zM12 20a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm-1-12h2v6h-2z"/></svg>';
 
-// Fixed 1920x1080 stage, scaled to fit the browser source.
+// Fixed 1920x1080 stage, scaled to fit the browser source. setStageSize()
+// then makes the whole stage bigger or smaller around the middle (boards,
+// full screens, the grid walk).
+let fitNow = () => {};
+let stageSize = 1;
+
 function fitStage(stage) {
   const fit = () => {
     const s = Math.min(innerWidth / 1920, innerHeight / 1080);
-    stage.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
+    stage.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`
+      + (stageSize !== 1 ? ` translate(960px, 540px) scale(${stageSize}) translate(-960px, -540px)` : "");
   };
+  fitNow = fit;
   addEventListener("resize", fit);
   fit();
   if (new URLSearchParams(location.search).has("preview")) document.body.classList.add("preview");
@@ -437,6 +567,19 @@ function fitStage(stage) {
 //   panels, nothing else (setPanels);
 // - boards and full-screen pages, which are a whole screen: that screen's
 //   backdrop (setBackground), shown only while there's something on screen.
+
+// The Size setting (scale, percent). Overlays: their own elements grow or
+// shrink from where they sit (CSS zoom via --ov-size, in each page's CSS).
+// Boards and full screens: the whole stage, around the middle.
+function setSize(cfg, whole = false) {
+  const k = ((cfg && cfg.scale) || 100) / 100;
+  document.body.style.setProperty("--ov-size", String(whole ? 1 : k));
+  const stage = whole ? k : 1;
+  if (stage !== stageSize) {
+    stageSize = stage;
+    fitNow();
+  }
+}
 
 // Overlays: their panels take the colour, or show the image inside them
 // (overlay.css / gridwalk.css: body.panel-image). Everything else stays

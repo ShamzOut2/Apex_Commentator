@@ -912,11 +912,16 @@ function renderChampStandings() {
   const anyPen = st.groups.some((g) => g.drivers.some((d) => d.penalty_points));
   // Class and overall championships: each table says which points it adds up.
   const rules = (ui.editing && champData().rules) || {};
-  const both = rules.scoring === "both";
+  const both = rules.scoring === "both" || rules.scoring === "sum";
   const teamPen = st.teams.some((t) => t.penalty_points);
   const teamBasis = both ? ` <span class="hint">${(rules.team_points || "overall") === "class" ? "Drivers' class points" : "Drivers' overall points"}</span>` : "";
-  box.innerHTML = (both ? '<p class="hint">Class and overall are separate championships: each driver scores in their class (on class positions) and overall (on overall positions), and each table adds up its own points. Bonuses and penalties apply in both.</p>' : "") + st.groups.map((g) => `<div class="champ-group">
-      ${g.key || st.groups.length > 1 ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}${both ? ` <span class="hint">${esc(g.basis)}</span>` : ""}</div>` : ""}
+  const help = rules.scoring === "both"
+    ? "Class and overall are separate championships: each driver scores in their class (on class positions) and overall (on overall positions), and each table adds up its own points. Bonuses and penalties apply in both."
+    : rules.scoring === "sum" ? "Each driver's points are their class points plus their overall points, added up; each table ranks those totals. Bonuses count once."
+      : "";
+  const anySecondary = st.groups.some((g) => g.secondary);
+  box.innerHTML = (help ? `<p class="hint">${help}</p>` : "") + st.groups.map((g) => `<div class="champ-group">
+      ${g.key || st.groups.length > 1 ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}${g.secondary ? ' <span class="badge">SECONDARY CLASS</span>' : ""}${both || anySecondary ? ` <span class="hint">${esc(g.basis)}</span>` : ""}</div>` : ""}
       <div class="table-scroll"><table class="grid champ-table standings-table">
         <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Team</th>${head}${anyPen ? '<th class="c-num" title="Penalty points taken off">Pen</th>' : ""}${anyLicence ? '<th class="c-num" title="Licence points">Lic</th>' : ""}<th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
         <tbody>${g.drivers.map((d) => `<tr>
@@ -1020,15 +1025,18 @@ function trackGroup(name) {
   return trackList.groups.find((g) => g.track.toLowerCase() === n);
 }
 
-function configField(rd, i) {
+// A round's layout: a list of the track's layouts when it's a known track.
+// ``attrs`` says which field it is (data-round / data-build-row...).
+function configField(rd, attrs) {
   const g = trackGroup(rd.track);
   if (!g) {
-    return `<input data-round="${i}" data-rkey="config" value="${esc(rd.config || "")}" placeholder="Configuration" aria-label="Configuration">`;
+    return `<input ${attrs} value="${esc(rd.config || "")}" placeholder="Configuration" aria-label="Configuration">`;
   }
   const configs = g.configs.map((c) => c.config);
   const current = rd.config || "";
-  const extra = current && !configs.includes(current) ? `<option selected>${esc(current)}</option>` : "";
-  return `<select data-round="${i}" data-rkey="config" aria-label="Configuration">${extra}${configs.map((c) =>
+  const extra = current && !configs.includes(current) ? `<option selected>${esc(current)}</option>`
+    : !current && !configs.includes("") ? '<option value="" selected>Pick a layout</option>' : "";
+  return `<select ${attrs} aria-label="Configuration">${extra}${configs.map((c) =>
     `<option value="${esc(c)}" ${c === current ? "selected" : ""}>${esc(c || "(one layout)")}</option>`).join("")}</select>`;
 }
 
@@ -1046,22 +1054,22 @@ function renderChampRounds() {
   loadTracks();
   const c = champData();
   const classes = ui.editing.classes || [];
-  $("#champ-rounds").innerHTML = c.rounds.length ? c.rounds.map((rd, i) => {
+  const cards = c.rounds.map((rd, i) => {
     const open = champ.open.has(rd.id);
     const isLive = c.live_round ? c.live_round === rd.id : c.rounds.find((r) => !(r.results || []).length) === rd;
     const pts = roundPoints(rd.id);
-    const classIds = [...new Set([...classes.map((x) => x.id), ...(rd.results || []).map((r) => r.class_id).filter(Boolean)])];
+    const classIds = [...new Set([...classes.filter((x) => !isSecondary(x)).map((x) => x.id), ...(rd.results || []).map((r) => r.class_id).filter(Boolean)])];
     const results = (rd.results || []).map((r, j) => [r, j]).sort((a, b) => (a[0].position || 999) - (b[0].position || 999));
     return `<div class="round-card ${open ? "open" : ""}">
       <div class="round-head">
         <span class="round-num">R${i + 1}</span>
         <input data-round="${i}" data-rkey="name" value="${esc(rd.name)}" placeholder="Round name" aria-label="Round name">
         <input data-round="${i}" data-rkey="track" class="track-input" list="track-names" value="${esc(rd.track || "")}" placeholder="Track (type to search)" aria-label="Track">
-        ${configField(rd, i)}
+        ${configField(rd, `data-round="${i}" data-rkey="config"`)}
         <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
         <input type="time" data-round="${i}" data-rkey="time" value="${esc(rd.time || "")}" aria-label="Start time" title="Start time">
         <input data-round="${i}" data-rkey="length" class="narrow-text" value="${esc(rd.length || "")}" placeholder="Length" aria-label="Race length" title="e.g. 60 min, 30 laps">
-        <label class="field" title="Points multiplier, e.g. 2 for double points">×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
+        <label class="field" title="Points multiplier: 1 for normal points, 2 for double points, and so on">Points ×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
         <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
         <label class="field" title="The race in progress counts as this round in the live standings"><input type="radio" name="live-round" data-live-round="${esc(rd.id)}" ${isLive ? "checked" : ""}> Live</label>
         <span class="grow"></span>
@@ -1070,7 +1078,12 @@ function renderChampRounds() {
         <button class="btn" data-round-import="${i}" title="Fill this round with the results of the race session you're in">⤓ Import from session</button>
         <button class="btn icon danger" data-round-delete="${i}" title="Delete round">✕</button>
       </div>
-      ${open ? `<div class="table-scroll"><table class="grid champ-table results-table">
+      ${open ? `<div class="row transfer-row"><span class="hint">This round's results:</span>
+        <button class="btn subtle" data-export="round" data-export-round="${esc(rd.id)}" title="To import into a round, here or on another PC">⤓ Export</button>
+        <button class="btn subtle" data-export="round_csv" data-export-round="${esc(rd.id)}" title="As a spreadsheet (CSV)">⤓ CSV</button>
+        <label class="btn subtle" title="From a round export (.json) or a CSV with the same columns as the CSV export">⤒ Import…<input type="file" accept=".json,.csv,application/json,text/csv" data-import="round" data-import-round="${esc(rd.id)}" hidden></label>
+      </div>
+      <div class="table-scroll"><table class="grid champ-table results-table">
         <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored (after saving)">${c.rules.scoring === "both" ? "Pts overall / class" : "Pts"}</th><th></th></tr></thead>
         <tbody>${results.map(([r, j]) => `<tr>
           <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"></td>
@@ -1088,7 +1101,57 @@ function renderChampRounds() {
         </tr>`).join("")}</tbody></table></div>
         <button class="btn subtle" data-res-add="${i}">+ Add result</button>` : ""}
     </div>`;
-  }).join("") : '<p class="hint">No rounds yet.</p>';
+  });
+  // A race meeting's rounds (next to each other, same event) go in one box.
+  const html = [];
+  for (let i = 0; i < c.rounds.length;) {
+    const ev = c.rounds[i].event;
+    let j = i + 1;
+    while (ev && j < c.rounds.length && c.rounds[j].event === ev) j++;
+    html.push(ev ? meetingHtml(i, j - 1, cards.slice(i, j).join("")) : cards[i]);
+    i = j;
+  }
+  $("#champ-rounds").innerHTML = html.join("") || '<p class="hint">No rounds yet.</p>';
+}
+
+function meetingHtml(first, last, inner) {
+  const c = champData();
+  const n = last - first + 1;
+  return `<div class="meeting">
+    <div class="meeting-head">
+      <span class="badge">RACE MEETING</span>
+      <input data-meeting="${first}" value="${esc(c.rounds[first].event)}" aria-label="Race meeting name" title="Rename the meeting (empty: its races become separate rounds)">
+      <span class="sub">${n} race${n === 1 ? "" : "s"} · round${n === 1 ? "" : "s"} ${first + 1}${n > 1 ? `–${last + 1}` : ""}</span>
+      <span class="grow"></span>
+      <button class="btn" data-meeting-import="${first}" title="Each race session of the event you're in (heats, then the feature...) into these races, in order">⤓ Import every race from session</button>
+      <button class="btn subtle" data-meeting-add="${last}">+ Add a race</button>
+    </div>
+    ${inner}
+  </div>`;
+}
+
+// The rounds of the race meeting starting at round ``first``.
+function meetingRounds(first) {
+  const c = champData();
+  const ev = c.rounds[first].event;
+  const out = [];
+  for (let i = first; i < c.rounds.length && c.rounds[i].event === ev; i++) out.push(c.rounds[i]);
+  return out;
+}
+
+async function importMeeting(rounds) {
+  if (rounds.some((rd) => (rd.results || []).length) && !confirm("Replace the results already in these races with the session's?")) return;
+  try {
+    const saved = await saveEditor();
+    const r = await api(`/api/leagues/${encodeURIComponent(saved.id)}/championship/import-meeting`,
+      { method: "POST", body: { round_ids: rounds.map((rd) => rd.id) } });
+    openEditor(r.league);
+    const list = r.imported.map((x) => `${x.race} → ${x.round} (${x.count})`).join(", ");
+    const more = r.races > r.rounds ? ` The session has ${r.races} races but the meeting ${r.rounds}: add a race for the rest.` : "";
+    toast(`Imported ${list}${r.added ? `; ${r.added} new drivers added to the roster` : ""}.${more}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
 }
 
 // -- penalties -------------------------------------------------------------------
@@ -1110,6 +1173,29 @@ function renderChampPenalties() {
 
 // -- rules -------------------------------------------------------------------------
 
+const SCORING = [["class", "Per class (class positions)"], ["overall", "Overall (overall positions)"],
+  ["both", "Class and overall, as separate championships"], ["sum", "Class and overall points added together"]];
+const SCORING_HELP = {
+  class: "Each class is a championship of its own, scored on class finishing positions.",
+  overall: "One championship for everyone, scored on overall finishing positions.",
+  both: "Each driver scores twice: in their class's championship (class positions) and in the overall championship (overall positions), each with its own points and its own table.",
+  sum: "Each driver scores once a race: the points for their class position plus the points for their overall position, added up. Each class's table and the overall table rank those totals.",
+};
+
+// A points table for any class that scores differently (empty = the class points above).
+function classPointsFields(r) {
+  const classes = (ui.editing && ui.editing.classes) || [];
+  const scored = classes.filter((c) => isSecondary(c) || (r.scoring || "class") !== "overall");
+  if (!scored.length) return "";
+  const own = r.class_points || {};
+  return `<details class="wide class-points" ${Object.keys(own).length ? "open" : ""}><summary>Different points for a class</summary>
+    <p class="hint">Leave a class empty to use the points for each finishing position above. Secondary classes rank their
+      drivers by where they finished among each other.</p>
+    <div class="class-points-grid">${scored.map((c) => `<label class="ov-field">${esc(c.name || "Unnamed")}${isSecondary(c) ? " (secondary)" : ""}
+      <input data-class-points="${esc(c.id)}" value="${esc((own[c.id] || []).join(", "))}" placeholder="Same as above"></label>`).join("")}</div>
+  </details>`;
+}
+
 function renderChampRules() {
   const r = champData().rules;
   const b = r.bonuses || {};
@@ -1119,11 +1205,12 @@ function renderChampRules() {
     <label class="ov-field wide">Qualifying points (pole, 2nd, 3rd…; leave empty for none). Uses the starting grid.
       <input data-rule="qualifying_points" value="${esc((r.qualifying_points || []).join(", "))}"></label>
     <label class="ov-field">Championships
-      <select data-rule="scoring">${[["class", "Per class (class positions)"], ["overall", "Overall (overall positions)"],
-        ["both", "Both: class and overall, scored separately"]].map(([v, l]) =>
+      <select data-rule="scoring">${SCORING.map(([v, l]) =>
         `<option value="${v}" ${(r.scoring || "class") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-    ${r.scoring === "both" ? `<label class="ov-field wide">Overall championship points (1st, 2nd, 3rd… overall; leave empty to use the same as above)
+    <p class="hint wide">${esc(SCORING_HELP[r.scoring || "class"])}</p>
+    ${r.scoring === "both" || r.scoring === "sum" ? `<label class="ov-field wide">Points for overall positions (1st, 2nd, 3rd… overall; leave empty to use the same as above)
       <input data-rule="overall_points" value="${esc((r.overall_points || []).join(", "))}"></label>` : ""}
+    ${classPointsFields(r)}
     <label class="ov-field">Drop rounds (each driver's worst N don't count)
       <input type="number" min="0" max="50" data-rule="drop_rounds" value="${r.drop_rounds || 0}"></label>
     <label class="ov-field">Fastest-lap bonus only in the top N (0 = anyone)
@@ -1157,6 +1244,13 @@ function champChange(e, final) {
     } else if (el.type === "checkbox") r[d.rule] = el.checked;
     else r[d.rule] = el.type === "number" ? +el.value : el.value;
     if (d.rule === "scoring" && final) rerender = true;
+  } else if (d.classPoints) {
+    if (!final) return;
+    const pts = el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
+    c.rules.class_points = { ...(c.rules.class_points || {}) };
+    if (pts.length) c.rules.class_points[d.classPoints] = pts;
+    else delete c.rules.class_points[d.classPoints];
+    rerender = true;
   } else if (d.bonus) {
     c.rules.bonuses = c.rules.bonuses || {};
     c.rules.bonuses[d.bonus] = +el.value || 0;
@@ -1178,6 +1272,10 @@ function champChange(e, final) {
       r[d.key] = el.value === "" ? null : +el.value;
       rerender = final && d.key === "position";
     } else r[d.key] = el.value;
+  } else if (d.meeting != null) {
+    if (!final) return;
+    for (const rd of meetingRounds(+d.meeting)) rd.event = el.value.trim();
+    rerender = true;
   } else if (d.round != null && d.rkey) {
     const rd = c.rounds[+d.round];
     rd[d.rkey] = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
@@ -1232,6 +1330,12 @@ $("#tab-championship").addEventListener("click", async (e) => {
     c.penalties.splice(+d.penDelete, 1);
   } else if (d.roundImport != null) {
     return importRound(c.rounds[+d.roundImport]);
+  } else if (d.meetingImport != null) {
+    return importMeeting(meetingRounds(+d.meetingImport));
+  } else if (d.meetingAdd != null) {
+    const last = c.rounds[+d.meetingAdd];
+    const n = meetingRounds(c.rounds.findIndex((r) => r.event === last.event)).length;
+    c.rounds.splice(+d.meetingAdd + 1, 0, { ...last, id: newId(), name: `Race ${n + 1}`, results: [], session: "" });
   } else return;
   markChampDirty();
   renderChampionship();
@@ -1254,6 +1358,261 @@ $("#btn-add-round").addEventListener("click", () => {
   markChampDirty();
   renderChampionship();
 });
+
+$("#btn-add-meeting").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  const n = parseInt(prompt("How many races at this meeting? Each race is a round of its own.", "3"), 10);
+  if (!(n >= 1 && n <= 10)) return;
+  const c = champData();
+  const event = `Event ${new Set(c.rounds.filter((r) => r.event).map((r) => r.event)).size + 1}`;
+  for (let k = 1; k <= n; k++) {
+    c.rounds.push({ id: newId(), event, name: `Race ${k}`, track: "", date: "", multiplier: 1, no_drop: false, results: [] });
+  }
+  markChampDirty();
+  renderChampionship();
+});
+
+// -- building the rounds from a calendar ------------------------------------------
+// From the league's season in iRacing, a scanned calendar image or pasted
+// text: the server finds the rounds, they're checked and corrected here, then made.
+
+const build = { mode: null, busy: "", seasons: null, rounds: null, text: "", races: 1, raceName: "Race", replace: false, note: "" };
+
+// 22/11 or 11/22: what this PC's language writes (a date that can only be one decides anyway).
+const dayFirst = () => !/^en-US|^en-CA|^es-US|^fil/.test(navigator.language || "");
+
+function renderBuild() {
+  const box = $("#build-step");
+  if (!box) return;
+  if (build.busy) {
+    box.innerHTML = `<p class="hint">${esc(build.busy)}</p>`;
+    return;
+  }
+  let html = "";
+  if (build.mode === "iracing" && build.seasons) {
+    html = build.seasons.length ? `<div class="row"><label class="field">Season <select data-b="season">${build.seasons.map((x) =>
+      `<option value="${x.season_id}">${esc(x.season_name)}${x.active ? " (current)" : ""}</option>`).join("")}</select></label>
+      <button class="btn primary" data-build="season">Read its sessions</button></div>` : '<p class="hint">The league has no seasons in iRacing.</p>';
+  } else if (build.mode === "paste" && !build.rounds) {
+    html = `<textarea data-b="text" rows="8" placeholder="Paste the calendar here, e.g.&#10;Round 1 - Spa - Sun 8th November - 8PM - 60 min&#10;Round 2 - Monza - 15/11/26 - 20:00 - 45 mins">${esc(build.text)}</textarea>
+      <div class="row"><button class="btn primary" data-build="read">Find the rounds</button></div>`;
+  }
+  if (build.rounds) html += buildReviewHtml();
+  box.innerHTML = html;
+}
+
+function buildReviewHtml() {
+  const rows = build.rounds;
+  if (!rows.length) {
+    return `<p class="hint">No rounds found${build.mode === "scan" ? " in the image" : ""}: the track names have to be readable.
+      ${build.text ? 'Correct the text below and try again.' : ""}</p>${build.text ? `<textarea data-b="text" rows="8">${esc(build.text)}</textarea>
+      <div class="row"><button class="btn primary" data-build="read">Find the rounds</button></div>` : ""}`;
+  }
+  const races = Math.max(1, Math.min(10, build.races | 0));
+  const total = rows.length * races;
+  const c = champData();
+  const unscored = c.rounds.filter((r) => !(r.results || []).length).length;
+  return `${build.note ? `<p class="hint">${esc(build.note)}</p>` : ""}
+    <div class="table-scroll"><table class="grid build-table">
+      <thead><tr><th>Name</th><th>Track</th><th>Layout</th><th>Date</th><th>Time</th><th>Length</th><th></th></tr></thead>
+      <tbody>${rows.map((r, i) => `<tr class="${r.unknown_track ? "warn" : ""}" title="${esc(r.text || "")}">
+        <td><input data-build-row="${i}" data-bkey="name" value="${esc(r.name)}"></td>
+        <td><input data-build-row="${i}" data-bkey="track" list="track-names" value="${esc(r.track)}" placeholder="Track"
+          ${r.unknown_track ? 'title="Not in the track list: check it"' : ""}></td>
+        <td>${configField(r, `data-build-row="${i}" data-bkey="config"`)}</td>
+        <td><input type="date" data-build-row="${i}" data-bkey="date" value="${esc(r.date)}"></td>
+        <td><input type="time" data-build-row="${i}" data-bkey="time" value="${esc(r.time)}"></td>
+        <td><input class="narrow-text" data-build-row="${i}" data-bkey="length" value="${esc(r.length)}" placeholder="60 min"></td>
+        <td><button class="btn icon danger" data-build-remove="${i}" title="Leave this one out">✕</button></td>
+      </tr>`).join("")}</tbody></table></div>
+    <div class="row build-options">
+      <label class="field" title="For leagues that run several races a night (heat races, say) and count each as a round">Races at each
+        <input type="number" class="narrow" min="1" max="10" data-b="races" value="${races}"></label>
+      <label class="field" ${races > 1 ? "" : "hidden"}>called <select data-b="raceName">${["Race", "Heat"].map((n) =>
+        `<option ${build.raceName === n ? "selected" : ""}>${n}</option>`).join("")}</select> 1, 2…</label>
+      <label class="field"><input type="checkbox" data-b="replace" ${build.replace ? "checked" : ""}> Replace the ${unscored} round${unscored === 1 ? "" : "s"} without results</label>
+      <span class="grow"></span>
+      <button class="btn subtle" data-build="cancel">Cancel</button>
+      <button class="btn primary" data-build="create">Make ${total} round${total === 1 ? "" : "s"}</button>
+    </div>
+    ${races > 1 ? `<p class="hint">Each calendar entry becomes a race meeting of ${races} races, each a round of its own for the points;
+      the calendar board shows the meeting as one.</p>` : ""}`;
+}
+
+function buildFound(data, mode, note) {
+  build.busy = "";
+  build.mode = mode;
+  build.rounds = (data.rounds || []).map((r) => ({ ...r }));
+  if (data.text != null) build.text = data.text;
+  build.note = note || "";
+  renderBuild();
+}
+
+// The image as a PNG the reader can use: SVG and WebP drawn out, small ones
+// enlarged, and a see-through background filled to contrast with the text.
+async function imagePng(src) {
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  const w0 = img.naturalWidth || 1600, h0 = img.naturalHeight || 900;
+  const scale = Math.max(1, Math.min(3, 2000 / Math.max(w0, h0)));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(w0 * scale);
+  canvas.height = Math.round(h0 * scale);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  let light = 0, solid = 0, see = 0;
+  for (let i = 0; i < px.length; i += 4 * 97) {
+    if (px[i + 3] < 200) { see++; continue; }
+    solid++;
+    if (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11 > 128) light++;
+  }
+  if (see) {
+    // Light text on a see-through background needs a dark one, and dark text a light one.
+    const back = document.createElement("canvas");
+    back.width = canvas.width;
+    back.height = canvas.height;
+    const b = back.getContext("2d");
+    b.fillStyle = solid && light / solid > 0.5 ? "#000" : "#fff";
+    b.fillRect(0, 0, back.width, back.height);
+    b.drawImage(canvas, 0, 0);
+    return new Promise((ok) => back.toBlob(ok, "image/png"));
+  }
+  return new Promise((ok) => canvas.toBlob(ok, "image/png"));
+}
+
+async function scanImage(src) {
+  build.mode = "scan";
+  build.rounds = null;
+  build.busy = "Reading the calendar… (this can take a few seconds)";
+  renderBuild();
+  try {
+    const png = await imagePng(src);
+    const res = await fetch(`/api/calendar/scan?day_first=${dayFirst() ? 1 : 0}`, { method: "POST", headers: { "Content-Type": "image/png" }, body: png });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) throw new Error(data.error || "Couldn't read the image");
+    buildFound(data, "scan", "Read from the image: check every round (tracks the list didn't know are marked), then make them.");
+  } catch (err) {
+    build.busy = "";
+    build.mode = "paste";
+    renderBuild();
+    toast(err.message, true);
+  }
+}
+
+$("#build-rounds").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-build], [data-build-remove]");
+  if (!b || !ui.editing) return;
+  if (b.dataset.buildRemove != null) {
+    build.rounds.splice(+b.dataset.buildRemove, 1);
+    return renderBuild();
+  }
+  const what = b.dataset.build;
+  try {
+    if (what === "iracing") {
+      build.mode = "iracing";
+      build.rounds = null;
+      build.busy = "Asking iRacing for the league's seasons…";
+      renderBuild();
+      const saved = ui.editing.id ? ui.editing : await saveEditor();
+      build.seasons = (await api(`/api/leagues/${encodeURIComponent(saved.id)}/seasons`)).seasons;
+      build.busy = "";
+    } else if (what === "season") {
+      const season = $("#build-step [data-b=season]").value;
+      build.busy = "Reading the season's sessions…";
+      renderBuild();
+      const data = await api(`/api/leagues/${encodeURIComponent(ui.editing.id)}/schedule`, { method: "POST", body: { season_id: season } });
+      return buildFound(data, "iracing", "From the season's sessions in iRacing, at your PC's local time.");
+    } else if (what === "scan") {
+      if (!ui.editing.calendar_image) return toast("Add the calendar image in the League builder (Logos tab), or choose an image to scan", true);
+      return scanImage(logoSrc(ui.editing.calendar_image));
+    } else if (what === "paste") {
+      build.mode = "paste";
+      build.rounds = null;
+    } else if (what === "read") {
+      build.text = $("#build-step [data-b=text]").value;
+      build.busy = "Finding the rounds…";
+      renderBuild();
+      const data = await api("/api/calendar/parse", { method: "POST", body: { text: build.text, day_first: dayFirst() } });
+      return buildFound({ ...data, text: build.text }, "paste", "Found in the text: check every round, then make them.");
+    } else if (what === "cancel") {
+      Object.assign(build, { mode: null, rounds: null, seasons: null, note: "" });
+    } else if (what === "create") {
+      return createBuiltRounds();
+    }
+  } catch (err) {
+    build.busy = "";
+    toast(err.message, true);
+  }
+  renderBuild();
+});
+
+$("#build-scan-file").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file || !ui.editing) return;
+  const url = URL.createObjectURL(file);
+  scanImage(url).finally(() => URL.revokeObjectURL(url));
+});
+
+$("#build-rounds").addEventListener("change", (e) => {
+  const el = e.target;
+  if (el.dataset.buildRow != null) {
+    const r = build.rounds[+el.dataset.buildRow];
+    r[el.dataset.bkey] = el.value;
+    if (el.dataset.bkey === "track") {
+      const g = trackGroup(r.track);
+      r.config = g ? g.configs[0].config : r.config;
+      r.unknown_track = !g;
+    }
+    if (el.dataset.bkey === "track" || el.dataset.bkey === "config") {
+      const g = trackGroup(r.track);
+      const layout = g && g.configs.find((x) => x.config === r.config);
+      r.track_id = layout ? layout.id : null;
+      renderBuild();
+    }
+    return;
+  }
+  const key = el.dataset.b;
+  if (key === "races") build.races = Math.max(1, Math.min(10, +el.value || 1));
+  else if (key === "raceName") build.raceName = el.value;
+  else if (key === "replace") build.replace = el.checked;
+  else if (key === "text") return void (build.text = el.value);  // no redraw: the click on Find would be lost
+  else return;
+  renderBuild();
+});
+
+function createBuiltRounds() {
+  const c = champData();
+  const races = Math.max(1, Math.min(10, build.races | 0));
+  const made = [];
+  let meetings = new Set(c.rounds.filter((r) => r.event).map((r) => r.event)).size;
+  for (const r of build.rounds) {
+    // Each race is a "round", so a meeting called "Round 2" would confuse: "Event 2".
+    const event = races > 1 ? (/^round \d+$/i.test(r.name.trim()) ? `Event ${++meetings}` : r.name) : "";
+    for (let k = 1; k <= races; k++) {
+      made.push({
+        id: newId(), name: races > 1 ? `${build.raceName} ${k}` : r.name, event,
+        track: r.track, config: r.config || "", track_id: r.track_id ?? null, date: r.date, time: r.time, length: r.length,
+        multiplier: 1, no_drop: false, results: [],
+      });
+    }
+  }
+  if (build.replace) {
+    const gone = new Set(c.rounds.filter((r) => !(r.results || []).length).map((r) => r.id));
+    c.rounds = c.rounds.filter((r) => !gone.has(r.id));
+    c.penalties = c.penalties.filter((p) => !gone.has(p.round_id));
+    if (gone.has(c.live_round)) c.live_round = "";
+  }
+  c.rounds.push(...made);
+  Object.assign(build, { mode: null, rounds: null, seasons: null, note: "" });
+  $("#build-rounds").open = false;
+  markChampDirty();
+  renderChampionship();
+  renderBuild();
+  toast(`Made ${made.length} rounds. Save to keep them.`);
+}
 
 $("#btn-add-penalty").addEventListener("click", () => {
   if (!ui.editing) return toast("Pick a league first", true);
@@ -1298,65 +1657,122 @@ async function importRound(rd) {
 const NAME_FORMATS = [["full", "Full name"], ["initial_last", "A. Driver"], ["last_initial", "Driver A."],
   ["last", "Last name"], ["first", "First name"], ["abbrev", "DRI (3 letters)"], ["nickname", "Nickname"]];
 
-// [key, label, kind, options]
+// Each overlay's settings, in named sections that open and close:
+// [title, fields]. A field is [key, label, kind, opts]; `iff(when, field)`
+// shows it only while when(values) holds (e.g. a timer for a flash that's on).
+const iff = (when, field) => Object.assign(field, { when });
+const LOOK = ["Size & background", [["scale", "Size", "size"], ["bg", "Background", "background"]]];
 const OVERLAY_FIELDS = {
   standings: [
-    ["visible", "On screen", "bool"],
-    ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
-    ["class_key", "Class", "class"],
-    ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
-    ["rows_last", "Plus the last N drivers (overall, when there are more)", "number", { min: 0, max: 30 }],
-    ["name_format", "Names", "select", NAME_FORMATS],
-    ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
-      ["time", "Time left"], ["none", "Nothing"]]],
-    ["reveal", "Race start: only the header until each driver completes lap 1 (they appear from the start of lap 2)", "bool"],
-    ["show_gap", "Gap to leader / pole", "bool"],
-    ["show_interval", "Interval to car ahead", "bool"],
-    ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }],
-    ["show_pos_change", "Places gained / lost (race)", "bool"],
-    ["show_best_lap", "Best lap", "bool"],
-    ["show_last_lap", "Last lap", "bool"],
-    ["show_laps", "Laps completed", "bool"],
-    ["show_pits", "Pit stops", "bool"],
-    ["show_pit_status", "PIT badge on pit road", "bool"],
-    ["show_number", "Car numbers", "bool"],
-    ["show_team", "Team names", "bool"],
-    ["show_logo", "Team logos", "bool"],
-    ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
-    ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
-    ["fl_flash_s", "Fastest lap flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }],
-    ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"],
-    ["bg", "Background", "background"],
+    ["What it shows", [
+      ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
+      ["class_key", "Class", "class"],
+      ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
+      iff((v) => v.mode === "overall", ["rows_last", "Extra drivers under the top ones, when there are more (0 = none)", "number", { min: 0, max: 30 }]),
+      iff((v) => v.mode === "overall" && v.rows_last > 0, ["rows_extra_mode", "Extra drivers show", "select",
+        [["rotate", "The rest of the field, a set at a time"], ["last", "The last ones"]]]),
+      iff((v) => v.mode === "overall" && v.rows_last > 0 && v.rows_extra_mode === "rotate",
+        ["rows_extra_s", "Seconds per set of extra drivers", "number", { min: 1, max: 120, step: 1 }]),
+      iff((v) => v.mode === "overall" && v.rows_last > 0, ["rows_extra_opacity", "Extra drivers' opacity (%)", "number", { min: 10, max: 100, step: 5 }]),
+      ["reveal", "Race start: only the header until each driver completes lap 1 (they appear from the start of lap 2)", "bool"],
+    ]],
+    ["Header", [
+      ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
+        ["time", "Time left"], ["none", "Nothing"]]],
+      ["show_series", "Series name (the league's name)", "bool"],
+      ["show_track", "Track name", "bool"],
+      ["title_race", "Race name (blank = RACE)", "text"],
+      ["title_qualify", "Qualifying name (blank = QUALIFYING)", "text"],
+      ["title_practice", "Practice / warm-up name (blank = iRacing's)", "text"],
+      ["title_wrap", "Wrap a long session name onto two lines (off: one line, the tower widens for it)", "bool"],
+      ["show_col_labels", "Column headings (GAP, INT…)", "bool"],
+    ]],
+    ["Columns", [
+      ["show_gap", "Gap to leader / pole", "bool"],
+      iff((v) => v.show_gap, ["leader_cell", "The leader's gap shows", "select", [["leader", "Leader"], ["lap", "Their current lap (Lap 12)"]]]),
+      ["show_interval", "Interval to car ahead", "bool"],
+      iff((v) => v.show_interval, ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }]),
+      ["show_pos_change", "Places gained / lost (race)", "bool"],
+      ["show_best_lap", "Best lap", "bool"],
+      ["show_last_lap", "Last lap", "bool"],
+      ["show_laps", "Laps completed", "bool"],
+      ["show_pits", "Pit stops", "bool"],
+      ["show_pit_status", "PIT badge on pit road", "bool"],
+      ["column_order", "Column order on the tower", "order", [["pos_change", "+/−", "show_pos_change"], ["laps", "Laps", "show_laps"],
+        ["pits", "Pit stops", "show_pits"], ["last_lap", "Last lap", "show_last_lap"], ["best_lap", "Best lap", "show_best_lap"],
+        ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"]]],
+      ["screen_column_order", "Column order on the full screen", "order", [["laps", "Laps"], ["gap", "Gap"], ["interval", "Interval"],
+        ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"]]],
+    ]],
+    ["Drivers", [
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_number", "Car numbers", "bool"],
+      iff((v) => v.show_number, ["color_number", "Car number background, in the driver's class colour (off: just the number)", "bool"]),
+      ["show_stripe", "Coloured bar by each driver", "bool"],
+      ["show_team", "Team names", "bool"],
+      ["show_logo", "Team logos", "bool"],
+    ]],
+    ["Fastest lap", [
+      ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
+      ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
+      iff((v) => v.fl_flash, ["fl_flash_s", "Flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }]),
+      iff((v) => v.fl_flash, ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"]),
+    ]],
+    ["Size & background", [
+      ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
+      ["scale", "Size", "size"], ["bg", "Background", "background"],
+    ]],
   ],
   laps: [
-    ["visible", "On screen", "bool"],
-    ["count", "Small trackers", "number", { min: 0, max: 12 }],
-    ["name_format", "Names", "select", NAME_FORMATS],
-    ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
-    ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"]]],
-    ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
-    ["hide_s", "Hide finished lap after (s)", "number", { min: 0, max: 60, step: 0.5 }],
-    ["show_number", "Car numbers", "bool"],
-    ["show_driver_number", "Driver numbers", "bool"],
-    ["show_team", "Team names", "bool"],
-    ["show_logo", "Team logos", "bool"],
-    ["show_invalid", "Track invalid laps too", "bool"],
-    ["practice", "Also in practice", "bool"],
-    ["bg", "Background", "background"],
+    ["What it shows", [
+      ["count", "Small trackers", "number", { min: 0, max: 12 }],
+      ["practice", "Also in practice", "bool"],
+      ["show_invalid", "Track invalid laps too", "bool"],
+      ["hide_s", "Hide finished lap after (s)", "number", { min: 0, max: 60, step: 0.5 }],
+    ]],
+    ["Sectors", [
+      ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
+      ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"]]],
+      ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
+    ]],
+    ["Drivers", [
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_number", "Car numbers", "bool"],
+      ["show_driver_number", "Driver numbers", "bool"],
+      ["show_team", "Team names", "bool"],
+      ["show_logo", "Team logos", "bool"],
+    ]],
+    LOOK,
   ],
   sponsors: [
-    ["visible", "On screen", "bool"],
-    ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
-      ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
-    ["layout", "Show", "select", [["rotate", "One at a time"], ["row", "All together"]]],
-    ["interval_s", "Seconds per logo (one at a time)", "number", { min: 1, max: 120, step: 1 }],
-    ["size", "Logo height (px)", "number", { min: 30, max: 300, step: 5 }],
-    ["background", "Dark panel behind", "bool"],
-    ["title", "Caption above (e.g. Partners)", "text"],
-    ["sponsor_ids", "Sponsors", "sponsors"],
-    ["bg", "Background", "background"],
+    ["Logos", [
+      ["sponsor_ids", "Sponsors", "sponsors"],
+      ["layout", "Show", "select", [["rotate", "One at a time"], ["row", "All together"]]],
+      iff((v) => v.layout === "rotate", ["interval_s", "Seconds per logo", "number", { min: 1, max: 120, step: 1 }]),
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["size", "Logo height (px)", "number", { min: 30, max: 300, step: 5 }],
+      ["title", "Caption above (e.g. Partners)", "text"],
+    ]],
+    ["Size & background", [
+      ["background", "Dark panel behind", "bool"],
+      ["scale", "Size", "size"], ["bg", "Background", "background"],
+    ]],
   ],
-  gridwalk: [["bg", "Background", "background"]],
+  gridwalk: [LOOK],
+  driver: [
+    ["What it shows", [
+      ["hide_s", "Hide after (s; 0 = while they're on camera)", "number", { min: 0, max: 60, step: 1 }],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_position", "Position (and in class)", "bool"],
+      ["show_number", "Car number", "bool"],
+      ["show_team", "Team", "bool"],
+      iff((v) => v.show_team, ["show_logo", "Team logo", "bool"]),
+      ["show_make", "Car badge", "bool"],
+      ["show_class", "Class (multiclass)", "bool"],
+    ]],
+    LOOK,
+  ],
 };
 
 // -- backgrounds: none, a solid colour or an uploaded image, at any opacity --
@@ -1372,6 +1788,12 @@ async function loadBackgrounds() {
   overlayFormKey = "";
   boardSettingsKey = "";
   if (ui.snap) render();
+}
+
+// The Size setting: a slider, 50-200 %, showing its value as it moves.
+function sizeField(v) {
+  return `<label class="ov-field">Size: <span class="rng-val">${v}%</span>
+    <input type="range" min="50" max="200" step="5" data-key="scale" data-kind="number" value="${v}"></label>`;
 }
 
 // The Background setting's fields; colour / image / opacity only when they apply.
@@ -1390,14 +1812,15 @@ function backgroundFields(section, v) {
       <label class="btn subtle bg-upload">Upload…<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-bg-upload="${section}" hidden></label></div></div>`);
   }
   if (v.bg !== "default") {
-    out.push(`<label class="ov-field">Opacity: <span class="bg-op">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
+    out.push(`<label class="ov-field">Opacity: <span class="rng-val">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
   }
   return out.join("");
 }
 
 document.addEventListener("input", (e) => {
-  // Show the opacity as the slider moves; it's saved when let go.
-  if (e.target.dataset.key === "bg_opacity") e.target.closest("label").querySelector(".bg-op").textContent = `${e.target.value}%`;
+  // Show a slider's value (size, opacity) as it moves; it's saved when let go.
+  const shown = e.target.type === "range" && e.target.closest("label") && e.target.closest("label").querySelector(".rng-val");
+  if (shown) shown.textContent = `${e.target.value}%`;
 });
 document.addEventListener("change", async (e) => {
   const input = e.target.closest("[data-bg-upload]");
@@ -1437,6 +1860,122 @@ function fieldValue(el) {
 
 let overlayFormKey = "";
 
+// Which settings sections are open, remembered between visits ("standings/Header": true).
+const SECTIONS_OPEN = "apex.settingsOpen";
+let sectionsOpen = {};
+try {
+  sectionsOpen = JSON.parse(localStorage.getItem(SECTIONS_OPEN)) || {};
+} catch (e) { /* storage unavailable */ }
+
+// "toggle" doesn't bubble: listen while it's on its way down.
+document.addEventListener("toggle", (e) => {
+  const group = e.target.closest && e.target.closest("details[data-group]");
+  if (!group || group !== e.target) return;
+  sectionsOpen[group.dataset.group] = group.open;
+  try {
+    localStorage.setItem(SECTIONS_OPEN, JSON.stringify(sectionsOpen));
+  } catch (err) { /* storage unavailable */ }
+}, true);
+
+// One setting, as its input. `section` is the overlay or board it belongs to.
+function fieldHtml(section, values, [k, label, kind, opts], s) {
+  const v = values[k];
+  const attrs = `data-key="${k}" data-kind="${kind === "banner" || kind === "class" ? "select" : kind}"`;
+  if (kind === "background") return backgroundFields(section, values);
+  if (kind === "size") return sizeField(v);
+  if (kind === "order") return orderField(k, label, v, opts, values);
+  if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
+  if (kind === "number") {
+    return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
+  }
+  if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
+  if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v);
+  if (kind === "class" && values.mode !== "class") return "";
+  const options = kind === "class" ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
+    : kind === "banner" ? [["", "The first of the right shape"], ...((s.league && s.league.banners) || []).map((b, i) =>
+      [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
+      : opts;
+  return `<label class="ov-field">${label}<select ${attrs}>${options.map(([o, l]) =>
+    `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+}
+
+// A column order: chips to drag, or move with the arrows. ``cols``: [key,
+// label, the setting that switches it on (shown dimmed while off)].
+function orderField(key, label, value, cols, values) {
+  const known = cols.map((c) => c[0]);
+  const picked = String(value || "").split(",").filter((k) => known.includes(k));
+  const keys = [...picked, ...known.filter((k) => !picked.includes(k))];
+  return `<div class="ov-field wide order-field" data-order-key="${key}"><span>${label} <span class="hint">(drag, or use the arrows)</span></span>
+    <div class="order-list">${keys.map((k, i) => {
+      const [, name, flag] = cols.find((c) => c[0] === k);
+      const off = flag && !values[flag];
+      return `<span class="order-item ${off ? "off" : ""}" draggable="true" data-col="${k}" title="${off ? "Switched off: it takes this place when it's on" : ""}">
+        <button type="button" data-order-move="-1" ${i === 0 ? "disabled" : ""} aria-label="Move earlier">◀</button>
+        <span>${esc(name)}</span>
+        <button type="button" data-order-move="1" ${i === keys.length - 1 ? "disabled" : ""} aria-label="Move later">▶</button></span>`;
+    }).join("")}</div></div>`;
+}
+
+function saveOrder(field, keys) {
+  const form = field.closest(".ov-form");
+  overlayFormKey = "";
+  boardSettingsKey = "";
+  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [field.dataset.orderKey]: keys.join(",") } });
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-order-move]");
+  if (!btn) return;
+  const item = btn.closest(".order-item");
+  const field = btn.closest(".order-field");
+  const keys = [...field.querySelectorAll(".order-item")].map((x) => x.dataset.col);
+  const i = keys.indexOf(item.dataset.col);
+  const j = i + +btn.dataset.orderMove;
+  if (j < 0 || j >= keys.length) return;
+  [keys[i], keys[j]] = [keys[j], keys[i]];
+  btn.blur();  // the settings don't redraw while something in them has focus
+  saveOrder(field, keys);
+});
+
+let draggedCol = null;
+document.addEventListener("dragstart", (e) => {
+  const item = e.target.closest && e.target.closest(".order-item");
+  if (!item) return;
+  draggedCol = item;
+  item.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+});
+document.addEventListener("dragover", (e) => {
+  const over = draggedCol && e.target.closest && e.target.closest(".order-item");
+  if (over && over.parentElement === draggedCol.parentElement) e.preventDefault();
+});
+document.addEventListener("drop", (e) => {
+  const over = draggedCol && e.target.closest && e.target.closest(".order-item");
+  if (!over || over === draggedCol || over.parentElement !== draggedCol.parentElement) return;
+  e.preventDefault();
+  const r = over.getBoundingClientRect();
+  over.parentElement.insertBefore(draggedCol, e.clientX > r.left + r.width / 2 ? over.nextSibling : over);
+  saveOrder(over.closest(".order-field"), [...over.parentElement.children].map((x) => x.dataset.col));
+});
+document.addEventListener("dragend", () => {
+  if (draggedCol) draggedCol.classList.remove("dragging");
+  draggedCol = null;
+});
+
+// An overlay's or board's settings: its On screen switch, then its sections
+// (the first one open until you choose otherwise).
+function settingsHtml(section, values, groups, s) {
+  const top = "visible" in values
+    ? `<label class="ov-field check ov-visible"><input type="checkbox" data-key="visible" data-kind="bool" ${values.visible ? "checked" : ""}> Showing <span class="hint">(untick to hide it everywhere)</span></label>` : "";
+  return top + groups.map(([title, fields], i) => {
+    const id = `${section}/${title}`;
+    const open = sectionsOpen[id] ?? i === 0;
+    const body = fields.filter((f) => !f.when || f.when(values)).map((f) => fieldHtml(section, values, f, s)).join("");
+    return `<details class="ov-group" data-group="${esc(id)}" ${open ? "open" : ""}><summary>${esc(title)}</summary>
+      <div class="ov-grid">${body}</div></details>`;
+  }).join("");
+}
+
 function renderOverlaySettings(s) {
   const ov = s.overlays;
   if (!ov) return;
@@ -1445,25 +1984,8 @@ function renderOverlaySettings(s) {
   const key = JSON.stringify([ov.settings, (s.classes || []).map((c) => [c.key, c.name]), (s.league && s.league.sponsors) || []]);
   if (key === overlayFormKey || document.activeElement.closest(".ov-form")) return;
   overlayFormKey = key;
-  for (const [overlay, fields] of Object.entries(OVERLAY_FIELDS)) {
-    const values = ov.settings[overlay];
-    $(`#ov-${overlay}`).innerHTML = fields.map(([k, label, kind, opts]) => {
-      const v = values[k];
-      const attrs = `data-key="${k}" data-kind="${kind}"`;
-      if (kind === "background") return backgroundFields(overlay, values);
-      if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
-      if (kind === "number") {
-        return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
-      }
-      if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
-      if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v);
-      const options = kind === "class"
-        ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
-        : opts;
-      if (kind === "class" && values.mode !== "class") return "";
-      return `<label class="ov-field">${label}<select ${attrs}>${options.map(([ov2, l]) =>
-        `<option value="${esc(ov2)}" ${String(ov2) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
-    }).join("");
+  for (const [overlay, groups] of Object.entries(OVERLAY_FIELDS)) {
+    $(`#ov-${overlay}`).innerHTML = settingsHtml(overlay, ov.settings[overlay], groups, s);
   }
 }
 
@@ -1481,12 +2003,14 @@ document.querySelectorAll(".ov-form").forEach((form) => form.addEventListener("c
 // ---------------------------------------------------------------------------
 
 // Every board: the league logo in its header, and a banner where (and which).
-const BOARD_LOOK = [["league_logo", "League logo in the header", "bool"],
+const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   ["banner", "Banner", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"],
-    ["right", "Down the right"]]], ["banner_id", "Which banner", "banner"],
+    ["right", "Down the right"]]],
+  iff((v) => v.banner !== "none", ["banner_id", "Which banner", "banner"]),
   ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
-    ["left", "Down the left"], ["right", "Down the right"]]], ["sponsor_ids", "Which sponsors", "sponsors"],
-  ["bg", "Background", "background"]];
+    ["left", "Down the left"], ["right", "Down the right"]]],
+  iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"])];
+const cards = (v) => v.style === "cards";
 
 const BOARD_FIELDS = {
   board_championship: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
@@ -1501,8 +2025,13 @@ const BOARD_FIELDS = {
   board_makes: [["rows", "Manufacturers shown", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
     ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"]],
   board_calendar: [["style", "Show", "select", [["cards", "The calendar built from the rounds"], ["image", "The league's own calendar image"]]],
-    ["show_date", "Dates", "bool"], ["show_time", "Start times", "bool"], ["show_config", "Track layouts", "bool"],
-    ["show_length", "Race lengths", "bool"], ["show_winners", "Winners of past rounds", "bool"]],
+    iff(cards, ["round_title", "Round titles", "select", [["both", "Round 3 · your round name"], ["name", "Your round name"], ["number", "Round 3"]]]),
+    iff(cards, ["show_date", "Dates", "bool"]),
+    iff((v) => cards(v) && v.show_date, ["date_format", "Dates as", "select", [["weekday_short", "Sun 22 Nov"], ["numeric", "22/11/26"],
+      ["day_month", "22nd November"], ["full", "22nd November 2026"], ["weekday", "Sunday 22nd November"]]]),
+    iff(cards, ["show_time", "Start times", "bool"]), iff(cards, ["show_config", "Track layouts", "bool"]),
+    iff(cards, ["show_length", "Race lengths", "bool"]), iff(cards, ["show_winners", "Winners of past rounds", "bool"]),
+    iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"])],
   board_results: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
@@ -1560,22 +2089,9 @@ function renderBoards(s) {
 function renderBoardSettings(s) {
   const settings = s.overlays && s.overlays.settings;
   if (!settings) return;
-  const banners = (s.league && s.league.banners) || [];
   $("#board-settings").innerHTML = Object.entries(BOARD_FIELDS).map(([section, fields]) => `
     <div class="overlay-card"><h3>${BOARD_SECTION_NAMES[section]}</h3><div class="ov-form" data-overlay="${section}">
-    ${[...BOARD_LOOK, ...fields].map(([k, label, kind, opts]) => {
-      const v = settings[section][k];
-      const attrs = `data-key="${k}" data-kind="${kind === "banner" ? "select" : kind}"`;
-      if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
-      if (kind === "number") return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" value="${v}"></label>`;
-      if (kind === "sponsors") return settings[section].sponsors === "none" ? "" : sponsorPicker((s.league && s.league.sponsors) || [], v);
-      if (kind === "background") return backgroundFields(section, settings[section]);
-      const choices = kind === "banner"
-        ? [["", "The first of the right shape"], ...banners.map((b, i) => [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
-        : opts;
-      return `<label class="ov-field">${label}<select ${attrs}>${choices.map(([o, l]) =>
-        `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
-    }).join("")}</div></div>`).join("");
+    ${settingsHtml(section, settings[section], [["What it shows", fields], ["Logo, banner & sponsors", BOARD_BRAND], LOOK], s)}</div></div>`).join("");
 }
 
 $("#board-buttons").addEventListener("click", async (e) => {
@@ -1610,6 +2126,7 @@ $("#board-settings").addEventListener("change", (e) => {
 });
 $("#url-board").textContent = `${location.origin}/board.html`;
 $("#url-sponsors").textContent = `${location.origin}/sponsors.html`;
+$("#url-driver").textContent = `${location.origin}/driver.html`;
 
 for (const page of ["standings", "laps"]) {
   $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;
@@ -1627,7 +2144,7 @@ loadBackgrounds();
 
 // -- overlays straight on the user's screen (app window only) -------------------
 
-const DESK_OK = "apex.desktopOk";  // this PC shows them see-through: no check next time
+const DESK_OK = "apex.desktopOk";  // the app version this PC was seen to show them see-through on
 const DESK_CHECK_S = 15;
 let deskKey = "";
 let deskCheck = null;  // {page, left, timer} while asking
@@ -1636,22 +2153,39 @@ function screenName(sc, i, all) {
   return all.length > 1 ? `Screen ${i + 1} · ${sc.width}×${sc.height}` : "";
 }
 
+// The screen picked at the top of the Overlays tab (every overlay and the grid
+// walk) or the Boards tab, remembered on this PC.
+const DESK_SCREEN = "apex.deskScreen.";
+const deskTab = (page) => (page === "board" ? "boards" : "overlays");
+
+function deskScreen(tab, screens = (ui.snap && ui.snap.desktop && ui.snap.desktop.screens) || []) {
+  let n = 0;
+  try {
+    n = +localStorage.getItem(DESK_SCREEN + tab) || 0;
+  } catch (e) { /* storage unavailable */ }
+  return n < screens.length ? n : 0;
+}
+
 function renderDesktop(s) {
   const d = s.desktop || { available: false, on_screen: {}, screens: [] };
   const key = JSON.stringify(d);
   if (key === deskKey) return;
   deskKey = key;
+  const several = d.screens.length > 1;
   document.querySelectorAll("[data-desk]").forEach((el) => {
     const page = el.dataset.desk;
     el.hidden = !d.available;
     if (!d.available) return;
     const on = d.on_screen[page];
-    const pick = d.screens.length > 1
-      ? `<select data-desk-screen="${page}" aria-label="Which screen">${d.screens.map((sc, i) =>
-        `<option value="${i}" ${(on ?? 0) === i ? "selected" : ""}>${esc(screenName(sc, i, d.screens))}</option>`).join("")}</select>` : "";
     el.innerHTML = on != null
-      ? `<span class="desk-on">● On your screen</span>${pick}<button class="btn subtle" data-desk-hide="${page}">Remove</button>`
-      : `<button class="btn" data-desk-show="${page}" title="Put it straight on your screen, over the game">Show on my screen</button>${pick}`;
+      ? `<span class="desk-on">● On ${several ? `screen ${on + 1}` : "your screen"}</span><button class="btn subtle" data-desk-hide="${page}">Remove</button>`
+      : `<button class="btn" data-desk-show="${page}" title="Put it straight on your screen, over the game">Show on my screen</button>`;
+  });
+  document.querySelectorAll("[data-desk-tab]").forEach((pick) => {
+    pick.closest(".desk-screen").hidden = !d.available || !several;
+    const n = deskScreen(pick.dataset.deskTab, d.screens);
+    pick.innerHTML = d.screens.map((sc, i) =>
+      `<option value="${i}" ${n === i ? "selected" : ""}>${esc(screenName(sc, i, d.screens))}</option>`).join("");
   });
   $("#desk-hide-all").hidden = !Object.keys(d.on_screen).length;
   document.querySelectorAll(".desk-help").forEach((el) => { el.hidden = !d.available; });
@@ -1662,7 +2196,8 @@ async function deskShow(page, screen) {
   if (!r) return;
   let ok = false;
   try {
-    ok = localStorage.getItem(DESK_OK) === "1";
+    // Checked again after each update: a new version could show them differently.
+    ok = localStorage.getItem(DESK_OK) === ui.version;
   } catch (e) { /* storage unavailable */ }
   if (!ok) startDeskCheck(page);
 }
@@ -1693,7 +2228,7 @@ function stopDeskCheck() {
 
 $("#desk-check-yes").addEventListener("click", () => {
   try {
-    localStorage.setItem(DESK_OK, "1");
+    localStorage.setItem(DESK_OK, ui.version || "");
   } catch (e) { /* storage unavailable */ }
   stopDeskCheck();
   toast("Great: overlays will go straight on screen from now on");
@@ -1705,21 +2240,122 @@ $("#desk-check-no").addEventListener("click", () => {
 });
 document.addEventListener("click", (e) => {
   const show = e.target.closest("[data-desk-show]");
-  if (show) {
-    const pick = document.querySelector(`[data-desk-screen="${show.dataset.deskShow}"]`);
-    deskShow(show.dataset.deskShow, pick ? +pick.value : 0);
-  }
+  if (show) deskShow(show.dataset.deskShow, deskScreen(deskTab(show.dataset.deskShow)));
   const hide = e.target.closest("[data-desk-hide]");
   if (hide) cmd("desktop_hide", { page: hide.dataset.deskHide });
 });
-document.addEventListener("change", (e) => {
-  const pick = e.target.closest("[data-desk-screen]");
-  // Already on screen: move it to the screen picked.
-  if (pick && ui.snap && ui.snap.desktop && ui.snap.desktop.on_screen[pick.dataset.deskScreen] != null) {
-    cmd("desktop_show", { page: pick.dataset.deskScreen, screen: +pick.value });
+document.querySelectorAll("[data-desk-tab]").forEach((pick) => pick.addEventListener("change", () => {
+  const tab = pick.dataset.deskTab;
+  try {
+    localStorage.setItem(DESK_SCREEN + tab, pick.value);
+  } catch (e) { /* storage unavailable */ }
+  // Whatever from this tab is already on screen moves to the screen picked.
+  const on = (ui.snap && ui.snap.desktop && ui.snap.desktop.on_screen) || {};
+  for (const [page, screen] of Object.entries(on)) {
+    if (deskTab(page) === tab && screen !== +pick.value) cmd("desktop_show", { page, screen: +pick.value });
   }
-});
+}));
 $("#desk-hide-all").addEventListener("click", () => cmd("desktop_hide", {}));
+
+// Scrolling the page with the mouse over a number box you'd clicked in
+// changed its value (e.g. a round's points multiplier, or a position):
+// scrolling now just scrolls.
+document.addEventListener("wheel", (e) => {
+  const el = document.activeElement;
+  if (el && el.type === "number" && (e.target === el || el.contains(e.target))) el.blur();
+}, { passive: true });
+
+// -- export and import (apex/transfer.py) -----------------------------------------
+
+let lastExport = null;
+
+// Save the export (unsaved edits first) and say where it went.
+async function exportFile(what, round) {
+  try {
+    let league = "";
+    if (what !== "overlays") {
+      if (!ui.editing) throw new Error("Pick a league first");
+      league = (await saveEditor()).id;
+    }
+    const r = await api("/api/export", { method: "POST", body: { what, league, round: round || "" } });
+    lastExport = r.path;
+    $("#export-name").textContent = r.name;
+    $("#export-folder").textContent = r.folder;
+    $("#export-path").textContent = r.path;
+    $("#exports-folder").textContent = r.folder;
+    $("#export-modal").hidden = false;
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+const IMPORT_CHECKS = {
+  championship: "Replace this league's championship (points rules, calendar, results and penalties) with the one in the file?",
+  overlays: "Replace all your overlay and board settings with the ones in the file?",
+};
+
+async function importFile(what, file, round) {
+  if (IMPORT_CHECKS[what] && !confirm(IMPORT_CHECKS[what])) return;
+  try {
+    let league = "";
+    if (what !== "league" && what !== "overlays") {
+      if (!ui.editing) throw new Error("Pick a league first");
+      league = (await saveEditor()).id;
+      const rd = round && (champData().rounds || []).find((r) => r.id === round);
+      if (rd && (rd.results || []).length && !confirm(`Replace the results of ${rd.name} with the ones in the file?`)) return;
+    }
+    const q = new URLSearchParams({ what, league, round: round || "" });
+    const res = await fetch(`/api/import?${q}`, { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || "Import failed");
+    const info = data.info || {};
+    if (what === "league") {
+      await loadLeagues();
+      openEditor(data.league);
+      showPage("league");
+      return toast(`Imported ${data.league.name}`);
+    }
+    if (data.league) {
+      if (round) champ.open.add(round);
+      openEditor(data.league);
+      await loadLeagues();
+    }
+    toast({
+      teams: `Imported ${info.teams} teams${info.drivers ? `; ${info.drivers} drivers put in their team` : ""}`,
+      championship: `Imported the championship: ${info.rounds} rounds`,
+      round: `Imported ${info.results} results`,
+      drivers: `Roster: ${info.added} drivers added, ${info.updated} updated`,
+      overlays: `Imported the settings of ${info.sections} overlays and boards`,
+    }[what] || "Imported");
+    if (what === "overlays") {
+      overlayFormKey = "";
+      boardSettingsKey = "";
+      loadBackgrounds();
+    }
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const ex = e.target.closest("[data-export]");
+  if (ex) exportFile(ex.dataset.export, ex.dataset.exportRound);
+  if (e.target.closest("[data-show-exports]")) api("/api/export/show", { method: "POST", body: {} }).catch((err) => toast(err.message, true));
+});
+document.addEventListener("change", (e) => {
+  const input = e.target.closest("[data-import]");
+  if (!input || !input.files.length) return;
+  importFile(input.dataset.import, input.files[0], input.dataset.importRound);
+  input.value = "";
+});
+$("#export-close").addEventListener("click", () => { $("#export-modal").hidden = true; });
+$("#export-show").addEventListener("click", () => {
+  api("/api/export/show", { method: "POST", body: { path: lastExport } }).catch((err) => toast(err.message, true));
+});
+$("#export-copy").addEventListener("click", () => {
+  navigator.clipboard.writeText(lastExport || "").then(() => toast("Path copied"), () => toast(lastExport || ""));
+});
+api("/api/export/folder").then((r) => { $("#exports-folder").textContent = r.folder; }).catch(() => {});
 
 // Pop out: the app opens the page in its own window; in a browser, a new browser window.
 document.addEventListener("click", async (e) => {
@@ -1791,6 +2427,30 @@ function openEditor(profile) {
   document.querySelectorAll("#league-list li").forEach((li) => li.classList.toggle("selected", li.dataset.league === profile.id));
 }
 
+// The league editor's tabs (Drivers, Classes, Logos...), the last one used remembered.
+const LEAGUE_TAB = "apex.leagueTab";
+
+function showLeagueTab(name) {
+  if (!document.querySelector(`[data-ltab-panel="${name}"]`)) name = "drivers";
+  document.querySelectorAll("[data-ltab]").forEach((b) => b.classList.toggle("active", b.dataset.ltab === name));
+  document.querySelectorAll("[data-ltab-panel]").forEach((p) => { p.hidden = p.dataset.ltabPanel !== name; });
+  try {
+    localStorage.setItem(LEAGUE_TAB, name);
+  } catch (e) { /* storage unavailable */ }
+}
+
+document.querySelectorAll("[data-ltab]").forEach((b) => b.addEventListener("click", () => showLeagueTab(b.dataset.ltab)));
+try {
+  showLeagueTab(localStorage.getItem(LEAGUE_TAB) || "drivers");
+} catch (e) {
+  showLeagueTab("drivers");
+}
+
+// A secondary class: picked by hand, only for its own championship.
+function isSecondary(c) {
+  return c.role === "secondary";
+}
+
 const ROSTER_FIELDS = [["name", ""], ["cust_id", "c-id"], ["car_number", "c-num"], ["driver_number", "c-num"], ["nickname", ""], ["team", ""], ["notes", ""]];
 
 // Car makes (and their badges) the app knows, loaded once.
@@ -1816,15 +2476,65 @@ function makeBadge(name) {
   return `<span class="make-badge">${m && m.logo ? `<img src="${esc(m.logo)}" alt="${esc(name)}">` : ""}</span>`;
 }
 
+// Sorting the roster: click a column heading for A-Z, again for Z-A, a third
+// time for the order they were added. Only the list on screen is sorted; the
+// league keeps its own order.
+const ROSTER_SORT_KEY = "apex.rosterSort";
+let rosterSort = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(ROSTER_SORT_KEY)) || null;
+  } catch (e) {
+    return null;
+  }
+})();
+
+function rosterOrder(drivers, classes) {
+  const rows = drivers.map((d, i) => [d, i]);
+  if (!rosterSort) return rows;
+  const className = (id) => (classes.find((c) => c.id === id) || {}).name || "";
+  const value = (d) => String((rosterSort.key === "class_id" || rosterSort.key === "class2_id"
+    ? className(d[rosterSort.key]) : d[rosterSort.key]) ?? "").trim();
+  const dir = rosterSort.dir === "desc" ? -1 : 1;
+  return rows.sort(([a, ia], [b, ib]) => {
+    const va = value(a), vb = value(b);
+    if (!va !== !vb) return va ? -1 : 1;  // blanks last, either way round
+    // Numbers as numbers (2 before 10); names whatever their capitals.
+    return (va.localeCompare(vb, undefined, { numeric: true, sensitivity: "base" }) || ia - ib) * dir;
+  });
+}
+
+$("#roster-head").addEventListener("click", (e) => {
+  const th = e.target.closest("[data-sort]");
+  if (!th) return;
+  const key = th.dataset.sort;
+  rosterSort = !rosterSort || rosterSort.key !== key ? { key, dir: "asc" } : rosterSort.dir === "asc" ? { key, dir: "desc" } : null;
+  try {
+    localStorage.setItem(ROSTER_SORT_KEY, JSON.stringify(rosterSort));
+  } catch (err) { /* storage unavailable */ }
+  renderRoster();
+});
+
 function renderRoster() {
   loadMakes();
   const drivers = ui.editing.drivers || [];
   const classes = ui.editing.classes || [];
-  const classOptions = (selected) => `<option value="">Auto (by car)</option>` +
-    classes.map((c) => `<option value="${esc(c.id)}" ${c.id === selected ? "selected" : ""}>${esc(c.name || "Unnamed")}</option>`).join("");
-  $("#roster-rows").innerHTML = drivers.map((d, i) => `<tr>${ROSTER_FIELDS.map(([f]) =>
+  const options = (list, selected) => list.map((c) =>
+    `<option value="${esc(c.id)}" ${c.id === selected ? "selected" : ""}>${esc(c.name || "Unnamed")}</option>`).join("");
+  const main = classes.filter((c) => !isSecondary(c));
+  const second = classes.filter(isSecondary);
+  // The 2nd class column only once the league has a secondary class.
+  document.querySelector(".roster").classList.toggle("no-class2", !second.length);
+  $("#ltab-drivers").textContent = drivers.length || "";
+  document.querySelectorAll("#roster-head [data-sort]").forEach((th) => {
+    const on = rosterSort && rosterSort.key === th.dataset.sort;
+    th.classList.toggle("sorted", !!on);
+    th.dataset.dir = on ? rosterSort.dir : "";
+    th.title = th.title.replace(/ \(click to sort.*$/, "") + " (click to sort)";
+  });
+  $("#roster-rows").innerHTML = rosterOrder(drivers, classes).map(([d, i]) => `<tr>${ROSTER_FIELDS.map(([f]) =>
     `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"></td>`).join("")}
-    <td><select data-row="${i}" data-field="class_id" aria-label="Class">${classOptions(d.class_id || "")}</select></td>
+    <td><select data-row="${i}" data-field="class_id" aria-label="Class"><option value="">Auto (by car)</option>${options(main, d.class_id || "")}</select></td>
+    <td class="c-class2"><select data-row="${i}" data-field="class2_id" aria-label="Secondary class"><option value="">—</option>${options(second, d.class2_id || "")}</select></td>
     <td class="make-cell">${makeBadge(d.car_make)}<select data-row="${i}" data-field="car_make" aria-label="Car">${makeOptions(d.car_make || "")}</select></td>
     <td><div class="photos">${["car", "helmet"].map((kind) => photoButton(d, i, kind)).join("")}</div></td>
     <td><button class="btn icon danger" data-remove="${i}" title="Remove">✕</button></td></tr>`).join("");
@@ -2166,14 +2876,21 @@ function previewClass(c) {
 
 function renderClasses() {
   const classes = ui.editing.classes;
+  $("#ltab-classes").textContent = classes.length || "";
   $("#class-list").innerHTML = classes.length ? classes.map((c, i) => {
     const mode = c.logo_bg === "keep" ? "keep" : /^#/.test(c.logo_bg || "") ? "pick" : "auto";
-    return `<div class="class-card" data-class="${i}">
+    return `<div class="class-card ${isSecondary(c) ? "secondary" : ""}" data-class="${i}">
       <div class="class-preview"></div>
       <div class="class-fields">
         <label>Name <input data-cfield="name" value="${esc(c.name)}" placeholder="e.g. Pro"></label>
         <label>Colour <input type="color" data-cfield="color" value="${esc(c.color)}"></label>
-        <label class="grow">iRacing classes <input data-cfield="match" value="${esc((c.match || []).join(", "))}" placeholder="e.g. GT3, GT4 (optional)"></label>
+        <label title="Main: shown on the overlays. Secondary: picked by hand, only for its own championship">Kind
+          <select data-cfield="role">
+            <option value="main" ${isSecondary(c) ? "" : "selected"}>Main class (on the overlays)</option>
+            <option value="secondary" ${isSecondary(c) ? "selected" : ""}>Secondary class (own championship only)</option>
+          </select></label>
+        ${isSecondary(c) ? '<span class="grow hint">Give drivers this class in the Drivers list\'s <i>2nd class</i> column.</span>'
+          : `<label class="grow">iRacing classes <input data-cfield="match" value="${esc((c.match || []).join(", "))}" placeholder="e.g. GT3, GT4 (optional)"></label>`}
         <button class="btn icon danger" data-remove-class="${i}" title="Remove class">✕</button>
       </div>
       <div class="class-fields">
@@ -2210,7 +2927,7 @@ function renderClassPreview(i) {
   const c = ui.editing && ui.editing.classes[i];
   if (!card || !c) return;
   const cls = previewClass(c);
-  const count = (ui.editing.drivers || []).filter((d) => d.class_id === c.id).length;
+  const count = (ui.editing.drivers || []).filter((d) => (isSecondary(c) ? d.class2_id : d.class_id) === c.id).length;
   card.querySelector(".class-preview").innerHTML =
     classHeaderHtml(cls, count ? `${count} assigned` : "", () => renderClassPreview(i));
   const hit = cls.logo && logoCache.get([cls.logo, cls.color, cls.logo_bg, cls.logo_tolerance, cls.logo_fill].join("|"));
@@ -2236,6 +2953,19 @@ $("#class-list").addEventListener("input", (e) => {
   const i = +card.dataset.class;
   const c = ui.editing.classes[i];
   const v = e.target.value;
+  if (field === "role") {
+    // Drivers picked for it move to the matching column.
+    c.role = v;
+    const [from, to] = v === "secondary" ? ["class_id", "class2_id"] : ["class2_id", "class_id"];
+    (ui.editing.drivers || []).forEach((d) => {
+      if (d[from] === c.id) {
+        d[from] = "";
+        if (!d[to]) d[to] = c.id;
+      }
+    });
+    renderClasses();
+    return renderRoster();
+  }
   if (field === "library") {
     c.logo = v || null;
     c.autoLogo = false;
@@ -2288,7 +3018,10 @@ $("#class-list").addEventListener("click", (e) => {
   const rm = e.target.closest("[data-remove-class]");
   if (rm) {
     const [removed] = ui.editing.classes.splice(+rm.dataset.removeClass, 1);
-    ui.editing.drivers.forEach((d) => { if (d.class_id === removed.id) d.class_id = ""; });
+    ui.editing.drivers.forEach((d) => {
+      if (d.class_id === removed.id) d.class_id = "";
+      if (d.class2_id === removed.id) d.class2_id = "";
+    });
     renderClasses();
     renderRoster();
     return;
@@ -2304,7 +3037,7 @@ $("#btn-add-class").addEventListener("click", () => {
   const used = new Set(ui.editing.classes.map((c) => c.color));
   const color = CLASS_PALETTE.find((c) => !used.has(c)) || CLASS_PALETTE[ui.editing.classes.length % CLASS_PALETTE.length];
   // Client-side id so roster picks work before the first save.
-  ui.editing.classes.push({ id: `class-${Date.now().toString(36)}`, name: "", color, match: [], logo: null, logo_bg: "auto", logo_tolerance: 18, logo_fill: "edges" });
+  ui.editing.classes.push({ id: `class-${Date.now().toString(36)}`, name: "", color, match: [], logo: null, logo_bg: "auto", logo_tolerance: 18, logo_fill: "edges", role: "main" });
   renderClasses();
   renderRoster();
   $("#class-list .class-card:last-child input").focus();
@@ -2380,7 +3113,7 @@ $("#btn-import-session").addEventListener("click", async () => {
 });
 
 $("#btn-add-driver").addEventListener("click", () => {
-  ui.editing.drivers.push({ name: "", cust_id: "", car_number: "", driver_number: "", nickname: "", team: "", notes: "", class_id: "" });
+  ui.editing.drivers.push({ name: "", cust_id: "", car_number: "", driver_number: "", nickname: "", team: "", notes: "", class_id: "", class2_id: "" });
   renderRoster();
   $("#roster-rows tr:last-child input").focus();
 });

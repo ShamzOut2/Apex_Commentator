@@ -67,6 +67,18 @@
           </button>
         </div>
         <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>; the other overlays are in the Overlays tab.</p>
+        <div class="updates-card">
+          <div class="row">
+            <h3>Import &amp; export</h3>
+            <span class="grow"></span>
+            <button class="btn" data-show-exports>Open exports folder</button>
+          </div>
+          <p class="hint">Exports are saved in <code id="exports-folder">Documents\Apex Commentator\Exports</code>. Export and
+            import are where each thing is made: <b>League builder</b> (whole league, driver roster), <b>Teams</b>,
+            <b>Championship</b> (championship, standings, each round's results) and <b>Overlays</b> (all overlay and board
+            settings). <b>.json</b> files import back into Apex Commentator, on this PC or another; <b>.csv</b> files open in
+            Excel or Google Sheets.</p>
+        </div>
         <div id="updates-card" class="updates-card">
           <div class="row">
             <h3>Updates</h3>
@@ -168,8 +180,9 @@
           <button class="btn" data-cmd="replay_speed" data-speed="1" title="Play">▶</button>
           <button class="btn" data-cmd="replay_speed" data-speed="2" data-slow_motion="1" title="Slow motion">Slow-mo</button>
           <button class="btn" data-cmd="replay_incident" data-direction="1" title="Next iRacing incident marker">Incident ⏭</button>
+          <span class="media-sep" aria-hidden="true"></span>
+          <button class="btn live-btn" id="btn-live" title="Back to live (L)">● LIVE</button>
         </div>
-        <button class="btn live-btn" id="btn-live" title="Back to live (L)">● LIVE</button>
       </div>
     </section>
 
@@ -255,62 +268,90 @@
             <button class="btn" type="submit">Build</button>
           </form>
           <button id="btn-new-league" class="btn subtle">+ Blank league</button>
+          <label class="btn subtle">⤒ Import league…<input type="file" accept=".json,application/json" data-import="league" hidden></label>
+          <p class="hint">A league exported from Apex Commentator (.json), from this PC or another. It's added as a new league.</p>
           <h3>Saved leagues</h3>
           <ul id="league-list" class="league-list"></ul>
         </aside>
         <div class="league-editor" id="league-editor" hidden>
-          <div class="row">
+          <div class="row league-head">
             <input id="edit-name" class="grow" placeholder="League name" aria-label="League name">
             <input id="edit-league-id" class="narrow" placeholder="League ID" aria-label="iRacing League ID">
-            <label class="field" title="For leagues that put the driver's class in front of their name, e.g. (P) Dave Price. The control panel keeps the full name; the overlays show it without the tag (via the Nickname).">
-              <input type="checkbox" id="edit-strip-class"> Remove driver class in name</label>
             <button id="btn-save-league" class="btn primary">Save</button>
             <button id="btn-activate-league" class="btn">Use in overlay</button>
+            <button class="btn subtle" data-export="league" title="Everything about this league, images included, to import on this PC or another">⤓ Export league</button>
           </div>
-          <h3 class="section-title">Classes</h3>
-          <p class="hint">Each class gets its own colour and header in the driver list. Drivers join a class by their iRacing car class (the "iRacing classes" field) or by picking it in the roster below. A logo's background is recoloured to the class colour.</p>
-          <div id="class-list" class="class-list"></div>
-          <button id="btn-add-class" class="btn subtle">+ Add class</button>
-          <h3 class="section-title">Teams</h3>
-          <p class="hint">Team names, logos and colours, and which drivers are in each team, are set in the team builder. The roster's Team column is the same thing.</p>
-          <button class="btn subtle" data-goto="teams">Open the team builder</button>
-          <h3 class="section-title">Season calendar</h3>
-          <p class="hint">The season's rounds (track, layout, date, time, length) are set up with the championship; the
-            standings, results and calendar board all come from them. If the league has made its own calendar graphic, add it
-            here and the calendar board can show it instead.</p>
-          <div class="row">
-            <button class="btn subtle" data-goto="championship" data-champ-goto="rounds">Open the season calendar</button>
+          <div class="row league-tabs">
+            <div class="chips">
+              <button class="chip active" data-ltab="drivers">Drivers <span class="count" id="ltab-drivers"></span></button>
+              <button class="chip" data-ltab="classes">Classes <span class="count" id="ltab-classes"></span></button>
+              <button class="chip" data-ltab="looks">Logos, banners &amp; sponsors</button>
+            </div>
+            <span class="grow"></span>
+            <button class="btn subtle" data-goto="teams" title="Team names, logos, colours and line-ups">Teams ↗</button>
+            <button class="btn subtle" data-goto="championship" data-champ-goto="rounds" title="The season's rounds, results and points">Season &amp; points ↗</button>
           </div>
-          <div id="calendar-image-slot" class="image-slot"></div>
-          <h3 class="section-title">League logo</h3>
-          <p class="hint">Shown in the header of the full-screen boards (each board can turn it off).</p>
-          <div id="league-logo-slot" class="image-slot"></div>
-          <h3 class="section-title">League banners</h3>
-          <p class="hint">Logos and banners for the full-screen boards (championship, calendar, results). Upload a wide one for
-            across the top or bottom, and a tall one for the side; each board picks which to show.</p>
-          <div id="banner-list" class="banner-list"></div>
-          <div class="row">
-            <label class="btn subtle">+ Horizontal banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="horizontal" hidden></label>
-            <label class="btn subtle">+ Vertical banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="vertical" hidden></label>
+
+          <div class="ltab" data-ltab-panel="drivers">
+            <p class="hint">Nicknames, teams and notes show next to drivers in the overlays. Drivers are matched by iRacing customer
+              ID, or by car number when there is no ID. Click a column heading to sort.</p>
+            <div class="roster-scroll">
+            <table class="grid roster">
+              <thead id="roster-head"><tr><th data-sort="name">Driver</th><th class="c-id" data-sort="cust_id">Cust ID</th><th class="c-num" data-sort="car_number" title="Car number">Car #</th><th class="c-num" data-sort="driver_number" title="Driver's own number, if the league uses one">Driver #</th><th data-sort="nickname">Nickname</th><th data-sort="team">Team</th><th data-sort="notes">Notes</th><th class="c-class" data-sort="class_id" title="The class shown on the overlays">Class</th><th class="c-class c-class2" data-sort="class2_id" title="A secondary class: its own championship, never on the overlays">2nd class</th><th class="c-make" data-sort="car_make" title="The car's manufacturer: for badges and the manufacturers' championship. Auto uses the car they drive in iRacing.">Car</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
+              <tbody id="roster-rows"></tbody>
+            </table>
+            </div>
+            <div class="row transfer-row">
+              <button id="btn-add-driver" class="btn subtle">+ Add driver</button>
+              <button id="btn-import-session" class="btn subtle" title="Add the drivers in the current iRacing session to this league">⤓ Add drivers from session</button>
+              <span class="grow"></span>
+              <button class="btn subtle" data-export="drivers" title="The roster as a spreadsheet (CSV)">⤓ Roster (CSV)</button>
+              <label class="btn subtle">⤒ Import roster (CSV)…<input type="file" accept=".csv,text/csv" data-import="drivers" hidden></label>
+            </div>
           </div>
-          <h3 class="section-title">Sponsors</h3>
-          <p class="hint">Sponsor logos. Each board can show them along an edge (Boards tab), and the Sponsors overlay shows them
-            over the race (Overlays tab). Transparent PNG or SVG logos look best.</p>
-          <div id="sponsor-list" class="sponsor-list"></div>
-          <div class="row">
-            <label class="btn subtle">+ Add sponsor logos<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-sponsor-upload multiple hidden></label>
+
+          <div class="ltab" data-ltab-panel="classes" hidden>
+            <p class="hint"><b>Main classes</b> are what the overlays show: each gets its own colour and header. Drivers join one by
+              their iRacing car class (the "iRacing classes" field), by a class tag in front of their name, or by picking it in the
+              Drivers list. A logo's background is recoloured to the class colour.</p>
+            <p class="hint"><b>Secondary classes</b> (e.g. a Rookie Cup or Pro-Am trophy) work in the background: pick a driver's in
+              the <i>2nd class</i> column and they score in that class's own championship as well, ranked against the other
+              drivers in it, without changing anything on the overlays. How the points add up is under <i>Season &amp; points</i>.</p>
+            <label class="field" title="For leagues that put the driver's class in front of their name, e.g. (P) Dave Price. The control panel keeps the full name; the overlays show it without the tag (via the Nickname).">
+              <input type="checkbox" id="edit-strip-class"> Hide the class tag in front of names on the overlays, e.g. <i>(P) Dave Price</i></label>
+            <div id="class-list" class="class-list"></div>
+            <button id="btn-add-class" class="btn subtle">+ Add class</button>
           </div>
-          <h3 class="section-title">Drivers</h3>
-          <p class="hint">Nicknames, teams and notes show next to drivers in the overlay. Drivers are matched by iRacing customer ID, or by car number when there is no ID.</p>
-          <div class="roster-scroll">
-          <table class="grid roster">
-            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num" title="Car number">Car #</th><th class="c-num" title="Driver's own number, if the league uses one">Driver #</th><th>Nickname</th><th>Team</th><th>Notes</th><th class="c-class">Class</th><th class="c-make" title="The car's manufacturer: for badges and the manufacturers' championship. Auto uses the car they drive in iRacing.">Car</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
-            <tbody id="roster-rows"></tbody>
-          </table>
-          </div>
-          <div class="row">
-            <button id="btn-add-driver" class="btn subtle">+ Add driver</button>
-            <button id="btn-import-session" class="btn subtle" title="Add the drivers in the current iRacing session to this league">⤓ Add drivers from session</button>
+
+          <div class="ltab" data-ltab-panel="looks" hidden>
+            <div class="looks-grid">
+              <div>
+                <h3 class="section-title">League logo</h3>
+                <p class="hint">Shown in the header of the full-screen boards (each board can turn it off).</p>
+                <div id="league-logo-slot" class="image-slot"></div>
+              </div>
+              <div>
+                <h3 class="section-title">Calendar image</h3>
+                <p class="hint">The league's own calendar graphic, if it has one: the calendar board can show it instead of the
+                  one built from the rounds.</p>
+                <div id="calendar-image-slot" class="image-slot"></div>
+              </div>
+            </div>
+            <h3 class="section-title">Banners</h3>
+            <p class="hint">For the full-screen boards. Upload a wide one for across the top or bottom, and a tall one for the side;
+              each board picks which to show.</p>
+            <div id="banner-list" class="banner-list"></div>
+            <div class="row">
+              <label class="btn subtle">+ Horizontal banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="horizontal" hidden></label>
+              <label class="btn subtle">+ Vertical banner<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-banner-upload="vertical" hidden></label>
+            </div>
+            <h3 class="section-title">Sponsors</h3>
+            <p class="hint">Each board can show them along an edge (Boards tab), and the Sponsors overlay shows them over the race
+              (Overlays tab). Transparent PNG or SVG logos look best.</p>
+            <div id="sponsor-list" class="sponsor-list"></div>
+            <div class="row">
+              <label class="btn subtle">+ Add sponsor logos<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-sponsor-upload multiple hidden></label>
+            </div>
           </div>
         </div>
       </div>
@@ -321,6 +362,8 @@
           <h2>Teams</h2>
           <label class="field">League <select id="teams-league" class="league-picker" aria-label="League"></select></label>
           <span class="grow"></span>
+          <button class="btn subtle" data-export="teams" title="Teams, their logos and who drives for each">⤓ Export teams</button>
+          <label class="btn subtle">⤒ Import teams…<input type="file" accept=".json,application/json" data-import="teams" hidden></label>
           <button id="btn-add-team" class="btn subtle">+ Add team</button>
           <button id="btn-save-teams" class="btn primary">Save</button>
         </div>
@@ -337,11 +380,20 @@
       <div class="home">
         <h2>Overlays</h2>
         <p class="hint">Each has two versions. The <b>overlay</b> goes over the race in OBS (Browser Source at 1920×1080,
-          transparent background). The <b>full screen</b> version is a complete screen of its own, with a background and every
+          transparent background); <b>Preview ↗</b> opens one in a window of its own to have a look. The <b>full screen</b> version is a complete screen of its own, with a background and every
           driver, to cut to on stream or show on a monitor (Open, then F11). Changes here show straight away.</p>
         <p class="hint desk-help">Or skip OBS: <b>Show on my screen</b> puts it straight over whatever's on that monitor (iRacing in
-          windowed or borderless mode), always on top. Your mouse and keyboard go straight through to the game.
-          <button class="btn subtle" id="desk-hide-all" hidden>Remove all from my screen</button></p>
+          windowed or borderless mode), always on top. Your mouse and keyboard go straight through to the game.</p>
+        <div class="row desk-bar desk-help">
+          <label class="desk-screen" hidden>Show on my screen on <select data-desk-tab="overlays" aria-label="Which screen overlays go on"></select>
+            <span class="hint">for every overlay and the grid walk</span></label>
+          <button class="btn subtle" id="desk-hide-all" hidden>Remove all from my screen</button>
+        </div>
+        <div class="row transfer-row">
+          <span class="hint">Every overlay's and board's settings, with their background images:</span>
+          <button class="btn subtle" data-export="overlays">⤓ Export settings</button>
+          <label class="btn subtle">⤒ Import settings…<input type="file" accept=".json,application/json" data-import="overlays" hidden></label>
+        </div>
         <div class="overlay-cards">
           <div class="overlay-card">
             <h3>Standings</h3>
@@ -352,7 +404,7 @@
             <p class="obs-url"><span class="obs-kind">Full screen</span><code id="url-standings-screen"></code> <button class="btn subtle" data-copy="url-standings-screen">Copy</button>
               <a class="btn" href="/standings.html?screen=1" target="_blank" rel="noopener">Open ↗</a></p>
             <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="standings_screen"></span></p>
-            <div class="preview-frame"><iframe src="/standings.html?preview=1" title="Standings preview" loading="lazy"></iframe></div>
+            <p class="preview-link"><a class="btn subtle" href="/standings.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
             <div id="ov-standings" class="ov-form" data-overlay="standings"></div>
           </div>
           <div class="overlay-card">
@@ -364,8 +416,17 @@
             <p class="obs-url"><span class="obs-kind">Full screen</span><code id="url-laps-screen"></code> <button class="btn subtle" data-copy="url-laps-screen">Copy</button>
               <a class="btn" href="/laps.html?screen=1" target="_blank" rel="noopener">Open ↗</a></p>
             <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="laps_screen"></span></p>
-            <div class="preview-frame"><iframe src="/laps.html?preview=1" title="Lap tracker preview" loading="lazy"></iframe></div>
+            <p class="preview-link"><a class="btn subtle" href="/laps.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
             <div id="ov-laps" class="ov-form" data-overlay="laps"></div>
+          </div>
+          <div class="overlay-card">
+            <h3>Driver on camera</h3>
+            <p class="hint">A small board at the bottom centre naming the driver the camera is on: position, number, name,
+              team and car. It slides in each time the camera moves to someone.</p>
+            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-driver"></code> <button class="btn subtle" data-copy="url-driver">Copy</button></p>
+            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="driver"></span></p>
+            <p class="preview-link"><a class="btn subtle" href="/driver.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
+            <div id="ov-driver" class="ov-form" data-overlay="driver"></div>
           </div>
           <div class="overlay-card">
             <h3>Sponsors</h3>
@@ -373,7 +434,7 @@
               all together, or one at a time. Tick which sponsors to show.</p>
             <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-sponsors"></code> <button class="btn subtle" data-copy="url-sponsors">Copy</button></p>
             <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="sponsors"></span></p>
-            <div class="preview-frame"><iframe src="/sponsors.html?preview=1" title="Sponsors preview" loading="lazy"></iframe></div>
+            <p class="preview-link"><a class="btn subtle" href="/sponsors.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
             <div id="ov-sponsors" class="ov-form" data-overlay="sponsors"></div>
           </div>
         </div>
@@ -393,7 +454,11 @@
           Add <code id="url-board"></code> <button class="btn subtle" data-copy="url-board">Copy</button>
           <a class="btn subtle" href="/board.html?preview=1" target="_blank" rel="noopener">Open ↗</a>
           to OBS as a Browser Source at 1920×1080: it's empty (transparent) until you put a board on screen here.
-          <span class="desk" data-desk="board"></span></p>
+</p>
+        <div class="row desk-bar desk-help">
+          <span class="desk" data-desk="board"></span>
+          <label class="desk-screen" hidden>on <select data-desk-tab="boards" aria-label="Which screen boards go on"></select></label>
+        </div>
         <div class="boards-layout">
           <div class="board-buttons" id="board-buttons"></div>
           <div class="board-preview"><div class="preview-frame"><iframe src="/board.html?preview=1" title="Board preview" loading="lazy"></iframe></div></div>
@@ -410,6 +475,9 @@
           <label class="field">League <select id="champ-league" class="league-picker" aria-label="League"></select></label>
           <span class="grow"></span>
           <span id="champ-dirty" class="hint" hidden>Unsaved changes</span>
+          <button class="btn subtle" data-export="championship" title="Points rules, calendar, every round's results and penalties">⤓ Export championship</button>
+          <button class="btn subtle" data-export="standings" title="Every championship table as a spreadsheet (CSV)">⤓ Standings (CSV)</button>
+          <label class="btn subtle">⤒ Import championship…<input type="file" accept=".json,application/json" data-import="championship" hidden></label>
           <button id="btn-save-champ" class="btn primary">Save</button>
         </div>
         <div id="champ-views" class="chips champ-views">
@@ -434,8 +502,24 @@
             round marked <b>live</b> (by default the first round without results).</p>
           <p class="hint"><span id="track-source"></span> <button id="btn-fetch-tracks" class="btn subtle" hidden>Fetch official track list</button></p>
           <datalist id="track-names"></datalist>
+          <details class="build-rounds" id="build-rounds">
+            <summary>Build the rounds from a calendar</summary>
+            <p class="hint">Fill in the season in one go: from the league's season in iRacing, by scanning the league's
+              calendar graphic, or from its text pasted in (from Discord or the league's website, say). You check and
+              correct everything before any rounds are made.</p>
+            <div class="row build-sources">
+              <button class="btn" data-build="iracing" title="The sessions scheduled in the league's season in iRacing (needs API credentials)">From the iRacing season</button>
+              <button class="btn" data-build="scan" title="Read the calendar image added in the League builder">Scan the calendar image</button>
+              <label class="btn" title="Read the rounds from any image of the calendar">Scan another image…<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif,image/bmp" id="build-scan-file" hidden></label>
+              <button class="btn" data-build="paste">Paste text</button>
+            </div>
+            <div id="build-step"></div>
+          </details>
           <div id="champ-rounds"></div>
-          <button id="btn-add-round" class="btn subtle">+ Add round</button>
+          <div class="row">
+            <button id="btn-add-round" class="btn subtle">+ Add round</button>
+            <button id="btn-add-meeting" class="btn subtle" title="Several races on one night (heat races, say), each a round of its own">+ Add race meeting (several races)</button>
+          </div>
         </div>
 
         <div class="champ-view" data-view="penalties" hidden>
@@ -465,6 +549,22 @@
       <div class="modal-actions">
         <button class="btn subtle" id="hotkey-reset">Reset to 1–9</button>
         <button class="btn primary" id="hotkey-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- After an export: where the file went. -->
+  <div id="export-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="export-title">
+      <h2 id="export-title">Exported</h2>
+      <p class="update-versions">Saved as <b id="export-name"></b></p>
+      <p class="hint">In this folder:</p>
+      <p><code id="export-folder" class="export-path"></code></p>
+      <p class="hint">Full path: <code id="export-path" class="export-path"></code></p>
+      <div class="modal-actions">
+        <button class="btn" id="export-copy">Copy path</button>
+        <button class="btn" id="export-show">Show in folder</button>
+        <button class="btn primary" id="export-close">Done</button>
       </div>
     </div>
   </div>
