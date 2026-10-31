@@ -1061,7 +1061,7 @@ function renderChampRounds() {
         <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
         <input type="time" data-round="${i}" data-rkey="time" value="${esc(rd.time || "")}" aria-label="Start time" title="Start time">
         <input data-round="${i}" data-rkey="length" class="narrow-text" value="${esc(rd.length || "")}" placeholder="Length" aria-label="Race length" title="e.g. 60 min, 30 laps">
-        <label class="field" title="Points multiplier, e.g. 2 for double points">×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
+        <label class="field" title="Points multiplier: 1 for normal points, 2 for double points, and so on">Points ×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
         <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
         <label class="field" title="The race in progress counts as this round in the live standings"><input type="radio" name="live-round" data-live-round="${esc(rd.id)}" ${isLive ? "checked" : ""}> Live</label>
         <span class="grow"></span>
@@ -1748,6 +1748,14 @@ document.addEventListener("change", (e) => {
   }
 });
 $("#desk-hide-all").addEventListener("click", () => cmd("desktop_hide", {}));
+
+// Scrolling the page with the mouse over a number box you'd clicked in
+// changed its value (e.g. a round's points multiplier, or a position):
+// scrolling now just scrolls.
+document.addEventListener("wheel", (e) => {
+  const el = document.activeElement;
+  if (el && el.type === "number" && (e.target === el || el.contains(e.target))) el.blur();
+}, { passive: true });
 
 // -- export and import (apex/transfer.py) -----------------------------------------
 

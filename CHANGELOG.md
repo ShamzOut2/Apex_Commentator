@@ -34,6 +34,8 @@ How each version's entry is written:
 
 ### Fixes
 
+- Scrolling with the mouse over a number box you'd clicked in (like a
+  round's points multiplier) no longer changes its value by accident.
 - "Show on my screen" overlays covered the whole monitor in dark instead of
   being see-through (since v0.4.4). They're see-through again, and the app
   checks with you after each update in case they ever come up solid.
