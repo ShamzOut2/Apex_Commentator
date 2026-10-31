@@ -49,6 +49,9 @@ walk, Overlays, Boards and Race control.
 ### New features
 
 - Grid walk: **car picture size** of your own.
+- Boards: a **name style** for the drivers' names (full name, T. Smith,
+  Smith T., last name…) on the championship, teams' and finishing order
+  boards, as the calendar's winners already had.
 - Grid walk drivers' cards: the driver card's choices (grid position overall,
   in class or both, class name with it, car number, class badge, team name
   and logo, car badge, class colour from the main or secondary class), and
@@ -839,6 +842,9 @@ Under *What each board shows*, every board can be set up separately:
   race times once the race is over, and live timing while it's on; practice
   and qualifying show the gaps between best laps;
 - how many drivers (or teams, manufacturers, race meetings) a page.
+- **Names**: the drivers' name style (full name, T. Smith, Smith T., last
+  name, first name, 3 letters, nickname) on the championship, teams' and
+  finishing order boards; the calendar has its own for its winners.
 - the board's look: **gold, silver and bronze** for places 1–3 (else the
   accent colour), an **accent colour** of its own (the line under the
   header, the page number…), which you can also pick from the main colours

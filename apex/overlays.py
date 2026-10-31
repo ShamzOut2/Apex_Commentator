@@ -203,6 +203,7 @@ DEFAULTS = {
     # as for the sponsors overlay).
     "board_championship": {**LOGO, **COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+        "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "team_logo_side": "first",  # the team logo column before ("first") or after ("last") the team name
@@ -211,6 +212,7 @@ DEFAULTS = {
     },
     "board_teams": {**LOGO, **COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+        "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
         "team_logo_side": "first",
@@ -236,6 +238,7 @@ DEFAULTS = {
                        "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
     "board_results": {**LOGO, **COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+        "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True,
         # Gap to the winner and to the car ahead (a DNF / DNS / DSQ shows there instead).

@@ -2727,7 +2727,7 @@ const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
 const cards = (v) => v.style === "cards";
 
 const BOARD_FIELDS = {
-  board_championship: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
+  board_championship: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["name_format", "Names", "select", NAME_FORMATS], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names (a column)", "bool"], ["show_logo", "Team logos (a column)", "bool"],
     iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
     ["show_make", "Car badges", "bool"], ["show_gap", "Points gap to the leader", "bool"],
@@ -2736,7 +2736,7 @@ const BOARD_FIELDS = {
     ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"], ["car", "Car badge"],
       ["rounds", "Round points"], ["wins", "Wins"], ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"],
       ["ahead", "Gap to driver ahead"]])],
-  board_teams: [["rows", "Teams a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
+  board_teams: [["rows", "Teams a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["name_format", "Names of the drivers", "select", NAME_FORMATS], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
     ["show_logo", "Team logos (a column)", "bool"], iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]), ["show_color", "Team colour stripe", "bool"], ["show_drivers", "Drivers who scored", "bool"],
     ["show_gap", "Points gap to the leader", "bool"], ["show_ahead", "Points gap to the team ahead", "bool"],
     ["show_wins", "Wins", "bool"], ["show_penalty", "Penalty points", "bool"],
@@ -2759,7 +2759,7 @@ const BOARD_FIELDS = {
     iff((v) => cards(v) && v.show_winners, ["winner_name_format", "Winners' names", "select", NAME_FORMATS]),
     iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"]),
     iff(cards, ["rows", "Race meetings a page (the rest on the next pages)", "number", { min: 1, max: 64 }])],
-  board_results: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
+  board_results: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["name_format", "Names", "select", NAME_FORMATS], ["show_gained", "Places gained / lost", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names (a column)", "bool"], ["show_logo", "Team logos (a column)", "bool"],
     iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],

@@ -16,6 +16,9 @@ How each version's entry is written:
 ### New features
 
 - Grid walk: **car picture size** of your own.
+- Boards: a **name style** for the drivers' names (full name, T. Smith,
+  Smith T., last name…) on the championship, teams' and finishing order
+  boards, as the calendar's winners already had.
 - Grid walk drivers' cards: the driver card's choices (grid position overall,
   in class or both, class name with it, car number, class badge, team name
   and logo, car badge, class colour from the main or secondary class), and

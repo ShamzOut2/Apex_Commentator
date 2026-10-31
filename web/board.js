@@ -53,7 +53,7 @@ function columns(b) {
   if (b.kind === "championship") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
     add(s.show_number, "number", "#", "80px", "c", numberChip);
-    add(true, "driver", "Driver", "auto", "", (r) => esc(r.name));
+    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => {
@@ -68,7 +68,7 @@ function columns(b) {
   } else if (b.kind === "teams") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
     teamCols(true, (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(r.color)}"></span>` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
-    add(s.show_drivers, "drivers", "Drivers", "auto", "muted team-drivers", (r) => esc(r.drivers.join(" · ")));
+    add(s.show_drivers, "drivers", "Drivers", "auto", "muted team-drivers", (r) => esc((r.people || r.drivers.map((name) => ({ name }))).map((p) => formatName(p, s.name_format)).join(" · ")));
     b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => (r.rounds[i] == null ? "–" : fmtPts(r.rounds[i]))));
     add(s.show_wins, "wins", "Wins", "80px", "c muted", (r) => r.wins || "");
     add(s.show_penalty, "penalty", "Pen", "80px", "r down", (r) => (r.penalty_points ? `−${fmtPts(r.penalty_points)}` : ""));
@@ -85,7 +85,7 @@ function columns(b) {
     add(true, "pos", "Pos", "70px", "p r", (r) => (r.rank ?? (r.status || "").toUpperCase()));
     add(s.show_gained, "gained", "", "90px", "c", (r) => (r.gained ? `<span class="${r.gained > 0 ? "up" : "down"}">${r.gained > 0 ? "▲" : "▼"}${Math.abs(r.gained)}</span>` : ""));
     add(s.show_number, "number", "#", "80px", "c", numberChip);
-    add(true, "driver", "Driver", "auto", "", (r) => esc(r.name));
+    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");

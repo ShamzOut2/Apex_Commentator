@@ -119,6 +119,7 @@ def build(league, board, settings, live_results=None):
             make = roster.get("car_make", "")
             rows.append({
                 "pos": d["pos"], "name": _person(league, d["name"], roster.get("nickname", "")),
+                "nickname": roster.get("nickname", ""),
                 "number": numbers.get(d["driver"], ""), "team": d["team"],
                 "class_color": colours.get(class_of.get(d["driver"], "")),
                 "team_logo": team_logos.get((d["team"] or "").lower()), "make": make, "make_logo": make_logo(make),
@@ -143,6 +144,7 @@ def build(league, board, settings, live_results=None):
             per = {s["round"]: s["points"] for s in t["rounds"]}
             rows.append(dict(t, team_logo=team_logos.get(t["team"].lower()), color=team.get("color") or None,
                              drivers=[_person(league, d["name"], d["nickname"]) for d in t["drivers"]],
+                             people=[{"name": _person(league, d["name"], d["nickname"]), "nickname": d["nickname"]} for d in t["drivers"]],
                              rounds=[per.get(r["id"]) for r in last]))
         out["rows"] = rows
     elif kind == "makes":
