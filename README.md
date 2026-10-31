@@ -68,6 +68,11 @@ OBS dock.
 
 ### Improvements
 
+- Car badges and team logos no longer sit in a white box anywhere. Team logos
+  that come with a white background show without it, and dark badges and
+  logos are shown light so they stand out on the dark panels.
+- Choose the order of the columns on the standings tower and on the
+  full-screen standings: drag them, or use their arrows.
 - The League builder is tidier: its settings are on three tabs (Drivers,
   Classes, and Logos, banners & sponsors), with shortcuts to Teams and the
   season. The driver list has room for full names and teams.
@@ -395,6 +400,11 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
   - **Column headings** (the small GAP, INT… row) can be turned off.
+  - **Column order**: drag the columns into the order you want (or use their
+    arrows), separately for the tower and the full-screen standings. Columns
+    that are switched off keep their place for when they're on. The full
+    screen's usual order differs between races and qualifying until you
+    change it.
   - **The leader's gap shows**: "Leader", or the lap they're on ("Lap 12").
     By class, each class leader shows their own lap.
   - **Colours**: *Coloured bar by each driver* (the class or team colour)
@@ -784,7 +794,15 @@ Re-fetching a league updates names and numbers, adds new members and keeps your
 notes. Profiles are plain JSON in `data/leagues/`.
 
 **Car**: each driver's car make (Porsche, BMW, Mercedes-AMG…), with its
-badge, for the manufacturers' championship and the boards. *Auto* uses the
+badge, for the manufacturers' championship and the boards. Badges show
+without any box behind them, in light versions where the maker's own is
+black or navy, so they read on the dark panels.
+
+**Team logos** never show in a white box: wherever a team logo appears (the
+overlays, boards, grid walk and the app), a white or near-white background
+around it is made see-through, and a logo that was dark on white is shown
+light. Logos that are already see-through, or a coloured badge, show as they
+are. *Auto* uses the
 car they drive in iRacing, worked out from its name. Importing drivers from a
 session fills it in, and each championship result keeps the car driven that
 round.

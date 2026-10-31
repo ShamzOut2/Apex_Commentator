@@ -1698,6 +1698,11 @@ const OVERLAY_FIELDS = {
       ["show_laps", "Laps completed", "bool"],
       ["show_pits", "Pit stops", "bool"],
       ["show_pit_status", "PIT badge on pit road", "bool"],
+      ["column_order", "Column order on the tower", "order", [["pos_change", "+/−", "show_pos_change"], ["laps", "Laps", "show_laps"],
+        ["pits", "Pit stops", "show_pits"], ["last_lap", "Last lap", "show_last_lap"], ["best_lap", "Best lap", "show_best_lap"],
+        ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"]]],
+      ["screen_column_order", "Column order on the full screen", "order", [["laps", "Laps"], ["gap", "Gap"], ["interval", "Interval"],
+        ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"]]],
     ]],
     ["Drivers", [
       ["name_format", "Names", "select", NAME_FORMATS],
@@ -1878,6 +1883,7 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   const attrs = `data-key="${k}" data-kind="${kind === "banner" || kind === "class" ? "select" : kind}"`;
   if (kind === "background") return backgroundFields(section, values);
   if (kind === "size") return sizeField(v);
+  if (kind === "order") return orderField(k, label, v, opts, values);
   if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
   if (kind === "number") {
     return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
@@ -1892,6 +1898,69 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   return `<label class="ov-field">${label}<select ${attrs}>${options.map(([o, l]) =>
     `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
 }
+
+// A column order: chips to drag, or move with the arrows. ``cols``: [key,
+// label, the setting that switches it on (shown dimmed while off)].
+function orderField(key, label, value, cols, values) {
+  const known = cols.map((c) => c[0]);
+  const picked = String(value || "").split(",").filter((k) => known.includes(k));
+  const keys = [...picked, ...known.filter((k) => !picked.includes(k))];
+  return `<div class="ov-field wide order-field" data-order-key="${key}"><span>${label} <span class="hint">(drag, or use the arrows)</span></span>
+    <div class="order-list">${keys.map((k, i) => {
+      const [, name, flag] = cols.find((c) => c[0] === k);
+      const off = flag && !values[flag];
+      return `<span class="order-item ${off ? "off" : ""}" draggable="true" data-col="${k}" title="${off ? "Switched off: it takes this place when it's on" : ""}">
+        <button type="button" data-order-move="-1" ${i === 0 ? "disabled" : ""} aria-label="Move earlier">◀</button>
+        <span>${esc(name)}</span>
+        <button type="button" data-order-move="1" ${i === keys.length - 1 ? "disabled" : ""} aria-label="Move later">▶</button></span>`;
+    }).join("")}</div></div>`;
+}
+
+function saveOrder(field, keys) {
+  const form = field.closest(".ov-form");
+  overlayFormKey = "";
+  boardSettingsKey = "";
+  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [field.dataset.orderKey]: keys.join(",") } });
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-order-move]");
+  if (!btn) return;
+  const item = btn.closest(".order-item");
+  const field = btn.closest(".order-field");
+  const keys = [...field.querySelectorAll(".order-item")].map((x) => x.dataset.col);
+  const i = keys.indexOf(item.dataset.col);
+  const j = i + +btn.dataset.orderMove;
+  if (j < 0 || j >= keys.length) return;
+  [keys[i], keys[j]] = [keys[j], keys[i]];
+  btn.blur();  // the settings don't redraw while something in them has focus
+  saveOrder(field, keys);
+});
+
+let draggedCol = null;
+document.addEventListener("dragstart", (e) => {
+  const item = e.target.closest && e.target.closest(".order-item");
+  if (!item) return;
+  draggedCol = item;
+  item.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+});
+document.addEventListener("dragover", (e) => {
+  const over = draggedCol && e.target.closest && e.target.closest(".order-item");
+  if (over && over.parentElement === draggedCol.parentElement) e.preventDefault();
+});
+document.addEventListener("drop", (e) => {
+  const over = draggedCol && e.target.closest && e.target.closest(".order-item");
+  if (!over || over === draggedCol || over.parentElement !== draggedCol.parentElement) return;
+  e.preventDefault();
+  const r = over.getBoundingClientRect();
+  over.parentElement.insertBefore(draggedCol, e.clientX > r.left + r.width / 2 ? over.nextSibling : over);
+  saveOrder(over.closest(".order-field"), [...over.parentElement.children].map((x) => x.dataset.col));
+});
+document.addEventListener("dragend", () => {
+  if (draggedCol) draggedCol.classList.remove("dragging");
+  draggedCol = null;
+});
 
 // An overlay's or board's settings: its On screen switch, then its sections
 // (the first one open until you choose otherwise).

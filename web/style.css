@@ -447,6 +447,17 @@ kbd {
 .ov-field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
 .ov-field.check { flex-direction: row; align-items: center; gap: 6px; color: var(--text); font-size: 13px; }
 .ov-grid .wide, .ov-grid .hint { grid-column: 1 / -1; }
+/* A column order: chips to drag or move with their arrows. */
+.order-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.order-item { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel-2); color: var(--text); font-size: 12px; cursor: grab; user-select: none; }
+.order-item > span { padding: 0 4px; }
+.order-item.off { opacity: .45; }
+.order-item.dragging { opacity: .3; }
+.order-item button { background: none; border: none; color: var(--muted); cursor: pointer; padding: 2px 5px; border-radius: 999px; font-size: 10px; }
+.order-item button:hover:not(:disabled) { color: var(--accent); background: var(--watch); }
+.order-item button:disabled { visibility: hidden; }
+.team-logo:has(img) { background: none; }
 
 /* --- championship ------------------------------------------------------------ */
 .home.wide { max-width: 1400px; }
@@ -514,8 +525,7 @@ kbd {
 .pb-folder label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
 .make-cell { white-space: nowrap; }
 .make-cell select { max-width: 150px; }
-.make-badge { display: inline-flex; width: 34px; height: 22px; align-items: center; justify-content: center; vertical-align: middle; margin-right: 4px; background: #fff; border-radius: 3px; }
-.make-badge:empty { background: none; }
+.make-badge { display: inline-flex; width: 34px; height: 22px; align-items: center; justify-content: center; vertical-align: middle; margin-right: 4px; }
 .make-badge img { max-width: 30px; max-height: 18px; object-fit: contain; }
 
 /* --- league banners ------------------------------------------------------------ */

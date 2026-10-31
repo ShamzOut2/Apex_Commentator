@@ -272,3 +272,15 @@ class ClassFromTagTests(unittest.TestCase):
         self.assertEqual(store.class_for({"class_id": "am"}, "GT3", profile, "(SP) Ben Gibbons")["id"], "am")
         # The session name wins over the roster's: tags change when drivers move class.
         self.assertEqual(store.class_for({"name": "(P) Ben Gibbons"}, "GT3", profile, "(PA) Ben Gibbons")["id"], "pa")
+
+
+class ColumnOrderTests(unittest.TestCase):
+    def test_orders_keep_every_column_once(self):
+        from apex.overlays import OverlaySettings
+        o = OverlaySettings()
+        self.assertEqual(o.get()["standings"]["column_order"], "pos_change,laps,pits,last_lap,best_lap,gap,interval")
+        self.assertEqual(o.get()["standings"]["screen_column_order"], "")  # the usual order for the session
+        o.update("standings", {"column_order": "interval,gap,nonsense,gap", "screen_column_order": "pits,best_lap"})
+        s = o.get()["standings"]
+        self.assertEqual(s["column_order"], "interval,gap,pos_change,laps,pits,last_lap,best_lap")
+        self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap")

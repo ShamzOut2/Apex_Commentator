@@ -18,6 +18,14 @@ BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacit
 
 NAME_FORMATS = ("full", "initial_last", "last_initial", "last", "first", "abbrev", "nickname")
 
+# The standings' columns after the driver, in the order shown: the tower's
+# (each switched on and off with its show_ setting) and the full screen's
+# (a fixed set: Last and Pits in races only). "" for the full screen keeps
+# its usual order, which differs between races and qualifying.
+TOWER_COLUMNS = ("pos_change", "laps", "pits", "last_lap", "best_lap", "gap", "interval")
+SCREEN_COLUMNS = ("laps", "gap", "interval", "last_lap", "best_lap", "pits")
+ORDERS = {"column_order": TOWER_COLUMNS, "screen_column_order": SCREEN_COLUMNS}
+
 DEFAULTS = {
     "standings": {
         "visible": True,
@@ -50,6 +58,8 @@ DEFAULTS = {
         "show_laps": False,       # laps completed
         "show_pits": False,       # pit stops made
         "show_pit_status": True,  # "PIT" while on pit road
+        "column_order": ",".join(TOWER_COLUMNS),
+        "screen_column_order": "",
         # Start of a session: only the header (session, laps / time left), and
         # each driver appears once they've completed a lap.
         "reveal": True,
@@ -179,11 +189,23 @@ def _value(key, value, default):
             return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
         if key == "bg_image":
             return value if re.fullmatch(r"(bg-[0-9a-f]{12}\.(png|jpg|webp|svg))?", value) else default
+        if key in ORDERS:
+            return column_order(value, ORDERS[key]) if value else ("" if key == "screen_column_order" else default)
         if key == "sponsor_ids":
             return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
         return value if key not in CHOICES or value in CHOICES[key] else default
     except (TypeError, ValueError):
         return default
+
+
+def column_order(value, known):
+    """A column order: the known columns given, in that order, then any left out."""
+    picked = []
+    for key in str(value).split(","):
+        key = key.strip()
+        if key in known and key not in picked:
+            picked.append(key)
+    return ",".join(picked + [k for k in known if k not in picked])
 
 
 class OverlaySettings:

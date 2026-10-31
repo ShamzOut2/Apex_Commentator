@@ -44,5 +44,5 @@ body.panel-image .card::before {
 .klass { font-size: 14px; font-weight: 800; letter-spacing: .08em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; }
 .team { font-size: 20px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 .team img { height: 26px; max-width: 60px; object-fit: contain; }
-.make { flex: none; display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 8px; height: 56px; width: 104px; padding: 6px 10px; }
+.make { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 56px; width: 104px; padding: 6px 10px; }
 .make img { max-height: 100%; max-width: 100%; object-fit: contain; }

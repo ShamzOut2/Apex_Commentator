@@ -150,8 +150,14 @@ const COLUMNS = [
   }],
 ];
 
+// In the order picked (cfg.column_order: "gap,interval,...", by the setting without "show_").
 function columnsFor(cfg, race) {
-  return COLUMNS.filter(([key, , , , when]) => cfg[key] && (!when || when(race)));
+  const order = String(cfg.column_order || "").split(",");
+  const rank = (c) => {
+    const i = order.indexOf(c[0].replace(/^show_/, ""));
+    return i < 0 ? 99 : i;
+  };
+  return COLUMNS.filter(([key, , , , when]) => cfg[key] && (!when || when(race))).sort((a, b) => rank(a) - rank(b));
 }
 
 // The extra drivers under the top of the order. "rotate": the rest of the field
@@ -409,31 +415,38 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     `<td>${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
     compact ? "" : `<td class="team">${team}</td>`,
   ];
-  if (race) {
-    cells.push(
-      `<td class="r muted">${e.laps_completed ?? ""}</td>`,
-      `<td class="r ${first ? "lead" : ""}">${first ? leaderText(e, cfg) : (classMode ? e.class_laps_down : e.laps_down) ? `+${classMode ? e.class_laps_down : e.laps_down} L` : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`,
-      `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(1)}` : ""}</td>`,
-      compact ? "" : `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
-      `<td class="r">${fmtLap(e.best_lap)}</td>`,
-      compact ? "" : `<td class="r muted">${e.pit_stops || ""}</td>`,
-    );
-  } else {
-    cells.push(
-      `<td class="r lead">${fmtLap(e.best)}</td>`,
-      `<td class="r">${first ? "" : gap != null ? `+${gap.toFixed(3)}` : ""}</td>`,
-      `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(3)}` : ""}</td>`,
-      compact ? "" : `<td class="r muted">${e.lap ?? ""}</td>`,
-    );
-  }
+  const down = classMode ? e.class_laps_down : e.laps_down;
+  const cell = {
+    laps: () => `<td class="r muted">${(race ? e.laps_completed : e.lap) ?? ""}</td>`,
+    gap: () => (race
+      ? `<td class="r ${first ? "lead" : ""}">${first ? leaderText(e, cfg) : down ? `+${down} L` : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`
+      : `<td class="r">${first ? "" : gap != null ? `+${gap.toFixed(3)}` : ""}</td>`),
+    interval: () => `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(race ? 1 : 3)}` : ""}</td>`,
+    last_lap: () => `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
+    best_lap: () => (race ? `<td class="r">${fmtLap(e.best_lap)}</td>` : `<td class="r lead">${fmtLap(e.best)}</td>`),
+    pits: () => `<td class="r muted">${e.pit_stops || ""}</td>`,
+  };
+  cells.push(...screenColumns(cfg, race, compact).map((k) => cell[k]()));
   const moved = moveOf(e.car_idx);
   return `<tr class="${e.car_idx === camIdx ? "cam" : ""} ${moved ? moved.cls : ""}" data-key="${e.car_idx}" style="${moved ? moved.style : ""}">${cells.join("")}</tr>`;
 }
 
-function screenHead(race, compact) {
+// The full screen's columns after the driver and team, in the order picked
+// (cfg.screen_column_order; "" = the usual order, which differs between races
+// and qualifying). Last lap and pit stops are race only; split into narrow
+// columns, the least needed go.
+const SCREEN_LABELS = { laps: "Laps", gap: "Gap", interval: "Int", last_lap: "Last", best_lap: "Best", pits: "Pits" };
+
+function screenColumns(cfg, race, compact) {
+  const order = cfg.screen_column_order ? cfg.screen_column_order.split(",")
+    : race ? ["laps", "gap", "interval", "last_lap", "best_lap", "pits"] : ["best_lap", "gap", "interval", "laps"];
+  const keep = race ? (k) => !compact || (k !== "last_lap" && k !== "pits") : (k) => k !== "last_lap" && k !== "pits" && (!compact || k !== "laps");
+  return order.filter((k) => SCREEN_LABELS[k] && keep(k));
+}
+
+function screenHead(cfg, race, compact) {
   const cols = [["", "stripe"], ["Pos", "r"], race ? ["", "c"] : null, ["#", "c"], ["Driver", ""], compact ? null : ["Team", ""]];
-  if (race) cols.push(["Laps", "r"], ["Gap", "r"], ["Int", "r"], compact ? null : ["Last", "r"], ["Best", "r"], compact ? null : ["Pits", "r"]);
-  else cols.push(["Best", "r"], ["Gap", "r"], ["Int", "r"], compact ? null : ["Laps", "r"]);
+  cols.push(...screenColumns(cfg, race, compact).map((k) => [SCREEN_LABELS[k], "r"]));
   const widths = { "": "", Pos: "70px", "#": "70px", Laps: "70px", Pits: "60px", Gap: "120px", Int: "110px", Last: "130px", Best: "130px" };
   return `<colgroup>${cols.filter(Boolean).map(([l, c]) => `<col style="width:${c === "stripe" ? "6px" : c === "c" && !l ? "78px" : widths[l] || "auto"}">`).join("")}</colgroup>
     <thead><tr>${cols.filter(Boolean).map(([l, c]) => `<th class="${c === "stripe" ? "stripe" : c}">${l}</th>`).join("")}</tr></thead>`;
@@ -441,8 +454,8 @@ function screenHead(race, compact) {
 
 // A class header row spans exactly the table's columns: spanning more makes
 // the browser share the width out with columns that aren't there.
-function spanFor(race, compact) {
-  return (screenHead(race, compact).match(/<col /g) || []).length;
+function spanFor(cfg, race, compact) {
+  return (screenHead(cfg, race, compact).match(/<col /g) || []).length;
 }
 
 function renderScreen(snap, ov) {
@@ -483,8 +496,8 @@ function renderScreen(snap, ov) {
   const rowH = Math.max(26, Math.min(44, Math.floor((ROW_BUDGET - heads(tallest) * 54) / Math.max(fill(tallest), 1))));
   const body = !snap.connected ? '<div class="screen-empty">Waiting for iRacing…</div>'
     : !entries.length ? `<div class="screen-empty">${race ? "Waiting for the race" : "No lap times yet"}</div>`
-      : `<div class="screen-body">${cols.map((col) => `<div class="screen-col"><table class="screen-table ${cfg.show_col_labels ? "" : "no-labels"}">${screenHead(race, compact)}<tbody>${col.map((l) => l.head
-        ? `<tr class="classrow"><td colspan="${spanFor(race, compact)}">${classHeaderHtml(l.head, `${l.n} cars`, rerender)}</td></tr>`
+      : `<div class="screen-body">${cols.map((col) => `<div class="screen-col"><table class="screen-table ${cfg.show_col_labels ? "" : "no-labels"}">${screenHead(cfg, race, compact)}<tbody>${col.map((l) => l.head
+        ? `<tr class="classrow"><td colspan="${spanFor(cfg, race, compact)}">${classHeaderHtml(l.head, `${l.n} cars`, rerender)}</td></tr>`
         : screenRow(l.e, cfg, classes.get(l.e.class_key) || DEFAULT_CLASS, race, classMode, multiclass, camIdx, compact)).join("")}</tbody></table></div>`).join("")}</div>`;
   const session = snap.session || {};
   const sub = headerSub(snap, cfg, true);

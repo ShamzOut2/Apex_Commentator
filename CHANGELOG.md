@@ -42,6 +42,11 @@ How each version's entry is written:
 
 ### Improvements
 
+- Car badges and team logos no longer sit in a white box anywhere. Team logos
+  that come with a white background show without it, and dark badges and
+  logos are shown light so they stand out on the dark panels.
+- Choose the order of the columns on the standings tower and on the
+  full-screen standings: drag them, or use their arrows.
 - The League builder is tidier: its settings are on three tabs (Drivers,
   Classes, and Logos, banners & sponsors), with shortcuts to Teams and the
   season. The driver list has room for full names and teams.
