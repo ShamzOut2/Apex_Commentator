@@ -35,7 +35,8 @@ How each version's entry is written:
   November. The "×2 points" note on rounds worth more can be turned off.
 - The standings header (tower and full screen) can hide the series name
   and/or the track name, and the session names can be your own (e.g.
-  "FEATURE RACE" instead of "RACE").
+  "FEATURE RACE" instead of "RACE"). A long session name can wrap onto two
+  lines, or stay on one line with the tower widening for it.
 - The standings tower's width fits its contents: each column (the name
   column too) is as wide as what's in it, so there's no big empty gap. Or set
   the width yourself in pixels.

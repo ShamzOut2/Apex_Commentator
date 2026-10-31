@@ -203,9 +203,11 @@ function autoFit(cfg, cols) {
   tower.style.setProperty("--grid", [...fixed, ...fit.widths.map((w, i) => (i === 0 ? `minmax(${w}px, 1fr)` : `${w}px`))].join(" "));
   const total = fixed.reduce((n, w) => n + parseFloat(w), 0) + fit.widths.reduce((n, w) => n + w, 0)
     + ROW_GAP * (fixed.length + flexible - 1) + ROW_PAD;
-  // Room for the header too: the session name and laps / time left side by side.
+  // Room for the header too: the session name and laps / time left side by
+  // side, unless the name may wrap onto two lines.
   const h1 = tower.querySelector(".tower-head .h1");
-  const head = h1 ? [...h1.children].reduce((n, el) => n + contentWidth(el) / scale, 0) + 10 * (h1.children.length - 1) + HEAD_PAD : 0;
+  const head = h1 && !cfg.title_wrap
+    ? [...h1.children].reduce((n, el) => n + contentWidth(el) / scale, 0) + 10 * (h1.children.length - 1) + HEAD_PAD : 0;
   tower.style.width = `${Math.max(MIN_TOWER, Math.ceil(total), Math.ceil(head))}px`;
 }
 
@@ -300,12 +302,13 @@ function render() {
       ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}
     </div>${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
   tower.classList.toggle("by-class", classMode);
+  tower.classList.toggle("wrap-title", !!cfg.title_wrap);
   tower.classList.toggle("hidden", !visible);
   setPanels(cfg);
   setSize(cfg);
   // Width: set by hand, or (0) fitted to what's in the columns.
   const auto = !cfg.width;
-  const mode = JSON.stringify([auto, cfg.width, grid]);
+  const mode = JSON.stringify([auto, cfg.width, grid, cfg.title_wrap]);
   if (!auto) {
     tower.style.width = `${Math.max(MIN_TOWER, cfg.width)}px`;
     tower.style.setProperty("--grid", grid);

@@ -1321,6 +1321,7 @@ const OVERLAY_FIELDS = {
     ["title_race", "Race name (blank = RACE)", "text"],
     ["title_qualify", "Qualifying name (blank = QUALIFYING)", "text"],
     ["title_practice", "Practice / warm-up name (blank = iRacing's)", "text"],
+    ["title_wrap", "Wrap a long session name onto two lines (off: one line, the tower widens for it)", "bool"],
     ["show_gap", "Gap to leader / pole", "bool"],
     ["show_interval", "Interval to car ahead", "bool"],
     ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }],

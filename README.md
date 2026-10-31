@@ -61,7 +61,8 @@ OBS dock.
   November. The "×2 points" note on rounds worth more can be turned off.
 - The standings header (tower and full screen) can hide the series name
   and/or the track name, and the session names can be your own (e.g.
-  "FEATURE RACE" instead of "RACE").
+  "FEATURE RACE" instead of "RACE"). A long session name can wrap onto two
+  lines, or stay on one line with the tower widening for it.
 - The standings tower's width fits its contents: each column (the name
   column too) is as wide as what's in it, so there's no big empty gap. Or set
   the width yourself in pixels.
@@ -351,7 +352,9 @@ are kept in `data/overlays.json`.
     name* and *Practice / warm-up name* replace RACE, QUALIFYING and
     iRacing's name for practice, e.g. "FEATURE RACE" or "SUPERPOLE"; leave
     one blank for the usual name. Both the tower and the full-screen version
-    use these.
+    use these. *Wrap a long session name* puts a long name on two lines in the
+    tower; off, it stays on one line and the tower widens for it (or ends in
+    "…" if you've set the width).
   - **Width**: automatic (0, the default) or a width in pixels. In
     automatic mode each column, the name column included, is as wide as its
     widest entry plus a little room, and the tower is exactly as wide as

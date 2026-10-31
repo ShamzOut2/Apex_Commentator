@@ -48,6 +48,7 @@ DEFAULTS = {
         # your own ("" = RACE, QUALIFYING, or iRacing's name for practice).
         "show_series": True, "show_track": True,
         "title_race": "", "title_qualify": "", "title_practice": "",
+        "title_wrap": False,      # a long session name: onto two lines (True) or one line, the tower widening for it
         # Fastest lap: a purple stopwatch by the holder's name (each class's
         # holder in "class" mode), and a purple pill at the top middle of the
         # screen for fl_flash_s when someone sets a new fastest lap.
