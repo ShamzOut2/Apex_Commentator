@@ -52,7 +52,8 @@ const ui = {
 // Per-PC preferences for the timing screen.
 const SETTINGS_KEY = "apex.timing";
 const settings = Object.assign(
-  { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null, actionKeys: {} },
+  { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null, actionKeys: {},
+    nameFormat: "full", showNick: true },
   (() => {
     try {
       return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
@@ -94,9 +95,13 @@ let hotkeysSent = false;
 
 function render() {
   const s = ui.snap;
+  // The app's saved keys win; a window with keys the app hasn't saved yet (from
+  // before they were kept there) hands them over once.
+  const savedKeys = s.hotkeys && s.hotkeys.saved;
+  if (savedKeys) adoptHotkeys(s);
   if (!hotkeysSent && s.camera) {
     hotkeysSent = true;
-    sendHotkeys();  // this PC's keys, once the cameras are known
+    if (!savedKeys) sendHotkeys();  // this window's keys, once the cameras are known
   }
   $("#status-dot").classList.toggle("on", !!s.connected);
   const league = s.league;
@@ -151,6 +156,12 @@ function render() {
 const PAGE_KEY = "apex.page";
 // ?popout=timing: one page in a window of its own (the Pop out buttons), without the tabs.
 const POPOUT = new URLSearchParams(location.search).get("popout");
+
+// The Timing tab's name style (Names): any but the full name leaves off a "(P)" class tag.
+function timingName(name) {
+  if (settings.nameFormat === "full") return name;
+  return formatName({ name: String(name || "").replace(/^\s*\([^()]*\)\s*/, "") }, settings.nameFormat);
+}
 
 // A nickname that's just the name without its "(P)" class tag says nothing new.
 function sameButClassTag(name, nickname) {
@@ -224,12 +235,34 @@ function keyOf(e) {
 // Keys with Ctrl or Alt work whichever program is in front (the app registers
 // them with Windows; see apex/hotkeys.py): it's told about every change.
 const systemWide = (k) => /(^|\+)(ctrl|alt)\+/.test(k);
+// The keys live in the app's settings (cmd_hotkeys), so every window (the app,
+// pop-outs, a browser) has the same ones and they survive updates. ``hotkeyV``:
+// the version of them this window has.
+let hotkeyV = null;
+let hotkeySending = 0;
 function sendHotkeys() {
   const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
   const keys = {};
   for (const [name, k] of Object.entries(hotkeys(groups))) if (systemWide(k)) keys[k] = `cam:${name}`;
   for (const [id, k] of Object.entries(settings.actionKeys || {})) if (systemWide(k)) keys[k] = id;
-  return api("/api/cmd", { method: "POST", body: { action: "hotkeys", params: { keys } } }).catch(() => {});
+  hotkeySending += 1;
+  return api("/api/cmd", { method: "POST", body: { action: "hotkeys", params: { keys, cameras: settings.hotkeys, actions: settings.actionKeys || {} } } })
+    .then((r) => { if (r && r.v != null) hotkeyV = r.v; })
+    .catch(() => {})
+    .finally(() => { hotkeySending -= 1; });
+}
+
+// Keys saved by another window (or before an update): use them here too.
+function adoptHotkeys(s) {
+  const saved = s.hotkeys && s.hotkeys.saved;
+  if (!saved || hotkeySending || saved.v === hotkeyV || !$("#hotkey-modal").hidden) return false;
+  hotkeyV = saved.v;
+  settings.hotkeys = saved.cameras || null;
+  settings.actionKeys = saved.actions || {};
+  saveSettings();
+  camKey = "";
+  boardButtonsKey = "";
+  return true;
 }
 
 function renderCamButtons(cam) {
@@ -373,7 +406,7 @@ function renderStandings(s) {
       [r.class_pos ? `<span class="cls-pos" style="border-color:${esc(color)}">${r.class_pos}</span>` : ""],
       [changeCell(inClass ? r.class_pos_change : r.pos_change), "c-chg"],
       [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
-      [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname && !sameButClassTag(r.name, lg.nickname) ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
+      [`<span class="name">${esc(timingName(r.name))}</span>${settings.showNick && lg && lg.nickname && !sameButClassTag(r.name, lg.nickname) ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
         `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}${r.hidden ? ' <span class="tag out" title="No class in the league: left off the overlays and out of the results">NO CLASS</span>' : ""}`, "driver-cell"],
       [String(r.lap ?? "")],
       [gap, "c-time"],
@@ -506,7 +539,7 @@ function renderGridwalk(s) {
   $("#gw-toggle").textContent = g.running ? "❚❚ Pause" : "▶ Resume";
   renderThumbs(g);
   for (const [id, value, prop] of [["#gw-interval", g.interval, "value"],
-    ["#gw-loop", g.loop, "checked"], ["#gw-absent", g.include_absent, "checked"]]) {
+    ["#gw-loop", g.loop, "checked"], ["#gw-absent", g.include_absent, "checked"], ["#gw-autoplay", g.autoplay !== false, "checked"]]) {
     const el = $(id);
     if (document.activeElement !== el) el[prop] = value;
   }
@@ -568,6 +601,7 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
 
 $("#gw-interval").addEventListener("change", (e) => cmd("gridwalk_settings", { interval: +e.target.value }));
 $("#gw-loop").addEventListener("change", (e) => cmd("gridwalk_settings", { loop: e.target.checked }));
+$("#gw-autoplay").addEventListener("change", (e) => cmd("gridwalk_settings", { autoplay: e.target.checked }));
 $("#gw-absent").addEventListener("change", (e) => cmd("gridwalk_settings", { include_absent: e.target.checked }));
 $("#gw-url").textContent = `${location.origin}/gridwalk.html`;
 
@@ -694,6 +728,18 @@ $("#battle-gap").addEventListener("change", (e) => {
   e.target.value = settings.battleGap;
   saveSettings();
 });
+$("#timing-names").value = settings.nameFormat;
+$("#timing-nick").checked = settings.showNick;
+$("#timing-names").addEventListener("change", (e) => {
+  settings.nameFormat = e.target.value;
+  saveSettings();
+  if (ui.snap) renderStandings(ui.snap);
+});
+$("#timing-nick").addEventListener("change", (e) => {
+  settings.showNick = e.target.checked;
+  saveSettings();
+  if (ui.snap) renderStandings(ui.snap);
+});
 $("#battle-color").addEventListener("input", (e) => {
   settings.battleColor = e.target.value;
   document.documentElement.style.setProperty("--battle", settings.battleColor);
@@ -728,6 +774,8 @@ function hotkeyActions(s = ui.snap || {}) {
   resultGroups(opts).forEach((g) => add("results", g.key, `Finishing order · ${g.name}`));
   const on = (k) => !!(ov[k] && ov[k].visible);
   return [
+    ["Everything", [["all:toggle", "Every overlay and board off screen, and back again", () => cmd("hotkey", { action: "all:toggle" },
+      (r) => (r && r.shown ? "Overlays back on screen" : "Everything off screen"))]]],
     ["Overlays (on / off)", OVERLAY_TOGGLES.map(([k, label]) => [`ov:${k}`, label,
       () => cmd("overlay_settings", { overlay: k, values: { visible: !on(k) } }, `${label} ${on(k) ? "off" : "on"}`)])],
     ["Timing tower", [
@@ -735,11 +783,18 @@ function hotkeyActions(s = ui.snap || {}) {
         `Sponsor bar ${ov.standings && ov.standings.sponsor_bar ? "off" : "on"}`)],
       ["tower:mode", "Overall / by class", () => cmd("hotkey", { action: "tower:mode" },
         ov.standings && ov.standings.mode === "class" ? "Tower: overall" : "Tower: by class")],
+      ["tower:header", "Header: laps left / time left", () => cmd("hotkey", { action: "tower:header" }, "Tower header changed")],
     ]],
     ["Grid walk", [
       ["gw:toggle", "On / off (starts from P1)", () => (s.gridwalk && s.gridwalk.visible
         ? cmd("gridwalk_hide", {}, "Grid walk off") : cmd("gridwalk_start", { index: 0 }, "Grid walk on"))],
       ["gw:next", "Next pair", () => cmd("gridwalk_next", {})],
+      ["gw:prev", "Previous pair", () => cmd("gridwalk_prev", {})],
+    ]],
+    ["On my screen (the app window only)", [
+      ["desk:overlays", "Every overlay on my screen", () => deskShowAll("overlays")],
+      ["desk:boards", "Boards on my screen", () => deskShowAll("boards")],
+      ["desk:off", "Remove everything from my screen", () => cmd("desktop_hide", {}, "Removed from your screen")],
     ]],
     ["Boards (press again: off screen)", boards],
     ["Championship battle (picks the drivers and shows it)", BATTLE_PICKS.map(([mode, label]) => [`battle:${mode}`, label,
@@ -889,7 +944,7 @@ function renderBattlePick(s) {
       ${group ? "" : `<option value="${esc(cfg.group)}" selected>Pick one</option>`}</select></label>
     <div class="bp-drivers"><span>Drivers <span class="hint">(up to 6)</span></span>
       <div class="bp-chips">${chips || '<span class="hint">None picked yet</span>'}
-        ${picked.length < 6 && free.length ? `<select data-battle-add aria-label="Add a driver"><option value="">+ Add a driver…</option>${free.map((d) =>
+        ${picked.length < 6 && free.length ? `<select data-battle-add aria-label="Add a driver"><option value="">+ Add a driver…</option>${[...free].sort(byName()).map((d) =>
           `<option value="${esc(d.driver)}">P${d.pos} · ${esc(d.name)} (${esc(String(d.points))} pts)</option>`).join("")}</select>` : ""}
       </div></div>
     <div class="row bp-quick">${BATTLE_PICKS.map(([mode, label]) => `<button type="button" class="btn subtle" data-battle-pick="${mode}"
@@ -963,10 +1018,20 @@ function renderHotkeyList() {
       data-hk-kind="${kind}" data-hk="${esc(id)}" data-hk-label="${esc(label)}" title="${note}">${esc(label)}
       <kbd>${key ? `${wide ? "🌐 " : ""}${esc(keyLabel(key))}` : "–"}</kbd></button>`;
   };
+  const actions = hotkeyActions();
   const sections = [["Cameras", groups.length ? groups.map((g) => btn("cam", g.name, g.name, cams[g.name])).join("")
     : '<p class="hint">Cameras appear once iRacing is connected.</p>'],
-  ...hotkeyActions().map(([title, items]) => [title, items.map(([id, label]) => btn("act", id, label, acts[id])).join("")])];
-  $("#hotkey-list").innerHTML = sections.map(([title, html]) => `<h4 class="hk-section">${esc(title)}</h4><div class="hotkey-list">${html}</div>`).join("");
+  ...actions.map(([title, items]) => [title, items.map(([id, label]) => btn("act", id, label, acts[id])).join("")])];
+  // Every key that's set, at a glance (click one to change it).
+  const labels = new Map(actions.flatMap(([title, items]) => items.map(([id, label]) => [id, `${title.replace(/ \(.*\)$/, "")}: ${label}`])));
+  const set = [
+    ...groups.filter((g) => cams[g.name]).map((g) => ["cam", g.name, `Camera: ${g.name}`, cams[g.name]]),
+    ...Object.entries(acts).filter(([id, k]) => k && labels.has(id)).map(([id, k]) => ["act", id, labels.get(id), k]),
+  ].sort((a, b) => keyLabel(a[3]).localeCompare(keyLabel(b[3]), undefined, { numeric: true }));
+  const summary = set.length ? `<h4 class="hk-section">Keys set (${set.length})</h4><div class="hk-set">${set.map(([kind, id, label, k]) =>
+    `<button class="hk-chip" data-hk-kind="${kind}" data-hk="${esc(id)}" data-hk-label="${esc(label)}"><kbd>${esc(keyLabel(k))}</kbd> ${esc(label)}</button>`).join("")}</div>`
+    : '<p class="hint">No keys set yet.</p>';
+  $("#hotkey-list").innerHTML = summary + sections.map(([title, html]) => `<h4 class="hk-section">${esc(title)}</h4><div class="hotkey-list">${html}</div>`).join("");
   $("#hotkey-prompt").textContent = hotkeyTarget ? `Press a key for ${hotkeyTarget.label}…` : "";
 }
 
@@ -1104,8 +1169,13 @@ function parseLapTime(text) {
   return m ? (+(m[1] || 0)) * 60 + +m[2] : null;
 }
 
+// Lists of names in drop-downs go in alphabetical order (a "(P)" class tag in
+// front of a name doesn't count; numbers as numbers).
+const nameKey = (s) => String(s || "").replace(/^\s*\([^()]*\)\s*/, "").trim();
+const byName = (get = (x) => x.name) => (a, b) => nameKey(get(a)).localeCompare(nameKey(get(b)), undefined, { numeric: true, sensitivity: "base" });
+
 function rosterOptions(selected, fallbackName) {
-  const drivers = ui.editing.drivers || [];
+  const drivers = [...(ui.editing.drivers || [])].sort(byName());
   const keys = new Set(drivers.map(driverKey));
   const extra = selected && !keys.has(selected) ? `<option value="${esc(selected)}" selected>${esc(fallbackName || selected)}</option>` : "";
   return `<option value="">Pick a driver…</option>${extra}` + drivers.map((d) => {
@@ -1278,6 +1348,22 @@ function trackGroup(name) {
 
 // A round's layout: a list of the track's layouts when it's a known track.
 // ``attrs`` says which field it is (data-round / data-build-row...).
+// A round's race length as a number and a unit: "45 min", "2 h" or "30 laps".
+const LENGTH_UNITS = [["min", "minutes"], ["h", "hours"], ["laps", "laps"]];
+function parseLength(text) {
+  const m = /^\s*(\d+(?:\.\d+)?)\s*(min|minutes?|mins?|h|hours?|hrs?|laps?)?/i.exec(text || "");
+  if (!m) return { n: "", unit: "min" };
+  const u = (m[2] || "min").toLowerCase();
+  return { n: m[1], unit: u.startsWith("l") ? "laps" : u.startsWith("h") ? "h" : "min" };
+}
+function lengthField(rd, i) {
+  const { n, unit } = parseLength(rd.length);
+  return `<span class="len-field" title="Race length: a time or a number of laps">
+    <input type="number" min="0" step="1" class="narrow" data-round="${i}" data-rlen="n" value="${esc(n)}" placeholder="Length" aria-label="Race length">
+    <select data-round="${i}" data-rlen="u" aria-label="Minutes, hours or laps">${LENGTH_UNITS.map(([v, l]) =>
+      `<option value="${v}" ${unit === v ? "selected" : ""}>${l}</option>`).join("")}</select></span>`;
+}
+
 function configField(rd, attrs) {
   const g = trackGroup(rd.track);
   if (!g) {
@@ -1317,9 +1403,12 @@ function renderChampRounds() {
         ${configField(rd, `data-round="${i}" data-rkey="config"`)}
         <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
         <input type="time" data-round="${i}" data-rkey="time" value="${esc(rd.time || "")}" aria-label="Start time" title="Start time">
-        <input data-round="${i}" data-rkey="length" class="narrow-text" value="${esc(rd.length || "")}" placeholder="Length" aria-label="Race length" title="e.g. 60 min, 30 laps">
+        ${lengthField(rd, i)}
         <label class="field" title="Points multiplier: 1 for normal points, 2 for double points, and so on">Points ×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
         <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
+        ${c.rules.custom_schemes && (c.rules.schemes || []).length ? `<label class="field" title="The points system this round is scored with">Points
+          <select data-round="${i}" data-rkey="scheme"><option value="">Usual points</option>${c.rules.schemes.map((sc) =>
+            `<option value="${esc(sc.id)}" ${rd.scheme === sc.id ? "selected" : ""}>${esc(sc.name || "Unnamed")}</option>`).join("")}</select></label>` : ""}
         <label class="field" title="The race in progress counts as this round in the live standings"><input type="radio" name="live-round" data-live-round="${esc(rd.id)}" ${isLive ? "checked" : ""}> Live</label>
         <span class="grow"></span>
         <span class="sub">${(rd.results || []).length ? `${rd.results.length} results` : "No results"}</span>
@@ -1493,6 +1582,17 @@ function renderChampRules() {
       <input data-rule="qualifying_points" value="${esc((r.qualifying_points || []).join(", "))}"></label>
     <label class="ov-field">Drop rounds (each driver's worst N don't count)
       <input type="number" min="0" max="50" data-rule="drop_rounds" value="${r.drop_rounds || 0}"></label>
+    <label class="ov-field check" title="A race meeting (heats, a sprint and a feature…) drops as one: its races' points added up, all of them dropped together"><input type="checkbox" data-rule="drop_meetings" ${r.drop_meetings ? "checked" : ""}> A race meeting drops as a whole (its races together, as one)</label>
+    <h3 class="section-title wide">Custom points systems</h3>
+    <label class="ov-field check wide"><input type="checkbox" data-rule="custom_schemes" ${r.custom_schemes ? "checked" : ""}> <b>Custom points system</b>
+      <span class="hint">points tables of your own for different kinds of race (a sprint, a feature…); pick one for each round under Calendar &amp; results</span></label>
+    ${r.custom_schemes ? `<div class="wide schemes">${(r.schemes || []).map((sc, i) => `<div class="scheme">
+        <input data-scheme="${i}" data-skey="name" value="${esc(sc.name)}" placeholder="Name (e.g. Sprint)" aria-label="Points system name">
+        <label class="ov-field grow">Points (1st, 2nd, 3rd…)<input data-scheme="${i}" data-skey="points" value="${esc((sc.points || []).join(", "))}" placeholder="e.g. 15, 12, 10, 8"></label>
+        ${hasOverall ? `<label class="ov-field grow">Overall points (empty: the same)<input data-scheme="${i}" data-skey="overall_points" value="${esc((sc.overall_points || []).join(", "))}"></label>` : ""}
+        <button class="btn icon danger" data-scheme-remove="${i}" title="Remove this points system">✕</button>
+      </div>`).join("")}
+      <button class="btn subtle" data-scheme-add>+ Add a points system</button></div>` : ""}
     <label class="ov-field">Fastest-lap bonus only in the top N (0 = anyone)
       <input type="number" min="0" data-rule="fastest_lap_top" value="${r.fastest_lap_top || 0}"></label>
     <label class="ov-field">Must complete this % of the race (their class winner's laps) to score; anyone short is a DNF with no points (0 = off)
@@ -1535,7 +1635,14 @@ function champChange(e, final) {
       if (!final) return;
       r[d.rule] = el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
       rerender = true;
-    } else if (el.type === "checkbox") r[d.rule] = el.checked;
+    } else if (el.type === "checkbox") {
+      r[d.rule] = el.checked;
+      if (d.rule === "custom_schemes" && final) {
+        r.schemes = r.schemes || [];
+        if (el.checked && !r.schemes.length) r.schemes.push({ id: `s${Date.now().toString(36)}`, name: "Sprint", points: [], overall_points: [] });
+        rerender = true;
+      }
+    }
     else r[d.rule] = el.type === "number" ? +el.value : el.value;
     if (d.rule === "scoring" && final) rerender = true;
   } else if (d.secondaryScoring) {
@@ -1571,10 +1678,21 @@ function champChange(e, final) {
       r[d.key] = el.value === "" ? null : +el.value;
       rerender = final && d.key === "position";
     } else r[d.key] = el.value;
+  } else if (d.scheme != null && d.skey) {
+    // A custom points system's name or points.
+    const sc = c.rules.schemes[+d.scheme];
+    sc[d.skey] = d.skey === "name" ? el.value : el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
+    if (final && d.skey === "name") rerender = true;
   } else if (d.meeting != null) {
     if (!final) return;
     for (const rd of meetingRounds(+d.meeting)) rd.event = el.value.trim();
     rerender = true;
+  } else if (d.round != null && d.rlen) {
+    // Race length: a number and its unit (minutes, hours or laps).
+    const box = el.closest(".len-field");
+    const n = box.querySelector("[data-rlen=n]").value;
+    const unit = box.querySelector("[data-rlen=u]").value;
+    c.rounds[+d.round].length = n !== "" && +n > 0 ? `${+n} ${unit}` : "";
   } else if (d.round != null && d.rkey) {
     const rd = c.rounds[+d.round];
     rd[d.rkey] = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
@@ -1600,6 +1718,18 @@ $("#tab-championship").addEventListener("change", (e) => {
 $("#tab-championship").addEventListener("click", async (e) => {
   const b = e.target.closest("button");
   if (!b || !ui.editing) return;
+  if (b.dataset.schemeAdd != null || b.dataset.schemeRemove != null) {
+    const r = champData().rules;
+    r.schemes = r.schemes || [];
+    if (b.dataset.schemeAdd != null) r.schemes.push({ id: `s${Date.now().toString(36)}`, name: "", points: [], overall_points: [] });
+    else {
+      const [gone] = r.schemes.splice(+b.dataset.schemeRemove, 1);
+      for (const rd of champData().rounds) if (rd.scheme === gone.id) rd.scheme = "";  // back on the usual points
+    }
+    markChampDirty();
+    renderChampionship();
+    return;
+  }
   const d = b.dataset;
   const c = champData();
   if (d.champView) {
@@ -2043,23 +2173,27 @@ const columnOpacity = (cols) => [["col_opacity_on", "A background of its own for
 // [title, fields]. A field is [key, label, kind, opts]; `iff(when, field)`
 // shows it only while when(values) holds (e.g. a timer for a flash that's on).
 const iff = (when, field) => Object.assign(field, { when });
-const LOOK = ["Size & background", [["scale", "Size", "size"], ["bg", "Background", "background"]]];
+// Team logos' size, where there are team logos.
+const LOGO_SIZE = iff((v) => "logo_scale" in v, ["logo_scale", "Team logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]);
+const LOOK = ["Size & background", [["scale", "Size", "size"], LOGO_SIZE, ["bg", "Background", "background"]]];
 // Overlays can also be moved from where they sit (px on the 1920×1080 screen), to keep clear of each other.
 const OFFSET = [["offset_x", "Move right (px; minus moves it left)", "number", { min: -1920, max: 1920, step: 5 }],
   ["offset_y", "Move down (px; minus moves it up)", "number", { min: -1080, max: 1080, step: 5 }]];
-const OVERLAY_LOOK = ["Size, position & background", [["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"]]];
+const OVERLAY_LOOK = ["Size, position & background", [["scale", "Size", "size"], LOGO_SIZE, ...OFFSET, ["bg", "Background", "background"]]];
 const OVERLAY_FIELDS = {
   standings: [
     ["What it shows", [
       ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
       ["class_key", "Class", "class"],
-      ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
-      ["rows_last", "Extra drivers under the top ones, when there are more (0 = none; by class: in each class)", "number", { min: 0, max: 30 }],
-      iff((v) => v.rows_last > 0, ["rows_extra_mode", "Extra drivers show", "select",
-        [["rotate", "The rest of the field (or class), a set at a time"], ["last", "The last ones"]]]),
-      iff((v) => v.rows_last > 0 && v.rows_extra_mode === "rotate",
+      iff((v) => v.mode !== "class", ["rows", "Drivers shown (overall)", "number", { min: 1, max: 64 }]),
+      iff((v) => v.mode !== "class", ["rows_last", "Extra drivers under the top ones, when there are more (overall; 0 = none)", "number", { min: 0, max: 30 }]),
+      iff((v) => v.mode === "class", ["rows_class", "Drivers shown in each class (by class)", "number", { min: 1, max: 64 }]),
+      iff((v) => v.mode === "class", ["rows_last_class", "Extra drivers under each class's top ones (by class; 0 = none)", "number", { min: 0, max: 30 }]),
+      iff((v) => (v.mode === "class" ? v.rows_last_class : v.rows_last) > 0, ["rows_extra_mode", "Extra drivers show", "select",
+        [["rotate", "The rest of the field (or class), a set at a time (always the full number)"], ["last", "The last ones"]]]),
+      iff((v) => (v.mode === "class" ? v.rows_last_class : v.rows_last) > 0 && v.rows_extra_mode === "rotate",
         ["rows_extra_s", "Seconds per set of extra drivers", "number", { min: 1, max: 120, step: 1 }]),
-      iff((v) => v.rows_last > 0, ["rows_extra_opacity", "Extra drivers' opacity (%)", "number", { min: 10, max: 100, step: 5 }]),
+      iff((v) => (v.mode === "class" ? v.rows_last_class : v.rows_last) > 0, ["rows_extra_opacity", "Extra drivers' opacity (%)", "number", { min: 10, max: 100, step: 5 }]),
       ["reveal", "Race start: only the header until each driver completes lap 1 (they appear from the start of lap 2)", "bool"],
     ]],
     ["Header", [
@@ -2115,9 +2249,11 @@ const OVERLAY_FIELDS = {
       ["name_format", "Names", "select", NAME_FORMATS],
       ["show_number", "Car numbers", "bool"],
       iff((v) => v.show_number, ["color_number", "Car number background, in the driver's class colour (off: just the number)", "bool"]),
-      ["class_colors", "Class colours (car number, bar) from", "select", [["main", "The driver's main class"],
+      ["class_colors", "Car number background colour from", "select", [["main", "The driver's main class"],
         ["secondary", "The driver's secondary class"]]],
       ["show_stripe", "Coloured bar by each driver", "bool"],
+      iff((v) => v.show_stripe, ["stripe_colors", "Coloured bar's colour from", "select", [["same", "The same class as the car number"],
+        ["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]]),
       ["show_team", "Team names (a column of their own)", "bool"],
       iff((v) => v.show_team, ["team_name_place", "Team name on the tower", "select", [["under", "Under the driver's name"],
         ["column", "In its own column, after the driver's name"]]]),
@@ -2127,13 +2263,15 @@ const OVERLAY_FIELDS = {
     ]],
     ["Fastest lap", [
       ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
+      ["finish_flag", "Chequered flag by each driver as they finish the race (waving)", "bool"],
       ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
       iff((v) => v.fl_flash, ["fl_flash_s", "Flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }]),
       iff((v) => v.fl_flash, ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"]),
     ]],
     ["Size, position & background", [
       ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
-      ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
+      ["name_width", "Driver name column width in px (0 = automatic; longer names end in …)", "number", { min: 0, max: 600, step: 5 }],
+      ["scale", "Size", "size"], LOGO_SIZE, ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
   laps: [
@@ -2172,7 +2310,10 @@ const OVERLAY_FIELDS = {
       ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
-  gridwalk: [["Car pictures", [["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
+  gridwalk: [["Drivers", [["name_format", "Names", "select", NAME_FORMATS], ["show_nickname", "Nickname under the name", "bool"]]],
+    ["Car pictures", [["neighbours", "Cars either side on the grid", "select", [["show", "Show them in their boxes"],
+      ["hide", "Hide them: just the pair"]]],
+      ["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
   pits: [
     ["What it shows", [
       ["who", "Show", "select", [["all", "Every car in the pit lane (the one on camera first)"], ["camera", "Only the car on camera"]]],
@@ -2183,7 +2324,7 @@ const OVERLAY_FIELDS = {
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
         ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
       ["name_format", "Names", "select", NAME_FORMATS],
-      ["show_position", "Position", "bool"],
+      ["show_position", "Position (overall or in class, as the standings tower is)", "bool"],
       ["show_number", "Car number", "bool"],
       ["show_team", "Team name", "bool"],
       ["show_logo", "Team logo", "bool"],
@@ -2212,7 +2353,9 @@ const OVERLAY_FIELDS = {
       iff((v) => !v.stay, ["hide_s", "Card stays on screen for (seconds; a new driver resets it)", "number", { min: 1, max: 120, step: 1 }]),
       ["name_format", "Names", "select", NAME_FORMATS],
       ["show_position", "Position (overall)", "bool"],
-      iff((v) => v.show_position, ["show_class_pos", "Also their position in class, under it (multiclass)", "bool"]),
+      iff((v) => v.show_position, ["position_shown", "Position shown", "select", [["overall", "Overall (P3)"],
+        ["class", "In class only (P1, the class under it)"], ["both", "Both (P3, and P1 GT3 under it)"]]]),
+      iff((v) => v.show_position && v.position_shown !== "overall", ["pos_class_name", "Class name with the class position (P1 GT3; off: just P1)", "bool"]),
       ["class_colors", "Class colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]],
       ["show_number", "Car number", "bool"],
       ["show_team", "Team", "bool"],
@@ -2301,6 +2444,16 @@ function sponsorPicker(sponsors, value, key = "sponsor_ids", label = "Sponsors")
     <img src="${esc(sp.url)}" alt="">${esc(sp.name || `Sponsor ${i + 1}`)}</label>`).join("")}</div></div>`;
 }
 
+// Tick boxes for which championships (Overall, each class) to show ("" = all,
+// "none" = none): the same values as the sponsor picker's.
+function groupPicker(groups, value, key, label) {
+  if (!groups.length) return '<p class="hint">No championships yet: they appear once the league has results.</p>';
+  const ids = value === "" ? null : new Set(value.split(","));
+  return `<div class="ov-field wide sponsor-pick"><span>${esc(label)}</span><div>${groups.map((g) => `<label class="check">
+    <input type="checkbox" data-key="${key}" data-kind="sponsors" value="${esc(g.key)}" ${!ids || ids.has(g.key) ? "checked" : ""}>
+    <span class="dot" style="background:${esc(g.color || "#8b93a3")}"></span>${esc(g.name)}</label>`).join("")}</div></div>`;
+}
+
 // A settings field's new value.
 function fieldValue(el) {
   if (el.dataset.kind === "colopacity") {
@@ -2348,7 +2501,13 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   }
   if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
   if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v, k, label);
+  if (kind === "groups") return groupPicker(((s.board_options || {}).groups) || [], v, k, label);
   if (kind === "color") return `<label class="ov-field">${label}<input type="color" ${attrs} value="${esc(v)}"></label>`;
+  if (kind === "swatches") {
+    // Colours from the background image (filled in by fillSwatches once it's loaded).
+    return `<div class="ov-field wide swatch-field"><span>${label}</span><div class="swatches" data-swatch-key="${k}"
+      data-swatch-img="/api/backgrounds/${encodeURIComponent(values.bg_image)}"></div></div>`;
+  }
   if (kind === "class" && values.mode !== "class") return "";
   const options = kind === "class" ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
     : kind === "banner" ? [["", "The first of the right shape"], ...((s.league && s.league.banners) || []).map((b, i) =>
@@ -2357,6 +2516,72 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   return `<label class="ov-field">${label}<select ${attrs}>${options.map(([o, l]) =>
     `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
 }
+
+// The main colours of a background image, to pick an accent colour from:
+// the image drawn small, its colours rounded and counted, the most common
+// (the colourful ones a little ahead) that differ enough from each other.
+const swatchCache = new Map();
+function imagePalette(url) {
+  if (swatchCache.has(url)) return swatchCache.get(url);
+  const done = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = 80;
+      c.height = 45;
+      const g = c.getContext("2d");
+      g.drawImage(img, 0, 0, c.width, c.height);
+      let data;
+      try {
+        data = g.getImageData(0, 0, c.width, c.height).data;
+      } catch (e) {
+        return resolve([]);
+      }
+      const buckets = new Map();
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 128) continue;
+        const key = (data[i] >> 4) << 8 | (data[i + 1] >> 4) << 4 | (data[i + 2] >> 4);
+        const b = buckets.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+        b.n += 1; b.r += data[i]; b.g += data[i + 1]; b.b += data[i + 2];
+        buckets.set(key, b);
+      }
+      const colours = [...buckets.values()].map((b) => {
+        const [r, gg, bb] = [b.r / b.n, b.g / b.n, b.b / b.n];
+        const sat = (Math.max(r, gg, bb) - Math.min(r, gg, bb)) / 255;
+        return { r, g: gg, b: bb, score: b.n * (0.35 + sat) };
+      }).sort((a, b) => b.score - a.score);
+      const picked = [];
+      for (const col of colours) {
+        if (picked.every((p) => Math.hypot(p.r - col.r, p.g - col.g, p.b - col.b) > 60)) picked.push(col);
+        if (picked.length === 8) break;
+      }
+      resolve(picked.map((p) => `#${[p.r, p.g, p.b].map((x) => Math.round(x).toString(16).padStart(2, "0")).join("")}`));
+    };
+    img.onerror = () => resolve([]);
+    img.src = url;
+  });
+  swatchCache.set(url, done);
+  return done;
+}
+
+function fillSwatches(root = document) {
+  root.querySelectorAll(".swatches[data-swatch-img]:not([data-filled])").forEach(async (el) => {
+    el.dataset.filled = "1";
+    const colours = await imagePalette(el.dataset.swatchImg);
+    el.innerHTML = colours.length ? colours.map((c) => `<button type="button" class="swatch" data-swatch="${c}" style="background:${c}" title="${c}"></button>`).join("")
+      : '<span class="hint">No colours found in the image.</span>';
+  });
+}
+new MutationObserver(() => fillSwatches()).observe(document.body, { childList: true, subtree: true });
+document.addEventListener("click", (e) => {
+  const sw = e.target.closest("[data-swatch]");
+  if (!sw) return;
+  const form = sw.closest(".ov-form");
+  const key = sw.closest("[data-swatch-key]").dataset.swatchKey;
+  overlayFormKey = "";
+  boardSettingsKey = "";
+  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [key]: sw.dataset.swatch, accent: "color" } }, `Accent colour ${sw.dataset.swatch}`);
+});
 
 // A slider for each column's opacity (percent; 100 = as normal).
 function opacityField(key, label, value, cols) {
@@ -2477,7 +2702,14 @@ const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
     ["left", "Down the left"], ["right", "Down the right"]]],
   iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"]),
-  ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"]];
+  ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"],
+  ["show_league", "League name in the header", "bool"],
+  ["accent", "Accent colour (the line under the header…)", "select", [["default", "The championship's class colour (else orange)"],
+    ["color", "A colour of my own"]]],
+  iff((v) => v.accent === "color", ["accent_color", "Accent colour", "color"]),
+  iff((v) => v.accent === "color" && v.bg === "image" && v.bg_image, ["accent_color", "Or pick one from the background", "swatches"]),
+  iff((v) => !("style" in v), ["podium", "Gold, silver and bronze for places 1–3", "bool"]),
+  iff((v) => !("style" in v), ["keep_leader", "The leader at the top of every page (the rest carry on under them)", "bool"])];
 const cards = (v) => v.style === "cards";
 
 const BOARD_FIELDS = {
@@ -2505,14 +2737,22 @@ const BOARD_FIELDS = {
     iff((v) => cards(v) && v.show_date, ["date_format", "Dates as", "select", [["weekday_short", "Sun 22 Nov"], ["numeric", "22/11/26"],
       ["day_month", "22nd November"], ["full", "22nd November 2026"], ["weekday", "Sunday 22nd November"]]]),
     iff(cards, ["show_time", "Start times", "bool"]), iff(cards, ["show_config", "Track layouts", "bool"]),
-    iff(cards, ["show_length", "Race lengths", "bool"]), iff(cards, ["show_winners", "Winners of past rounds", "bool"]),
+    iff(cards, ["show_length", "Race lengths", "bool"]),
+    iff(cards, ["show_race_name", "Each race's name in its box (Sprint, Feature…)", "bool"]),
+    iff(cards, ["show_winners", "Winners of past rounds (each class's, under its race)", "bool"]),
+    iff((v) => cards(v) && v.show_winners, ["winner_groups", "Winners shown (tick the classes)", "groups"]),
+    iff((v) => cards(v) && v.show_winners, ["show_winner_class", "The class name by each winner (Gold: D. Price)", "bool"]),
+    iff((v) => cards(v) && v.show_winners, ["winner_name_format", "Winners' names", "select", NAME_FORMATS]),
     iff(cards, ["show_multiplier", "Points multiplier (e.g. ×2 points) on rounds worth more", "bool"]),
     iff(cards, ["rows", "Race meetings a page (the rest on the next pages)", "number", { min: 1, max: 64 }])],
   board_results: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names (a column)", "bool"], ["show_logo", "Team logos (a column)", "bool"],
     iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
-    ["show_gap", "Gap to the winner (DNF / DNS / DSQ show here)", "bool"], ["show_interval", "Interval to the car ahead", "bool"],
+    ["show_gap", "Gap to the winner (DNF / DNS / DSQ show here)", "bool"],
+    iff((v) => v.show_gap, ["winner_gap", "The winner's Gap shows", "select", [["laps", "Their laps (13 Laps)"],
+      ["time", "Their race time (where it's known; else their laps)"], ["none", "Nothing"]]]),
+    ["show_interval", "Interval to the car ahead", "bool"],
     ["show_points", "Points scored", "bool"],
     ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
       ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["gap", "Gap"], ["interval", "Interval"], ["points", "Points"]])],
@@ -2685,6 +2925,7 @@ function renderDesktop(s) {
       `<option value="${i}" ${n === i ? "selected" : ""}>${esc(screenName(sc, i, d.screens))}</option>`).join("");
   });
   $("#desk-hide-all").hidden = !Object.keys(d.on_screen).length;
+  $("#desk-show-all").hidden = !d.available;
   document.querySelectorAll(".desk-help").forEach((el) => { el.hidden = !d.available; });
 }
 
@@ -2697,6 +2938,17 @@ async function deskShow(page, screen) {
     ok = localStorage.getItem(DESK_OK) === ui.version;
   } catch (e) { /* storage unavailable */ }
   if (!ok) startDeskCheck(page);
+}
+
+// Every overlay (or the boards) on screen at once: the Show all button and hotkeys.
+async function deskShowAll(group) {
+  const r = await cmd("desktop_show_all", { group, screen: deskScreen(group) }, group === "boards" ? "Boards on your screen" : "Overlays on your screen");
+  if (!r) return;
+  let ok = false;
+  try {
+    ok = localStorage.getItem(DESK_OK) === ui.version;
+  } catch (e) { /* storage unavailable */ }
+  if (!ok) startDeskCheck(undefined);  // no answer: all of them come down
 }
 
 // Can they see through it? If it came up solid instead, it's covering their
@@ -2753,6 +3005,70 @@ document.querySelectorAll("[data-desk-tab]").forEach((pick) => pick.addEventList
   }
 }));
 $("#desk-hide-all").addEventListener("click", () => cmd("desktop_hide", {}));
+$("#desk-show-all").addEventListener("click", () => deskShowAll("overlays"));
+
+// ---------------------------------------------------------------------------
+// eyedropper: a button by every colour box. The system colour picker's own
+// eyedropper doesn't work in the app window, so in the app the app reads the
+// screen where you next click (pick_color); in a browser, its EyeDropper.
+// ---------------------------------------------------------------------------
+
+let dropping = false;
+
+async function pickColor(input) {
+  if (dropping) return;
+  dropping = true;
+  document.body.classList.add("dropping");
+  try {
+    let color = null;
+    const inApp = !!(ui.snap && ui.snap.desktop && ui.snap.desktop.available);
+    if (!inApp && window.EyeDropper) {
+      try {
+        color = (await new window.EyeDropper().open()).sRGBHex;
+      } catch (e) { /* cancelled */ }
+    } else {
+      toast("Click anywhere on your screen to pick its colour (Esc to cancel)");
+      const r = await cmd("pick_color", {});
+      color = r && r.color;
+    }
+    if (color && /^#[0-9a-f]{6}$/i.test(color)) {
+      input.value = color.toLowerCase();
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      toast(`Picked ${color.toLowerCase()}`);
+    }
+  } finally {
+    dropping = false;
+    document.body.classList.remove("dropping");
+  }
+}
+
+const DROPPER_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.7 5.6 18.4 3.3a1 1 0 0 0-1.4 0l-3.1 3.1-1.4-1.4-1.4 1.4 1.4 1.4L4 16.3V20h3.7l8.5-8.5 1.4 1.4 1.4-1.4-1.4-1.4 3.1-3.1a1 1 0 0 0 0-1.4zM6.9 18H6v-.9l8.5-8.5.9.9z"/></svg>';
+
+// Every colour box gets its button, including ones drawn later.
+function addDroppers(root = document) {
+  root.querySelectorAll('input[type="color"]:not([data-dropper])').forEach((input) => {
+    input.dataset.dropper = "1";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn subtle icon dropper";
+    b.title = "Pick a colour from the screen";
+    b.setAttribute("aria-label", "Pick a colour from the screen");
+    b.innerHTML = DROPPER_ICON;
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      pickColor(input);
+    });
+    input.insertAdjacentElement("afterend", b);
+  });
+}
+addDroppers();
+new MutationObserver((list) => {
+  for (const m of list) {
+    for (const n of m.addedNodes) if (n.nodeType === 1) addDroppers(n.matches && n.matches('input[type="color"]') ? n.parentNode : n);
+  }
+}).observe(document.body, { childList: true, subtree: true });
 
 // Scrolling the page with the mouse over a number box you'd clicked in
 // changed its value (e.g. a round's points multiplier, or a position):
@@ -3028,7 +3344,7 @@ function renderRoster() {
   });
   $("#roster-rows").innerHTML = rosterOrder(drivers, classes).map(([d, i]) => `<tr>${ROSTER_FIELDS.map(([f]) =>
     `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"></td>`).join("")}
-    <td><select data-row="${i}" data-field="class_id" aria-label="Class"><option value="">Auto (by car)</option>${options(main, d.class_id || "")}</select></td>
+    <td><select data-row="${i}" data-field="class_id" aria-label="Class"><option value="">Auto (by car)</option><option value="-" ${d.class_id === "-" ? "selected" : ""} title="No main class: just the secondary class, if any">—</option>${options(main, d.class_id || "")}</select></td>
     <td class="c-class2"><select data-row="${i}" data-field="class2_id" aria-label="Secondary class"><option value="">—</option>${options(second, d.class2_id || "")}</select></td>
     <td class="make-cell">${makeBadge(d.car_make)}<select data-row="${i}" data-field="car_make" aria-label="Car">${makeOptions(d.car_make || "")}</select></td>
     <td><div class="photos">${["car", "helmet"].map((kind) => photoButton(d, i, kind)).join("")}</div></td>
@@ -3213,7 +3529,7 @@ async function renderLeaguePickers() {
     ui.leagueList = leagues;
     const current = ui.editing && ui.editing.id;
     const html = `<option value="">${leagues.length ? "Pick a league…" : "No saved leagues yet"}</option>` +
-      leagues.map((l) => `<option value="${esc(l.id)}" ${l.id === current ? "selected" : ""}>${esc(l.name)}${l.active ? " (active)" : ""}</option>`).join("");
+      [...leagues].sort(byName()).map((l) => `<option value="${esc(l.id)}" ${l.id === current ? "selected" : ""}>${esc(l.name)}${l.active ? " (active)" : ""}</option>`).join("");
     for (const sel of document.querySelectorAll(".league-picker")) sel.innerHTML = html;
     if (!current) {
       const active = leagues.find((l) => l.active);
@@ -3362,7 +3678,7 @@ function renderTeams() {
   const otherLeagues = (ui.leagueList || []).filter((l) => l.id !== ui.editing.id);
   cards.innerHTML = teams.length ? teams.map((t, i) => {
     const members = drivers.map((d, j) => [d, j]).filter(([d]) => sameTeam(d.team, t.name));
-    const others = drivers.map((d, j) => [d, j]).filter(([d]) => !sameTeam(d.team, t.name));
+    const others = drivers.map((d, j) => [d, j]).filter(([d]) => !sameTeam(d.team, t.name)).sort(byName(([d]) => d.name));
     return `<div class="team-card" style="--team:${esc(t.color || "#3a4150")}">
       <div class="team-card-head">
         <label class="team-logo big" title="${t.logo ? "Replace logo" : "Upload logo"}">
@@ -3386,9 +3702,13 @@ function renderTeams() {
         <option value="">+ Add driver…</option>
         ${others.map(([d, j]) => `<option value="${j}">${label(d)}${d.team ? ` (${esc(d.team)})` : ""}</option>`).join("")}
       </select>
-      ${otherLeagues.length ? `<div class="team-shared"><span class="hint" title="The team, and its drivers who race there too, in these leagues as well. Drivers who join one later are put in the team by themselves.">Also in:</span>
-        ${otherLeagues.map((l) => `<label class="chip ${(t.shared || []).includes(l.id) ? "active" : ""}">
-          <input type="checkbox" data-team-share="${i}" value="${esc(l.id)}" ${(t.shared || []).includes(l.id) ? "checked" : ""} hidden>${esc(l.name)}</label>`).join("")}</div>` : ""}
+      ${otherLeagues.length ? `<div class="team-shared"><span class="hint" title="Tick a league to put the team, and its drivers who race there too, in that league as well (drivers who join it later are put in the team by themselves). ✕ takes the team out of that league.">Also in:</span>
+        ${otherLeagues.map((l) => {
+    const on = (t.shared || []).includes(l.id);
+    return `<label class="chip ${on ? "active" : ""}" title="${on ? `Untick: stop keeping ${esc(l.name)}'s copy in step` : `Tick: put the team in ${esc(l.name)} too`}">
+          <input type="checkbox" data-team-share="${i}" value="${esc(l.id)}" ${on ? "checked" : ""} hidden>${esc(l.name)}${on
+    ? `<button class="clear" data-team-remove-from="${esc(l.id)}" data-team-i="${i}" title="Take ${esc(t.name)} out of ${esc(l.name)}">✕</button>` : ""}</label>`;
+  }).join("")}</div>` : ""}
     </div>`;
   }).join("") : '<p class="hint">No teams yet: add one, or fill in the Team column in the League builder roster.</p>';
   const free = drivers.map((d, j) => [d, j]).filter(([d]) => !String(d.team || "").trim());
@@ -3469,11 +3789,28 @@ $("#team-cards").addEventListener("change", async (e) => {
   renderTeams();
 });
 
-$("#team-cards").addEventListener("click", (e) => {
+$("#team-cards").addEventListener("click", async (e) => {
   const teams = editorTeams();
   const b = e.target.closest("button");
   if (!b) return;
   const d = b.dataset;
+  if (d.teamRemoveFrom != null) {
+    e.preventDefault();  // not the chip's tick box
+    const team = teams[+d.teamI];
+    const other = (ui.leagueList || []).find((l) => l.id === d.teamRemoveFrom);
+    const name = other ? other.name : d.teamRemoveFrom;
+    if (!confirm(`Take ${team.name} out of ${name}? Its drivers there are left without a team. ${ui.editing.name} keeps it.`)) return;
+    try {
+      // Saved first, so nothing changed here is lost.
+      await saveEditor();
+      const r = await api(`/api/leagues/${encodeURIComponent(ui.editing.id)}/remove-team-from`, { method: "POST", body: { team: team.name, league: d.teamRemoveFrom } });
+      openEditor(r.league);
+      toast(`${team.name} taken out of ${name}`);
+    } catch (err) {
+      toast(err.message, true);
+    }
+    return;
+  }
   if (d.teamUnassign != null) ui.editing.drivers[+d.teamUnassign].team = "";
   else if (d.teamNocolor != null) teams[+d.teamNocolor].color = "";
   else if (d.teamNologo != null) teams[+d.teamNologo].logo = null;

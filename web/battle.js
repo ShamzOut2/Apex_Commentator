@@ -28,7 +28,7 @@ function rowHtml(r, i, b, cfg, cols) {
   if (cols.race) cells.push(`<span class="race ${r.race_points ? "" : "zero"}">${r.race_points ? `+${pts(r.race_points)}` : "0"}</span>`);
   cells.push(`<span class="pts">${pts(r.points)}</span>`);
   cells.push(`<span class="gap">${i === 0 || gap == null ? "" : gap > 0 ? `−${pts(gap)}` : gap < 0 ? `+${pts(-gap)}` : "="}</span>`);
-  return `<div class="bt-row ${i === 0 ? "first" : ""}" data-key="${esc(r.driver)}">${cells.join("")}</div>`;
+  return `<div class="bt-row panel-row ${i === 0 ? "first" : ""}" style="--i:${i}" data-key="${esc(r.driver)}">${cells.join("")}</div>`;
 }
 
 function battleHtml(b, cfg) {
@@ -76,13 +76,17 @@ function render(snap) {
   leave();
   shownKey = key;
   shownHtml = html;
-  stage.insertAdjacentHTML("beforeend", `<div class="battle ${esc(cfg.place)} ${cfg.visible ? "" : "hidden-preview"}" style="--grp:${esc(b.color || "var(--accent)")}">${html}</div>`);
+  stage.insertAdjacentHTML("beforeend", `<div class="battle panel-in ${esc(cfg.place)} ${cfg.visible ? "" : "hidden-preview"}" style="--grp:${esc(b.color || "var(--accent)")}">${html}</div>`);
+  // Once it's in, new numbers just swap in (no animating again).
+  const el = stage.lastElementChild;
+  setTimeout(() => el.classList.remove("panel-in"), 1300);
 }
 
 function leave() {
   for (const old of stage.querySelectorAll(".battle:not(.out)")) {
-    old.classList.add("out");
-    setTimeout(() => old.remove(), 380);
+    old.classList.remove("panel-in");
+    old.classList.add("out", "panel-out");
+    setTimeout(() => old.remove(), 480);
   }
 }
 

@@ -56,7 +56,7 @@ body.screen { background: #0b0d12; }
 .screen-table .stripe { width: 6px; padding: 0; }
 .screen-table .num { font-size: .8em; height: 1.4em; }
 .screen-table .team { color: var(--muted); }
-.screen-table td.lg img { height: 1.3em; width: 2.2em; object-fit: contain; vertical-align: middle; }
+.screen-table td.lg img { height: calc(1.3em * var(--logo-k, 1)); width: calc(2.2em * var(--logo-k, 1)); object-fit: contain; vertical-align: middle; }
 .screen-table .up { color: var(--green); }
 .screen-table .down { color: var(--red); }
 .screen-table .pit { font-size: .65em; font-weight: 800; padding: 1px 6px; border-radius: 3px; background: #fff; color: #111; margin-left: 8px; vertical-align: .15em; }
@@ -105,3 +105,26 @@ body.custom-panels .sp.panel { background: var(--panel); }
 
 /* A car number without its background (standings: "Car number background" off): just the number. */
 .num.plain { background: none !important; color: #fff !important; }
+
+/* The championship battle and pit stop panels come in and go out the same
+   way: opening downwards from the top edge with a light sweep, then closing
+   back up as they go. (.panel-in / .panel-out, battle.js and pits.js.) */
+@keyframes panel-in {
+  0% { opacity: 0; transform: translateY(-14px); clip-path: inset(0 0 100% 0 round 12px); }
+  55% { opacity: 1; }
+  100% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 12px); }
+}
+@keyframes panel-out {
+  0% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 12px); }
+  100% { opacity: 0; transform: translateY(-14px); clip-path: inset(0 0 100% 0 round 12px); }
+}
+@keyframes panel-sweep { from { transform: translateX(-110%); } to { transform: translateX(110%); } }
+@keyframes panel-row-in { from { opacity: 0; transform: translateX(-16px); } }
+.panel-in { animation: panel-in .6s cubic-bezier(.2, .9, .25, 1) both; }
+.panel-in::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%);
+  animation: panel-sweep .8s .3s ease-out both;
+}
+.panel-in .panel-row { animation: panel-row-in .4s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.25s + var(--i, 0) * 70ms); }
+.panel-out { animation: panel-out .45s cubic-bezier(.55, 0, .75, .1) both !important; pointer-events: none; }

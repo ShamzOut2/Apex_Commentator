@@ -185,7 +185,7 @@ class BoardTests(unittest.TestCase):
         self.assertNotIn("offset_x", cfg["board_results"])  # boards fill the screen
 
     def test_pages(self):
-        settings = overlay_settings({"board_results": {"rows": 3}, "board_championship": {"rows": 3}})
+        settings = overlay_settings({"board_results": {"rows": 3, "keep_leader": False}, "board_championship": {"rows": 3, "keep_leader": False}})
         build = lambda kind, page: boards.build(league(), {"kind": kind, "params": {"group": "overall", "page": page}}, settings)  # noqa: E731
         first, second = build("results", 0), build("results", 1)
         self.assertEqual((first["page"], first["pages"], len(first["rows"])), (0, 2, 3))
@@ -196,6 +196,19 @@ class BoardTests(unittest.TestCase):
         self.assertEqual([r["pos"] for r in champ], [4])
         self.assertEqual(champ[0]["ahead"], 1)  # to the driver ahead on the page before (4 vs 3)
         self.assertEqual(self.board("calendar")["pages"], 1)
+
+    def test_leader_at_the_top_of_every_page(self):
+        lg = league(drivers=[{"cust_id": i, "name": f"Driver {i}"} for i in range(1, 8)])
+        lg["championship"]["rounds"][0]["results"] = [res(f"cust:{i}", i, "pro") for i in range(1, 8)]
+        settings = overlay_settings({"board_results": {"rows": 3}})  # keep_leader is on by default
+        pages = [boards.build(lg, {"kind": "results", "params": {"group": "overall", "page": p}}, settings) for p in range(3)]
+        self.assertEqual(pages[0]["pages"], 3)  # 3, then 1 + 2, then 1 + 2
+        self.assertEqual([[r["rank"] for r in b["rows"]] for b in pages], [[1, 2, 3], [1, 4, 5], [1, 6, 7]])
+        self.assertTrue(pages[1]["rows"][0]["kept"])
+        # The winner's row: their laps or race time instead of a gap.
+        self.assertTrue(pages[0]["rows"][0]["winner"])
+        accent = overlay_settings({"board_results": {"accent": "color", "accent_color": "#123456"}})
+        self.assertEqual(boards.build(lg, {"kind": "results", "params": {"group": "pro"}}, accent)["accent"], "#123456")
 
     def test_finishing_order_for_any_class(self):
         lg = league(classes=[{"id": "pro", "name": "PRO", "color": "#ff0000"}, {"id": "am", "name": "AM", "color": "#00ff00"},

@@ -14,6 +14,7 @@ const DEFAULT_CLASS = { key: "", name: "", color: "#8b93a3" };
 let stops = [];       // the latest stops, with when they arrived (performance.now())
 let speed = 1;
 let shownKey = "";
+let byClass = false;
 
 const fmt = (s) => (s == null ? "—" : s >= 60 ? `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}` : s.toFixed(1));
 const keyOf = (s) => `${s.car_idx}:${s.entry}`;
@@ -23,10 +24,12 @@ function cardHtml(s, cfg, cls) {
   const number = cfg.show_number && s.number
     ? (color ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(s.number)}</span>` : `<span class="num plain">${esc(s.number)}</span>`) : "";
   const logo = cfg.show_logo && s.team_logo ? `<img class="logo" src="${esc(s.team_logo)}" alt="">` : "";
-  return `<div class="pit-who">${cfg.show_position && s.pos ? `<span class="pos">P${s.pos}</span>` : ""}${number}
+  // Overall or in class, as the standings tower is (Overall / By class).
+  const place = byClass ? s.class_pos : s.pos;
+  return `<div class="pit-who panel-row" style="--i:0">${cfg.show_position && place ? `<span class="pos">P${place}</span>` : ""}${number}
       <span class="names"><span class="name">${esc(formatName(s, cfg.name_format))}</span>${cfg.show_team && s.team ? `<span class="team">${esc(s.team)}</span>` : ""}</span>
       ${logo}<span class="pit-tag ${s.out ? "out" : ""}" data-tag>${s.out ? "OUT" : s.in_box ? "STOPPED" : "PIT LANE"}</span></div>
-    <div class="pit-times">
+    <div class="pit-times panel-row" style="--i:1">
       <div class="pit-time lane" data-t="lane"><span class="lbl">PIT LANE</span><span class="val"></span></div>
       <div class="pit-time box" data-t="box"><span class="lbl">IN BOX</span><span class="val"></span></div>
     </div>`;
@@ -39,6 +42,7 @@ function render(snap) {
   setPanels(cfg);
   setSize(cfg);
   const p = ov.pits || { stops: [], speed: 1 };
+  byClass = !!(ov.settings.standings && ov.settings.standings.mode === "class");
   const at = performance.now();
   speed = p.speed ?? 1;
   stops = snap.connected && cfg.visible ? p.stops.map((s) => ({ ...s, at })) : [];
@@ -50,8 +54,9 @@ function render(snap) {
   const want = new Map(stops.map((s) => [keyOf(s), s]));
   for (const el of stack.querySelectorAll(".pit-card:not(.leaving)")) {
     if (!want.has(el.dataset.key)) {
-      el.classList.add("leaving");
-      setTimeout(() => el.remove(), 380);
+      el.classList.remove("panel-in");
+      el.classList.add("leaving", "panel-out");
+      setTimeout(() => el.remove(), 480);
     }
   }
   for (const s of stops) {
@@ -60,7 +65,9 @@ function render(snap) {
     let el = stack.querySelector(`.pit-card[data-key="${keyOf(s)}"]:not(.leaving)`);
     if (!el) {
       el = document.createElement("div");
-      el.className = "pit-card";
+      el.className = "pit-card panel-in";
+      const card = el;
+      setTimeout(() => card.classList.remove("panel-in"), 1300);
       el.dataset.key = keyOf(s);
       stack.appendChild(el);
     }

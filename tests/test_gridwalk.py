@@ -96,6 +96,21 @@ class GridWalkTests(unittest.TestCase):
         self.assertTrue(self.walk.tick(6))
         self.assertEqual(self.walk.index, 2)
 
+    def test_without_autoplay_it_waits_for_next(self):
+        self.walk.configure(autoplay=False)
+        self.walk.start()
+        self.clock.t += 60
+        self.assertFalse(self.walk.tick(6))
+        self.assertEqual((self.walk.index, self.walk.visible, self.walk.state()["elapsed"]), (0, True, 0))
+        self.walk.step(1, 6)
+        self.assertEqual(self.walk.index, 2)
+        self.walk.configure(autoplay=True)  # back on: this pair gets its full time
+        self.clock.t += 4.9
+        self.assertFalse(self.walk.tick(6))
+        self.clock.t += 0.2
+        self.assertTrue(self.walk.tick(6))
+        self.assertEqual(self.walk.index, 4)
+
     def test_manual_steps_and_goto(self):
         self.walk.goto(5, 6)
         self.assertEqual(self.walk.index, 4)   # pairs start on even slots

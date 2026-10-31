@@ -27,6 +27,13 @@ function render(snap) {
   shownKey = key;
   clearInterval(timer);
   if (!on) {
+    // Off: what's up fades out (sp-out) before it goes.
+    const old = stage.querySelector(".sp:not(.out)");
+    if (old && !PREVIEW) {
+      old.classList.add("out");
+      setTimeout(() => { if (old.isConnected && old.classList.contains("out")) old.remove(); }, 420);
+      return;
+    }
     stage.innerHTML = PREVIEW ? `<div class="sp-hint">${logos.length ? "" : "No sponsor logos in the active league"}</div>` : "";
     return;
   }

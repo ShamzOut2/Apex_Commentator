@@ -224,6 +224,32 @@ class StoreTests(unittest.TestCase):
         copy = next(t for t in self.store.get("gt4")["teams"] if t["name"] == "Apex Racing")
         self.assertEqual((copy["shared"], copy["short"]), ([], "APX"))
 
+    def test_no_main_class_picked_by_hand(self):
+        p = self.store.save({"id": "x", "name": "X", "classes": [{"id": "pro", "name": "Pro", "match": ["GT3 Class"]}],
+                             "drivers": [{"cust_id": 1, "name": "Amy", "class_id": "-"}, {"cust_id": 2, "name": "Bo", "class_id": "gone"}]})
+        self.assertEqual([d["class_id"] for d in p["drivers"]], ["-", ""])
+        self.assertIsNone(self.store.class_for(p["drivers"][0], "GT3 Class", p))  # not Pro by their car
+        self.assertEqual(self.store.class_for(p["drivers"][1], "GT3 Class", p)["id"], "pro")
+
+    def test_a_shared_team_goes_only_where_its_shared(self):
+        for lid in ("a", "b", "c"):
+            self.store.save({"id": lid, "name": lid.upper(), "drivers": [{"cust_id": 1, "name": "Amy"}]})
+        a = self.store.get("a")
+        a["drivers"][0]["team"] = "T"
+        a["teams"] = [{"name": "T", "shared": ["b"]}]
+        self.store.save(a)
+        b = self.store.get("b")
+        b["teams"].append({"name": "Other", "shared": ["c"]})
+        self.store.save(b)  # B shares another team with C: T doesn't follow
+        self.assertEqual([t["name"] for t in self.store.get("c")["teams"]], ["Other"])
+        self.assertEqual(next(t for t in self.store.get("b")["teams"] if t["name"] == "T")["shared"], ["a"])
+        # Taking T out of B: the link goes, B's copy goes, and saving B again doesn't bring it back.
+        self.store.remove_team_from("a", "T", "b")
+        self.assertNotIn("T", [t["name"] for t in self.store.get("b")["teams"]])
+        self.assertEqual(self.store.get("b")["drivers"][0].get("team", ""), "")
+        self.store.save(self.store.get("b"))
+        self.assertEqual(next(t for t in self.store.get("a")["teams"] if t["name"] == "T")["shared"], [])
+
     def test_import_session_merges_without_losing_edits(self):
         p = self.seed()
         p["drivers"][0]["nickname"] = "Ames"

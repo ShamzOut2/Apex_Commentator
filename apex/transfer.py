@@ -304,7 +304,9 @@ def import_teams(store, profile, obj):
     _put_images(store, profile["id"], obj.get("images"))
     mine = {t["name"].lower(): t for t in profile.get("teams", [])}
     for t in teams:
-        mine[str(t["name"]).lower()] = t
+        # Links to leagues are this PC's own: an imported team keeps the ones it had here.
+        had = mine.get(str(t["name"]).lower())
+        mine[str(t["name"]).lower()] = dict(t, shared=list((had or {}).get("shared") or []))
     profile["teams"] = list(mine.values())
     by_key = {driver_key(d): d for d in profile.get("drivers", [])}
     by_name = {str(d.get("name", "")).lower(): d for d in profile.get("drivers", [])}
@@ -385,6 +387,8 @@ def _result_from_csv(profile, row, store=None):
             "fastest_lap": _laptime(row.get("fastest lap time")), "incidents": _num(row.get("inc")) or 0,
             "status": status, "make": (roster or {}).get("car_make") or make_for(row.get("car", ""), ""),
             "gap": gap, "has_main": cls is not None,
+            # iRacing's average lap is their race time over their laps.
+            "race_time": round(_laptime(row.get("average lap time")) * laps, 3) if laps and _laptime(row.get("average lap time")) else None,
         }
     cls = row.get("class", "")
     class_id = next((c["id"] for c in profile.get("classes", []) if c["name"].lower() == cls.lower() or c["id"] == cls), cls)
@@ -405,7 +409,9 @@ def _unclassed(profile, result):
     classes = profile.get("classes") or []
     if not classes or not profile.get("hide_unclassed", True) or result.get("has_main", True):
         return False
-    roster = next((d for d in profile.get("drivers", []) if driver_key(d) == result["driver"]), {})
+    roster = next((d for d in profile.get("drivers", []) if driver_key(d) == result["driver"]), None)
+    if roster is None:
+        return False  # not in the roster: never left out
     return not any(c["id"] == roster.get("class2_id") and c.get("role") == "secondary" for c in classes)
 
 

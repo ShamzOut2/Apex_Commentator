@@ -96,6 +96,7 @@ class GridWalk:
         self.clock = clock
         self.interval = float(interval)
         self.loop = False
+        self.autoplay = True       # move on to the next pair by itself (off: only Next / Prev)
         self.include_absent = False
         self.visible = False
         self.running = False
@@ -165,17 +166,21 @@ class GridWalk:
         self.visible = False
         self.running = False
 
-    def configure(self, interval=None, loop=None, include_absent=None):
+    def configure(self, interval=None, loop=None, include_absent=None, autoplay=None):
         if interval is not None:
             self.interval = min(MAX_INTERVAL_S, max(MIN_INTERVAL_S, float(interval)))
         if loop is not None:
             self.loop = bool(loop)
         if include_absent is not None:
             self.include_absent = bool(include_absent)
+        if autoplay is not None:
+            self.autoplay = bool(autoplay)
+            if self.autoplay and self.visible and self.running:
+                self.step_started = self.clock()  # the pair on screen gets its full time
 
     def tick(self, count):
         """Advance to the next pair when its time is up. Returns True if it moved."""
-        if not (self.visible and self.running) or self.step_started is None:
+        if not (self.visible and self.running and self.autoplay) or self.step_started is None:
             return False
         if self.clock() - self.step_started < self.interval:
             return False
@@ -191,7 +196,9 @@ class GridWalk:
         return True
 
     def state(self):
-        if self.running and self.step_started is not None:
+        if not self.autoplay:
+            elapsed = 0.0
+        elif self.running and self.step_started is not None:
             elapsed = self.clock() - self.step_started
         else:
             elapsed = self.paused_elapsed
@@ -202,6 +209,7 @@ class GridWalk:
             "interval": self.interval,
             "elapsed": round(min(elapsed, self.interval), 2),
             "loop": self.loop,
+            "autoplay": self.autoplay,
             "include_absent": self.include_absent,
             "manual_order": self.manual_order is not None,
         }

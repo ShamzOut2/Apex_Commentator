@@ -13,11 +13,21 @@ const DEFAULT_CLASS = { key: "", name: "", color: "#8b93a3" };
 const OUT_MS = 680;  // the leaving animation (driver.css .card.out)
 let current = null;  // {key, el, at, html, hidden, timer, hideMs}
 
+// The position box: overall (P3), in class (P1 and the class under it), or
+// both (P3, and P1 GT3 under it).
+function positionHtml(d, cfg, cls) {
+  const which = cfg.position_shown || "overall";
+  const name = cfg.pos_class_name !== false && cls.name ? esc(cls.name) : "";  // the class's name, unless turned off
+  if (which === "class" && d.class_pos) return `<span class="p">P${d.class_pos}</span>${name ? `<span class="cp">${name}</span>` : ""}`;
+  if (which === "both" && d.class_pos) return `<span class="p">P${d.pos}</span><span class="cp">P${d.class_pos}${name ? ` ${name}` : ""}</span>`;
+  return `<span class="p">P${d.pos}</span>`;
+}
+
 function cardHtml(d, cfg, cls, multiclass) {
   // Their class colour (main or secondary, as set), or none: no background, white text.
   const color = paintFor(d, cls, cfg.class_colors);
   const pos = cfg.show_position && d.pos
-    ? `<div class="pos" style="color:${color ? inkFor(color) : "#fff"}"><span class="p">P${d.pos}</span>${cfg.show_class_pos && multiclass && d.class_pos && color ? `<span class="cp">P${d.class_pos} ${esc(cls.name)}</span>` : ""}</div>` : "";
+    ? `<div class="pos" style="color:${color ? inkFor(color) : "#fff"}">${positionHtml(d, cfg, cls)}</div>` : "";
   const number = cfg.show_number && d.number
     ? (color ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(d.number)}</span>` : `<span class="num plain">${esc(d.number)}</span>`) : "";
   // Under the driver's name: the team name, with the team logo before or

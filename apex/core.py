@@ -162,6 +162,8 @@ class RaceProgress:
             return
         in_world = {i for i, s in enumerate(frame.surface) if s != TRK_NOT_IN_WORLD}
         if frame.session_state == STATE_RACING:
+            if self.checkered:  # a replay back before the flag: nobody has finished yet
+                self.checkered, self.finished, self._laps = False, set(), {}
             self.started |= in_world
             return
         if frame.session_state >= STATE_CHECKERED and not self.checkered:
@@ -224,6 +226,8 @@ class App:
         self._logged_until = {}    # session num -> race time logged so far
         self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
+        self._header_mode = "laps" # what the tower's header last showed: "laps", "time" or "none"
+        self._put_away = None      # what the all:toggle hotkey took off screen, to bring back
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
         self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
         self.backgrounds = Backgrounds()  # __main__ gives it a folder: overlay / board background images
@@ -457,7 +461,8 @@ class App:
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
                 "race_control": {"log": self.rc_log[-50:]},
                 "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
-                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else []},
+                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else [],
+                            "saved": self.settings.get("hotkey_map")},
                     "desktop": self._desktop_snapshot(),
                     **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
@@ -466,7 +471,9 @@ class App:
                 }
             # The session on screen: in a replay, the one being replayed (a race
             # watched once the server has moved on to the next session, say).
-            frame = replace(frame, session_num=frame.timeline()[0])
+            screen_num = frame.timeline()[0]
+            if screen_num != frame.session_num and screen_num in self._session_meta.get("sessions", {}):
+                frame = replace(frame, session_num=screen_num)
             is_race = self._is_race(frame)
             racing = is_race and frame.session_state == STATE_RACING
             events = self.detector.events
@@ -559,7 +566,8 @@ class App:
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
                 "race_control": {"log": self.rc_log[-50:]},
                 "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
-                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else []},
+                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else [],
+                            "saved": self.settings.get("hotkey_map")},
                 "classes": self._ordered_classes(classes),
                 "events": events[-200:],
                 "desktop": self._desktop_snapshot(),
@@ -641,13 +649,14 @@ class App:
             if entry is None:
                 entry = next((d for d in profile.get("drivers", []) if d.get("cust_id") is None
                               and d.get("name", "").strip().lower() == r["name"].strip().lower()), None)
+            in_roster = entry is not None  # a newcomer added below isn't one left without a class
             if entry is None and add_missing:
                 entry = {"cust_id": r["cust_id"], "name": r["name"], "car_number": r["number"], "team": r["team"]}
                 profile.setdefault("drivers", []).append(entry)
                 added += 1
             key = driver_key(entry) if entry else driver_key({"cust_id": r["cust_id"], "name": r["name"]})
             cls = self.leagues.class_for(entry, r["car_class"], profile, r["name"])
-            if self._unclassed(profile, entry, cls is not None):
+            if self._unclassed(profile, entry if in_roster else None, cls is not None):
                 continue  # no class in the league (a safety car, say): not in the results
             off = official.get(r["car_idx"], {})
             laps = off.get("LapsComplete")
@@ -670,6 +679,7 @@ class App:
                 "incidents": incidents or 0, "status": status,
                 "make": (entry or {}).get("car_make") or r.get("make", ""),
                 "gap": self._result_gap(off, won, r, checkered),
+                "race_time": off.get("Time") if checkered and isinstance(off.get("Time"), (int, float)) and off.get("Time") > 0 else None,
             }))
         return results, added
 
@@ -782,9 +792,11 @@ class App:
     @staticmethod
     def _unclassed(league, entry, has_main):
         """Whether a driver is left off the overlays (and out of results): with
-        a league that has classes (and "Hide drivers with no class" on), one
-        with neither a main class nor a secondary one, e.g. a safety car."""
-        if not league or not league.get("hide_unclassed", True) or has_main:
+        a league that has classes (and "Hide drivers with no class" on), a
+        driver in its roster given neither a main class nor a secondary one,
+        e.g. a safety car. Drivers not in the roster are never hidden (a
+        session outside the league: everyone shows)."""
+        if not league or not entry or not league.get("hide_unclassed", True) or has_main:
             return False
         classes = league.get("classes") or []
         if not classes:
@@ -826,6 +838,8 @@ class App:
             "lap": r["lap"], "last_lap": r["last_lap"], "best_lap": r["best_lap"], "pit_stops": r["pit_stops"],
             "laps_completed": r["laps_completed"],
             "laps_down": r.get("laps_down", 0), "class_laps_down": r.get("class_laps_down", 0),
+            # Taken the chequered flag (the tower's flag by their name).
+            "finished": self._race.checkered and r["car_idx"] in self._race.finished,
         }
 
     def _fastest_laps(self, standings, is_race, cfg, frame):
@@ -863,8 +877,11 @@ class App:
             opening = is_race and (e.get("laps_completed") or 0) <= 1
             if not flashed and not opening and (scope == "overall" or cfg["fl_flash_classes"]):
                 flashed = True
+                # A driver with no main class in the league (an entry's paint is
+                # only there with a league): no class name on the flash.
+                no_main = e.get("paint") is not None and not str(e.get("class_key") or "").startswith("league:")
                 self._fl_flash = {"car_idx": e["car_idx"], "name": e["name"], "nickname": e.get("nickname", ""),
-                                  "number": e["number"], "class_key": e["class_key"], "lap_time": t,
+                                  "number": e["number"], "class_key": "" if no_main else e["class_key"], "lap_time": t,
                                   "scope": "overall" if scope == "overall" else "class", "at": time.monotonic()}
         f = self._fl_flash
         if not (cfg["fl_flash"] and f and time.monotonic() - f["at"] < cfg["fl_flash_s"]):
@@ -881,14 +898,20 @@ class App:
         time_total = _session_limit(session.get("SessionTime"))
         if mode == "auto":
             mode = "laps" if laps_total else "time" if time_total else "none"
+        self._header_mode = mode  # what the header shows now (the tower:header hotkey swaps it)
         lead = max((r["laps_completed"] or 0 for r in rows if r["laps_completed"] is not None), default=0)
         remain = frame.session_time_remain
         time_remain = remain if remain is not None and 0 <= remain < 604000 else None
         finished = frame.session_state >= STATE_CHECKERED
         lap = min(lead + 1, int(laps_total)) if laps_total else lead + 1
+        # A timed session whose clock has run out, the chequered flag not out
+        # yet: the leader's on their last lap (the header says LAST LAP).
+        time_up = (bool(time_total) and frame.session_state == STATE_RACING
+                   and remain is not None and remain <= 0.05)
         return {
             "mode": mode,
             "finished": finished,
+            "time_up": time_up,
             "lap": lap if frame.session_state >= STATE_RACING else 0,
             "laps_total": int(laps_total) if laps_total else None,
             "time_remain": round(time_remain, 1) if time_remain is not None else None,
@@ -1264,8 +1287,9 @@ class App:
         handler = getattr(self, f"cmd_{action}", None)
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
-        if action == "desktop_region":
-            # Sent often by on-screen overlays as they change: no lock, nothing to publish.
+        if action in ("desktop_region", "pick_color"):
+            # Sent often by on-screen overlays as they change / waits for a
+            # click on screen: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
         if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_")):
@@ -1274,6 +1298,15 @@ class App:
             result = handler(**params)
         self.publish()
         return result or {}
+
+    def cmd_pick_color(self):
+        """The eyedropper: waits for a click anywhere on screen and returns
+        {"color": "#rrggbb"} (None: cancelled, or not on Windows)."""
+        from . import screenpick
+
+        if not screenpick.available():
+            raise CommandError("Picking a colour off the screen works in the app on Windows.")
+        return {"color": screenpick.pick()}
 
     # Overlays that can go straight on the user's screen (see desktop.py):
     # page -> (name, path). "desktop" lets the page know (no drop shadows).
@@ -1306,6 +1339,19 @@ class App:
         # desktop=<page>: the page reports where it draws, to fit the window to it (cmd_desktop_region).
         if not self.desktop.show(page, f"{path}{'&' if '?' in path else '?'}desktop={page}", name, int(screen or 0)):
             raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
+        return {"on_screen": self.desktop.on_screen()}
+
+    # What "all of them on my screen" puts up (hotkeys desk:overlays / desk:boards).
+    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits"), "boards": ("board",)}
+
+    def cmd_desktop_show_all(self, group="overlays", screen=0):
+        """Put every overlay (or the boards) on the user's screen, at once."""
+        if group not in self.DESKTOP_GROUPS:
+            raise CommandError("Unknown group of overlays.")
+        on = self.desktop.on_screen() if self.desktop is not None else {}
+        for page in self.DESKTOP_GROUPS[group]:
+            if on.get(page) != int(screen or 0):
+                self.cmd_desktop_show(page, screen)
         return {"on_screen": self.desktop.on_screen()}
 
     def cmd_desktop_region(self, page, rects=None):
@@ -1551,9 +1597,9 @@ class App:
     def cmd_gridwalk_hide(self):
         self.gridwalk.hide()
 
-    def cmd_gridwalk_settings(self, interval=None, loop=None, include_absent=None):
+    def cmd_gridwalk_settings(self, interval=None, loop=None, include_absent=None, autoplay=None):
         try:
-            self.gridwalk.configure(interval, loop, include_absent)
+            self.gridwalk.configure(interval, loop, include_absent, autoplay)
         except ValueError as e:
             raise CommandError(str(e)) from e
 
@@ -1571,10 +1617,13 @@ class App:
 
     def cmd_hotkey(self, action):
         """What a hotkey does, by name (the same as the app's own key handling):
-        cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, board:off,
+        cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, gw:prev, board:off,
         board:next, board:prev (its pages), board:<kind>:<group> (on screen,
         or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick),
-        tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class)."""
+        desk:overlays / desk:boards (all of them on the user's screen), desk:off,
+        tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class),
+        tower:header (its header: laps left / time left), all:toggle (every
+        overlay and board off screen, and back again; see cmd_toggle_all)."""
         kind, _, rest = str(action).partition(":")
         if kind == "cam":
             group = next((g["num"] for g in self._camera_groups if g["name"] == rest), None)
@@ -1589,6 +1638,8 @@ class App:
         if kind == "gw":
             if rest == "next":
                 return self.cmd_gridwalk_next()
+            if rest == "prev":
+                return self.cmd_gridwalk_prev()
             return self.cmd_gridwalk_hide() if self.gridwalk.visible else self.cmd_gridwalk_start(0)
         if kind == "board":
             if rest == "off":
@@ -1601,24 +1652,66 @@ class App:
             return self.cmd_board_show(board_kind, group, "latest")
         if kind == "battle":
             return self.cmd_battle_pick(rest)
+        if kind == "desk":
+            return self.cmd_desktop_hide() if rest == "off" else self.cmd_desktop_show_all(rest)
         if kind == "tower":
             tower = self.overlays.get()["standings"]
             if rest == "sponsor":
                 return self.cmd_overlay_settings("standings", {"sponsor_bar": not tower["sponsor_bar"]})
             if rest == "mode":
                 return self.cmd_overlay_settings("standings", {"mode": "class" if tower["mode"] == "overall" else "overall"})
+            if rest == "header":
+                now = tower["header_info"] if tower["header_info"] in ("laps", "time") else self._header_mode
+                return self.cmd_overlay_settings("standings", {"header_info": "time" if now == "laps" else "laps"})
+        if kind == "all":
+            return self.cmd_toggle_all()
         raise CommandError(f"Unknown hotkey '{action}'")
 
-    def cmd_hotkeys(self, keys=None):
+    TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits")
+
+    def cmd_toggle_all(self):
+        """Every overlay, the board and the grid walk off screen at once; again,
+        and whatever that took off comes back (nothing was up: every overlay
+        comes on). Returns {"shown": True / False}."""
+        ov = self.overlays.get()
+        up = [k for k in self.TOGGLE_ALL if ov.get(k, {}).get("visible")]
+        if up or self.board.get("kind") or self.gridwalk.visible:
+            self._put_away = {"overlays": up, "board": dict(self.board) if self.board.get("kind") else None,
+                              "gridwalk": self.gridwalk.index if self.gridwalk.visible else None}
+            for k in up:
+                self.cmd_overlay_settings(k, {"visible": False})
+            self.cmd_board_hide()
+            self.gridwalk.hide()
+            return {"shown": False}
+        away, self._put_away = self._put_away, None
+        if not away:
+            away = {"overlays": list(self.TOGGLE_ALL), "board": None, "gridwalk": None}
+        for k in away["overlays"]:
+            self.cmd_overlay_settings(k, {"visible": True})
+        if away["board"]:
+            self.board = away["board"]
+        if away["gridwalk"] is not None and self._grid_count():
+            self.gridwalk.start(away["gridwalk"])
+        return {"shown": True}
+
+    def cmd_hotkeys(self, keys=None, cameras=None, actions=None):
         """The Hotkeys window's keys ({key: action}): those with Ctrl or Alt work
-        system-wide (Windows), kept for the next start too."""
+        system-wide (Windows), kept for the next start too. ``cameras`` /
+        ``actions`` (the window's own lists) are kept in the app's settings,
+        so every window (app, pop-outs, a browser) has the same keys and they
+        survive updates."""
         from .hotkeys import system_wide
 
         wanted = system_wide(keys if isinstance(keys, dict) else {})
         self.settings.set("global_hotkeys", wanted or None)
         if self.global_hotkeys:
             self.global_hotkeys.set(wanted)
-        return {"system_wide": len(wanted)}
+        version = (self.settings.get("hotkey_map") or {}).get("v", 0)
+        if isinstance(actions, dict):
+            clean = lambda m: {str(k)[:40]: str(v)[:40] for k, v in m.items()} if isinstance(m, dict) else None  # noqa: E731
+            version += 1
+            self.settings.set("hotkey_map", {"v": version, "cameras": clean(cameras), "actions": clean(actions)})
+        return {"system_wide": len(wanted), "v": version}
 
     def cmd_board_show(self, kind, group="", round=""):
         """Put a full-screen board on screen (board.html)."""

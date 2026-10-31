@@ -173,6 +173,10 @@ class Handler(BaseHTTPRequestHandler):
             if path.startswith("/api/leagues/") and path.endswith("/duplicate"):
                 league = self.app.leagues.duplicate(path.split("/")[3], body.get("name"))
                 return self._send_json({"ok": True, "league": league})
+            if path.startswith("/api/leagues/") and path.endswith("/remove-team-from"):
+                league = self.app.leagues.remove_team_from(path.split("/")[3], body.get("team"), str(body.get("league") or ""))
+                self.app.publish()
+                return self._send_json({"ok": True, "league": league})
             if path.startswith("/api/leagues/") and path.endswith("/import-session"):
                 drivers = self.app.build_snapshot().get("drivers") or []
                 if not drivers:

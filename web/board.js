@@ -21,6 +21,22 @@ const ROW_SPACE = 820;  // px for table rows under the header (less with a horiz
 // The car number, in the driver's class colour.
 const numberChip = (r) => (r.number ? `<span class="num" style="${r.class_color ? `background:${esc(r.class_color)};color:${inkFor(r.class_color)}` : ""}">${esc(r.number)}</span>` : "");
 
+// Places 1-3: gold, silver and bronze (the board's podium setting), else the accent colour.
+let podium = true;
+function podiumClass(r) {
+  const place = r.pos || r.rank;
+  if (!(place <= 3)) return "";
+  return podium ? `top3 p${place}` : "top3";
+}
+
+// 1:23:45.678 / 23:45.678
+function fmtRaceTime(t) {
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const sec = (t % 60).toFixed(3).padStart(6, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+}
+
 // [label, width, class, cell(row), key] for each column a board shows (the
 // key is what Custom opacity per column calls it).
 function columns(b) {
@@ -44,7 +60,7 @@ function columns(b) {
       const x = r.rounds[i];
       return x && x.played ? `<span class="${x.dropped ? "rd dropped" : ""}">${fmtPts(x.points)}</span>` : "–";
     }));
-    add(s.show_wins, "wins", "Wins", "80px", "r muted", (r) => r.wins || "");
+    add(s.show_wins, "wins", "Wins", "80px", "c muted", (r) => r.wins || "");
     add(s.show_penalty, "penalty", "Pen", "80px", "r down", (r) => (r.penalty ? `−${fmtPts(r.penalty)}` : ""));
     add(true, "points", "Pts", "100px", "r pts", (r) => fmtPts(r.points));
     add(s.show_gap, "gap", s.show_ahead ? "To leader" : "Gap", s.show_ahead ? "140px" : "100px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
@@ -54,7 +70,7 @@ function columns(b) {
     teamCols(true, (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(r.color)}"></span>` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
     add(s.show_drivers, "drivers", "Drivers", "auto", "muted team-drivers", (r) => esc(r.drivers.join(" · ")));
     b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => (r.rounds[i] == null ? "–" : fmtPts(r.rounds[i]))));
-    add(s.show_wins, "wins", "Wins", "80px", "r muted", (r) => r.wins || "");
+    add(s.show_wins, "wins", "Wins", "80px", "c muted", (r) => r.wins || "");
     add(s.show_penalty, "penalty", "Pen", "80px", "r down", (r) => (r.penalty_points ? `−${fmtPts(r.penalty_points)}` : ""));
     add(true, "points", "Pts", "110px", "r pts", (r) => fmtPts(r.points));
     add(s.show_gap, "gap", s.show_ahead ? "To leader" : "Gap", s.show_ahead ? "140px" : "110px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
@@ -62,7 +78,7 @@ function columns(b) {
   } else if (b.kind === "makes") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
     add(true, "make", "Manufacturer", "auto", "", (r) => (s.show_logo ? makeChip({ name: r.make, logo: r.make_logo, withName: true }) : esc(r.make)));
-    add(s.show_wins, "wins", "Wins", "100px", "r muted", (r) => r.wins || "");
+    add(s.show_wins, "wins", "Wins", "100px", "c muted", (r) => r.wins || "");
     add(true, "points", "Pts", "120px", "r pts", (r) => fmtPts(r.points));
     add(s.show_gap, "gap", "Gap", "120px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
   } else if (b.kind === "results") {
@@ -77,7 +93,10 @@ function columns(b) {
     // Gap to the winner and to the car ahead; a DNF / DNS / DSQ shows there instead.
     const gapCell = (r, secs, laps) => (r.out ? `<span class="st">${esc(r.out)}</span>`
       : laps ? `+${laps} ${laps === 1 ? "Lap" : "Laps"}` : secs != null ? `+${secs.toFixed(3)}` : "");
-    add(s.show_gap, "gap", "Gap", "150px", "r muted", (r) => gapCell(r, r.gap, r.gap_laps));
+    // The winner's Gap: their laps, or their race time (where it's known).
+    const winnerCell = (r) => (s.winner_gap === "time" && r.race_time ? fmtRaceTime(r.race_time)
+      : s.winner_gap !== "none" && r.laps ? `${r.laps} ${r.laps === 1 ? "Lap" : "Laps"}` : "");
+    add(s.show_gap, "gap", "Gap", "150px", "r muted", (r) => (r.winner && !r.out ? `<span class="lead">${winnerCell(r)}</span>` : gapCell(r, r.gap, r.gap_laps)));
     add(s.show_interval, "interval", "Int", "150px", "r muted", (r) => gapCell(r, r.interval, r.interval_laps));
     add(s.show_points, "points", "Pts", "90px", "r pts", (r) => (r.points == null ? "" : `+${fmtPts(r.points)}`));
   }
@@ -87,7 +106,7 @@ function columns(b) {
 function tableHtml(cols, rows) {
   return `<table class="btable"><colgroup>${cols.map((c) => `<col style="width:${c[1]}">`).join("")}</colgroup>
     <thead><tr>${cols.map((c) => `<th class="${c[2].replace(/\b(pts|p|muted|down)\b/g, "")}">${c[0]}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map((r, i) => `<tr class="${(r.pos || r.rank) <= 3 ? "top3" : ""}" style="--i:${i}">${cols.map((c) => `<td class="${c[2]}" data-opcol="${c[4]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    <tbody>${rows.map((r, i) => `<tr class="${podiumClass(r)} ${r.kept ? "kept" : ""}" style="--i:${i}">${cols.map((c) => `<td class="${c[2]}" data-opcol="${c[4]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -114,16 +133,28 @@ function dateText(r, format) {
 // name of its own is "Round 3" whatever's picked.
 // A race meeting of several races is several rounds: "Rounds 4–6".
 function roundTitle(r, how) {
-  const own = r.name && r.name !== `Round ${r.round}` && !(r.last && /^(round|event) \d+$/i.test(r.name)) ? r.name : "";
+  // The meeting's or round's own name (whatever it's called), unless it's just its number.
+  const own = r.name && r.name.trim().toLowerCase() !== `round ${r.round}` ? r.name.trim() : "";
   const num = r.last ? `Rounds ${r.round}–${r.last}` : `Round ${r.round}`;
   if (how === "number" || !own) return num;
   return how === "name" ? own : `${num} · ${own}`;
 }
 
-// A winner's label: which race (at a meeting) and which championship, if there's more than one.
-function winnerLabel(w, r) {
-  const groups = new Set(r.winners.map((x) => x.group)).size;
-  return [w.race, groups > 1 ? w.group_name : ""].filter(Boolean).join(" · ");
+
+// Each race of a card (one for a round, each heat for a race meeting): its
+// name and length, and once it's run, each class's winner under it.
+function racesHtml(r, s) {
+  // Whose winners: the classes ticked (winner_groups: "" all, "none" none).
+  const only = s.winner_groups ? new Set(s.winner_groups === "none" ? [] : s.winner_groups.split(",")) : null;
+  const boxes = (r.sessions || []).map((x) => {
+    const head = [s.show_race_name !== false && x.name, s.show_length && x.length].filter(Boolean);
+    const shown = (x.winners || []).filter((w) => !only || only.has(w.group));
+    const wins = s.show_winners && shown.length ? shown.map((w) => `<div class="rb-win">
+        <span class="dot" style="background:${esc(w.color || "#8b93a3")}"></span>${s.show_winner_class !== false && w.group_name ? `<span class="cls">${esc(w.group_name)}:</span> ` : "🏆 "}${esc(formatName(w, s.winner_name_format))}</div>`).join("") : "";
+    if (!head.length && !wins) return "";
+    return `<div class="race-box">${head.length ? `<div class="rb-head"><b>${esc(head[0])}</b>${head[1] ? ` <span class="len">${esc(head[1])}</span>` : ""}</div>` : ""}${wins}</div>`;
+  }).filter(Boolean);
+  return boxes.length ? `<div class="races">${boxes.join("")}</div>` : "";
 }
 
 function calendarHtml(b) {
@@ -133,11 +164,8 @@ function calendarHtml(b) {
       <div class="rn"><span class="rt">${esc(roundTitle(r, s.round_title))}</span>${s.show_multiplier && r.multiplier !== 1 ? `<span class="mult">×${r.multiplier} points</span>` : ""}<span class="tag">${r.next ? "Next" : r.done ? "Done" : ""}</span></div>
       <div class="tr">${esc(r.track || "Track to be confirmed")}</div>
       ${s.show_config && r.config ? `<div class="cf">${esc(r.config)}</div>` : ""}
-      <div class="when">${[s.show_date && dateText(r, s.date_format), s.show_time && r.time,
-        r.races.length < 2 && s.show_length && r.length].filter(Boolean).map(esc).join(" · ")}</div>
-      ${(r.sessions || []).length > 1 ? `<div class="races">${r.sessions.map((x) => `<span class="race"><b>${esc(x.name)}</b>${
-        s.show_length && x.length ? ` <span class="len">${esc(x.length)}</span>` : ""}</span>`).join("")}</div>` : ""}
-      ${s.show_winners && r.winners.length ? `<div class="wins">${r.winners.map((w) => `<span style="${w.color ? `background:${esc(w.color)};color:${inkFor(w.color)}` : ""}">🏆 ${esc(winnerLabel(w, r) ? `${winnerLabel(w, r)}: ` : "")}${esc(w.name)}</span>`).join("")}</div>` : ""}
+      <div class="when">${[s.show_date && dateText(r, s.date_format), s.show_time && r.time].filter(Boolean).map(esc).join(" · ")}</div>
+      ${racesHtml(r, s)}
     </div>`).join("")}</div>`;
 }
 
@@ -145,7 +173,9 @@ function render(snap) {
   const b = snap.board;
   if (b) setSize(b.settings, true);
   setBackground(b && b.settings, !!b);
+  podium = !b || b.settings.podium !== false;
   setColumnOpacity(b && b.settings);
+  setLogoScale(b && b.settings);
   if (!b) {
     if (shown !== "none") {
       leave();  // fade the board out
@@ -187,13 +217,16 @@ function render(snap) {
     ? `<span class="sub"><span class="chip" style="${b.accent ? `background:${esc(b.accent)};color:${inkFor(b.accent)}` : "background:rgba(255,255,255,.12)"}">${esc(b.subtitle)}</span></span>` : "";
   const key = [b.kind, b.title, b.subtitle, b.page].join("|");
   const steady = key === boardKey;
+  // Another page of the same board: the board (and its background) stays,
+  // just the rows change, cascading in.
+  const paging = !steady && boardKey && key.replace(/\|[^|]*$/, "") === boardKey.replace(/\|[^|]*$/, "");
   boardKey = key;
   const html = `<div class="board ${b.kind}" style="${b.accent ? `--accent-c:${esc(b.accent)}` : ""}">
     ${edge("left")}
     <div class="center">
       ${edge("top")}
       <div class="main">
-        <div class="bhead">${b.league_logo ? `<img class="league-logo" src="${esc(b.league_logo)}" alt="">` : ""}<span class="t1">${esc(b.title)}</span>${sub}<span class="league">${esc(b.league)}</span>${b.pages > 1 && b.settings.page_number ? `<span class="pageno">${b.page + 1} / ${b.pages}</span>` : ""}</div>
+        <div class="bhead">${b.league_logo ? `<img class="league-logo" src="${esc(b.league_logo)}" alt="">` : ""}<span class="t1">${esc(b.title)}</span>${sub}${b.settings.show_league !== false ? `<span class="league">${esc(b.league)}</span>` : '<span class="league"></span>'}${b.pages > 1 && b.settings.page_number ? `<span class="pageno">${b.page + 1} / ${b.pages}</span>` : ""}</div>
         ${body}
       </div>
       ${edge("bottom")}
@@ -201,10 +234,11 @@ function render(snap) {
     ${edge("right")}</div>`;
   if (html !== shown) {
     shown = html;
-    if (steady) {
+    if (steady || paging) {
       // Same board with new numbers: swap them in without animating again.
       const cur = stage.querySelector(".board:not(.leaving)");
-      if (cur) cur.outerHTML = html.replace('class="board ', 'class="board steady ');
+      const cls = steady ? 'class="board steady ' : 'class="board paging ';
+      if (cur) cur.outerHTML = html.replace('class="board ', cls);
       else stage.innerHTML = html;
     } else {
       // Another board: the old one fades out as the new one comes in over it.
@@ -220,7 +254,7 @@ function leave() {
   stage.querySelectorAll(".preview-hint").forEach((el) => el.remove());
   for (const old of stage.querySelectorAll(".board:not(.leaving)")) {
     old.classList.add("leaving");
-    setTimeout(() => old.remove(), 600);
+    setTimeout(() => old.remove(), 700);
   }
 }
 

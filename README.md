@@ -17,9 +17,10 @@ OBS dock.
   logos, notes and car and helmet photos. Define **classes** with your own
   names, colours and logos.
 - **Grid walk**: an on-stream graphic that walks the starting grid two drivers
-  at a time: a track across the screen, each car in its grid box (your own
-  car pictures, matched to each driver and car) with the driver's details
-  beside it. It advances on a timer you set.
+  at a time: the grid seen in perspective from beside the track, each car in
+  its grid box (your own car pictures, matched to each driver and car) with
+  the driver's details beside it. It advances on a timer you set, or when
+  you press Next.
 - **Standings overlay**: a timing tower for stream, overall or by class. In
   qualifying it starts empty and fills as drivers set clean laps.
 - **Qualifying lap tracker**: live sector bars (purple, green, yellow) and lap
@@ -43,26 +44,97 @@ walk, Overlays, Boards and Race control.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.9**
+**v0.5.0**
+
+### New features
+
+- **Custom points systems**: points tables of your own for different kinds
+  of race (a sprint, a feature…), as many as you like, picked for each round.
+- **Drop a race meeting as a whole**: its races count as one for the drop
+  rounds and drop together.
+- **Grid walk, rebuilt**: the grid in perspective from beside the track, with
+  textured tarmac, kerbs, grass, a wall with advertising boards, catch
+  fencing and a grandstand; the cars ahead wait up the road and the camera
+  glides down the grid from pair to pair.
+- Grid walk: **Auto-play** on or off (off: Next / Prev move it), a hotkey for
+  the previous pair, and the name style and nickname as you like them.
+- **Show all on my screen**, and hotkeys to put every overlay or the boards
+  on your screen (or take everything off).
+- Timing screen: name style (full name, D. Price…) and nicknames on or off.
+- A hotkey for **everything off screen and back**: every overlay, the board
+  and the grid walk go; press again and they come back.
+- A hotkey to switch the timing tower's header between laps left and time
+  left.
+- Timing tower: the coloured bar can take its colour from the main or the
+  secondary class on its own, separately from the car number.
+- Teams: **✕** on a league under *Also in* takes the team out of that league.
+- Timing tower: a **chequered flag** comes out on a tab at the tower's right
+  edge, level with each driver's row, as they finish the race, and keeps
+  waving.
+- Grid walk: **Cars either side on the grid**, shown or hidden (just the
+  pair).
+- League builder: **—** in the main Class column, for a driver with no main
+  class.
+- Driver on camera: the class name with the class position can be turned
+  off.
+- **Eyedropper** by every colour box: click it, then click anywhere on your
+  screen to take that colour (the colour picker's own eyedropper doesn't work
+  in the app window).
+- **Team logo size** for every overlay and board with team logos.
+- Timing tower: **driver name column width** of your own (0 = automatic).
+- Season calendar: tick which classes' winners show under past races.
+- Timing tower: in a timed session, once the clock runs out the header shows
+  LAST LAP (instead of going blank) until the chequered flag.
 
 ### Improvements
 
-- Driver on camera: the card now leaves with an animation of its own, the
-  entrance in reverse (details fade, a light sweep, the card closes to the
-  middle and drops away).
-- Season calendar board: a race meeting lists each of its races by name with
-  its length (Race 1 · 20 min, Race 2 · 20 min, Race 3 · 40 min).
-- Race gaps update more smoothly (the overlays get new numbers twice as
-  often).
+- Boards: gold, silver and bronze for places 1–3; an accent colour of your
+  own, which you can pick from the colours of the board's background image;
+  the league name in the header can be turned off; the Wins column is
+  centred; the leader stays at the top of every page, the rest carrying on
+  under them.
+- Finishing order: the winner's Gap shows their laps or their race time.
+- Season calendar: each card starts with the meeting's or round's name; each
+  race has its own box with its name and length, and after it's run, each
+  class's winner under it, one a line (the race and class names can be
+  turned off).
+- Rounds: the race length is a number of minutes, hours or laps.
+- Standings tower: separate max drivers and extra drivers for Overall and
+  By class; the extra drivers always fill every row as they rotate.
+- Driver on camera: show the overall position, the class position or both.
+- Pit stops: the position follows the standings tower (overall or in class).
+- Championship battle and pit stops: a matching sleek entrance and exit.
+- Every overlay and board now leaves with its entrance in reverse: sponsors
+  fade out, lap trackers drop away, a board's rows slide back out and its
+  header lifts away, and the grid walk's cards close before it fades.
+- Grid walk: seen from high up at an angle across the grid, like a TV grid
+  graphic, with each box's number and qualifying gap painted on the track;
+  the drivers' cards look like the other overlays' (the driver-on-camera
+  card).
 
 ### Fixes
 
-- Replays of a race watched after the server has moved on to the next
-  session are shown as a race again: the class leaders' lap counter in the
-  gap / interval column, race gaps and the race header.
-- Race gaps in replays: no longer stuck or lagging. The app's own timing is
-  kept for the whole race, so a replay of any lap (also after the flag)
-  shows the gaps as they were, instead of iRacing's laggy ones.
+- Timing tower: the dark background behind the header's text now covers the
+  whole header, the same size as the chequered flag.
+- The new fastest lap flash no longer shows a class name for a driver with
+  no main class.
+- Drop-down lists of drivers, teams and leagues are in alphabetical order
+  (the Penalties tab's driver list, say).
+- A penalty for a driver whose results were saved under another name for them
+  (e.g. before their iRacing ID was in the roster) now comes off their class
+  points as well as overall.
+- Teams no longer end up in every league: sharing a team with one league
+  doesn't share it with all the others that league shares with, and a
+  league taken off a team stays off.
+- Overlays in a session outside the league (practice, testing) no longer go
+  empty: only drivers in the league's roster left without a class are
+  hidden, not everyone who isn't in the roster. This also brings back the
+  qualifying lap tracker there.
+- Boards: the next page of a board keeps the board and its background in
+  place; just the rows change.
+- Hotkeys are kept by the app itself, so every window (the app, pop-outs, a
+  browser) has the same keys and they survive updates. The Hotkeys window
+  lists every key that's set at the top.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -137,6 +209,9 @@ shows something else. Camera hotkeys work in whichever window has focus.
 - **Battles**: a driver within the battle gap of the car ahead (0.15 s by
   default) is lit up, steadily, in the colour you pick: just that driver,
   not the car they're closing on. Both settings sit above the standings.
+- **Names**: the name style in the list (full name, D. Price, Price D., last
+  name), and **Nicknames** by the names on or off. Next to the battle
+  settings, kept for this PC.
 - **Race log**: everything that happens, newest first, filterable: overtakes,
   off tracks, spins, incident points, places lost after an off, pit in/out
   (with stop time and places lost), penalties and class fastest laps. **Click
@@ -164,11 +239,16 @@ shows something else. Camera hotkeys work in whichever window has focus.
 Boards tabs) also sets keys for:
 - each overlay: the standings tower, lap tracker, driver on camera,
   sponsors, championship battle and pit stops, on and off;
-- the timing tower: its sponsor bar under the header on and off, and
-  overall / by class;
+- everything at once: every overlay, the board and the grid walk off
+  screen; pressed again, whatever it took off comes back (with nothing up,
+  every overlay comes on);
+- the timing tower: its sponsor bar under the header on and off, overall /
+  by class, and its header between laps left and time left;
 - the championship battle's quick picks (the car on camera and the one
   ahead, the cars either side, the top 3), which also put it on screen;
-- the grid walk: on / off (starting from P1), and the next pair;
+- the grid walk: on / off (starting from P1), and the next and previous pair;
+- on your own screen (app window): every overlay, the boards, or taking
+  everything off (see "Overlays on your own screen");
 - every board in the Boards tab (each class's standings, teams',
   manufacturers', the calendar, finishing orders), its next and previous
   page, and taking the board off screen. A board's key puts it on screen; pressed again while it's up, it
@@ -254,17 +334,30 @@ Things to know:
 
 ## Grid walk
 
-![grid walk: two cars in their grid boxes on a track across the screen](docs/gridwalk-track.png)
+![grid walk: two cars in their grid boxes, seen at an angle from beside the track](docs/gridwalk-track.png)
 
 The **Grid walk** tab runs a broadcast graphic that goes through the whole
-field, front to back, two drivers at a time. A stretch of track runs across
-the screen; the front car of the row stands in its painted grid box on the
-upper lane, further up the road, and the second one in the box staggered
-behind it below, as on a real grid. Beside each car are the driver's
-details: grid position (and class position in multiclass races), car
+field, front to back, two drivers at a time. The grid is seen in
+perspective from high up beside the track, looking down across it at an
+angle, the grid running gently downhill from left to right (the front of
+the grid on the right), like a TV grid graphic: textured tarmac with the
+racing line rubbered in, red and white kerbs, grass, and beyond them a wall
+with advertising boards (the league's name), a catch fence and a grandstand.
+The front car of the row stands in its painted grid box on the far lane,
+further up the road, and the second one in the box staggered behind it, as
+on a real grid. In front of each box its number is painted, with the car's
+qualifying gap under it (pole: its lap time); pole has the start line ahead.
+The cars either side on the grid stand in their boxes too (*Cars either side
+on the grid*: show them, or hide them for just the pair, the last pair fading
+as the camera moves on), and moving on to the next pair the camera glides
+down the grid to it. Each driver has a card
+in the driver-on-camera card's style (top right for the front car, bottom
+left for the second): the card opens from the middle with a light sweep,
+and closes the same way as it goes, with the driver's details: grid position (and class position in multiclass races), car
 number in the class colour, class badge, car badge, name, nickname, team and
 team logo, and their qualifying time (the class pole's lap, the gap to it
-for everyone else).
+for everyone else). **Names** sets the name style (full name, A. Driver…)
+and *Nickname under the name* can be turned off.
 
 - **Car pictures**: you make them, the app puts them in the right place.
   Put them in one folder and point *Car pictures → Folder* at it. Name each
@@ -295,10 +388,12 @@ for everyone else).
   on any driver to jump to their pair, and *Hide* to take it off screen.
   *Seconds per pair* sets the timer, and *Loop* restarts from the front.
   Without Loop, the graphic leaves the screen after the last pair.
+  **Auto-play** (on by default) moves on to the next pair when its time is
+  up; with it off, a pair stays until you press *Next* or *Prev* (or their
+  hotkeys).
 
 **On stream**: in OBS add a **Browser Source** of 1920×1080 pointing at
-`http://localhost:8180/gridwalk.html`. Everything but the title, the track
-and the drivers' panels is see-through. The walk runs on the server, so the
+`http://localhost:8180/gridwalk.html`. It fills the screen. The walk runs on the server, so the
 OBS source, the preview in the tab, and any other copy all stay in step. Add
 `?preview=1` to the URL to view it on a backdrop in a normal browser.
 
@@ -338,7 +433,8 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     shows just one class.
   - **Header**: the session, with laps or time left. *Automatic* follows how
     the session is limited ("LAP 5 / 20", then "FINAL LAP" and
-    "FINISHED"; or "12:34 LEFT"). You can also pick laps, time or nothing.
+    "FINISHED"; or "12:34 LEFT", then "LAST LAP" once the clock has run out,
+    until the chequered flag). You can also pick laps, time or nothing.
   - **Fill in as drivers complete a lap** (on by default): at the start of
     any session, only the header shows (session, and laps or time left). In a
     race, nobody shows before the green, and each driver appears once they've
@@ -352,8 +448,16 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     (tower and full screen) turns into a black-and-white chequered flag. It
     flashes in a few times with a light sweep, then keeps waving until the
     session changes (e.g. to the next race) or the overlay is taken off
-    screen. The session name, track and "FINISHED" stay readable on dark
-    plates. Races only, and only if the app saw the finish.
+    screen. The header's text stays readable: the flag carries a dark tint
+    over the whole header, the same size as the flag, and the text a shadow.
+    Races only, and only if the app saw the finish.
+  - **Finish flags**: in a race, as each driver crosses the line after the
+    chequered flag, a small chequered flag comes out on a tab of its own on
+    the tower's right edge, level with their row (sliding out from behind
+    the tower), and keeps waving, every flag in time. On the full screen it's
+    by their name. Rewinding a replay to
+    before the finish takes them away again. *Chequered flag by each driver
+    as they finish the race* turns them off.
   - **Columns** (each on or off):
     - gap to the leader (or to pole);
     - interval to the car ahead;
@@ -392,7 +496,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     the driver's class colour; with it off, just the number shows. Both the
     tower and the full-screen version follow these.
   - **Class colours from**: the driver's **main** class or their
-    **secondary** class (League builder). A driver without one (no main
+    **secondary** class (League builder), for the car number's background;
+    **Coloured bar's colour from** sets the bar's on its own (the same class
+    as the car number, the main or the secondary class), so the number can
+    show one class and the bar the other. A driver without one (no main
     class in the league, say, only a secondary one) shows no colour: just
     the number, with no background, and no bar. With no league active, the
     iRacing class colours are used.
@@ -432,7 +539,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     that. It grows straight away when something needs more room, and only
     narrows once there's clearly room to spare, so it doesn't twitch as
     numbers change. With a width set, the name column takes what the other
-    columns leave, and long names end in "…".
+    columns leave, and long names end in "…". **Driver name column width**
+    sets the name column's width in px by itself (0: automatic), on an
+    automatic or a set tower width; longer names end in "…".
   - **Extra drivers**: when there are more drivers than rows, a few more go
     under the top of the order, after a small "• • •" gap; in the By class
     view, under the top of each class, from that class. *Extra drivers show*:
@@ -443,7 +552,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     - **The last ones**: always the last few, last place included.
 
     *Extra drivers' opacity* dims them (10–100%). 0 extra drivers turns it
-    off.
+    off. A set always fills every extra row: when the rest of the field
+    doesn't divide evenly, the last set carries on from the top of it.
+    **Max drivers** and **Extra drivers** are set separately for *Overall*
+    and *By class*, and the tower uses the pair for the mode it's in.
   - **Close racing**: with the *Interval* column on, a driver within 0.15 s
     of the car ahead has their interval in red text. It stays red until they get
     past (then whoever is now right behind turns red, if close enough) or
@@ -493,12 +605,17 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   stop. **Card stays after they cross the pit exit line**: how many seconds
   it keeps the final times (0: it goes at once). Races only,
   unless you untick it. Position, car number (in its class colour), name,
-  team name and logo can each be turned off. The clocks are the sim's own,
+  team name and logo can each be turned off. The position follows the
+  standings tower: overall in *Overall*, in class in *By class*.
+  - Cards open downwards from the top with a light sweep, the details
+    following one after another, and close back up as they go; the
+    championship battle comes in and goes out the same way. The clocks are the sim's own,
   so they're right in replays too (paused with the replay).
 - **Driver on camera** (`/driver.html`): a small board at the bottom centre
-  naming the driver the camera is on. It shows their position overall (and,
-  if you tick it, their position in class under it), car number in the class
-  colour, name, class, team and logo, and car badge. *Class colour from*: the
+  naming the driver the camera is on. **Position shown**: overall, in class,
+  or both (overall, with the class position under it). *Class name with the
+  class position* can be turned off, for just "P1" under the overall place. Then the car number
+  in the class colour, name, class, team and logo, and car badge. *Class colour from*: the
   main or the secondary class, as for the standings; a driver without one
   gets no colour: no background behind the position or number, white text.
   - When the camera moves to someone else, the old board slides away and the
@@ -574,7 +691,12 @@ for drivers without one) are put in it there. From then on:
 - moving a driver to another shared team moves them in the other leagues
   too. Taking a driver out of a team only changes the league you're in.
 
+Links are between two leagues: sharing a team from one league to another
+doesn't link it with every league the other one shares teams with.
 Unticking a league stops the link; that league keeps its copy of the team.
+**✕** on a ticked league takes the team out of that league altogether: its
+copy there is deleted and its drivers there are left without a team (the
+league you're in keeps it).
 Teams are matched by name, so a renamed team starts a new team in the other
 leagues (the old one stays there until you delete it).
 
@@ -675,6 +797,13 @@ league (their own pick, name tag or iRacing car class). A driver with no
 class (a safety car, say) is left out, as for results saved from the sim. A
 round without a track or date gets the event's.
 
+**Picking colours.** Next to every colour box is an **eyedropper**: click
+it, then click anywhere on your screen (the game, a logo, a photo) to take
+that colour; Esc cancels. In a browser it uses the browser's own eyedropper.
+**Team logo size** (in each overlay's and board's *Size* section) makes the
+team logos bigger or smaller, 40–250% (the tower's logo column grows with
+them).
+
 ## Overlays on your own screen (no OBS)
 
 Every overlay and board can also go straight on your monitor instead of into
@@ -694,7 +823,11 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
   Overlays tab (for every overlay and the grid walk) or the Boards tab. The
   app remembers it; changing it moves anything from that tab already up.
 - **Remove** takes it down; *Remove all from my screen* clears everything.
-  They also close with the app.
+  They also close with the app. **Show all on my screen** (Overlays tab) puts
+  every overlay up at once: the standings tower, lap tracker, driver on
+  camera, sponsors, championship battle and pit stops (each still shows only
+  when it's turned on). Hotkeys can do the same: every overlay, the boards,
+  or remove everything.
 - The first time (and the first time after each update), the app asks
   whether you can see your screen through it.
   If you don't answer within 15 seconds it takes the overlay down by itself
@@ -726,10 +859,18 @@ built from the active league:
 - **Season calendar**: every round with track, layout, date, time and
   length, which rounds are done (with their winners) and which is next.
   - **Round titles**: "Round 3 · your round name", just your round name, or
-    just "Round 3". A round you haven't named is always "Round 3".
-  - A race meeting of several races (heat races, say) is one card: "Rounds
-    4–6", each race by its name with its length (Race 1 · 20 min, Race 2 ·
-    20 min…), and each race's winner.
+    just "Round 3". A round you haven't named is always "Round 3". A round's
+    race length is a number of minutes, hours or laps (Championship →
+    Calendar & results).
+  - The top of each card: the round's number and its own name ("Round 3 ·
+    Spa Showdown"), or for a race meeting of several races (heat races, say)
+    "Rounds 4–6 · Fuji Night".
+  - Each race has a box: its name and length (Sprint 20 min), and once it's
+    run, each class's winner under it, one a line (Gold: A. Konig, Silver:
+    M. Frederik…). A race meeting has a box for each race, side by side.
+    *Each race's name in its box*, *The class name by each winner* and the
+    winners' name style can be set. **Winners shown** has a tick box for
+    Overall and each class: only the ticked ones' winners show.
   - **Dates as**: Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or
     Sunday 22nd November.
   - A round with a points multiplier other than 1 (Championship → Calendar
@@ -759,6 +900,16 @@ Under *What each board shows*, every board can be set up separately:
   race times once the race is over, and live timing while it's on; practice
   and qualifying show the gaps between best laps;
 - how many drivers (or teams, manufacturers, race meetings) a page.
+- the board's look: **gold, silver and bronze** for places 1–3 (else the
+  accent colour), an **accent colour** of its own (the line under the
+  header, the page number…), which you can also pick from the main colours
+  of the board's background image, and whether the **league name** shows in
+  the header;
+- **the leader at the top of every page**: page 2 starts with the leader,
+  then carries on from where page 1 stopped;
+- the finishing order's **winner's Gap**: their laps (13 Laps), their race
+  time (from iRacing's results, or the average lap × laps of an imported
+  iRacing results file), or nothing.
 
 **Pages.** A board with more than that runs onto further pages: **Next ▶**
 and **◀ Prev** by *Take off screen* go through them (positions carry on, so
@@ -821,6 +972,15 @@ standings update from what's saved.
     overall points don't change.
   - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
+  - **A race meeting drops as a whole**: a meeting's races (heats, a sprint
+    and a feature…) count as one for the drop rounds, their points added up,
+    and drop together.
+  - **Custom points system**: tick it to give different kinds of race their
+    own points (a sprint, a feature…). Add as many points systems as you
+    like, each with a name, its points (1st, 2nd, 3rd…) and, with an overall
+    championship, its own overall points (empty: the same). Then pick one for
+    each round under *Calendar & results* (*Points*); a round left on *Usual
+    points* uses the class and overall points above.
   - The fastest-lap bonus can be limited to the top N finishers.
   - **Race distance to score** (75% by default): a driver must complete this
     share of their class winner's laps. Anyone short is a DNF and scores no
@@ -1042,7 +1202,11 @@ A driver's class comes from:
 **Main and secondary classes.** Each class is one or the other (its
 **Kind**):
 - **Main class** (the usual kind): what the overlays, timing screen and grid
-  walk show. A driver is in one, found as above.
+  walk show. A driver is in one, found as above (*Auto (by car)* in the
+  roster's **Class** column), unless you pick **—** there: no main class,
+  whatever their car or name tag says. A driver with — and a secondary class
+  shows on the overlays without a class name or colour from a main class; with
+  neither, they're left off, as below.
 - **Secondary class**: works in the background, e.g. a Rookie Cup or a
   Pro-Am trophy that runs across the main classes. Pick a driver's in the
   roster's **2nd class** column (it appears once the league has a secondary

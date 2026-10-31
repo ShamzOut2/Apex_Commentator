@@ -155,6 +155,11 @@ def fill_clean_nicknames(drivers):
     return filled
 
 
+# A driver's class_id when they're picked to have no main class ("–" in the
+# League builder), not one by their car or name tag ("" is automatic).
+NO_CLASS = "-"
+
+
 class LeagueError(Exception):
     """A user-facing error from the league builder."""
 
@@ -324,7 +329,7 @@ def normalise_profile(profile):
         }
         for key in EDITABLE_FIELDS:
             entry[key] = str(d.get(key) or "").strip()
-        if entry["class_id"] not in class_ids:
+        if entry["class_id"] not in class_ids and entry["class_id"] != NO_CLASS:
             entry["class_id"] = ""
         if entry["class2_id"] not in secondary_ids:
             entry["class2_id"] = ""
@@ -475,7 +480,10 @@ class LeagueStore:
     # A team can be in several leagues (its "shared" list names the others).
     # Saving a league copies each shared team (name, short name, colour, logo)
     # into those leagues and puts its drivers in it there too (the same driver:
-    # customer ID, else name). Drivers without a team are put in the team
+    # customer ID, else name). Links are between two leagues only: sharing a
+    # team from A to B links A and B, not B to every league A shares it with
+    # (that used to spread a team to every league, and brought links back after
+    # they were taken off). Drivers without a team are put in the team
     # they're in in a linked league, so newcomers join their team by
     # themselves. Teams are matched by name.
 
@@ -532,7 +540,7 @@ class LeagueStore:
                     ot = {"name": team["name"]}
                     other_teams.append(ot)
                 logo = self._copy_logo(me, lid, team.get("logo"))
-                links = sorted((set(team["shared"]) - {lid}) | {me})
+                links = sorted(set(ot.get("shared") or []) | {me})  # its own links, and this league
                 new = {"name": team["name"], "short": team["short"], "color": team["color"], "logo": logo, "shared": links}
                 if any(ot.get(k) != v for k, v in new.items()):
                     ot.update(new)
@@ -546,6 +554,24 @@ class LeagueStore:
                         changed = True
             if changed:
                 self._write(other)
+
+    def remove_team_from(self, profile_id, team_name, other_id):
+        """Take a team out of another league: the link between the two goes,
+        and the other league's copy is deleted (its drivers there are left
+        without a team). Returns this league as saved."""
+        profile, other = self.get(profile_id), self.get(other_id)
+        if profile is None or other is None:
+            raise LeagueError("League not found")
+        key = str(team_name or "").strip().lower()
+        for t in profile.get("teams", []):
+            if t["name"].lower() == key:
+                t["shared"] = [x for x in t.get("shared") or [] if x != other_id]
+        other["teams"] = [t for t in other.get("teams", []) if t["name"].lower() != key]
+        for d in other.get("drivers", []):
+            if str(d.get("team") or "").strip().lower() == key:
+                d["team"] = ""
+        self._write(other)
+        return self._write(profile)
 
     def _copy_logo(self, src_id, dst_id, logo):
         """A team logo for another league: library logos as they are, uploads copied over."""
@@ -669,6 +695,8 @@ class LeagueStore:
             new_name, n = f"{base} {n}", n + 1
         copy = json.loads(json.dumps(profile))
         copy.update(id=_slug(new_name), name=new_name, league_id=None)
+        for t in copy.get("teams", []):
+            t["shared"] = []  # a copy of its own: its teams aren't linked to other leagues
         src, dst = self._logo_dir(profile_id), self._logo_dir(copy["id"])
         if src.is_dir():
             shutil.copytree(src, dst, dirs_exist_ok=True)
@@ -720,6 +748,8 @@ class LeagueStore:
         if not profile:
             return None
         classes = main_classes(profile.get("classes", []))
+        if entry and entry.get("class_id") == NO_CLASS:
+            return None  # no main class, picked by hand
         if entry and entry.get("class_id"):
             for c in classes:
                 if c["id"] == entry["class_id"]:

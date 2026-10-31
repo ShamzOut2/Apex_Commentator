@@ -97,6 +97,8 @@ def build(league, board, settings, live_results=None):
     if kind in ("championship", "makes", "results"):
         name, color, logo = _group_info(league, group)
         out["subtitle"], out["accent"], out["group_logo"] = name, color, logo
+    if cfg.get("accent") == "color":
+        out["accent"] = cfg.get("accent_color")  # the board's own accent colour, picked in its settings
     team_logos = {t["name"].lower(): logo_url(league["id"], t.get("logo")) for t in league.get("teams", [])}
     numbers = {championship._key(d): d.get("car_number", "") for d in league.get("drivers", [])}
 
@@ -219,7 +221,7 @@ def _gaps(rows, by_lap=False):
             continue
         if leader is None:
             leader, ahead = row, row
-            row["gap"] = None  # the winner
+            row["gap"], row["winner"] = None, True  # the winner: their laps or race time instead
             continue
         for key, other in (("gap", leader), ("interval", ahead)):
             down = (other.get("laps") or 0) - (row.get("laps") or 0)
@@ -236,14 +238,23 @@ def _gaps(rows, by_lap=False):
 def _page(out, cfg, params):
     """Just this page of the board's rows: ``rows`` (the setting) a page, the
     rest on the pages after it. Positions carry on from page to page."""
-    n = max(1, int(cfg.get("rows") or 1)) if not out.get("image") else max(1, len(out["rows"]))
-    pages = max(1, -(-len(out["rows"]) // n))
+    rows = out["rows"]
+    n = max(1, int(cfg.get("rows") or 1)) if not out.get("image") else max(1, len(rows))
+    # keep_leader: the first row (the leader, the winner) heads every page,
+    # the rest carrying on from page to page under it.
+    keep = bool(cfg.get("keep_leader")) and out["kind"] != "calendar" and n > 1 and len(rows) > n
+    pages = max(1, 1 + -(-(len(rows) - n) // (n - 1))) if keep else max(1, -(-len(rows) // n))
     try:
         page = int(params.get("page") or 0)
     except (TypeError, ValueError):
         page = 0
     page = min(max(page, 0), pages - 1)
-    out.update(rows=out["rows"][page * n:(page + 1) * n], page=page, pages=pages)
+    if keep and page:
+        start = n + (page - 1) * (n - 1)
+        shown = [dict(rows[0], kept=True)] + rows[start:start + n - 1]
+    else:
+        shown = rows[page * n:(page + 1) * n]
+    out.update(rows=shown, page=page, pages=pages)
     return out
 
 
@@ -258,12 +269,14 @@ def meetings(cal):
         if r["event"] and prev and prev.get("event") == r["event"]:
             prev["last"] = r["round"]
             prev["races"].append(r["name"])
-            prev["sessions"].append({"name": r["name"], "length": r.get("length", ""), "time": r.get("time", "")})
+            prev["sessions"].append({"name": r["name"], "length": r.get("length", ""), "time": r.get("time", ""),
+                                     "winners": list(r["winners"]), "done": r["done"]})
             prev["done"] = prev["done"] and r["done"]
             prev["winners"] += [dict(w, race=r["name"]) for w in r["winners"]]
             continue
         entry = dict(r, last=None, races=[r["name"]],
-                     sessions=[{"name": r["name"], "length": r.get("length", ""), "time": r.get("time", "")}])
+                     sessions=[{"name": r["name"], "length": r.get("length", ""), "time": r.get("time", ""),
+                                "winners": list(r["winners"]), "done": r["done"]}])
         if r["event"]:
             entry["name"] = r["event"]
             entry["winners"] = [dict(w, race=r["name"]) for w in r["winners"]]

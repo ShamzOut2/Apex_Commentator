@@ -33,6 +33,13 @@ class UnclassedTests(unittest.TestCase):
             results, _ = app.session_results(app.leagues.get(league["id"]))
             cust = {d["cust_id"] for d in gt4[1:]}
             self.assertFalse({r["driver"] for r in results} & {f"cust:{c}" for c in cust})
+            # Not in the roster at all (a session outside the league): shown.
+            stranger = gt4[1]
+            league["drivers"] = [d for d in league["drivers"] if d["cust_id"] != stranger["cust_id"]]
+            app.leagues.save(league)
+            app.leagues.set_active(league["id"])
+            snap = app.build_snapshot()
+            self.assertFalse(next(d for d in snap["drivers"] if d["car_idx"] == stranger["car_idx"])["hidden"])
             # Turned off in the league: everyone again.
             league["hide_unclassed"] = False
             app.leagues.save(league)

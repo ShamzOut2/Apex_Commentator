@@ -50,6 +50,23 @@ class StandingsOverlayTests(unittest.TestCase):
         app._fl_flash["at"] += 4
         self.assertIsNone(app.build_snapshot()["overlays"]["fastest_flash"])
 
+    def test_no_class_name_on_the_flash_for_a_driver_without_a_main_class(self):
+        from apex.league import profile_from_session
+        app, source = self.app()
+        self.run_for(app, 2)
+        league = profile_from_session(app.build_snapshot()["drivers"], "S")
+        league["classes"] = [{"id": "am", "name": "Am", "role": "secondary"}]
+        for d in league["drivers"]:
+            d.update(class_id="-", class2_id="am")  # no main class, just the secondary one
+        league = app.leagues.save(league)
+        app.leagues.set_active(league["id"])
+        app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash_s": 1000}})
+        for _ in range(400):
+            self.run_for(app, 1)
+            ov = app.build_snapshot()["overlays"]
+        self.assertTrue(ov["standings"])  # still on the tower (they have a secondary class)
+        self.assertEqual(ov["fastest_flash"]["class_key"], "")
+
     def test_laps_set_before_the_app_started_dont_flash(self):
         app, source = self.app()
         self.run_for(app, 300)
@@ -181,6 +198,19 @@ class StandingsOverlayTests(unittest.TestCase):
         pr = app.build_snapshot()["overlays"]["progress"]
         self.assertEqual(pr["mode"], "time")
         self.assertAlmostEqual(pr["time_remain"], 1190, delta=2)
+
+    def test_timed_session_says_last_lap_once_the_clock_runs_out(self):
+        from dataclasses import replace
+
+        from apex.core import STATE_CHECKERED, STATE_RACING
+        app, _ = self.app(session="qualify")
+        self.run_for(app, 2)
+        session = {"SessionTime": "1200.0000 sec", "SessionLaps": "unlimited"}
+        frame = replace(app._frame, session_time_remain=0.0, session_state=STATE_RACING)
+        self.assertTrue(app._session_progress(frame, session, [])["time_up"])
+        # Still time on the clock, or the chequered flag out: not the last lap.
+        self.assertFalse(app._session_progress(replace(frame, session_time_remain=30.0), session, [])["time_up"])
+        self.assertFalse(app._session_progress(replace(frame, session_state=STATE_CHECKERED), session, [])["time_up"])
 
     def test_reveal_in_qualifying_lists_drivers_without_a_time_last(self):
         app, source = self.app(session="qualify")

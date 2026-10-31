@@ -662,3 +662,29 @@ p.hint .desk { margin-left: 6px; }
 /* Import from a spreadsheet: which column is which. */
 .csv-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 14px; margin: 8px 0 12px; }
 #csv-modal .modal { max-width: 780px; }
+
+/* Hotkeys window: every key that's set, at the top. */
+.hk-set { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.hk-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 4px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel-2); color: var(--text); font-size: 12px; cursor: pointer; }
+.hk-chip kbd { min-width: 22px; text-align: center; }
+.hk-chip:hover { border-color: var(--accent); }
+
+/* Colours from a background image, to pick from. */
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.swatch { width: 30px; height: 30px; border-radius: 6px; border: 2px solid var(--line); cursor: pointer; padding: 0; }
+.swatch:hover { border-color: #fff; transform: scale(1.08); }
+
+.len-field { display: inline-flex; align-items: center; gap: 4px; }
+.len-field input { width: 70px; }
+
+/* Custom points systems. */
+.schemes { display: flex; flex-direction: column; gap: 8px; }
+.scheme { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.scheme > input { width: 170px; }
+.scheme .grow { flex: 1; min-width: 200px; }
+
+/* The eyedropper by each colour box (pickColor in app.js). */
+.btn.dropper { padding: 4px; min-width: 0; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; flex: none; }
+.btn.dropper svg { width: 16px; height: 16px; }
+body.dropping, body.dropping * { cursor: crosshair !important; }

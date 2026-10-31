@@ -32,6 +32,8 @@ const POP_MS = 700;
 const lastPlace = new Map();   // car -> position last drawn
 const moves = new Map();       // car -> {up, at}
 const holders = new Map();     // car -> when they took the fastest lap
+const finishers = new Map();   // car -> when they took the chequered flag
+const WAVE_MS = 1100;          // one wave of a finished driver's flag
 let placeView = "";
 
 function notePlaces(entries, classMode) {
@@ -47,6 +49,8 @@ function notePlaces(entries, classMode) {
     const holds = classMode ? e.class_fastest : e.fastest;
     if (holds && !holders.has(e.car_idx)) holders.set(e.car_idx, fresh ? -1e9 : now);
     if (!holds) holders.delete(e.car_idx);
+    if (e.finished && !finishers.has(e.car_idx)) finishers.set(e.car_idx, fresh ? -1e9 : now);
+    if (!e.finished) finishers.delete(e.car_idx);
   }
 }
 
@@ -91,6 +95,56 @@ function fastestIcon(e, cfg, classMode) {
   if (!cfg.show_fastest_icon || !(classMode ? e.class_fastest : e.fastest)) return "";
   const pop = ongoing(holders.get(e.car_idx) ?? -1e9, POP_MS);
   return `<span class="fl-icon ${pop ? "pop" : ""}" style="${pop || ""}" title="Fastest lap">${STOPWATCH}</span>`;
+}
+
+// A chequered flag by a driver who's finished the race: it pops in as they
+// cross the line, then waves. Every flag waves in time, whatever the redraws
+// (the wave runs off the page's clock).
+function finishFlag(e, cfg) {
+  if (cfg.finish_flag === false || !e.finished) return "";
+  const pop = ongoing(finishers.get(e.car_idx) ?? -1e9, POP_MS * 1.3);
+  const wave = `--wave-delay:-${Math.round(performance.now() % WAVE_MS)}ms`;
+  return `<span class="fin-flag ${pop ? "pop" : ""}" style="${pop ? `${pop};` : ""}${wave}" title="Finished">${FINISH_FLAG}</span>`;
+}
+
+// On the tower the flags are a tab of their own sticking out of its right
+// edge, level with each finisher's row: a rail beside the tower (kept across
+// redraws), each tab sliding out from behind the tower as they finish.
+const finRail = document.createElement("div");
+finRail.className = "fin-rail";
+const finTabs = new Map();  // car -> tab element
+
+function placeFinishTabs(entries, cfg) {
+  if (finRail.parentNode !== tower) tower.appendChild(finRail);
+  const done = new Map(entries.filter((e) => cfg.finish_flag !== false && e.finished).map((e) => [String(e.car_idx), e]));
+  const seen = new Set();
+  for (const row of tower.querySelectorAll(".srow[data-key]")) {
+    const key = row.dataset.key;
+    const e = done.get(key);
+    if (!e || seen.has(key)) continue;
+    seen.add(key);
+    // Its place in the tower as laid out (not mid-slide).
+    let top = 0;
+    for (let el = row; el && el !== tower; el = el.offsetParent) top += el.offsetTop;
+    let tab = finTabs.get(key);
+    if (!tab) {
+      tab = document.createElement("div");
+      const fresh = ongoing(finishers.get(e.car_idx) ?? -1e9, 1500);
+      tab.className = `fin-tab ${fresh ? "in" : ""}`;
+      tab.innerHTML = `<span class="fin-flag">${FINISH_FLAG}</span>`;
+      finTabs.set(key, tab);
+      finRail.appendChild(tab);
+    }
+    tab.style.top = `${top}px`;
+    tab.style.height = `${row.offsetHeight}px`;
+    tab.querySelector(".fin-flag").style.setProperty("--wave-delay", `-${Math.round(performance.now() % WAVE_MS)}ms`);
+  }
+  for (const [key, tab] of finTabs) {
+    if (!seen.has(key)) {
+      tab.remove();
+      finTabs.delete(key);
+    }
+  }
 }
 
 function renderFlash(snap, ov) {
@@ -172,7 +226,8 @@ function extraDrivers(entries, cfg) {
   const rest = entries.slice(cfg.rows);
   const sets = Math.ceil(rest.length / n);
   const set = Math.floor(Date.now() / 1000 / cfg.rows_extra_s) % sets;
-  return rest.slice(set * n, set * n + n);
+  // Always n drivers: a last set that's short is filled from the start of the rest again.
+  return Array.from({ length: n }, (_, k) => rest[(set * n + k) % rest.length]);
 }
 
 // What the race leader (each class's, by class) shows where the gap would be:
@@ -185,6 +240,9 @@ function leaderText(e, cfg, setting = cfg.leader_cell) {
 function leaderInterval(e, cfg) {
   return cfg.interval_leader === "blank" ? "" : `<span class="lead">${leaderText(e, cfg, cfg.interval_leader)}</span>`;
 }
+
+// The bar's class colour: the car number's (class_colors), unless it has its own.
+const stripeWhich = (cfg) => (cfg.stripe_colors && cfg.stripe_colors !== "same" ? cfg.stripe_colors : cfg.class_colors);
 
 // The car number: on a background in the driver's class colour, or just the number (Overlays tab).
 function numberChip(e, cls, cfg) {
@@ -202,10 +260,13 @@ function numberChip(e, cls, cfg) {
 function rowSpec(cfg, cols) {
   const spec = [["pos", "40px", false], ["stripe", "6px", false]];
   if (cfg.show_number) spec.push(["number", "50px", false]);
-  if (cfg.logo_col && !cfg.logo_last) spec.push(["logo", "34px", false]);
-  spec.push(["name", "minmax(60px, 1fr)", true]);
+  const logoW = `${Math.round(34 * Math.min(1.5, (cfg.logo_scale || 100) / 100))}px`;  // the logo column grows with the logos
+  if (cfg.logo_col && !cfg.logo_last) spec.push(["logo", logoW, false]);
+  // The driver name column: set by hand (name_width px; longer names end in
+  // "…"), or 0: it takes the room left / fits the names.
+  spec.push(cfg.name_width > 0 ? ["name", `${cfg.name_width}px`, false] : ["name", "minmax(60px, 1fr)", true]);
   if (cfg.team_col) spec.push(["team", "minmax(60px, .6fr)", true]);
-  if (cfg.logo_col && cfg.logo_last) spec.push(["logo", "34px", false]);
+  if (cfg.logo_col && cfg.logo_last) spec.push(["logo", logoW, false]);
   return spec.concat(cols.map((c) => [c[0], c[1], true]));
 }
 
@@ -263,7 +324,7 @@ function autoFit(cfg, cols) {
     return was && want <= was && want > was - 14 ? was : want;
   });
   // The name column takes any spare room (when the header needs more width than the columns).
-  tower.style.setProperty("--grid", fit.widths.map((w, i) => (spec[i][0] === "name" ? `minmax(${w}px, 1fr)` : `${w}px`)).join(" "));
+  tower.style.setProperty("--grid", fit.widths.map((w, i) => (spec[i][0] === "name" && spec[i][2] ? `minmax(${w}px, 1fr)` : `${w}px`)).join(" "));
   const total = fit.widths.reduce((n, w) => n + w, 0) + (colBg ? 0 : ROW_GAP * (spec.length - 1) + ROW_PAD);
   // Room for the header too: the session name and laps / time left side by
   // side, unless the name may wrap onto two lines.
@@ -280,7 +341,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
   // The cells in the order rowSpec gives: the team logo and the team name are columns of their own.
   const cell = {
     pos: () => `<span class="p tnum" data-opcol="pos">${pos}</span>`,
-    stripe: () => `<span class="stripe" style="${cfg.show_stripe && paintFor(e, cls, cfg.class_colors) ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : paintFor(e, cls, cfg.class_colors))}` : ""}"></span>`,
+    stripe: () => `<span class="stripe" style="${cfg.show_stripe && paintFor(e, cls, stripeWhich(cfg)) ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : paintFor(e, cls, stripeWhich(cfg)))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
     logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
     name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
@@ -304,6 +365,8 @@ function progressText(ov) {
     if (pr.laps_total && pr.lap >= pr.laps_total) return "FINAL LAP";
     return `LAP ${pr.lap}${pr.laps_total ? ` / ${pr.laps_total}` : ""}`;
   }
+  // The clock has run out: the last lap, until the chequered flag.
+  if (pr.time_up) return "LAST LAP";
   if (pr.time_remain == null) return "";
   return `${fmtClock(pr.time_remain)}${left}`;
 }
@@ -368,6 +431,11 @@ function render() {
   const entries = ov.standings;
   // No logo column when no team has a logo.
   const cfg = { ...ov.settings.standings };
+  if (cfg.mode === "class") {
+    // By class: its own most drivers and extra drivers (a class each).
+    cfg.rows = cfg.rows_class;
+    cfg.rows_last = cfg.rows_last_class;
+  }
   // Team logo and team name, each a column of its own (the name can sit under the driver's instead).
   cfg.logo_col = cfg.show_logo && entries.some((e) => e.team_logo);
   cfg.logo_last = cfg.team_logo_side === "last";
@@ -438,11 +506,13 @@ function render() {
     fitMode = mode;
     flipRows(tower, ".srow[data-key]", () => {
       tower.innerHTML = html;
+      tower.appendChild(finRail);
       placeSponsor(sponsor, cfg);
       if (auto) autoFit(cfg, cols);
     });
   }
   placeSponsor(sponsor, cfg);
+  placeFinishTabs(visible ? entries : [], cfg);
 }
 
 // -- full-screen board --------------------------------------------------------
@@ -497,11 +567,11 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     ? `<td class="lg c" data-opcol="logo">${e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}</td>`
     : `<td class="team" data-opcol="team">${esc(e.team || "")}</td>`)).join("");
   const cells = [
-    `<td class="stripe" style="${cfg.show_stripe && paintFor(e, cls, cfg.class_colors) ? `background:${esc(classMode && e.team_color ? e.team_color : paintFor(e, cls, cfg.class_colors))}` : "background:none"}"></td>`,
+    `<td class="stripe" style="${cfg.show_stripe && paintFor(e, cls, stripeWhich(cfg)) ? `background:${esc(classMode && e.team_color ? e.team_color : paintFor(e, cls, stripeWhich(cfg)))}` : "background:none"}"></td>`,
     `<td class="p r" data-opcol="pos">${pos}</td>`,
     race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
     `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,
-    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
+    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
     teamCells,
   ];
   const down = classMode ? e.class_laps_down : e.laps_down;
