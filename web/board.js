@@ -78,21 +78,42 @@ function tableHtml(cols, rows) {
     <tbody>${rows.map((r, i) => `<tr class="${(r.pos || r.rank) <= 3 ? "top3" : ""}" style="--i:${i}">${cols.map((c) => `<td class="${c[2]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
-function dateText(r) {
-  if (!r.date) return "";
-  const d = new Date(`${r.date}T${r.time || "12:00"}`);
-  if (isNaN(d)) return r.date;
-  return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const ordinal = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th"}`;
+
+// A round's date, in the style picked for the calendar board.
+function dateText(r, format) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(r.date || "");
+  if (!m) return r.date || "";
+  const [y, mo, d] = [+m[1], +m[2], +m[3]];
+  const weekday = DAYS[new Date(y, mo - 1, d).getDay()];
+  const pad = (n) => String(n).padStart(2, "0");
+  switch (format) {
+    case "numeric": return `${pad(d)}/${pad(mo)}/${String(y).slice(-2)}`;               // 22/11/26
+    case "day_month": return `${ordinal(d)} ${MONTHS[mo - 1]}`;                         // 22nd November
+    case "full": return `${ordinal(d)} ${MONTHS[mo - 1]} ${y}`;                         // 22nd November 2026
+    case "weekday": return `${weekday} ${ordinal(d)} ${MONTHS[mo - 1]}`;                // Sunday 22nd November
+    default: return `${weekday.slice(0, 3)} ${d} ${MONTHS[mo - 1].slice(0, 3)}`;        // Sun 22 Nov
+  }
+}
+
+// "Round 3", the round's own name, or both, as picked; a round without a
+// name of its own is "Round 3" whatever's picked.
+function roundTitle(r, how) {
+  const own = r.name && r.name !== `Round ${r.round}` ? r.name : "";
+  if (how === "number" || !own) return `Round ${r.round}`;
+  return how === "name" ? own : `Round ${r.round} · ${own}`;
 }
 
 function calendarHtml(b) {
   const s = b.settings;
   if (!b.rows.length) return '<div class="empty-board">No rounds in the calendar yet.</div>';
   return `<div class="cal">${b.rows.map((r, i) => `<div class="round ${r.done ? "done" : ""} ${r.next ? "next" : ""}" style="--i:${i}">
-      <div class="rn">Round ${r.round}${r.multiplier !== 1 ? ` · ×${r.multiplier} points` : ""}<span class="tag">${r.next ? "Next" : r.done ? "Done" : ""}</span></div>
-      <div class="tr">${esc(r.track || r.name)}</div>
+      <div class="rn"><span class="rt">${esc(roundTitle(r, s.round_title))}</span>${s.show_multiplier && r.multiplier !== 1 ? `<span class="mult">×${r.multiplier} points</span>` : ""}<span class="tag">${r.next ? "Next" : r.done ? "Done" : ""}</span></div>
+      <div class="tr">${esc(r.track || "Track to be confirmed")}</div>
       ${s.show_config && r.config ? `<div class="cf">${esc(r.config)}</div>` : ""}
-      <div class="when">${[s.show_date && dateText(r), s.show_time && r.time, s.show_length && r.length].filter(Boolean).map(esc).join(" · ")}</div>
+      <div class="when">${[s.show_date && dateText(r, s.date_format), s.show_time && r.time, s.show_length && r.length].filter(Boolean).map(esc).join(" · ")}</div>
       ${s.show_winners && r.winners.length ? `<div class="wins">${r.winners.map((w) => `<span style="${w.color ? `background:${esc(w.color)};color:${inkFor(w.color)}` : ""}">🏆 ${esc(r.winners.length === 1 ? "" : `${w.group_name}: `)}${esc(w.name)}</span>`).join("")}</div>` : ""}
     </div>`).join("")}</div>`;
 }

@@ -29,6 +29,10 @@ How each version's entry is written:
 
 ### Improvements
 
+- The season calendar board can show your own round names ("Round 3 ·
+  Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
+  Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
+  November. The "×2 points" note on rounds worth more can be turned off.
 - The Sponsors overlay's panel sits closer around the logos. In "one at a
   time" mode it fits whichever logo is showing.
 

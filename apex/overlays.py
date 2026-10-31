@@ -100,7 +100,13 @@ DEFAULTS = {
     "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
-                       "show_winners": True},
+                       "show_winners": True,
+                       # Each round's title: "both" (Round 3 · its name), "name" (its own name) or "number" (Round 3).
+                       "round_title": "both",
+                       # weekday_short: Sun 22 Nov; numeric: 22/11/26; day_month: 22nd November;
+                       # full: 22nd November 2026; weekday: Sunday 22nd November.
+                       "date_format": "weekday_short",
+                       "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
     "board_results": {
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
@@ -127,7 +133,9 @@ DEFAULTS = {
 LIMITS = {"scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
-           "bg": ("default", "color", "image"), "place": PLACES, "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
+           "bg": ("default", "color", "image"), "place": PLACES,
+           "round_title": ("both", "name", "number"),
+           "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 
 def normalise(settings):

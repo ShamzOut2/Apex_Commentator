@@ -74,6 +74,8 @@
 .round.next { border-left-color: var(--accent); background: rgba(255, 122, 26, .14); }
 .round .rn { display: flex; align-items: baseline; gap: 10px; font-size: 16px; font-weight: 800; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
 .round .rn .tag { margin-left: auto; color: var(--accent); }
+.round .rn .rt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.round .rn .mult { flex: none; font-size: 12px; padding: 2px 7px; border-radius: 4px; background: var(--accent); color: #1a0d00; letter-spacing: .04em; }
 .round .tr { font-size: 26px; font-weight: 800; line-height: 1.15; }
 .round .cf { font-size: 18px; color: var(--muted); font-weight: 600; }
 .round .when { font-size: 18px; font-weight: 700; }

@@ -55,6 +55,10 @@ OBS dock.
 
 ### Improvements
 
+- The season calendar board can show your own round names ("Round 3 ·
+  Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
+  Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
+  November. The "×2 points" note on rounds worth more can be turned off.
 - The Sponsors overlay's panel sits closer around the logos. In "one at a
   time" mode it fits whichever logo is showing.
 
@@ -523,7 +527,14 @@ built from the active league:
   leader and to the team ahead.
 - **Manufacturers**: by the cars' makes, Overall and per class.
 - **Season calendar**: every round with track, layout, date, time and
-  length, which rounds are done (with their winners) and which is next. Or
+  length, which rounds are done (with their winners) and which is next.
+  - **Round titles**: "Round 3 · your round name", just your round name, or
+    just "Round 3". A round you haven't named is always "Round 3".
+  - **Dates as**: Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or
+    Sunday 22nd November.
+  - A round with a points multiplier other than 1 (Championship → Calendar
+    & results → *Points ×*, e.g. 2 for double points) shows "×2 points". This
+    can be turned off. Or
   the league's own calendar image instead (see *League builder*).
 - **Finishing order**: Overall or per class, from the latest round, a chosen
   round, or the session going on now (live).
