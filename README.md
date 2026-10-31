@@ -45,6 +45,12 @@ OBS dock.
   you're spectating (position, number, name, team and car). It slides in each
   time the camera moves to someone, and can hide itself after a few seconds.
 
+### Fixes
+
+- "Show on my screen" overlays covered the whole monitor in dark instead of
+  being see-through (since v0.4.4). They're see-through again, and the app
+  checks with you after each update in case they ever come up solid.
+
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
 
@@ -431,7 +437,8 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
 - With more than one monitor, pick which one; changing it moves the overlay.
 - **Remove** takes it down; *Remove all from my screen* clears everything.
   They also close with the app.
-- The first time, the app asks whether you can see your screen through it.
+- The first time (and the first time after each update), the app asks
+  whether you can see your screen through it.
   If you don't answer within 15 seconds it takes the overlay down by itself
   (in case it came up solid and covered your screen). From then on it just
   appears.

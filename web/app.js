@@ -1640,7 +1640,7 @@ loadBackgrounds();
 
 // -- overlays straight on the user's screen (app window only) -------------------
 
-const DESK_OK = "apex.desktopOk";  // this PC shows them see-through: no check next time
+const DESK_OK = "apex.desktopOk";  // the app version this PC was seen to show them see-through on
 const DESK_CHECK_S = 15;
 let deskKey = "";
 let deskCheck = null;  // {page, left, timer} while asking
@@ -1675,7 +1675,8 @@ async function deskShow(page, screen) {
   if (!r) return;
   let ok = false;
   try {
-    ok = localStorage.getItem(DESK_OK) === "1";
+    // Checked again after each update: a new version could show them differently.
+    ok = localStorage.getItem(DESK_OK) === ui.version;
   } catch (e) { /* storage unavailable */ }
   if (!ok) startDeskCheck(page);
 }
@@ -1706,7 +1707,7 @@ function stopDeskCheck() {
 
 $("#desk-check-yes").addEventListener("click", () => {
   try {
-    localStorage.setItem(DESK_OK, "1");
+    localStorage.setItem(DESK_OK, ui.version || "");
   } catch (e) { /* storage unavailable */ }
   stopDeskCheck();
   toast("Great: overlays will go straight on screen from now on");

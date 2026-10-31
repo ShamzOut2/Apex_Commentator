@@ -19,6 +19,12 @@ How each version's entry is written:
   you're spectating (position, number, name, team and car). It slides in each
   time the camera moves to someone, and can hide itself after a few seconds.
 
+### Fixes
+
+- "Show on my screen" overlays covered the whole monitor in dark instead of
+  being see-through (since v0.4.4). They're see-through again, and the app
+  checks with you after each update in case they ever come up solid.
+
 ## v0.4.4
 
 ### Fixes

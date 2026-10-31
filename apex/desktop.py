@@ -140,8 +140,11 @@ def _close_popouts():
 # never takes the keyboard and lets the mouse through to whatever is under it
 # (iRacing, this app). Needs the app window (pywebview, WebView2 on Windows).
 #
-# The page's see-through parts show the window's background colour,
-# SEE_THROUGH, which Windows is told to leave out (and pass clicks through).
+# The page's browser view is transparent (transparent=True), so its empty
+# parts show the window's own background colour, SEE_THROUGH, which Windows
+# is told to leave out (and pass clicks through). Both are needed: the
+# browser view draws in a layer of its own, which the colour key can't reach,
+# so an opaque browser background covers the whole screen.
 # Opening and closing run one at a time on their own thread, so a slow window
 # never holds up the app, and each waits for the last to finish.
 
@@ -220,7 +223,7 @@ def _show(key, url, title, screen):
     window = webview.create_window(
         title, url, screen=monitors[screen] if 0 <= screen < len(monitors) else None,
         fullscreen=True, frameless=True, on_top=True, focus=False, shadow=False, easy_drag=False,
-        resizable=False, background_color=f"#{r:02x}{g:02x}{b:02x}",
+        resizable=False, transparent=True, background_color=f"#{r:02x}{g:02x}{b:02x}",
     )
     _windows[key] = window
     _overlays[key] = (window, screen)
@@ -273,6 +276,10 @@ def _see_through(window):
 
         def apply():
             key = Color.FromArgb(*SEE_THROUGH)
+            try:
+                form.browser.webview.DefaultBackgroundColor = Color.Transparent  # the page's empty parts
+            except Exception:
+                pass  # pywebview set it already (transparent=True)
             form.BackColor = key
             form.TransparencyKey = key
             hwnd = form.Handle.ToInt32()

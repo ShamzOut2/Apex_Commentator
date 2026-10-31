@@ -79,7 +79,7 @@ class OnScreenOverlayTests(unittest.TestCase):
         self.settle()
         w = self.made[0]
         self.assertEqual((w.kw["screen"].width, w.kw["on_top"], w.kw["focus"], w.kw["frameless"]), (1920, True, False, True))
-        self.assertNotIn("transparent", w.kw)  # the colour key does it, not the hidden-until-loaded mode
+        self.assertTrue(w.kw["transparent"])  # the page's browser view must be see-through for the colour key to work
         desktop.show_overlay("standings", "http://x/standings.html?desktop=1", "Standings", 0)  # move it
         self.settle()
         self.assertTrue(w.destroyed)
