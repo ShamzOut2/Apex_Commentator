@@ -54,6 +54,10 @@ How each version's entry is written:
 
 ### Fixes
 
+- Lap tracker (qualifying and practice): laps are timed again in real
+  sessions. A car's position stepping back a hair (iRacing smooths other
+  cars' positions) dropped its lap, leaving it on "OUT LAP" with empty
+  sectors.
 - The timing tower's sponsor bar no longer flashes; it fades only when the
   next logo comes up.
 - The tower's team logo is the same size before or after the name.

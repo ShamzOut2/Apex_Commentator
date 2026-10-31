@@ -22,6 +22,10 @@ anything slower is yellow. With no reference yet, it's purple.
 from .sources import TRK_NOT_IN_WORLD, TRK_OFF_TRACK
 
 MAX_STEP_PCT = 0.25    # more than this between samples: the data skipped
+# iRacing's position for other cars (smoothed over the network) can step back
+# a little now and then; a step back up to this much is that, not a skip.
+JITTER_PCT = 0.02
+LOG_DROPS = 10  # dropped laps written to the log, a session
 TIME_JUMP_S = 2.0
 LAST_LAP_ADOPT_S = 3.0  # how long to wait for iRacing's own lap time
 DEFAULT_SECTORS = (0.0, 1 / 3, 2 / 3)
@@ -90,9 +94,11 @@ class LapTracker:
         self.session = None
         self.cars = {}
         self.class_best = {}     # class key -> {"lap": t, "sectors": [..]}
+        self._logged = 0         # dropped laps logged this session
 
     def reset(self, session=None):
         self.session = session
+        self._logged = 0
         self.cars = {}
         self.class_best = {}
 
@@ -131,6 +137,12 @@ class LapTracker:
         on_pit = bool(frame.on_pit[idx]) if idx < len(frame.on_pit) else False
         surface = frame.surface[idx]
         prev_pct, prev_t = car.pct, car.t
+        if prev_pct is not None and 0.0 < (prev_pct - pct) % 1.0 < JITTER_PCT:
+            # A hair backwards: the car hasn't really moved back. Keep its
+            # furthest position (and the time it got there) and carry on.
+            car.iracing_last = _value(frame.last_lap, idx)
+            self._adopt_iracing_time(idx, car, t, class_of)
+            return
         car.pct, car.t = pct, t
         iracing_before, car.iracing_last = car.iracing_last, _value(frame.last_lap, idx)
         self._time_lap(idx, car, t, pct, prev_pct, prev_t, on_pit, surface, iracing_before, class_of)
@@ -144,6 +156,11 @@ class LapTracker:
         if dt <= 0:
             return
         if dt > TIME_JUMP_S or forward > MAX_STEP_PCT:
+            if car.lap is not None and self._logged < LOG_DROPS:
+                # Shown in apex.log (a few a session): why a car's timed lap stopped.
+                self._logged += 1
+                print(f"[apex] lap timing: car {idx}'s lap dropped (lap position {prev_pct:.4f} -> {pct:.4f} "
+                      f"in {dt:.2f} s)")
             car.lap = None  # skipped: the timing can't be trusted
             return
         lap = car.lap
