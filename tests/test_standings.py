@@ -50,6 +50,23 @@ class StandingsOverlayTests(unittest.TestCase):
         app._fl_flash["at"] += 4
         self.assertIsNone(app.build_snapshot()["overlays"]["fastest_flash"])
 
+    def test_no_class_name_on_the_flash_for_a_driver_without_a_main_class(self):
+        from apex.league import profile_from_session
+        app, source = self.app()
+        self.run_for(app, 2)
+        league = profile_from_session(app.build_snapshot()["drivers"], "S")
+        league["classes"] = [{"id": "am", "name": "Am", "role": "secondary"}]
+        for d in league["drivers"]:
+            d.update(class_id="-", class2_id="am")  # no main class, just the secondary one
+        league = app.leagues.save(league)
+        app.leagues.set_active(league["id"])
+        app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash_s": 1000}})
+        for _ in range(400):
+            self.run_for(app, 1)
+            ov = app.build_snapshot()["overlays"]
+        self.assertTrue(ov["standings"])  # still on the tower (they have a secondary class)
+        self.assertEqual(ov["fastest_flash"]["class_key"], "")
+
     def test_laps_set_before_the_app_started_dont_flash(self):
         app, source = self.app()
         self.run_for(app, 300)

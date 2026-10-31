@@ -32,6 +32,8 @@ const POP_MS = 700;
 const lastPlace = new Map();   // car -> position last drawn
 const moves = new Map();       // car -> {up, at}
 const holders = new Map();     // car -> when they took the fastest lap
+const finishers = new Map();   // car -> when they took the chequered flag
+const WAVE_MS = 1100;          // one wave of a finished driver's flag
 let placeView = "";
 
 function notePlaces(entries, classMode) {
@@ -47,6 +49,8 @@ function notePlaces(entries, classMode) {
     const holds = classMode ? e.class_fastest : e.fastest;
     if (holds && !holders.has(e.car_idx)) holders.set(e.car_idx, fresh ? -1e9 : now);
     if (!holds) holders.delete(e.car_idx);
+    if (e.finished && !finishers.has(e.car_idx)) finishers.set(e.car_idx, fresh ? -1e9 : now);
+    if (!e.finished) finishers.delete(e.car_idx);
   }
 }
 
@@ -91,6 +95,16 @@ function fastestIcon(e, cfg, classMode) {
   if (!cfg.show_fastest_icon || !(classMode ? e.class_fastest : e.fastest)) return "";
   const pop = ongoing(holders.get(e.car_idx) ?? -1e9, POP_MS);
   return `<span class="fl-icon ${pop ? "pop" : ""}" style="${pop || ""}" title="Fastest lap">${STOPWATCH}</span>`;
+}
+
+// A chequered flag by a driver who's finished the race: it pops in as they
+// cross the line, then waves. Every flag waves in time, whatever the redraws
+// (the wave runs off the page's clock).
+function finishFlag(e, cfg) {
+  if (cfg.finish_flag === false || !e.finished) return "";
+  const pop = ongoing(finishers.get(e.car_idx) ?? -1e9, POP_MS * 1.3);
+  const wave = `--wave-delay:-${Math.round(performance.now() % WAVE_MS)}ms`;
+  return `<span class="fin-flag ${pop ? "pop" : ""}" style="${pop ? `${pop};` : ""}${wave}" title="Finished">${FINISH_FLAG}</span>`;
 }
 
 function renderFlash(snap, ov) {
@@ -287,7 +301,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
     stripe: () => `<span class="stripe" style="${cfg.show_stripe && paintFor(e, cls, stripeWhich(cfg)) ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : paintFor(e, cls, stripeWhich(cfg)))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
     logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
-    name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
+    name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
     team: () => `<span class="tmc" data-opcol="team">${esc(e.team || "")}</span>`,
   };
   return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
@@ -510,7 +524,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     `<td class="p r" data-opcol="pos">${pos}</td>`,
     race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
     `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,
-    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
+    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
     teamCells,
   ];
   const down = classMode ? e.class_laps_down : e.laps_down;

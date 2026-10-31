@@ -119,6 +119,8 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 .gw-car img.flip { transform: scaleX(-1); }
 .gw-car.ahead { filter: saturate(calc(1 - var(--haze, 0))) brightness(calc(1 + var(--haze, 0) * .35)) contrast(calc(1 - var(--haze, 0) * .5)); }
 .gw-car.focus { filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .35)); }
+.gw-car.going, .road .shadow.going { animation: car-going .8s ease-in both; }  /* the last pair, when the cars either side are hidden */
+@keyframes car-going { to { opacity: 0; } }
 .gw-car.focus > * { animation: car-in .9s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes car-in { from { opacity: 0; transform: translateY(-14px); } }
 

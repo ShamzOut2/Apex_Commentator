@@ -17,8 +17,9 @@ let current = null;  // {key, el, at, html, hidden, timer, hideMs}
 // both (P3, and P1 GT3 under it).
 function positionHtml(d, cfg, cls) {
   const which = cfg.position_shown || "overall";
-  if (which === "class" && d.class_pos) return `<span class="p">P${d.class_pos}</span>${cls.name ? `<span class="cp">${esc(cls.name)}</span>` : ""}`;
-  if (which === "both" && d.class_pos) return `<span class="p">P${d.pos}</span><span class="cp">P${d.class_pos}${cls.name ? ` ${esc(cls.name)}` : ""}</span>`;
+  const name = cfg.pos_class_name !== false && cls.name ? esc(cls.name) : "";  // the class's name, unless turned off
+  if (which === "class" && d.class_pos) return `<span class="p">P${d.class_pos}</span>${name ? `<span class="cp">${name}</span>` : ""}`;
+  if (which === "both" && d.class_pos) return `<span class="p">P${d.pos}</span><span class="cp">P${d.class_pos}${name ? ` ${name}` : ""}</span>`;
   return `<span class="p">P${d.pos}</span>`;
 }
 

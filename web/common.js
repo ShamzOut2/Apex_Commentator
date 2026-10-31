@@ -480,6 +480,13 @@ function ongoing(since, ms) {
 // A stopwatch icon (fastest lap), coloured by CSS (currentColor).
 const STOPWATCH = '<svg class="stopwatch" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 1h6v2H9zm10.03 6.39 1.42-1.42-1.41-1.41-1.42 1.42A8.96 8.96 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61zM12 20a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm-1-12h2v6h-2z"/></svg>';
 
+// A chequered flag on its pole (a driver who's finished): the cloth waves (CSS .fin-flag).
+const FINISH_FLAG = '<svg class="fin-svg" viewBox="0 0 26 24" aria-hidden="true">'
+  + '<defs><pattern id="fin-check" width="8" height="8" patternUnits="userSpaceOnUse">'
+  + '<rect width="8" height="8" fill="#f4f4f4"/><rect width="4" height="4" fill="#111"/><rect x="4" y="4" width="4" height="4" fill="#111"/></pattern></defs>'
+  + '<rect x="2" y="1.5" width="2" height="21.5" rx="1" fill="#cfd3d8"/>'
+  + '<g class="fin-cloth"><rect x="4" y="2.5" width="20" height="13" fill="url(#fin-check)" stroke="rgba(0,0,0,.35)" stroke-width=".5"/></g></svg>';
+
 // Fixed 1920x1080 stage, scaled to fit the browser source. setStageSize()
 // then makes the whole stage bigger or smaller around the middle (boards,
 // full screens, the grid walk).

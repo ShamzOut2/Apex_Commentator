@@ -114,6 +114,7 @@ DEFAULTS = {
         # holder in "class" mode), and a purple pill at the top middle of the
         # screen for fl_flash_s when someone sets a new fastest lap.
         "show_fastest_icon": True,
+        "finish_flag": True,      # race: a waving chequered flag by each driver once they've taken the flag
         "fl_flash": True,
         "fl_flash_s": 6.0,
         "fl_flash_classes": False,  # also a new fastest lap in each class, not just overall
@@ -141,6 +142,7 @@ DEFAULTS = {
         "show_class": True,       # the class, in multiclass races
         "show_position": True,    # P3 (their place overall)
         "position_shown": "overall",  # "overall" (P3), "class" (P1, the class under it) or "both" (P3, and P1 GT3 under it)
+        "pos_class_name": True,       # the class's name with the class position ("P1 GT3", or just "P1")
         "class_colors": "main",   # colours from the driver's main or secondary class (see standings)
         "team_place": "under",    # "under": the team logo by the team name, the car badge at the end; "end": those two swapped
         "team_logo_side": "first",  # the team logo before ("first") or after ("last") the team name
@@ -180,6 +182,7 @@ DEFAULTS = {
     # The grid walk's own settings are with the grid walk; this is just its background.
     "gridwalk": {**BACKGROUND, **OFFSET,
                  "name_format": "full", "show_nickname": True,
+                 "neighbours": "show",  # the cars either side on the grid: "show", or "hide" (just the pair)
                  "flip_cars": False},  # car pictures facing the other way (the cars should point right, up the road)
     # Full-screen boards (board.html), one section each. Every board has:
     # banner ("none", "top", "bottom", "left", "right"), banner_id (which of
@@ -250,7 +253,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 

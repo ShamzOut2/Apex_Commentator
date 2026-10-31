@@ -115,6 +115,19 @@ body.screen .fl-flash { top: 14px; }
 @keyframes row-enter { from { opacity: 0; transform: translateX(-16px); } }
 /* The stopwatch pops in when the fastest lap changes hands. */
 .fl-icon.pop { animation: fl-pop .7s cubic-bezier(.2, .9, .3, 1.4) both; }
+/* A finished driver's chequered flag: it pops up off its pole as they cross
+   the line, then the cloth keeps waving from the pole. */
+.fin-flag { display: inline-flex; vertical-align: -4px; margin-left: 8px; }
+.fin-flag .fin-svg { width: 1.15em; height: 1.06em; overflow: visible; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .5)); }
+.fin-flag .fin-cloth { transform-box: fill-box; transform-origin: 0 50%; animation: fin-wave 1.1s ease-in-out infinite; animation-delay: var(--wave-delay, 0s); }
+@keyframes fin-wave {
+  0%, 100% { transform: skewY(0deg) scaleX(1); }
+  25% { transform: skewY(-9deg) scaleX(.9); }
+  50% { transform: skewY(3deg) scaleX(.97); }
+  75% { transform: skewY(8deg) scaleX(.88); }
+}
+.fin-flag.pop { animation: fin-pop .9s cubic-bezier(.2, .9, .3, 1.4) both; transform-origin: 10% 100%; }
+@keyframes fin-pop { 0% { transform: scale(0) rotate(-35deg); opacity: 0; } 55% { transform: scale(1.45) rotate(8deg); opacity: 1; } 100% { transform: none; } }
 @keyframes fl-pop { 0% { transform: scale(0) rotate(-90deg); opacity: 0; } 60% { transform: scale(1.5); opacity: 1; } }
 /* A new fastest lap: a light sweep across the pill once it's in. */
 .fl-pill { position: relative; overflow: hidden; }
@@ -155,7 +168,10 @@ body.screen .fl-flash { top: 14px; }
 .tower-head.chequered, .screen-head.chequered { position: relative; overflow: hidden; isolation: isolate; }
 .tower-head.chequered::before, .screen-head.chequered::before {
   content: ""; position: absolute; inset: -40% -10%; z-index: -1; pointer-events: none;
-  background: conic-gradient(#f4f4f4 25%, #111 0 50%, #f4f4f4 0 75%, #111 0) 0 0 / 26px 26px;
+  /* The dark tint for the text is part of the flag's own layer, so the two are
+     always exactly the same size: the whole header. */
+  background: linear-gradient(rgba(10, 12, 16, .52), rgba(10, 12, 16, .52)) 0 0 / 100% 100%,
+    conic-gradient(#f4f4f4 25%, #111 0 50%, #f4f4f4 0 75%, #111 0) 0 0 / 26px 26px;
   animation: flag-show 4.2s ease-in-out both, flag-wave 3.6s ease-in-out infinite, flag-drift 6s linear infinite;
   animation-delay: var(--go-delay, 0s);
 }
@@ -164,8 +180,8 @@ body.screen .fl-flash { top: 14px; }
   0%, 100% { transform: perspective(600px) rotateY(-9deg) skewY(-2deg); }
   50% { transform: perspective(600px) rotateY(9deg) skewY(2deg); }
 }
-/* The squares drift across, a whole number of squares per loop. */
-@keyframes flag-drift { from { background-position: 0 0; } to { background-position: 156px 52px; } }
+/* The squares drift across, a whole number of squares per loop (the tint stays put). */
+@keyframes flag-drift { from { background-position: 0 0, 0 0; } to { background-position: 0 0, 156px 52px; } }
 /* Flashes in and out, then stays. */
 @keyframes flag-show {
   0% { opacity: 0; }
@@ -178,15 +194,12 @@ body.screen .fl-flash { top: 14px; }
   background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .55) 50%, transparent 70%);
   transform: translateX(-120%); animation: go-sweep 1.4s ease-in-out 3 both; animation-delay: var(--go-delay, 0s);
 }
-/* Text readable on the flag: one dark plate behind all of it, so the header
-   reads as one layer with the flag round its edge. */
+/* Text readable on the flag: the flag carries a dark tint the size of the
+   whole header, and the text a shadow. */
 .tower-head .head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .screen-head .head-text { display: flex; align-items: center; gap: 24px; flex: 1; min-width: 0; }
-.tower-head.chequered .head-text, .screen-head.chequered .head-text {
-  border-radius: 8px; padding: 4px 10px; margin: -4px -6px;
-  animation: flag-text .35s ease both; animation-delay: var(--go-delay, 0s);
-}
-@keyframes flag-text { from { background-color: transparent; } to { background-color: rgba(10, 12, 16, .86); } }
+.tower-head.chequered, .screen-head.chequered { text-shadow: 0 1px 2px rgba(0, 0, 0, .95), 0 0 8px rgba(0, 0, 0, .85); }
 
 /* Full screen without column headings. */
 .screen-table.no-labels thead { display: none; }
+.tower-head.chequered .t2, .screen-head.chequered .t2 { color: #e3e6ea; }

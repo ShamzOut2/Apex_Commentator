@@ -251,11 +251,16 @@ function sceneHtml(x0, x1, first, entries, cfg) {
   const [lo, hi] = [x0, x1].map((x) => 1 - Math.round(x / SLOT_GAP)).sort((u, v) => u - v);
   const slots = [];
   for (let n = Math.max(1, lo - 14); n <= hi + 13; n++) slots.push(n);
-  const cars = slots.filter((n) => n >= lo - 8 && n <= Math.min(entries.length, hi + 9));
-  const art = cars.map((n) => `<div class="gw-car ${n === first || n === first + 1 ? "focus" : "other"}" data-slot="${n}">${carArt(entries[n - 1], cfg)}</div>`).join("");
+  // The pair, and the cars either side unless they're hidden (then, gliding
+  // from one pair to the next, the last pair fades as the camera moves).
+  const pairOf = (n) => n === first || n === first + 1;
+  const going = (n) => !pairOf(n) && (n === lo || n === lo + 1 || n === hi || n === hi + 1) && x0 !== x1;
+  const cars = slots.filter((n) => n >= lo - 8 && n <= Math.min(entries.length, hi + 9))
+    .filter((n) => cfg.neighbours !== "hide" || pairOf(n) || going(n));
+  const art = cars.map((n) => `<div class="gw-car ${pairOf(n) ? "focus" : "other"} ${cfg.neighbours === "hide" && !pairOf(n) ? "going" : ""}" data-slot="${n}">${carArt(entries[n - 1], cfg)}</div>`).join("");
   const shadows = cars.map((n) => {
     const l = Math.round((slotX(n) - BOX.len + 0.2 - a) * PX), t = Math.round((ROAD_W - slotY(n) - 1.15) * PX);
-    return `<i class="shadow" style="left:${l}px;top:${t}px;width:${(BOX.len - 0.4) * PX}px;height:${2.3 * PX}px"></i>`;
+    return `<i class="shadow ${cfg.neighbours === "hide" && !pairOf(n) ? "going" : ""}" style="left:${l}px;top:${t}px;width:${(BOX.len - 0.4) * PX}px;height:${2.3 * PX}px"></i>`;
   }).join("");
   return `<div class="scene">
     <div class="sky"></div>
@@ -353,7 +358,7 @@ function render() {
   setSize(cfg, true, true);
   // Only rebuild when what's on screen changes, so the animations play once.
   const key = JSON.stringify([show, g.index, pair, entries.slice(Math.max(0, g.index - 8), g.index).map((e) => [e.key, e.car_image, e.car_design]),
-    pair.map((e) => classes.get(e.class_key) || null), cfg.flip_cars, cfg.name_format, cfg.show_nickname,
+    pair.map((e) => classes.get(e.class_key) || null), cfg.flip_cars, cfg.name_format, cfg.show_nickname, cfg.neighbours,
     snap.league && snap.league.name, snap.session && snap.session.track]);
   if (key === shownKey) return;
   const samePair = shownKey && JSON.parse(shownKey)[1] === g.index && JSON.parse(shownKey)[0] === show;

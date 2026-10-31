@@ -35,6 +35,14 @@ How each version's entry is written:
 - Timing tower: the coloured bar can take its colour from the main or the
   secondary class on its own, separately from the car number.
 - Teams: **✕** on a league under *Also in* takes the team out of that league.
+- Timing tower: a **chequered flag** pops up by each driver as they finish
+  the race, and keeps waving.
+- Grid walk: **Cars either side on the grid**, shown or hidden (just the
+  pair).
+- League builder: **—** in the main Class column, for a driver with no main
+  class.
+- Driver on camera: the class name with the class position can be turned
+  off.
 
 ### Improvements
 
@@ -64,6 +72,10 @@ How each version's entry is written:
 
 ### Fixes
 
+- Timing tower: the dark background behind the header's text now covers the
+  whole header, the same size as the chequered flag.
+- The new fastest lap flash no longer shows a class name for a driver with
+  no main class.
 - Teams no longer end up in every league: sharing a team with one league
   doesn't share it with all the others that league shares with, and a
   league taken off a team stays off.

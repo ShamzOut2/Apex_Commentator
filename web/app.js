@@ -2256,6 +2256,7 @@ const OVERLAY_FIELDS = {
     ]],
     ["Fastest lap", [
       ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
+      ["finish_flag", "Chequered flag by each driver as they finish the race (waving)", "bool"],
       ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
       iff((v) => v.fl_flash, ["fl_flash_s", "Flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }]),
       iff((v) => v.fl_flash, ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"]),
@@ -2302,7 +2303,9 @@ const OVERLAY_FIELDS = {
     ]],
   ],
   gridwalk: [["Drivers", [["name_format", "Names", "select", NAME_FORMATS], ["show_nickname", "Nickname under the name", "bool"]]],
-    ["Car pictures", [["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
+    ["Car pictures", [["neighbours", "Cars either side on the grid", "select", [["show", "Show them in their boxes"],
+      ["hide", "Hide them: just the pair"]]],
+      ["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
   pits: [
     ["What it shows", [
       ["who", "Show", "select", [["all", "Every car in the pit lane (the one on camera first)"], ["camera", "Only the car on camera"]]],
@@ -2344,6 +2347,7 @@ const OVERLAY_FIELDS = {
       ["show_position", "Position (overall)", "bool"],
       iff((v) => v.show_position, ["position_shown", "Position shown", "select", [["overall", "Overall (P3)"],
         ["class", "In class only (P1, the class under it)"], ["both", "Both (P3, and P1 GT3 under it)"]]]),
+      iff((v) => v.show_position && v.position_shown !== "overall", ["pos_class_name", "Class name with the class position (P1 GT3; off: just P1)", "bool"]),
       ["class_colors", "Class colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]],
       ["show_number", "Car number", "bool"],
       ["show_team", "Team", "bool"],
@@ -3257,7 +3261,7 @@ function renderRoster() {
   });
   $("#roster-rows").innerHTML = rosterOrder(drivers, classes).map(([d, i]) => `<tr>${ROSTER_FIELDS.map(([f]) =>
     `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"></td>`).join("")}
-    <td><select data-row="${i}" data-field="class_id" aria-label="Class"><option value="">Auto (by car)</option>${options(main, d.class_id || "")}</select></td>
+    <td><select data-row="${i}" data-field="class_id" aria-label="Class"><option value="">Auto (by car)</option><option value="-" ${d.class_id === "-" ? "selected" : ""} title="No main class: just the secondary class, if any">—</option>${options(main, d.class_id || "")}</select></td>
     <td class="c-class2"><select data-row="${i}" data-field="class2_id" aria-label="Secondary class"><option value="">—</option>${options(second, d.class2_id || "")}</select></td>
     <td class="make-cell">${makeBadge(d.car_make)}<select data-row="${i}" data-field="car_make" aria-label="Car">${makeOptions(d.car_make || "")}</select></td>
     <td><div class="photos">${["car", "helmet"].map((kind) => photoButton(d, i, kind)).join("")}</div></td>

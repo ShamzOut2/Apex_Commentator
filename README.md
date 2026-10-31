@@ -68,6 +68,14 @@ walk, Overlays, Boards and Race control.
 - Timing tower: the coloured bar can take its colour from the main or the
   secondary class on its own, separately from the car number.
 - Teams: **✕** on a league under *Also in* takes the team out of that league.
+- Timing tower: a **chequered flag** pops up by each driver as they finish
+  the race, and keeps waving.
+- Grid walk: **Cars either side on the grid**, shown or hidden (just the
+  pair).
+- League builder: **—** in the main Class column, for a driver with no main
+  class.
+- Driver on camera: the class name with the class position can be turned
+  off.
 
 ### Improvements
 
@@ -97,6 +105,10 @@ walk, Overlays, Boards and Race control.
 
 ### Fixes
 
+- Timing tower: the dark background behind the header's text now covers the
+  whole header, the same size as the chequered flag.
+- The new fastest lap flash no longer shows a class name for a driver with
+  no main class.
 - Teams no longer end up in every league: sharing a team with one league
   doesn't share it with all the others that league shares with, and a
   league taken off a team stays off.
@@ -321,8 +333,10 @@ The front car of the row stands in its painted grid box on the far lane,
 further up the road, and the second one in the box staggered behind it, as
 on a real grid. In front of each box its number is painted, with the car's
 qualifying gap under it (pole: its lap time); pole has the start line ahead.
-The cars either side on the grid stand in their boxes too, and moving on to
-the next pair the camera glides down the grid to it. Each driver has a card
+The cars either side on the grid stand in their boxes too (*Cars either side
+on the grid*: show them, or hide them for just the pair, the last pair fading
+as the camera moves on), and moving on to the next pair the camera glides
+down the grid to it. Each driver has a card
 in the driver-on-camera card's style (top right for the front car, bottom
 left for the second): the card opens from the middle with a light sweep,
 and closes the same way as it goes, with the driver's details: grid position (and class position in multiclass races), car
@@ -419,8 +433,14 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     (tower and full screen) turns into a black-and-white chequered flag. It
     flashes in a few times with a light sweep, then keeps waving until the
     session changes (e.g. to the next race) or the overlay is taken off
-    screen. The session name, track and "FINISHED" stay readable on dark
-    plates. Races only, and only if the app saw the finish.
+    screen. The header's text stays readable: the flag carries a dark tint
+    over the whole header, the same size as the flag, and the text a shadow.
+    Races only, and only if the app saw the finish.
+  - **Finish flags**: in a race, as each driver crosses the line after the
+    chequered flag, a small chequered flag pops up by their name (tower and
+    full screen) and keeps waving, every flag in time. Rewinding a replay to
+    before the finish takes them away again. *Chequered flag by each driver
+    as they finish the race* turns them off.
   - **Columns** (each on or off):
     - gap to the leader (or to pole);
     - interval to the car ahead;
@@ -574,7 +594,8 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   so they're right in replays too (paused with the replay).
 - **Driver on camera** (`/driver.html`): a small board at the bottom centre
   naming the driver the camera is on. **Position shown**: overall, in class,
-  or both (overall, with the class position under it). Then the car number
+  or both (overall, with the class position under it). *Class name with the
+  class position* can be turned off, for just "P1" under the overall place. Then the car number
   in the class colour, name, class, team and logo, and car badge. *Class colour from*: the
   main or the secondary class, as for the standings; a driver without one
   gets no colour: no background behind the position or number, white text.
@@ -1154,7 +1175,11 @@ A driver's class comes from:
 **Main and secondary classes.** Each class is one or the other (its
 **Kind**):
 - **Main class** (the usual kind): what the overlays, timing screen and grid
-  walk show. A driver is in one, found as above.
+  walk show. A driver is in one, found as above (*Auto (by car)* in the
+  roster's **Class** column), unless you pick **—** there: no main class,
+  whatever their car or name tag says. A driver with — and a secondary class
+  shows on the overlays without a class name or colour from a main class; with
+  neither, they're left off, as below.
 - **Secondary class**: works in the background, e.g. a Rookie Cup or a
   Pro-Am trophy that runs across the main classes. Pick a driver's in the
   roster's **2nd class** column (it appears once the league has a secondary

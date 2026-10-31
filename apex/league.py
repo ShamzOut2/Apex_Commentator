@@ -155,6 +155,11 @@ def fill_clean_nicknames(drivers):
     return filled
 
 
+# A driver's class_id when they're picked to have no main class ("–" in the
+# League builder), not one by their car or name tag ("" is automatic).
+NO_CLASS = "-"
+
+
 class LeagueError(Exception):
     """A user-facing error from the league builder."""
 
@@ -324,7 +329,7 @@ def normalise_profile(profile):
         }
         for key in EDITABLE_FIELDS:
             entry[key] = str(d.get(key) or "").strip()
-        if entry["class_id"] not in class_ids:
+        if entry["class_id"] not in class_ids and entry["class_id"] != NO_CLASS:
             entry["class_id"] = ""
         if entry["class2_id"] not in secondary_ids:
             entry["class2_id"] = ""
@@ -743,6 +748,8 @@ class LeagueStore:
         if not profile:
             return None
         classes = main_classes(profile.get("classes", []))
+        if entry and entry.get("class_id") == NO_CLASS:
+            return None  # no main class, picked by hand
         if entry and entry.get("class_id"):
             for c in classes:
                 if c["id"] == entry["class_id"]:

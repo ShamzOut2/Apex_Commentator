@@ -162,6 +162,8 @@ class RaceProgress:
             return
         in_world = {i for i, s in enumerate(frame.surface) if s != TRK_NOT_IN_WORLD}
         if frame.session_state == STATE_RACING:
+            if self.checkered:  # a replay back before the flag: nobody has finished yet
+                self.checkered, self.finished, self._laps = False, set(), {}
             self.started |= in_world
             return
         if frame.session_state >= STATE_CHECKERED and not self.checkered:
@@ -836,6 +838,8 @@ class App:
             "lap": r["lap"], "last_lap": r["last_lap"], "best_lap": r["best_lap"], "pit_stops": r["pit_stops"],
             "laps_completed": r["laps_completed"],
             "laps_down": r.get("laps_down", 0), "class_laps_down": r.get("class_laps_down", 0),
+            # Taken the chequered flag (the tower's flag by their name).
+            "finished": self._race.checkered and r["car_idx"] in self._race.finished,
         }
 
     def _fastest_laps(self, standings, is_race, cfg, frame):
@@ -873,8 +877,11 @@ class App:
             opening = is_race and (e.get("laps_completed") or 0) <= 1
             if not flashed and not opening and (scope == "overall" or cfg["fl_flash_classes"]):
                 flashed = True
+                # A driver with no main class in the league (an entry's paint is
+                # only there with a league): no class name on the flash.
+                no_main = e.get("paint") is not None and not str(e.get("class_key") or "").startswith("league:")
                 self._fl_flash = {"car_idx": e["car_idx"], "name": e["name"], "nickname": e.get("nickname", ""),
-                                  "number": e["number"], "class_key": e["class_key"], "lap_time": t,
+                                  "number": e["number"], "class_key": "" if no_main else e["class_key"], "lap_time": t,
                                   "scope": "overall" if scope == "overall" else "class", "at": time.monotonic()}
         f = self._fl_flash
         if not (cfg["fl_flash"] and f and time.monotonic() - f["at"] < cfg["fl_flash_s"]):

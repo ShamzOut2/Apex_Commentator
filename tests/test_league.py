@@ -224,6 +224,13 @@ class StoreTests(unittest.TestCase):
         copy = next(t for t in self.store.get("gt4")["teams"] if t["name"] == "Apex Racing")
         self.assertEqual((copy["shared"], copy["short"]), ([], "APX"))
 
+    def test_no_main_class_picked_by_hand(self):
+        p = self.store.save({"id": "x", "name": "X", "classes": [{"id": "pro", "name": "Pro", "match": ["GT3 Class"]}],
+                             "drivers": [{"cust_id": 1, "name": "Amy", "class_id": "-"}, {"cust_id": 2, "name": "Bo", "class_id": "gone"}]})
+        self.assertEqual([d["class_id"] for d in p["drivers"]], ["-", ""])
+        self.assertIsNone(self.store.class_for(p["drivers"][0], "GT3 Class", p))  # not Pro by their car
+        self.assertEqual(self.store.class_for(p["drivers"][1], "GT3 Class", p)["id"], "pro")
+
     def test_a_shared_team_goes_only_where_its_shared(self):
         for lid in ("a", "b", "c"):
             self.store.save({"id": lid, "name": lid.upper(), "drivers": [{"cust_id": 1, "name": "Amy"}]})

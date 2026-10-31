@@ -442,7 +442,7 @@ def standings(profile, live_round=None):
         licence[p["driver"]] = licence.get(p["driver"], 0) + p["licence"]
     for d in list(penalties) + list(licence):
         if d not in latest:
-            latest[d] = _group_keys({"driver": d, "class_id": (roster.get(d) or {}).get("class_id", "")}, rules, second)
+            latest[d] = _group_keys({"driver": d, "class_id": ((roster.get(d) or {}).get("class_id", "")).replace("-", "")}, rules, second)
 
     drop = rules["drop_rounds"]
     groups = {}
