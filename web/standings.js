@@ -172,7 +172,8 @@ function extraDrivers(entries, cfg) {
   const rest = entries.slice(cfg.rows);
   const sets = Math.ceil(rest.length / n);
   const set = Math.floor(Date.now() / 1000 / cfg.rows_extra_s) % sets;
-  return rest.slice(set * n, set * n + n);
+  // Always n drivers: a last set that's short is filled from the start of the rest again.
+  return Array.from({ length: n }, (_, k) => rest[(set * n + k) % rest.length]);
 }
 
 // What the race leader (each class's, by class) shows where the gap would be:
@@ -368,6 +369,11 @@ function render() {
   const entries = ov.standings;
   // No logo column when no team has a logo.
   const cfg = { ...ov.settings.standings };
+  if (cfg.mode === "class") {
+    // By class: its own most drivers and extra drivers (a class each).
+    cfg.rows = cfg.rows_class;
+    cfg.rows_last = cfg.rows_last_class;
+  }
   // Team logo and team name, each a column of its own (the name can sit under the driver's instead).
   cfg.logo_col = cfg.show_logo && entries.some((e) => e.team_logo);
   cfg.logo_last = cfg.team_logo_side === "last";

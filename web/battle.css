@@ -2,16 +2,13 @@
 .battle {
   position: absolute; min-width: 470px; border-radius: 12px; overflow: hidden;
   background: var(--panel); box-shadow: 0 12px 36px rgba(0, 0, 0, .45);
-  animation: bt-in .45s cubic-bezier(.2, .9, .25, 1) both;
 }
 body.panel-image .battle { isolation: isolate; }
 body.panel-image .battle::before {
   content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
   background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
 }
-@keyframes bt-in { from { opacity: 0; transform: translateY(14px); } }
-.battle.out { animation: bt-out .35s ease-in both; }
-@keyframes bt-out { to { opacity: 0; transform: translateY(14px); } }
+
 .battle.hidden-preview { opacity: .45; }
 
 .battle.top-left { top: 40px; left: 40px; }

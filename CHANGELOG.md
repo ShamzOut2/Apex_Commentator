@@ -33,6 +33,11 @@ How each version's entry is written:
   class's winner under it, one a line (the race and class names can be
   turned off).
 - Rounds: the race length is a number of minutes, hours or laps.
+- Standings tower: separate max drivers and extra drivers for Overall and
+  By class; the extra drivers always fill every row as they rotate.
+- Driver on camera: show the overall position, the class position or both.
+- Pit stops: the position follows the standings tower (overall or in class).
+- Championship battle and pit stops: a matching sleek entrance and exit.
 
 ### Fixes
 

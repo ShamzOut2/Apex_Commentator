@@ -12,18 +12,14 @@
 .pit-card {
   width: 470px; border-radius: 12px; overflow: hidden; background: var(--panel);
   box-shadow: 0 12px 34px rgba(0, 0, 0, .45); border-left: 6px solid var(--cls, var(--accent));
-  animation: pit-in .45s cubic-bezier(.2, .9, .25, 1) both;
+  position: relative;
 }
 body.panel-image .pit-card { isolation: isolate; position: relative; }
 body.panel-image .pit-card::before {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
   background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
 }
-@keyframes pit-in { from { opacity: 0; transform: translateX(30px); } }
-.pit-card.leaving { animation: pit-out .4s ease-in both; }
-@keyframes pit-out { to { opacity: 0; transform: translateX(30px); } }
-.pits.left .pit-card, .pits.top-left .pit-card, .pits.bottom-left .pit-card { animation-name: pit-in-left; }
-@keyframes pit-in-left { from { opacity: 0; transform: translateX(-30px); } }
+
 
 .pit-who { display: flex; align-items: center; gap: 12px; padding: 10px 14px 8px; }
 .pit-who .pos { font-size: 24px; font-weight: 900; min-width: 46px; }

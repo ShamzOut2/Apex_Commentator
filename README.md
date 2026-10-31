@@ -65,6 +65,11 @@ walk, Overlays, Boards and Race control.
   class's winner under it, one a line (the race and class names can be
   turned off).
 - Rounds: the race length is a number of minutes, hours or laps.
+- Standings tower: separate max drivers and extra drivers for Overall and
+  By class; the extra drivers always fill every row as they rotate.
+- Driver on camera: show the overall position, the class position or both.
+- Pit stops: the position follows the standings tower (overall or in class).
+- Championship battle and pit stops: a matching sleek entrance and exit.
 
 ### Fixes
 
@@ -457,7 +462,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     - **The last ones**: always the last few, last place included.
 
     *Extra drivers' opacity* dims them (10–100%). 0 extra drivers turns it
-    off.
+    off. A set always fills every extra row: when the rest of the field
+    doesn't divide evenly, the last set carries on from the top of it.
+    **Max drivers** and **Extra drivers** are set separately for *Overall*
+    and *By class*, and the tower uses the pair for the mode it's in.
   - **Close racing**: with the *Interval* column on, a driver within 0.15 s
     of the car ahead has their interval in red text. It stays red until they get
     past (then whoever is now right behind turns red, if close enough) or
@@ -507,12 +515,16 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   stop. **Card stays after they cross the pit exit line**: how many seconds
   it keeps the final times (0: it goes at once). Races only,
   unless you untick it. Position, car number (in its class colour), name,
-  team name and logo can each be turned off. The clocks are the sim's own,
+  team name and logo can each be turned off. The position follows the
+  standings tower: overall in *Overall*, in class in *By class*.
+  - Cards open downwards from the top with a light sweep, the details
+    following one after another, and close back up as they go; the
+    championship battle comes in and goes out the same way. The clocks are the sim's own,
   so they're right in replays too (paused with the replay).
 - **Driver on camera** (`/driver.html`): a small board at the bottom centre
-  naming the driver the camera is on. It shows their position overall (and,
-  if you tick it, their position in class under it), car number in the class
-  colour, name, class, team and logo, and car badge. *Class colour from*: the
+  naming the driver the camera is on. **Position shown**: overall, in class,
+  or both (overall, with the class position under it). Then the car number
+  in the class colour, name, class, team and logo, and car badge. *Class colour from*: the
   main or the secondary class, as for the standings; a driver without one
   gets no colour: no background behind the position or number, white text.
   - When the camera moves to someone else, the old board slides away and the
