@@ -1933,7 +1933,8 @@ const OVERLAY_FIELDS = {
   gridwalk: [LOOK],
   driver: [
     ["What it shows", [
-      ["hide_s", "Hide after (s; 0 = while they're on camera)", "number", { min: 0, max: 60, step: 1 }],
+      ["stay", "Stay up for as long as they're on camera", "bool"],
+      iff((v) => !v.stay, ["hide_s", "Card stays on screen for (seconds; a new driver resets it)", "number", { min: 1, max: 120, step: 1 }]),
       ["name_format", "Names", "select", NAME_FORMATS],
       ["show_position", "Position (and in class)", "bool"],
       ["show_number", "Car number", "bool"],

@@ -232,6 +232,7 @@ class App:
         # Race results saved by themselves (_auto_results): the race being
         # watched, the sessions already saved, and the last one saved.
         self._results_watch, self._results_saved, self._results_notice = None, set(), None
+        self._camera_picks = 0  # drivers picked from the app (_camera_driver)
         self.tracks = TrackCatalogue()     # likewise: the season calendar's track list
         self.board = {"kind": None, "params": {}}  # the full-screen board on screen, if any
         self._board_cache = (None, None)
@@ -803,7 +804,7 @@ class App:
             "standings": standings,
             "fastest_flash": flash,
             # The driver on camera, for the "who's this" board (driver.html).
-            "driver": self._camera_driver(frame, rows, entries, is_race),
+            "driver": self._camera_driver(frame, rows, entries, is_race, self._camera_picks),
             # "all": every driver, for the full-screen timing page (timed
             # drivers by lap time, then the rest).
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
@@ -811,14 +812,16 @@ class App:
         }
 
     @staticmethod
-    def _camera_driver(frame, rows, entries, is_race):
-        """Who the camera is on: their overlay details and where they are, or None."""
+    def _camera_driver(frame, rows, entries, is_race, picks=0):
+        """Who the camera is on: their overlay details and where they are, or
+        None. ``picks`` counts drivers picked from the app, so the driver board
+        shows again when the same driver is picked again."""
         idx = frame.cam_car_idx
         row = next((r for r in rows if r["car_idx"] == idx), None)
         if row is None or idx not in entries or not row["in_world"]:
             return None
         return dict(entries[idx], pos=row["pos"], class_pos=row["class_pos"],
-                    pos_change=row.get("pos_change") if is_race else None)
+                    pos_change=row.get("pos_change") if is_race else None, pick=picks)
 
     def _add_start_positions(self, rows, is_race):
         """Grid position (overall and in class) and places gained since, in races."""
@@ -1102,10 +1105,12 @@ class App:
 
     def cmd_watch(self, car_idx, group=None, camera=0):
         d = self._driver(car_idx)
+        self._camera_picks += 1
         self.source.cam_switch_num(d["number"], self._group(group), int(camera or 0))
         return {"watching": d["name"]}
 
     def cmd_watch_position(self, position, group=None, camera=0):
+        self._camera_picks += 1
         self.source.cam_switch_pos(int(position), self._group(group), int(camera or 0))
 
     def cmd_watch_special(self, mode, group=None):

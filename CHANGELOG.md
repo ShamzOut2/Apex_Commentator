@@ -11,6 +11,15 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- Driver on camera: set how long the card stays on screen (1 to 120
+  seconds), or keep it up while they're on camera. A new driver replaces the
+  card and starts the time again, picking the same driver again in the app
+  brings their card back, and it now goes on time even with iRacing paused.
+
 ## v0.4.6
 
 ### New features
