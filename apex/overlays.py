@@ -25,6 +25,7 @@ DEFAULTS = {
         "class_key": "",          # "class" mode: one class only ("" = every class, one block each)
         "rows": 20,               # most drivers shown (per class in "class" mode)
         "rows_last": 0,           # "overall": when there are more drivers, also the last N (last place included)
+        "width": 0,               # tower width in px; 0 = automatic (each column fits what's in it)
         "name_format": "last_initial",
         "show_team": True,
         "show_logo": True,
@@ -130,7 +131,7 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
+LIMITS = {"width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 60.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,

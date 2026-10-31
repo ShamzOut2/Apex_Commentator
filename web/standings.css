@@ -1,6 +1,6 @@
 .tower {
   position: absolute; left: 40px; top: 40px; width: 430px;
-  transition: opacity .4s ease, transform .4s ease;
+  transition: opacity .4s ease, transform .4s ease, width .3s ease;
 }
 .tower.hidden { opacity: 0; transform: translateX(-30px); }
 .head-box { border-radius: 10px 10px 0 0; overflow: hidden; background: var(--panel); }

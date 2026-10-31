@@ -1311,6 +1311,7 @@ const OVERLAY_FIELDS = {
     ["class_key", "Class", "class"],
     ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
     ["rows_last", "Plus the last N drivers (overall, when there are more)", "number", { min: 0, max: 30 }],
+    ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
     ["name_format", "Names", "select", NAME_FORMATS],
     ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
       ["time", "Time left"], ["none", "Nothing"]]],

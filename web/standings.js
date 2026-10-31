@@ -13,6 +13,7 @@ if (SCREEN) document.body.classList.add("screen");
 fitStage(stage);
 let last = null;
 let shown = "";
+let fitMode = "";
 
 const DEFAULT_CLASS = { key: "", name: "", color: "#8b93a3", logo: null };
 
@@ -143,9 +144,64 @@ function columnsFor(cfg, race) {
   return COLUMNS.filter(([key, , , , when]) => cfg[key] && (!when || when(race)));
 }
 
+// Position, stripe, number and logo: the same size whatever the width.
+function fixedParts(cfg) {
+  return ["40px", "6px", cfg.show_number ? "50px" : null, cfg.show_logo ? "30px" : null].filter(Boolean);
+}
+
+// A width set by hand: the name takes what the other columns leave.
 function gridFor(cfg, cols) {
-  return ["40px", "6px", cfg.show_number ? "50px" : null, cfg.show_logo ? "30px" : null, "minmax(150px, 1fr)",
-    ...cols.map((c) => c[1])].filter(Boolean).join(" ");
+  return [...fixedParts(cfg), "minmax(60px, 1fr)", ...cols.map((c) => c[1])].join(" ");
+}
+
+// Automatic width: each column (name included) as wide as its widest entry
+// plus a little room, and the tower as wide as that. It grows straight away
+// when something needs more room, but only narrows once there's clearly
+// spare, so changing numbers don't make it twitch.
+const fit = { key: "", widths: [] };
+const ROW_GAP = 8;     // .srow column gap
+const ROW_PAD = 12;    // .srow padding-right
+const MIN_TOWER = 300; // room for the header (session, laps / time left)
+
+// How wide a cell's contents are, whatever the size of the cell itself (a
+// cell's own width would follow the column it's in).
+function contentWidth(el) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  return range.getBoundingClientRect().width;
+}
+
+function autoFit(cfg, cols) {
+  const fixed = fixedParts(cfg);
+  const flexible = 1 + cols.length;  // the name, then the columns picked
+  const rows = [...tower.querySelectorAll(".srow:not(.skip)")];
+  if (!rows.length) return;
+  // On-screen px back to the tower's own (it may be zoomed, and the stage scaled).
+  const scale = rows[0].getBoundingClientRect().width / (rows[0].offsetWidth || 1) || 1;
+  const need = Array(flexible).fill(0);
+  for (const row of rows) {
+    for (let i = 0; i < flexible; i++) {
+      const cell = row.children[fixed.length + i];
+      if (!cell) continue;
+      // The name cell holds the name line and the team line: the wider one.
+      const parts = i === 0 && cell.children.length ? [...cell.children] : [cell];
+      need[i] = Math.max(need[i], ...parts.map((el) => contentWidth(el) / scale));
+    }
+  }
+  const key = JSON.stringify([fixed, cols.map((c) => c[0])]);
+  if (key !== fit.key) {
+    fit.key = key;
+    fit.widths = [];
+  }
+  fit.widths = need.map((w, i) => {
+    const want = Math.ceil(Math.max(i === 0 ? 60 : 24, w + (i === 0 ? 12 : 4)));
+    const was = fit.widths[i];
+    return was && want <= was && want > was - 14 ? was : want;
+  });
+  tower.style.setProperty("--grid", [...fixed, ...fit.widths.map((w) => `${w}px`)].join(" "));
+  const total = fixed.reduce((n, w) => n + parseFloat(w), 0) + fit.widths.reduce((n, w) => n + w, 0)
+    + ROW_GAP * (fixed.length + flexible - 1) + ROW_PAD;
+  tower.style.width = `${Math.max(MIN_TOWER, Math.ceil(total))}px`;
 }
 
 function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) {
@@ -180,7 +236,7 @@ function progressText(ov) {
 
 function headRowHtml(cfg, cols) {
   if (!cols.length) return "";
-  return `<div class="srow shead" style="grid-template-columns:${gridFor(cfg, cols)}">
+  return `<div class="srow shead">
     <span></span><span></span>${cfg.show_number ? "<span></span>" : ""}${cfg.show_logo ? "<span></span>" : ""}<span></span>
     ${cols.map((c) => `<span class="c">${c[2]}</span>`).join("")}</div>`;
 }
@@ -232,7 +288,6 @@ function render() {
   // Hidden until someone qualifies for a row, unless "reveal" is on: then
   // the header shows from the start and drivers join as they cross the line.
   const visible = snap.connected && cfg.visible && (entries.length > 0 || cfg.reveal);
-  const width = 430 + cols.reduce((n, c) => n + parseInt(c[1], 10) + 8, 0) - (cols.length ? 60 : 0);
   // The header (with the column labels) is one panel; the drivers follow it,
   // joined on (overall) or as a separate panel per class, evenly spaced.
   const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head${goFlash(ov)}">
@@ -243,11 +298,20 @@ function render() {
   tower.classList.toggle("hidden", !visible);
   setPanels(cfg);
   setSize(cfg);
-  tower.style.width = `${width}px`;
-  tower.style.setProperty("--grid", grid);
-  if (visible && html !== shown) {
+  // Width: set by hand, or (0) fitted to what's in the columns.
+  const auto = !cfg.width;
+  const mode = JSON.stringify([auto, cfg.width, grid]);
+  if (!auto) {
+    tower.style.width = `${Math.max(MIN_TOWER, cfg.width)}px`;
+    tower.style.setProperty("--grid", grid);
+  }
+  if (visible && (html !== shown || mode !== fitMode)) {
     shown = html;
-    flipRows(tower, ".srow[data-key]", () => { tower.innerHTML = html; });
+    fitMode = mode;
+    flipRows(tower, ".srow[data-key]", () => {
+      tower.innerHTML = html;
+      if (auto) autoFit(cfg, cols);
+    });
   }
 }
 
