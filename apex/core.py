@@ -37,6 +37,7 @@ from .sources import (
     FLAG_REPAIR,
     FLAG_WHITE,
     STATE_CHECKERED,
+    STATE_COOLDOWN,
     STATE_RACING,
     TRK_NOT_IN_WORLD,
 )
@@ -228,6 +229,9 @@ class App:
         # Automatic photos (cmd_photobooth_auto): cars waiting {car: since}, and
         # drivers already tried this session.
         self._auto_seen, self._auto_tried, self._auto_session, self._auto_error = {}, set(), None, ""
+        # Race results saved by themselves (_auto_results): the race being
+        # watched, the sessions already saved, and the last one saved.
+        self._results_watch, self._results_saved, self._results_notice = None, set(), None
         self.tracks = TrackCatalogue()     # likewise: the season calendar's track list
         self.board = {"kind": None, "params": {}}  # the full-screen board on screen, if any
         self._board_cache = (None, None)
@@ -266,6 +270,7 @@ class App:
         frame = self.source.read() if self.source.connect() else None
         if frame is None:
             with self._lock:
+                self._results_left()  # left the server: the race as it last stood
                 self._frame = None
                 self._info_update = None  # reload session info after reconnecting
             return False
@@ -278,6 +283,7 @@ class App:
             self._frame = frame
             self._detect(frame)
             self._auto_photos(frame)
+            self._auto_results(frame)
         return True
 
     def _detect(self, frame):
@@ -405,6 +411,7 @@ class App:
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                     "photobooth": self._photobooth_snapshot(),
+                "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
                     "desktop": self._desktop_snapshot(),
                     **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
@@ -493,6 +500,7 @@ class App:
                 "detection": self.detection,
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
                 "photobooth": self._photobooth_snapshot(),
+                "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
                 "classes": self._ordered_classes(classes),
                 "events": events[-200:],
                 "desktop": self._desktop_snapshot(),
@@ -1029,7 +1037,7 @@ class App:
             # Sent often by on-screen overlays as they change: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "photobooth_auto", "board_", "popout", "desktop_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "photobooth_auto", "auto_results", "board_", "popout", "desktop_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -1385,6 +1393,90 @@ class App:
             self.settings.set("photobooth_auto", None)
             self._auto_error = str(e)
         self._auto_seen = {}
+
+    # -- race results saved by themselves ---------------------------------------
+    #
+    # With it on (the default), each race's results go into the active league's
+    # championship when the race is over: in cool-down, or once every car that
+    # started has taken the flag or left the track; or, if the session moves on
+    # (or iRacing closes) first, as it last stood. They go to the round the race
+    # counts as (the one marked live, else the first without results; a new
+    # round if there's none), the same as Import from session, statuses (DNF,
+    # DNS...) and all. A race already imported is left alone.
+
+    RESULTS_EVERY_S = 3.0   # how often the standing results are worked out during a race
+    RESULTS_GRACE_S = 5.0   # after the last car is in, for iRacing's official results
+
+    def cmd_auto_results(self, enabled=True):
+        self.settings.set("auto_results", bool(enabled))
+        return {"auto_results": bool(enabled)}
+
+    def _race_all_in(self, frame):
+        """Chequered flag out, and every car that started has finished or left the track."""
+        race = self._race
+        if not race.checkered or race.session != frame.session_num or not race.started:
+            return False
+        in_world = {i for i, s in enumerate(frame.surface) if s != TRK_NOT_IN_WORLD}
+        return all(i in race.finished or i not in in_world for i in race.started)
+
+    def _auto_results(self, frame):
+        key = self.session_key()
+        watch = self._results_watch
+        if watch and watch["key"] != key:
+            self._results_left()
+            watch = None
+        if (not self.settings.get("auto_results", True) or not self._is_race(frame) or key is None
+                or frame.session_state < STATE_RACING or key in self._results_saved):
+            return
+        league = self.leagues.active()
+        if not league:
+            return
+        now = time.monotonic()
+        if watch is None:
+            watch = self._results_watch = {"key": key, "num": frame.session_num, "results": None, "at": -1e9, "in_since": None,
+                                           "track": self._session_meta.get("track", "")}
+        if now - watch["at"] >= self.RESULTS_EVERY_S:
+            watch["results"], watch["at"] = self.session_results(league)[0], now
+        if not (frame.session_state >= STATE_COOLDOWN or self._race_all_in(frame)):
+            watch["in_since"] = None
+            return
+        watch["in_since"] = watch["in_since"] or now
+        if now - watch["in_since"] >= self.RESULTS_GRACE_S:
+            profile = self.leagues.get(league["id"])
+            results, _ = self.session_results(profile, add_missing=True)
+            self._results_watch = None
+            self._save_results(profile, key, results, watch["track"])
+
+    def _results_left(self):
+        """The race being watched is no longer on: save it as it last stood."""
+        watch, self._results_watch = self._results_watch, None
+        league = self.leagues.active()
+        if watch and watch["results"] and league and self.settings.get("auto_results", True):
+            self._save_results(self.leagues.get(league["id"]), watch["key"], watch["results"], watch["track"])
+
+    def _save_results(self, profile, key, results, track):
+        self._results_saved.add(key)
+        if not profile or not results:
+            return
+        champ = championship.normalise(profile.get("championship"))
+        if any(rd["session"] == key for rd in champ["rounds"]):
+            return  # imported already (by hand, perhaps corrected): those stand
+        rd = championship.live_round_for(champ, key)
+        if rd is None:
+            rd = {"id": f"r{int(time.time())}", "name": f"Round {len(champ['rounds']) + 1}", "event": "", "track": track,
+                  "config": "", "track_id": None, "date": time.strftime("%Y-%m-%d"), "time": "", "length": "",
+                  "multiplier": 1.0, "no_drop": False, "session": "", "results": []}
+            champ["rounds"].append(rd)
+        rd["results"] = championship.apply_distance_rule(results, champ["rules"])
+        rd["session"] = key
+        rd["track"] = rd["track"] or track
+        if champ["live_round"] == rd["id"]:
+            champ["live_round"] = ""  # done: the next race counts as the next round
+        profile["championship"] = champ
+        saved = self.leagues.save(profile)
+        self._results_notice = {"league": saved["id"], "round": rd["id"], "name": rd["name"], "event": rd.get("event", ""),
+                                "count": len(results), "at": time.strftime("%H:%M")}
+        print(f"[apex] race results saved to {rd['name']} ({len(results)} drivers)")
 
     def _photobooth_snapshot(self):
         if not self.photobooth:

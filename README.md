@@ -41,6 +41,14 @@ OBS dock.
 
 ### New features
 
+- **Race results save themselves**: when a race is over (or the session
+  moves on), its finishing order, with DNFs, DNSs and the points, goes into
+  the championship round it counts as, so the standings are ready to show
+  straight after the race. It can be turned off in Calendar & results.
+- **Secondary classes score how you choose**: on where their drivers finish
+  among each other, or the points they score in their own class, or
+  overall. A driver in two classes scores in both (and overall), each on
+  its own points, and the round results show each.
 - **Teams in more than one league**: in the team builder, tick the other
   leagues a team races in. The team and its drivers are set up there too,
   and drivers who join one of those leagues later are put in their team
@@ -685,10 +693,19 @@ standings update from what's saved.
   - **Different points for a class**: any class (a secondary one too) can
     have its own points table; leave it empty for the usual one.
   - **Secondary classes** (set up in the League builder) always have their
-    own championship, whichever option above is picked. Their drivers are
-    ranked by where they finished among each other: with a Rookie Cup of
-    drivers who finish 4th, 9th and 12th overall, the 4th-placed one wins
-    the Rookie Cup. Their main class and overall points don't change.
+    own championship, whichever option above is picked, so a driver in two
+    classes scores in both (and overall), each on its own points. Under
+    *Secondary classes* choose how each one scores:
+    - *On where its drivers finish among each other* (the default), on the
+      class's own points table (or the class points);
+    - *The points its drivers score in their own class*;
+    - *The points its drivers score overall*.
+
+    The round results show what each driver scored in every championship
+    they're in ("Overall 20 · Pro 10 · Rookie Cup 10"). Ranked among each
+    other, with a Rookie Cup of drivers who finish 4th, 9th and 12th
+    overall, the 4th-placed one wins the Rookie Cup. Their main class and
+    overall points don't change.
   - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
   - The fastest-lap bonus can be limited to the top N finishers.
@@ -737,7 +754,18 @@ standings update from what's saved.
     iRacing's results, so their statuses and starting places are worth a
     check. During the event, the live standings count the race in progress
     as the first race without results.
-  - After a race, press **Import from session** while still in the session.
+  - **Results save themselves** (ticked by default, at the top of
+    *Calendar & results*): when a race is over (cool-down, or every car that
+    started has taken the flag or left the track), its finishing order goes
+    into the round it counts as: the one marked *Live*, else the first round
+    without results, or a new round if there's none. Statuses (finished,
+    DNF, DNS, DSQ) and points are worked out as for an import, so the
+    championship standings and boards are up to date for after the race. If
+    the session moves on, or iRacing is closed, before that, the race is
+    saved as it last stood. A race already imported isn't touched, and the
+    app says when it has saved one. Heat races go into a meeting's races one
+    after another.
+  - Or, after a race, press **Import from session** while still in the session.
     This fills in finishing order, class, grid, laps, laps led, fastest lap
     and incidents from iRacing, and adds drivers missing from the roster.
   - Each driver's status comes from the app watching the race:

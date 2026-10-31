@@ -467,6 +467,7 @@ kbd {
 /* --- championship ------------------------------------------------------------ */
 .home.wide { max-width: 1400px; }
 .champ-views { margin: 4px 0 12px; }
+.auto-results { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; margin: 2px 0 6px; }
 .champ-view { margin-top: 6px; }
 .champ-table td.c-num, .champ-table th.c-num { text-align: right; width: 1%; white-space: nowrap; }
 .champ-table td.sub { margin: 0; }
@@ -474,6 +475,8 @@ kbd {
 .champ-table .bad { color: var(--bad); }
 .champ-table input, .champ-table select { width: 100%; min-width: 0; }
 .champ-table input.c-num { width: 64px; text-align: right; }
+.pts-part { white-space: nowrap; margin-left: 6px; }
+.pts-part:first-child { margin-left: 0; }
 .champ-table input.lap-input { width: 96px; }
 .champ-table input.grow { min-width: 220px; }
 .standings-table th.c-rd, .standings-table td.c-rd { text-align: center; width: 1%; min-width: 34px; }

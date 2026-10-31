@@ -101,6 +101,7 @@ function render() {
   renderHome(s);
   renderPhotoboothFolder(s.photobooth);
   renderUpdates(s.update);
+  renderResultsAuto(s.results_auto);
   renderOverlaySettings(s);
   renderChampLive(s);
   renderBoards(s);
@@ -1022,15 +1023,21 @@ function renderChampLive(s) {
 
 // Points each driver scored in a round; with class and overall
 // championships, both ("overall / class").
+// What each driver scored in a round, in every championship they're in
+// ("Overall 20 · Pro 10 · Rookie Cup 10"; just the points when there's one).
 function roundPoints(roundId) {
-  const out = {};
+  const parts = {};
   for (const g of (champ.standings && champ.standings.groups) || []) {
     for (const d of g.drivers) {
       const s = d.rounds.find((x) => x.round === roundId);
       if (!s || !s.result) continue;
-      const text = s.result.short ? "DNF" : fmtPts(s.points);
-      out[d.driver] = out[d.driver] != null ? `${out[d.driver]} / ${text}` : text;
+      (parts[d.driver] = parts[d.driver] || []).push([g.name, s.result.short ? "DNF" : fmtPts(s.points)]);
     }
+  }
+  const out = {};
+  for (const [driver, list] of Object.entries(parts)) {
+    out[driver] = list.length === 1 ? esc(list[0][1])
+      : list.map(([name, pts]) => `<span class="pts-part"><span class="sub">${esc(name)}</span> ${esc(pts)}</span>`).join(" ");
   }
   return out;
 }
@@ -1114,7 +1121,7 @@ function renderChampRounds() {
         <label class="btn subtle" title="From a round export (.json) or a CSV with the same columns as the CSV export">⤒ Import…<input type="file" accept=".json,.csv,application/json,text/csv" data-import="round" data-import-round="${esc(rd.id)}" hidden></label>
       </div>
       <div class="table-scroll"><table class="grid champ-table results-table">
-        <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored (after saving)">${c.rules.scoring === "both" ? "Pts overall / class" : "Pts"}</th><th></th></tr></thead>
+        <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored in each championship (after saving)">Pts</th><th></th></tr></thead>
         <tbody>${results.map(([r, j]) => `<tr>
           <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"></td>
           <td><select data-round="${i}" data-res="${j}" data-key="driver">${rosterOptions(r.driver, r.name)}</select></td>
@@ -1225,6 +1232,20 @@ function classPointsFields(r) {
   </details>`;
 }
 
+// How each secondary class scores (rules.secondary_scoring, by class id).
+function secondaryScoringFields(r) {
+  const sec = ((ui.editing && ui.editing.classes) || []).filter(isSecondary);
+  if (!sec.length) return "";
+  const how = r.secondary_scoring || {};
+  return `<div class="wide secondary-scoring"><h3 class="section-title">Secondary classes</h3>
+    <div class="class-points-grid">${sec.map((c) => `<label class="ov-field">${esc(c.name || "Unnamed")} scores
+      <select data-secondary-scoring="${esc(c.id)}">${[["own", "On where its drivers finish among each other"],
+        ["class", "The points its drivers score in their own class"], ["overall", "The points its drivers score overall"]]
+        .map(([v, l]) => `<option value="${v}" ${(how[c.id] || "own") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>`).join("")}</div>
+    <p class="hint">A driver in a secondary class scores in it as well as in their main class (and overall), each on its
+      own points. "Among each other" uses the class's own points table above, or the class points.</p></div>`;
+}
+
 function renderChampRules() {
   const r = champData().rules;
   const b = r.bonuses || {};
@@ -1254,6 +1275,7 @@ function renderChampRules() {
       <p class="hint">${esc(SCORING_HELP[scoring])}</p>
     </div>
     ${classPointsFields(r)}
+    ${secondaryScoringFields(r)}
     <label class="ov-field wide">Qualifying points (pole, 2nd, 3rd…; leave empty for none). Uses the starting grid.
       <input data-rule="qualifying_points" value="${esc((r.qualifying_points || []).join(", "))}"></label>
     <label class="ov-field">Drop rounds (each driver's worst N don't count)
@@ -1303,6 +1325,11 @@ function champChange(e, final) {
     } else if (el.type === "checkbox") r[d.rule] = el.checked;
     else r[d.rule] = el.type === "number" ? +el.value : el.value;
     if (d.rule === "scoring" && final) rerender = true;
+  } else if (d.secondaryScoring) {
+    if (!final) return;
+    c.rules.secondary_scoring = { ...(c.rules.secondary_scoring || {}), [d.secondaryScoring]: el.value };
+    if (el.value === "own") delete c.rules.secondary_scoring[d.secondaryScoring];
+    rerender = true;
   } else if (d.classPoints) {
     if (!final) return;
     const pts = el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
@@ -1729,6 +1756,50 @@ $("#btn-save-champ").addEventListener("click", () => {
   if (!ui.editing) return toast("Pick a league first", true);
   saveChampionship().catch((err) => toast(err.message, true));
 });
+
+// Race results saved by the app when a race is over (see core._auto_results).
+let resultsSeen = undefined;
+function renderResultsAuto(ra) {
+  if (!ra) return;
+  const box = $("#auto-results");
+  if (document.activeElement !== box) box.checked = !!ra.on;
+  const key = ra.saved ? JSON.stringify(ra.saved) : "";
+  if (resultsSeen === undefined) {
+    resultsSeen = key;  // what was saved before this window opened: nothing to say
+    return;
+  }
+  if (key === resultsSeen) return;
+  resultsSeen = key;
+  if (!ra.saved) return;
+  const n = ra.saved;
+  toast(`Race results saved to ${[n.event, n.name].filter(Boolean).join(" · ")} (${n.count} drivers): the standings are up to date`);
+  if (ui.editing && ui.editing.id === n.league) mergeSavedRound(n).catch((err) => toast(err.message, true));
+  loadChampStandings();
+}
+
+// Bring a round the app saved into the league being edited: straight in when
+// nothing's been changed here, or merged into the changes not saved yet (so
+// saving them doesn't lose the race).
+async function mergeSavedRound(n) {
+  const fresh = await api(`/api/leagues/${encodeURIComponent(n.league)}`);
+  if (!champ.dirty) {
+    openEditor(fresh);
+    return;
+  }
+  const saved = (fresh.championship.rounds || []).find((r) => r.id === n.round);
+  const c = champData();
+  const mine = c.rounds.find((r) => r.id === n.round);
+  if (mine) Object.assign(mine, { results: saved.results, session: saved.session, track: mine.track || saved.track });
+  else c.rounds.push(saved);
+  if (c.live_round === n.round) c.live_round = "";
+  // Drivers the race added to the roster.
+  const known = new Set((ui.editing.drivers || []).map(driverKey));
+  for (const d of fresh.drivers || []) if (!known.has(driverKey(d))) ui.editing.drivers.push(d);
+  renderChampionship();
+}
+
+$("#auto-results").addEventListener("change", (e) => cmd("auto_results", { enabled: e.target.checked },
+  e.target.checked ? "Race results will be saved when each race is over" : "Race results won't be saved by themselves"));
 
 async function importRound(rd) {
   if ((rd.results || []).length && !confirm(`Replace the results of ${rd.name} with the current session's?`)) return;

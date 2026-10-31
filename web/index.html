@@ -494,8 +494,11 @@
         </div>
 
         <div class="champ-view" data-view="rounds" hidden>
-          <p class="hint">Add the season's rounds. After a race, open its round and press <b>Import from session</b>
-            (while still in the session) to fill in the results. Who <b>finished</b> (took the chequered flag), retired
+          <label class="toggle auto-results" title="When a race is over (everyone in, or the session moves on), its results go into the round it counts as, by themselves">
+            <input type="checkbox" id="auto-results"> Save each race's results by themselves when it's over</label>
+          <p class="hint">Add the season's rounds. With the box above ticked, each race's results are saved to its round when
+            the race is over, so the standings are up to date straight away. Or, after a race, open its round and press
+            <b>Import from session</b> (while still in the session) to fill in the results. Who <b>finished</b> (took the chequered flag), retired
             (<b>DNF</b>) or never started (<b>DNS</b>) is worked out from watching the race. Anyone who covered less than the
             minimum share of the race (Points &amp; rules) is a DNF and scores nothing. Correct anything by hand: positions,
             laps led, fastest laps, status, or extra points (+ or −). During a race the live standings count it as the

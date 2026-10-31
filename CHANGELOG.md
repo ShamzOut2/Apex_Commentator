@@ -15,6 +15,14 @@ How each version's entry is written:
 
 ### New features
 
+- **Race results save themselves**: when a race is over (or the session
+  moves on), its finishing order, with DNFs, DNSs and the points, goes into
+  the championship round it counts as, so the standings are ready to show
+  straight after the race. It can be turned off in Calendar & results.
+- **Secondary classes score how you choose**: on where their drivers finish
+  among each other, or the points they score in their own class, or
+  overall. A driver in two classes scores in both (and overall), each on
+  its own points, and the round results show each.
 - **Teams in more than one league**: in the team builder, tick the other
   leagues a team races in. The team and its drivers are set up there too,
   and drivers who join one of those leagues later are put in their team
