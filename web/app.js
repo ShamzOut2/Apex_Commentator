@@ -2315,6 +2315,9 @@ function boardButton(label, kind, group = "", color = null, extra = {}) {
     ${extra.round ? `data-round="${esc(extra.round)}"` : ""} style="${color ? `--cls:${esc(color)}` : ""}">${color ? '<span class="swatch"></span>' : ""}${esc(label)}${key ? `<kbd>${esc(keyLabel(key))}</kbd>` : ""}</button>`;
 }
 
+// iRacing's session names ("QUALIFY", "HEAT 1") as words ("Qualify", "Heat 1").
+const sessionLabel = (name) => String(name || "").toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+
 function renderBoards(s) {
   const opts = s.board_options || { groups: [], rounds: [] };
   ui.boardOn = s.board ? { kind: s.board.kind, group: s.board.group } : null;
@@ -2336,7 +2339,9 @@ function renderBoards(s) {
         <label class="field">From <select id="board-round">
           <option value="latest" ${boardRound === "latest" ? "selected" : ""}>Latest round</option>
           <option value="live" ${boardRound === "live" ? "selected" : ""}>This session (live)</option>
-          ${scored.map((r) => `<option value="${esc(r.id)}" ${boardRound === r.id ? "selected" : ""}>${esc(r.name)}${r.track ? ` · ${esc(r.track)}` : ""}</option>`).join("")}
+          ${(opts.sessions || []).length ? `<optgroup label="This event in iRacing">${opts.sessions.map((x) => `<option value="${esc(x.source)}"
+            ${boardRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}</optgroup>` : ""}
+          ${scored.length ? `<optgroup label="Championship rounds">${scored.map((r) => `<option value="${esc(r.id)}" ${boardRound === r.id ? "selected" : ""}>${esc(r.name)}${r.track ? ` · ${esc(r.track)}` : ""}</option>`).join("")}</optgroup>` : ""}
         </select></label>
         <div>${[{ key: "overall", name: "Overall", color: null }, ...groups.filter((g) => g.key !== "overall")]
           .map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>`;

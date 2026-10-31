@@ -47,6 +47,9 @@ OBS dock.
 
 ### Improvements
 
+- The finishing order board can show any session of the event in iRacing:
+  practice, qualifying, warm-up, each heat or the race (practice and
+  qualifying by best lap, without points).
 - Standings (tower and full screen): put the team logo before or after the
   team name.
 - Driver on camera: swap the team and the car badge (badge under the name,
@@ -644,7 +647,11 @@ built from the active league:
     can be turned off. Or
   the league's own calendar image instead (see *League builder*).
 - **Finishing order**: Overall or per class, from the latest round, a chosen
-  round, or the session going on now (live).
+  round, the session going on now (live), or any session of the event in
+  iRacing (practice, qualifying, warm-up, each heat, the race) once it has
+  results. Races show their finishing order with the points; practice and
+  qualifying show the order by best lap, without points (drivers with no
+  time aren't listed).
 
 Under *What each board shows*, every board can be set up separately:
 - the league logo in its header;

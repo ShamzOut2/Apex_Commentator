@@ -21,6 +21,9 @@ How each version's entry is written:
 
 ### Improvements
 
+- The finishing order board can show any session of the event in iRacing:
+  practice, qualifying, warm-up, each heat or the race (practice and
+  qualifying by best lap, without points).
 - Standings (tower and full screen): put the team logo before or after the
   team name.
 - Driver on camera: swap the team and the car badge (badge under the name,

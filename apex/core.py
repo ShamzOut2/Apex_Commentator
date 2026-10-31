@@ -508,7 +508,7 @@ class App:
                 "league": self._league_summary(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
-                **self._boards(active_league, lambda: self.session_results(active_league, rows)[0] if is_race else None),
+                **self._boards(active_league, lambda source: self._session_board(active_league, source, rows)),
             }
             return snap
 
@@ -1312,19 +1312,48 @@ class App:
     def cmd_board_hide(self):
         self.board = {"kind": None, "params": {}}
 
-    def _boards(self, active_league, live_results):
-        board, opts = self._board_snapshot(active_league, live_results)
-        return {"board": board, "board_options": opts}
+    def _boards(self, active_league, session_board):
+        board, opts = self._board_snapshot(active_league, session_board)
+        # The sessions of the event in iRacing, for a finishing order from any of them.
+        frame = self._frame
+        sessions = [{"source": f"session:{num}", "name": str(s.get("SessionName") or s.get("SessionType") or f"Session {num + 1}"),
+                     "current": bool(frame) and num == frame.session_num, "results": bool(s.get("ResultsPositions"))}
+                    for num, s in sorted(self._session_meta.get("sessions", {}).items(), key=lambda kv: kv[0] if kv[0] is not None else -1)
+                    if num is not None]
+        return {"board": board, "board_options": dict(opts, sessions=sessions)}
 
-    def _board_snapshot(self, active_league, live_results):
+    def _session_board(self, league, source, rows):
+        """A session of the event as a finishing order (boards.build): the one
+        on screen ("live") or "session:<number>". Practice and qualifying come
+        in best-lap order, with no points."""
+        frame = self._frame
+        if frame is None:
+            return None
+        try:
+            num = frame.session_num if source == "live" else int(source.split(":", 1)[1])
+        except (IndexError, ValueError):
+            return None
+        session = self._session_meta.get("sessions", {}).get(num)
+        if session is None:
+            return None
+        race = str(session.get("SessionType", "")).lower() == "race"
+        results, _ = self.session_results(league, rows if num == frame.session_num else None, session_num=num)
+        if not race:
+            for r in results:  # no laps set: no time, rather than a DNF
+                r["status"] = "finished" if r["fastest_lap"] else "dns"
+        return {"name": str(session.get("SessionName") or session.get("SessionType") or "Session"), "race": race,
+                "results": results}
+
+    def _board_snapshot(self, active_league, session_board):
         """(board, options): cached until the league, the board or its settings change."""
         settings = self.overlays.get()
         key = (active_league and (active_league["id"], active_league.get("updated_at")), repr(self.board),
                repr({k: v for k, v in settings.items() if k.startswith("board")}))
-        live = self.board.get("kind") == "results" and self.board["params"].get("round") == "live"
+        source = self.board["params"].get("round", "") if self.board.get("kind") == "results" else ""
+        live = source == "live" or source.startswith("session:")
         if key == self._board_cache[0] and not live:
             return self._board_cache[1]
-        value = (boards.build(active_league, self.board, settings, live_results() if live else None),
+        value = (boards.build(active_league, self.board, settings, session_board(source) if live else None),
                  boards.options(active_league))
         self._board_cache = (key, value)
         return value

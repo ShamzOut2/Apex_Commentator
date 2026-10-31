@@ -257,3 +257,37 @@ class BackgroundTests(unittest.TestCase):
         # The board on screen carries its background settings to the page.
         b = boards.build(league(), {"kind": "results", "params": {}}, settings)
         self.assertEqual(b["settings"]["bg_opacity"], 40)
+
+
+class SessionResultsBoardTests(unittest.TestCase):
+    def test_finishing_order_from_any_session_of_the_event(self):
+        import tempfile
+        from apex.league import profile_from_session
+        from tests.test_app import make_app
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=1)
+            league = app.leagues.save(dict(profile_from_session(app.build_snapshot()["drivers"], "S"),
+                                           championship={"rules": {"points": [25, 18, 15]}, "rounds": [{"id": "r1", "name": "Round 1"}]}))
+            app.leagues.set_active(league["id"])
+            cars = sorted(app._drivers)
+            with app._lock:
+                # A qualifying session already run, before the race on screen.
+                app._session_meta["sessions"][5] = {"SessionType": "Lone Qualify", "SessionName": "QUALIFY", "ResultsPositions": [
+                    {"Position": i + 1, "CarIdx": car, "LapsComplete": 3, "FastestTime": 80.0 + i, "ReasonOutStr": "Running"}
+                    for i, car in enumerate(cars[:3])] + [
+                    {"Position": 4, "CarIdx": cars[3], "LapsComplete": 0, "FastestTime": -1, "ReasonOutStr": "Running"}]}
+            opts = app.build_snapshot()["board_options"]["sessions"]
+            self.assertEqual([(x["source"], x["name"], x["current"], x["results"]) for x in opts],
+                             [("session:0", "RACE", True, True), ("session:5", "QUALIFY", False, True)])
+            app.command("board_show", {"kind": "results", "group": "overall", "round": "session:5"})
+            board = app.build_snapshot()["board"]
+            self.assertEqual(board["title"], "Qualify result")
+            # Best-lap order, with no points; whoever set no time isn't in it (nor counted a DNF).
+            self.assertEqual([r["name"] for r in board["rows"]], [app._drivers[c]["name"] for c in cars[:3]])
+            self.assertEqual([r["points"] for r in board["rows"]], [None] * 3)
+            self.assertEqual([r["status"] for r in board["rows"]], ["finished"] * 3)
+            # The race on screen: the running order, with points (per class in this league).
+            app.command("board_show", {"kind": "results", "group": "gt3", "round": "session:0"})
+            board = app.build_snapshot()["board"]
+            self.assertEqual((board["title"], len(board["rows"]) > 3), ("Race result", True))
+            self.assertIsNotNone(board["rows"][0]["points"])

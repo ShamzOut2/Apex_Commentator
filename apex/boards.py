@@ -77,7 +77,10 @@ def _sponsor_strip(league, settings):
 
 
 def build(league, board, settings, live_results=None):
-    """The board on screen, ready to draw, or None."""
+    """The board on screen, ready to draw, or None.
+
+    ``live_results``: for a finishing order from a session of the event in
+    iRacing ("live", or "session:<number>"): {"name", "race", "results"}."""
     if not league or not board.get("kind"):
         return None
     kind = board["kind"]
@@ -155,10 +158,11 @@ def build(league, board, settings, live_results=None):
     elif kind == "results":
         champ = championship.normalise(league.get("championship"))
         source = params.get("round") or "latest"
-        if source == "live" and live_results is not None:
-            rd = {"id": "live", "name": "Live", "track": "", "multiplier": 1.0, "results": live_results,
-                  "provisional": True}
-            out["title"] = "Running order"
+        live = (source == "live" or source.startswith("session:")) and live_results is not None
+        if live:
+            rd = {"id": "live", "name": live_results["name"], "track": "", "multiplier": 1.0,
+                  "results": live_results["results"], "provisional": True}
+            out["title"] = "Running order" if source == "live" else f"{live_results['name'].title()} result"
         else:
             scored = [r for r in champ["rounds"] if r["results"]]
             rd = next((r for r in scored if r["id"] == source), scored[-1] if scored else None)
@@ -170,6 +174,9 @@ def build(league, board, settings, live_results=None):
                                  number=r["car_number"], team_logo=team_logos.get((r["team"] or "").lower()),
                                  make_logo=make_logo(r["make"]),
                                  gained=(r["start"] - r["rank"]) if r["start"] and r["rank"] else None))
+            if live and not live_results["race"]:
+                for row in rows:  # practice or qualifying: an order by best lap, not points
+                    row.update(points=None, gained=None)
             if rd["id"] != "live":
                 n = champ["rounds"].index(rd) + 1
                 name = " · ".join(filter(None, [rd["event"], rd["name"]]))
