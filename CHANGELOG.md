@@ -33,6 +33,8 @@ How each version's entry is written:
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- The standings (tower and full screen) can turn off the coloured bar by
+  each driver, and show the car number plain instead of in the class colour.
 - When the chequered flag comes out, the standings header turns into a
   waving black-and-white chequered flag, on the tower and the full-screen
   standings. It flashes in, then keeps waving until the session changes or

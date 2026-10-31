@@ -1335,6 +1335,8 @@ const OVERLAY_FIELDS = {
     ["show_pits", "Pit stops", "bool"],
     ["show_pit_status", "PIT badge on pit road", "bool"],
     ["show_number", "Car numbers", "bool"],
+    ["color_number", "Car numbers in the class colour (off: plain)", "bool"],
+    ["show_stripe", "Coloured bar by each driver", "bool"],
     ["show_team", "Team names", "bool"],
     ["show_logo", "Team logos", "bool"],
     ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],

@@ -59,6 +59,8 @@ OBS dock.
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- The standings (tower and full screen) can turn off the coloured bar by
+  each driver, and show the car number plain instead of in the class colour.
 - When the chequered flag comes out, the standings header turns into a
   waving black-and-white chequered flag, on the tower and the full-screen
   standings. It flashes in, then keeps waving until the session changes or
@@ -359,6 +361,10 @@ are kept in `data/overlays.json`.
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
+  - **Colours**: *Coloured bar by each driver* (the class or team colour)
+    and *Car numbers in the class colour* can each be turned off. With the
+    colour off, the number is a plain grey box with white text. Both the
+    tower and the full-screen version follow these.
   - **Header**: the session name, laps or time left, and under them the
     series (the active league's name) and the track. *Series name* and
     *Track name* turn each of those on or off. *Race name*, *Qualifying

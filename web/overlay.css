@@ -102,3 +102,6 @@ body.custom-panels .sp.panel { background: var(--panel); }
 /* Size setting on overlays (setSize in common.js): each overlay grows or
    shrinks from where it sits. */
 .tower, .fl-flash, .trackers, .sp, .slot { zoom: var(--ov-size, 1); }
+
+/* A car number without the class colour (standings: "Car numbers in the class colour" off). */
+.num.plain { background: rgba(255, 255, 255, .14) !important; color: #fff !important; }
