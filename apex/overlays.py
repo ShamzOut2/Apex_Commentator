@@ -38,7 +38,7 @@ DEFAULTS = {
         "show_logo": True,
         "show_number": True,
         "show_stripe": True,      # the coloured bar by each driver (class or team colour)
-        "color_number": True,     # the car number in the class colour (off: plain)
+        "color_number": True,     # the car number on a background in the class colour (off: just the number)
         "show_gap": True,         # race: gap to the leader; qualifying: gap to pole
         "show_interval": False,   # to the car ahead
         "close_s": 0.15,          # race: an interval this close (or closer) shows red (0 = off)

@@ -168,7 +168,7 @@ function extraDrivers(entries, cfg) {
   return rest.slice(set * n, set * n + n);
 }
 
-// The car number: in the class colour, or plain (Overlays tab).
+// The car number: on a background in the driver's class colour, or just the number (Overlays tab).
 function numberChip(e, cls, cfg) {
   return cfg.color_number
     ? `<span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(e.number)}</span>`
