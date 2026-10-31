@@ -299,6 +299,8 @@
               drivers in it, without changing anything on the overlays. How the points add up is under <i>Season &amp; points</i>.</p>
             <label class="field" title="For leagues that put the driver's class in front of their name, e.g. (P) Dave Price. The control panel keeps the full name; the overlays show it without the tag (via the Nickname).">
               <input type="checkbox" id="edit-strip-class"> Hide the class tag in front of names on the overlays, e.g. <i>(P) Dave Price</i></label>
+            <label class="field" title="A driver with neither a main nor a secondary class (a safety car, say) is left off the standings, lap tracker, driver card, grid walk and boards, and out of the results. The Timing tab still lists them.">
+              <input type="checkbox" id="edit-hide-unclassed"> Drivers with no class (neither main nor secondary, e.g. a safety car) on no overlay and in no results</label>
             <div id="class-list" class="class-list"></div>
             <button id="btn-add-class" class="btn subtle">+ Add class</button>
           </div>

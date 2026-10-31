@@ -480,6 +480,9 @@ class App:
                 row["make"] = (league or {}).get("car_make") or d["make"]
                 row["make_logo"] = make_logo(row["make"])
                 row["class_key"] = self._class_key(classes, active_league, league, d)
+                # No class in the league (e.g. a safety car): kept here for the
+                # Timing tab, left off every overlay and out of the results.
+                row["hidden"] = self._unclassed(active_league, league, row["class_key"].startswith("league:"))
                 row.update({
                     "lap": lap if lap is not None and lap >= 0 else None,
                     "laps_completed": _at(frame.laps_completed, idx, -1) if _at(frame.laps_completed, idx, -1) >= 0 else None,
@@ -631,6 +634,8 @@ class App:
                 added += 1
             key = driver_key(entry) if entry else driver_key({"cust_id": r["cust_id"], "name": r["name"]})
             cls = self.leagues.class_for(entry, r["car_class"], profile, r["name"])
+            if self._unclassed(profile, entry, cls is not None):
+                continue  # no class in the league (a safety car, say): not in the results
             off = official.get(r["car_idx"], {})
             laps = off.get("LapsComplete")
             if not isinstance(laps, int) or laps < 0:
@@ -762,6 +767,19 @@ class App:
         return name, nickname
 
     @staticmethod
+    def _unclassed(league, entry, has_main):
+        """Whether a driver is left off the overlays (and out of results): with
+        a league that has classes (and "Hide drivers with no class" on), one
+        with neither a main class nor a secondary one, e.g. a safety car."""
+        if not league or not league.get("hide_unclassed", True) or has_main:
+            return False
+        classes = league.get("classes") or []
+        if not classes:
+            return False
+        c2 = (entry or {}).get("class2_id")
+        return not any(c.get("id") == c2 and c.get("role") == "secondary" for c in classes)
+
+    @staticmethod
     def _paint(r, active_league):
         """The colours a driver can be shown in, with a league active:
         {"main": their main class's colour, "secondary": their secondary
@@ -877,6 +895,7 @@ class App:
         settings = self.overlays.get()
         kind = str(session.get("SessionType", "")).lower()
         is_race = bool(heats.race_kind(session))
+        rows = [r for r in rows if not r.get("hidden")]  # no class in the league: on no overlay
         entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
         # Standings: race order in a race; otherwise fastest clean lap, and
         # only drivers who have set one (blank at the start of qualifying).
@@ -1064,6 +1083,9 @@ class App:
             if d is None:
                 continue
             league = self.leagues.lookup(d["cust_id"], d["number"])
+            has_main = self.leagues.class_for(league, d["car_class"], active_league, d["name"]) is not None
+            if self._unclassed(active_league, league, has_main):
+                continue  # no class in the league: not on the grid walk
             surface = _at(frame.surface, idx, TRK_NOT_IN_WORLD) if frame else TRK_NOT_IN_WORLD
             entries[f"car:{idx}"] = self._grid_entry(
                 d, league, active_league, classes, car_idx=idx, in_session=True,

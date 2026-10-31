@@ -386,11 +386,17 @@ function render() {
   let body;
   if (classMode) {
     const keys = cfg.class_key ? [cfg.class_key] : (snap.classes || []).map((c) => c.key);
+    // Each class: its top drivers, then (if asked) a few more of the rest of
+    // the class after a small gap, as overall does for the whole field.
+    const dim = cfg.rows_extra_opacity < 100 ? ` style="opacity:${cfg.rows_extra_opacity / 100}"` : "";
     body = keys.map((k) => {
-      const list = entries.filter((e) => e.class_key === k).slice(0, cfg.rows);
-      if (!list.length) return "";
+      const all = entries.filter((e) => e.class_key === k);
+      if (!all.length) return "";
+      const tail = extraDrivers(all, cfg);
+      const list = tail.length ? all.slice(0, cfg.rows) : all.slice(0, cfg.rows + cfg.rows_last);
       const cls = classes.get(k) || DEFAULT_CLASS;
-      return `<div class="block">${classHeaderHtml(cls, "", rerender)}${rows(list, cls)}</div>`;
+      return `<div class="block">${classHeaderHtml(cls, "", rerender)}${rows(list, cls)}${tail.length
+        ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div><div class="extra"${dim}>${rows(tail, cls)}</div>` : ""}</div>`;
     }).join("");
   } else {
     // More drivers than rows: the top of the order, then (if asked) a few more

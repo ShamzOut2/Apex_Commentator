@@ -74,6 +74,10 @@ walk, Overlays, Boards and Race control.
   bar, no card background).
 - Driver on camera: just the overall position (the class position is an
   option).
+- Drivers with no class in the league (neither main nor secondary, e.g. a
+  safety car) are left off every overlay and out of the results.
+- Standings by class: the extra drivers show under each class.
+- League builder and Teams: the arrow keys move between the boxes.
 - The photo booth (taking car photos in iRacing) and the grid map and head
   to head grid walk styles are gone; the grid walk uses your own pictures.
 
@@ -446,9 +450,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     narrows once there's clearly room to spare, so it doesn't twitch as
     numbers change. With a width set, the name column takes what the other
     columns leave, and long names end in "…".
-  - **Extra drivers** (Overall view): when there are more drivers than
-    rows, a few more go under the top of the order, after a small "• • •"
-    gap. *Extra drivers show*:
+  - **Extra drivers**: when there are more drivers than rows, a few more go
+    under the top of the order, after a small "• • •" gap; in the By class
+    view, under the top of each class, from that class. *Extra drivers show*:
     - **The rest of the field, a set at a time** (default): with 20 rows and
       3 extra, P21–23, then P24–26, and so on to the end, then back to
       P21–23. *Seconds per set* sets how long each set stays. Every copy
@@ -910,6 +914,19 @@ No iRacing login is needed for any of it.
 The league's settings are on three tabs: **Drivers** (the roster),
 **Classes**, and **Logos, banners & sponsors**. *Teams ↗* and *Season &
 points ↗* jump to the team builder and the championship.
+
+**Arrow keys** move between the boxes in the Drivers list, the classes and
+the team cards: up and down to the same box in the row (or card) above or
+below, left and right along the row. As in a spreadsheet, a box's text is
+selected when you arrive, so left and right go straight on; once you click
+in it or type, they move through the text first.
+
+**Drivers with no class**: in a league with classes, a driver with neither
+a main nor a secondary class (a safety car, say) is left off every overlay
+(standings, lap tracker, driver on camera, grid walk) and out of the
+results, so they're on no board either. The Timing tab still lists them,
+tagged *NO CLASS*. Untick *Drivers with no class … on no overlay* under
+**Classes** to show everyone.
 
 **Import a sign-up sheet (CSV)…** (Drivers tab, or the Teams tab) reads any
 spreadsheet saved as CSV, e.g. a league's sign-up sheet. It works out which

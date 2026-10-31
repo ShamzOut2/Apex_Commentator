@@ -374,7 +374,7 @@ function renderStandings(s) {
       [changeCell(inClass ? r.class_pos_change : r.pos_change), "c-chg"],
       [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
       [`<span class="name">${esc(r.name)}</span>${lg && lg.nickname && !sameButClassTag(r.name, lg.nickname) ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
-        `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}`, "driver-cell"],
+        `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}${r.hidden ? ' <span class="tag out" title="No class in the league: left off the overlays and out of the results">NO CLASS</span>' : ""}`, "driver-cell"],
       [String(r.lap ?? "")],
       [gap, "c-time"],
       [int, "c-time"],
@@ -2054,12 +2054,12 @@ const OVERLAY_FIELDS = {
       ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
       ["class_key", "Class", "class"],
       ["rows", "Drivers shown", "number", { min: 1, max: 64 }],
-      iff((v) => v.mode === "overall", ["rows_last", "Extra drivers under the top ones, when there are more (0 = none)", "number", { min: 0, max: 30 }]),
-      iff((v) => v.mode === "overall" && v.rows_last > 0, ["rows_extra_mode", "Extra drivers show", "select",
-        [["rotate", "The rest of the field, a set at a time"], ["last", "The last ones"]]]),
-      iff((v) => v.mode === "overall" && v.rows_last > 0 && v.rows_extra_mode === "rotate",
+      ["rows_last", "Extra drivers under the top ones, when there are more (0 = none; by class: in each class)", "number", { min: 0, max: 30 }],
+      iff((v) => v.rows_last > 0, ["rows_extra_mode", "Extra drivers show", "select",
+        [["rotate", "The rest of the field (or class), a set at a time"], ["last", "The last ones"]]]),
+      iff((v) => v.rows_last > 0 && v.rows_extra_mode === "rotate",
         ["rows_extra_s", "Seconds per set of extra drivers", "number", { min: 1, max: 120, step: 1 }]),
-      iff((v) => v.mode === "overall" && v.rows_last > 0, ["rows_extra_opacity", "Extra drivers' opacity (%)", "number", { min: 10, max: 100, step: 5 }]),
+      iff((v) => v.rows_last > 0, ["rows_extra_opacity", "Extra drivers' opacity (%)", "number", { min: 10, max: 100, step: 5 }]),
       ["reveal", "Race start: only the header until each driver completes lap 1 (they appear from the start of lap 2)", "bool"],
     ]],
     ["Header", [
@@ -2887,6 +2887,7 @@ function openEditor(profile) {
   $("#league-editor").hidden = false;
   $("#edit-name").value = profile.name || "";
   $("#edit-strip-class").checked = !!profile.strip_class_prefix;
+  $("#edit-hide-unclassed").checked = profile.hide_unclassed !== false;
   $("#btn-activate-league").textContent = profile.id && profile.id === ui.activeLeague ? "Active in overlay" : "Use in overlay";
   profile.classes = profile.classes || [];
   renderClasses();
@@ -3205,6 +3206,68 @@ async function renderLeaguePickers() {
   renderTeams();
   renderChampionship();
 }
+
+// -- arrow keys between the boxes (roster, classes, team cards) -------------
+// The arrow keys move to the nearest box in that direction: up and down to
+// the same field in the row (or card) above or below, left and right along
+// the row. As in a spreadsheet, a box's text is selected on arrival, so left
+// and right go straight on; once you click in it or type, they move through
+// the text, and on to the next box from its start or end.
+
+const NAV_FIELDS = "input:not([type=file]):not([type=hidden]):not([type=checkbox]), select";
+const TEXTUAL = new Set(["text", "search", "number", "email", "url", "tel", ""]);
+
+function nearestField(container, el, key) {
+  const a = el.getBoundingClientRect();
+  const ax = a.left + a.width / 2;
+  const ay = a.top + a.height / 2;
+  let best = null;
+  let bestScore = Infinity;
+  for (const f of container.querySelectorAll(NAV_FIELDS)) {
+    if (f === el || f.disabled || !f.offsetParent) continue;
+    const b = f.getBoundingClientRect();
+    const dx = b.left + b.width / 2 - ax;
+    const dy = b.top + b.height / 2 - ay;
+    let score;
+    if (key === "ArrowDown" || key === "ArrowUp") {
+      const ahead = key === "ArrowDown" ? dy : -dy;
+      if (ahead < a.height / 2) continue;
+      score = ahead + 3 * Math.abs(dx);
+    } else {
+      const ahead = key === "ArrowRight" ? dx : -dx;
+      if (ahead < 4 || Math.abs(dy) > a.height) continue;
+      score = ahead + 6 * Math.abs(dy);
+    }
+    if (score < bestScore) {
+      bestScore = score;
+      best = f;
+    }
+  }
+  return best;
+}
+
+function arrowNav(container) {
+  container.addEventListener("keydown", (e) => {
+    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const el = e.target;
+    if (!el.matches || !el.matches(NAV_FIELDS)) return;
+    const textual = el.tagName === "INPUT" && TEXTUAL.has(el.type) && el.type !== "number";
+    if (textual && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      // All of it selected (just arrived, as in a spreadsheet): straight on. Else from the end of the text.
+      const all = el.selectionStart === 0 && el.selectionEnd === el.value.length;
+      const atStart = all || (el.selectionStart === 0 && el.selectionEnd === 0);
+      const atEnd = all || (el.selectionStart === el.value.length && el.selectionEnd === el.value.length);
+      if ((e.key === "ArrowLeft" && !atStart) || (e.key === "ArrowRight" && !atEnd)) return;
+    }
+    const next = nearestField(container, el, e.key);
+    if (!next) return;
+    e.preventDefault();
+    e.stopPropagation();
+    next.focus();
+    if (next.tagName === "INPUT" && TEXTUAL.has(next.type) && next.type !== "number") next.select();
+  });
+}
+["#roster-rows", "#class-list", "#team-cards"].forEach((sel) => { if ($(sel)) arrowNav($(sel)); });
 
 // -- drivers, teams and classes from a spreadsheet (csvimport.py) ----------
 
@@ -3608,6 +3671,7 @@ function readEditor() {
   const p = ui.editing;
   p.name = $("#edit-name").value.trim();
   p.strip_class_prefix = $("#edit-strip-class").checked;
+  p.hide_unclassed = $("#edit-hide-unclassed").checked;
   return p;
 }
 

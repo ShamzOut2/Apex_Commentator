@@ -41,8 +41,8 @@ DEFAULTS = {
         "mode": "overall",        # "overall" or "class"
         "class_key": "",          # "class" mode: one class only ("" = every class, one block each)
         "rows": 20,               # most drivers shown (per class in "class" mode)
-        # "overall", more drivers than rows: rows_last more under the top of the
-        # order, after a small gap. "rotate": the rest of the field, that many at
+        # More drivers than rows: rows_last more under the top of the order
+        # (by class: of each class), after a small gap. "rotate": the rest of the field, that many at
         # a time, a new set every rows_extra_s (then back to the first);
         # "last": always the last ones (last place included).
         "rows_last": 0,

@@ -42,6 +42,10 @@ How each version's entry is written:
   bar, no card background).
 - Driver on camera: just the overall position (the class position is an
   option).
+- Drivers with no class in the league (neither main nor secondary, e.g. a
+  safety car) are left off every overlay and out of the results.
+- Standings by class: the extra drivers show under each class.
+- League builder and Teams: the arrow keys move between the boxes.
 - The photo booth (taking car photos in iRacing) and the grid map and head
   to head grid walk styles are gone; the grid walk uses your own pictures.
 

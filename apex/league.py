@@ -369,6 +369,9 @@ def normalise_profile(profile):
         "drivers": drivers,
         "championship": championship.normalise(profile.get("championship")),
         "strip_class_prefix": strip,
+        # Drivers with neither a main nor a secondary class (a safety car, say)
+        # are left off the overlays and out of the results (App._unclassed).
+        "hide_unclassed": bool(profile.get("hide_unclassed", True)),
         "banners": normalise_banners(profile.get("banners")),
         "sponsors": normalise_sponsors(profile.get("sponsors")),
         # The league's own logo (board headers) and its own calendar graphic.
