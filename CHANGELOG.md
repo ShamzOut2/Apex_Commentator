@@ -11,7 +11,7 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
-## Unreleased
+## v0.5.0
 
 ### New features
 
