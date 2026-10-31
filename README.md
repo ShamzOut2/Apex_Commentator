@@ -59,6 +59,9 @@ OBS dock.
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- When the chequered flag comes out, the standings header turns into a
+  waving black-and-white chequered flag for a few seconds, on the tower and
+  the full-screen standings, like the green flash at the start.
 - The extra drivers under the Overall tower's top rows can rotate through
   the rest of the field, a few at a time on a timer, then start again. They
   can also be dimmed with their own opacity.
@@ -338,6 +341,11 @@ are kept in `data/overlays.json`.
   - **Green flag**: when a race goes green, the header (tower and full
     screen) flashes green five times with a light sweeping across it, then
     stops. Races only, and only if the overlay was open for the start.
+  - **Chequered flag**: when the leader takes the chequered flag, the header
+    (tower and full screen) turns into a black-and-white chequered flag that
+    ripples and flashes for about four seconds, with a light sweep, then
+    stops. The session name, track and "FINISHED" stay readable on dark
+    plates. Races only, and only if the overlay saw the finish.
   - **Columns** (each on or off):
     - gap to the leader (or to pole);
     - interval to the car ahead;

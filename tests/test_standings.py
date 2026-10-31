@@ -150,6 +150,25 @@ class StandingsOverlayTests(unittest.TestCase):
         self.run_for(app, 1)
         self.assertIsNone(app.build_snapshot()["overlays"]["driver"])
 
+    def test_chequered_flag_is_marked_for_the_header(self):
+        app, source = self.app(race_laps=1)
+        self.run_for(app, 30)
+        self.assertIsNone(app.build_snapshot()["overlays"]["since_chequered"])
+        for _ in range(3000):  # until the leader takes the flag
+            self.t += 0.1
+            app.tick()
+            if source.checkered:
+                break
+        self.run_for(app, 1)
+        since = app.build_snapshot()["overlays"]["since_chequered"]
+        self.assertIsNotNone(since)
+        self.assertLess(since, 1.5)
+        # Joining after the finish: no flag to show.
+        late, src = self.app(race_laps=1)
+        src.checkered = True
+        late.tick()
+        self.assertIsNone(late.build_snapshot()["overlays"]["since_chequered"])
+
     def test_without_reveal_the_race_shows_everyone(self):
         app, source = self.app(race_laps=5)
         app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": False}})

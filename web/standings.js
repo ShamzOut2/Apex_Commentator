@@ -66,13 +66,27 @@ const GO_FLASH_MS = 550;
 const GO_FLASHES = 5;
 let goAt = -1e9;
 
+// The chequered flag: the header turns into a waving black-and-white
+// chequered flag a few times, then stops (standings.css: .chequered).
+const FLAG_MS = 4200;
+let flagAt = -1e9;
+
+// The header's flag animation, if one is running: green at the start,
+// chequered at the finish (only if this page saw it happen).
 function goFlash(ov) {
+  const race = ov.session_kind === "race";
   const since = ov.since_green;
-  if (ov.session_kind === "race" && since != null && since >= 0 && since * 1000 < GO_FLASH_MS * GO_FLASHES) {
+  if (race && since != null && since >= 0 && since * 1000 < GO_FLASH_MS * GO_FLASHES) {
     goAt = performance.now() - since * 1000;
   }
-  const style = ongoing(goAt, GO_FLASH_MS * GO_FLASHES);
+  const fin = ov.since_chequered;
+  if (race && fin != null && fin >= 0 && fin * 1000 < FLAG_MS) {
+    flagAt = performance.now() - fin * 1000;
+  }
   // The header, its light sweep and its text all run off the same clock.
+  const flag = ongoing(flagAt, FLAG_MS);
+  if (flag) return ` chequered" style="--go-delay:${flag.split(":")[1]}`;
+  const style = ongoing(goAt, GO_FLASH_MS * GO_FLASHES);
   return style ? ` go" style="--go-delay:${style.split(":")[1]}` : "";
 }
 

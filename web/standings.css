@@ -130,3 +130,38 @@ body.screen .fl-flash { top: 14px; }
 @keyframes go-sweep { 60%, 100% { transform: translateX(120%); } }
 .tower-head.go .t3 { animation: go-text .55s ease-in-out 5 both; animation-delay: var(--go-delay, 0s); }
 @keyframes go-text { 35%, 65% { color: #fff; } }
+
+/* The chequered flag: the header becomes a black-and-white chequered flag
+   that ripples across it, flashes in and out a few times, with a light
+   sweep, and then stops (goFlash in standings.js). The text stays on top. */
+.tower-head.chequered, .screen-head.chequered { position: relative; overflow: hidden; isolation: isolate; }
+.tower-head.chequered::before, .screen-head.chequered::before {
+  content: ""; position: absolute; inset: -40% -10%; z-index: -1; pointer-events: none;
+  background: conic-gradient(#f4f4f4 25%, #111 0 50%, #f4f4f4 0 75%, #111 0) 0 0 / 26px 26px;
+  animation: flag-wave 4.2s ease-in-out both, flag-show 4.2s ease-in-out both;
+  animation-delay: var(--go-delay, 0s);
+}
+@keyframes flag-wave {
+  0% { transform: perspective(600px) rotateY(-14deg) skewY(-3deg); background-position: 0 0; }
+  25% { transform: perspective(600px) rotateY(10deg) skewY(2deg); }
+  50% { transform: perspective(600px) rotateY(-8deg) skewY(-2deg); }
+  75% { transform: perspective(600px) rotateY(6deg) skewY(1deg); }
+  100% { transform: none; background-position: 156px 52px; }
+}
+@keyframes flag-show {
+  0%, 100% { opacity: 0; }
+  8%, 22%, 38%, 54%, 70%, 86% { opacity: .95; }
+  15%, 30%, 46%, 62%, 78% { opacity: .45; }
+}
+.tower-head.chequered::after, .screen-head.chequered::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .55) 50%, transparent 70%);
+  transform: translateX(-120%); animation: go-sweep 1.4s ease-in-out 3 both; animation-delay: var(--go-delay, 0s);
+}
+/* Text readable on the flag: a dark plate behind each line. */
+.tower-head.chequered .t1, .tower-head.chequered .t2, .tower-head.chequered .t3,
+.screen-head.chequered .t1, .screen-head.chequered .t2, .screen-head.chequered .t3 {
+  background: rgba(10, 12, 16, .82); border-radius: 4px; padding: 0 6px;
+  animation: flag-text 4.2s ease both; animation-delay: var(--go-delay, 0s);
+}
+@keyframes flag-text { 0%, 100% { background-color: transparent; } 8%, 90% { background-color: rgba(10, 12, 16, .82); } }

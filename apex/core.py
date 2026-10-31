@@ -209,6 +209,7 @@ class App:
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
         self._green = {}           # race session number -> session time it went green (the header flash)
+        self._chequered = {}       # race session number -> session time the chequered flag came out
         self._last_state = {}      # session number -> session state last seen
         self._fl_session = None    # fastest laps: the session they're for,
         self._fl_records = {}      # "overall" / class key -> fastest lap so far,
@@ -299,6 +300,9 @@ class App:
             if frame.session_state == STATE_RACING and num not in self._green and (
                     (was is not None and was < STATE_RACING) or (was is None and t < 5.0)):
                 self._green[num] = t
+            # The chequered flag: from racing to chequered, the leader crossing the line.
+            if frame.session_state == STATE_CHECKERED and num not in self._chequered and was == STATE_RACING:
+                self._chequered[num] = t
             self._last_state[num] = frame.session_state
             self._race.update(timeline_frame)
             self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
@@ -744,6 +748,9 @@ class App:
             # Seconds since the race went green (the header flashes green at the start), or None.
             "since_green": round(frame.timeline()[1] - self._green[frame.timeline()[0]], 2)
             if is_race and frame.timeline()[0] in self._green else None,
+            # And since the chequered flag came out (the header's chequered-flag animation).
+            "since_chequered": round(frame.timeline()[1] - self._chequered[frame.timeline()[0]], 2)
+            if is_race and frame.timeline()[0] in self._chequered else None,
             "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
             "fastest_flash": flash,
