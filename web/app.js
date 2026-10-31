@@ -591,6 +591,16 @@ function renderPhotobooth(s) {
   $("#pb-cancel").hidden = !busy;
   $("#pb-cutout").disabled = busy || !pb.cutout_available;
   if (!pb.cutout_available) $("#pb-cutout").checked = false;
+  // Automatic photos: on or off is kept by the app, so every window agrees.
+  const auto = pb.auto || {};
+  if (document.activeElement !== $("#pb-auto")) $("#pb-auto").checked = !!auto.on;
+  const autoText = auto.error ? `Automatic photos stopped: ${auto.error}`
+    : !auto.on ? "" : auto.paused ? `Automatic photos: ${auto.paused}.`
+      : auto.waiting ? `Automatic photos: ${auto.waiting} car${auto.waiting === 1 ? "" : "s"} just loaded in, photographing in a few seconds…`
+        : `Automatic photos: on${auto.camera ? ` (${auto.camera} camera)` : ""}, waiting for drivers without a photo.`;
+  $("#pb-auto-status").textContent = autoText;
+  $("#pb-auto-status").hidden = !autoText;
+  $("#pb-auto-status").classList.toggle("error-text", !!auto.error);
   const dl = pb.model_download || {};
   const pct = dl.total ? Math.round((dl.done / dl.total) * 100) : 0;
   const n = pb.total;
@@ -618,6 +628,7 @@ function renderPhotobooth(s) {
 function startPhotobooth(carIdx) {
   const params = { group: +$("#pb-camera").value || undefined, cutout: $("#pb-cutout").checked };
   if (carIdx != null) params.car_idx = carIdx;
+  else params.missing_only = $("#pb-missing").checked;
   return cmd("photobooth_start", params, (r) => `Photographing ${r.cars} car${r.cars === 1 ? "" : "s"}…`);
 }
 
@@ -626,6 +637,26 @@ $("#pb-cancel").addEventListener("click", () => cmd("photobooth_cancel", {}, "Ca
 $("#pb-camera").addEventListener("change", (e) => {
   try {
     localStorage.setItem(PB_CAMERA_KEY, e.target.selectedOptions[0].textContent);
+  } catch (err) { /* storage unavailable */ }
+  if ($("#pb-auto").checked) setAutoPhotos(true);  // automatic photos use the new camera
+});
+
+// Automatic photos, with the camera and cut-out picked here.
+function setAutoPhotos(on) {
+  return cmd("photobooth_auto", { enabled: on, group: +$("#pb-camera").value || undefined, cutout: $("#pb-cutout").checked },
+    on ? "Automatic photos on: each driver without a photo is photographed as their car loads in" : "Automatic photos off");
+}
+$("#pb-auto").addEventListener("change", (e) => setAutoPhotos(e.target.checked));
+$("#pb-cutout").addEventListener("change", () => {
+  if ($("#pb-auto").checked) setAutoPhotos(true);
+});
+const PB_MISSING_KEY = "apex.pbMissing";
+try {
+  $("#pb-missing").checked = localStorage.getItem(PB_MISSING_KEY) === "1";
+} catch (e) { /* storage unavailable */ }
+$("#pb-missing").addEventListener("change", (e) => {
+  try {
+    localStorage.setItem(PB_MISSING_KEY, e.target.checked ? "1" : "");
   } catch (err) { /* storage unavailable */ }
 });
 

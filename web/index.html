@@ -223,7 +223,12 @@
               <label>Camera <select id="pb-camera"></select></label>
               <label class="toggle" title="Remove the track behind the car (an AI model, about 170 MB downloaded the first time)">
                 <input type="checkbox" id="pb-cutout" checked> Cut out background</label>
+              <label class="toggle" title="Photograph the grid only takes the cars whose driver has no car photo yet">
+                <input type="checkbox" id="pb-missing"> Only cars without a photo yet</label>
+              <label class="toggle" title="Each driver without a car photo is photographed by themselves a few seconds after their car loads in. Never during a race once it's green.">
+                <input type="checkbox" id="pb-auto"> Photograph drivers as they load in</label>
             </div>
+            <p id="pb-auto-status" class="hint" hidden></p>
             <div class="gw-controls">
               <button class="btn primary" id="pb-start">📷 Photograph the grid</button>
               <button class="btn subtle" id="pb-cancel" hidden>Cancel</button>

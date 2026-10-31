@@ -41,6 +41,10 @@ OBS dock.
 
 ### Improvements
 
+- Photo booth: **Only cars without a photo yet** skips drivers who already
+  have a car photo, and **Photograph drivers as they load in** takes each
+  driver's photo automatically a few seconds after their car loads in
+  (never during a race once it's green).
 - Turn rounds into race meetings (and back) on the fly: one round at a
   time, or every round at once, e.g. after building the season from a
   calendar. A round's results stay with the meeting's first race.
@@ -263,6 +267,22 @@ grid walk uses it straight away. 📷 on a driver's row retakes just that car.
   the **Screenshots folder** to the real one (e.g. `D:\iRacing\screenshots`).
 - **When**: it takes over the camera for about 2 seconds per car, so run it
   before you go live. The cut-outs are made afterwards, in the background.
+- **Only cars without a photo yet**: tick it and *Photograph the grid* skips
+  drivers who already have a car photo, so you can press it again as people
+  join and it only takes the new ones.
+- **Photograph drivers as they load in**: with it on, each driver without a
+  car photo is photographed automatically a few seconds after their car
+  loads into the session (cars that load in together are taken in one go),
+  with the camera and cut-out setting picked above. It never runs during a
+  race once it's green, and tries each driver once a session: one that fails
+  can be retaken with 📷. It stays on until you turn it off, even after a
+  restart. Photos are kept in the league, so a photo taken in practice is
+  used on race day.
+- **A front three-quarter view**: the app can pick a camera but can't move
+  one. Make one in iRacing's camera tool (Ctrl+F12): take a camera fixed to
+  the car (e.g. *Chase*), move it ahead of the car and to one side, turn it
+  back to face the car's front corner and save the camera set. Then pick it
+  in the *Camera* list.
 - **Cars spread out make better photos**: the cut-out keeps the car in the
   middle of the shot and drops cars that merely touch it. A car that
   overlaps another in the frame can't be separated, so practice and

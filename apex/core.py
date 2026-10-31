@@ -225,6 +225,9 @@ class App:
         self.gaps = GapTimer()
         self.overlays = OverlaySettings()  # __main__ gives it a file to keep settings in
         self.settings = UserSettings()     # settings changed in the app (likewise)
+        # Automatic photos (cmd_photobooth_auto): cars waiting {car: since}, and
+        # drivers already tried this session.
+        self._auto_seen, self._auto_tried, self._auto_session, self._auto_error = {}, set(), None, ""
         self.tracks = TrackCatalogue()     # likewise: the season calendar's track list
         self.board = {"kind": None, "params": {}}  # the full-screen board on screen, if any
         self._board_cache = (None, None)
@@ -274,6 +277,7 @@ class App:
                 self.detector.update_incidents(frame, self._drivers)
             self._frame = frame
             self._detect(frame)
+            self._auto_photos(frame)
         return True
 
     def _detect(self, frame):
@@ -400,7 +404,7 @@ class App:
                     "connected": False, "source": self.source.name, "league": self._league_summary(),
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
-                    "photobooth": self.photobooth.status() if self.photobooth else None,
+                    "photobooth": self._photobooth_snapshot(),
                     "desktop": self._desktop_snapshot(),
                     **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
@@ -488,7 +492,7 @@ class App:
                 "drivers": rows,
                 "detection": self.detection,
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
-                "photobooth": self.photobooth.status() if self.photobooth else None,
+                "photobooth": self._photobooth_snapshot(),
                 "classes": self._ordered_classes(classes),
                 "events": events[-200:],
                 "desktop": self._desktop_snapshot(),
@@ -1025,7 +1029,7 @@ class App:
             # Sent often by on-screen overlays as they change: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "board_", "popout", "desktop_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "photobooth_auto", "board_", "popout", "desktop_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -1252,8 +1256,19 @@ class App:
 
     # -- photo booth -------------------------------------------------------------
 
-    def cmd_photobooth_start(self, car_idx=None, group=None, cutout=True):
-        """Photograph one car (car_idx) or every loaded car, in grid order."""
+    def _has_photo(self, car_idx):
+        """Whether a car's driver has a car photo in the active league."""
+        d = self._drivers.get(car_idx)
+        entry = d and self.leagues.lookup(d["cust_id"], d["number"])
+        return bool(entry and entry.get("car_image"))
+
+    def _loaded_cars(self, frame):
+        """Cars loaded onto the track (the only ones that can be photographed), in grid order."""
+        return [i for i in self._grid_order if frame and _at(frame.surface, i, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD]
+
+    def cmd_photobooth_start(self, car_idx=None, group=None, cutout=True, missing_only=False):
+        """Photograph one car (car_idx) or every loaded car, in grid order
+        (``missing_only``: only those without a car photo yet)."""
         from .photobooth import PhotoBoothError
 
         if self.photobooth is None:
@@ -1261,10 +1276,11 @@ class App:
         if car_idx not in (None, ""):
             cars = [int(car_idx)]
         else:
-            frame = self._frame
-            # Only cars loaded onto the track can be photographed.
-            cars = [i for i in self._grid_order
-                    if frame and _at(frame.surface, i, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD]
+            cars = self._loaded_cars(self._frame)
+            if missing_only:
+                cars = [i for i in cars if not self._has_photo(i)]
+                if not cars:
+                    raise CommandError("Every car on track has a photo already")
         try:
             self.photobooth.start(cars, self._group(group), use_cutout=bool(cutout))
         except PhotoBoothError as e:
@@ -1307,6 +1323,78 @@ class App:
             return {"settings": settings}
         except ValueError as e:
             raise CommandError(str(e)) from e
+
+    # -- automatic photos: each driver's car as it loads in -------------------
+    #
+    # With it on, a car on track whose driver has no car photo in the active
+    # league is photographed by itself: once it has been there AUTO_PHOTO_WAIT_S
+    # (cars loading in together are taken in one go). Never during a race once
+    # it's green (that's live), and each driver is tried once a session: one
+    # that fails can be photographed by hand.
+
+    AUTO_PHOTO_WAIT_S = 6.0
+
+    def cmd_photobooth_auto(self, enabled=False, group=None, cutout=True):
+        """Turn automatic photos on (with this camera, by name) or off."""
+        if self.photobooth is None:
+            raise CommandError("The photo booth isn't available")
+        name = next((g["name"] for g in self._camera_groups if str(g["num"]) == str(group)), "")
+        self.settings.set("photobooth_auto", {"camera": name, "cutout": bool(cutout)} if enabled else None)
+        self._auto_seen, self._auto_error = {}, ""
+        return {"auto": bool(enabled)}
+
+    def _auto_paused(self, frame):
+        """Why automatic photos are waiting ("" when they can go)."""
+        if not self.leagues.active():
+            return "no league active"
+        if self._is_race(frame) and frame.session_state >= STATE_RACING:
+            return "paused during the race"
+        return ""
+
+    def _auto_photos(self, frame):
+        settings = self.settings.get("photobooth_auto") if self.photobooth else None
+        if not settings or self.photobooth.busy or self._auto_paused(frame):
+            self._auto_seen = {}
+            return
+        session = self.session_key()
+        if session != self._auto_session:
+            self._auto_session, self._auto_tried, self._auto_seen = session, set(), {}
+        now = time.monotonic()
+        waiting = {}
+        for i in self._loaded_cars(frame):
+            d = self._drivers.get(i)
+            if not d or self._has_photo(i):
+                continue
+            key = driver_key({"cust_id": d["cust_id"], "name": d["name"]})
+            if key not in self._auto_tried:
+                waiting[i] = self._auto_seen.get(i, now)
+        self._auto_seen = waiting
+        # The newest arrival has settled (or someone has waited a good while): go.
+        if not waiting or (now - max(waiting.values()) < self.AUTO_PHOTO_WAIT_S
+                           and now - min(waiting.values()) < 4 * self.AUTO_PHOTO_WAIT_S):
+            return
+        cars = list(waiting)
+        for i in cars:
+            d = self._drivers[i]
+            self._auto_tried.add(driver_key({"cust_id": d["cust_id"], "name": d["name"]}))
+        group = next((g["num"] for g in self._camera_groups if g["name"] == settings.get("camera")), None)
+        try:
+            self.photobooth.start(cars, self._group(group), use_cutout=settings.get("cutout", True))
+        except Exception as e:  # e.g. the screenshots folder can't be read: say so, and stop trying
+            print(f"[apex] automatic photos: {e}")
+            self.settings.set("photobooth_auto", None)
+            self._auto_error = str(e)
+        self._auto_seen = {}
+
+    def _photobooth_snapshot(self):
+        if not self.photobooth:
+            return None
+        settings = self.settings.get("photobooth_auto")
+        frame = self._frame
+        auto = {"on": bool(settings), "camera": (settings or {}).get("camera", ""), "cutout": (settings or {}).get("cutout", True),
+                "paused": self._auto_paused(frame) if settings and frame else "", "waiting": len(self._auto_seen),
+                "error": self._auto_error}
+        return dict(self.photobooth.status(), auto=auto)
 
     def cmd_photobooth_folder(self, folder=""):
         """Where iRacing saves screenshots ("" = its default folder)."""

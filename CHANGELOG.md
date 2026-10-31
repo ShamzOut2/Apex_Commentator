@@ -15,6 +15,10 @@ How each version's entry is written:
 
 ### Improvements
 
+- Photo booth: **Only cars without a photo yet** skips drivers who already
+  have a car photo, and **Photograph drivers as they load in** takes each
+  driver's photo automatically a few seconds after their car loads in
+  (never during a race once it's green).
 - Turn rounds into race meetings (and back) on the fly: one round at a
   time, or every round at once, e.g. after building the season from a
   calendar. A round's results stay with the meeting's first race.
