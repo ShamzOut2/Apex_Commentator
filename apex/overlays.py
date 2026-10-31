@@ -106,6 +106,8 @@ DEFAULTS = {
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_class": True,       # the class, in multiclass races
         "show_position": True,    # P3 (and P1 in class, in multiclass races)
+        "team_place": "under",    # "under": the team under the name, the car badge at the end; "end": swapped
+        "team_logo_side": "first",  # the team logo before ("first") or after ("last") the team name
         **BACKGROUND,
     },
     # The grid walk's own settings are with the grid walk; this is just its background.
@@ -170,7 +172,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"),
+           "leader_cell": ("leader", "lap"), "team_place": ("under", "end"), "team_logo_side": ("first", "last"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 

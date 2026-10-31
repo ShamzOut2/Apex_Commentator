@@ -15,6 +15,8 @@ How each version's entry is written:
 
 ### Improvements
 
+- Driver on camera: swap the team and the car badge (badge under the name,
+  team at the end), and put the team logo before or after the team name.
 - Driver on camera: set how long the card stays on screen (1 to 120
   seconds), or keep it up while they're on camera. A new driver replaces the
   card and starts the time again, picking the same driver again in the app

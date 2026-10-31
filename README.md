@@ -41,6 +41,8 @@ OBS dock.
 
 ### Improvements
 
+- Driver on camera: swap the team and the car badge (badge under the name,
+  team at the end), and put the team logo before or after the team name.
 - Driver on camera: set how long the card stays on screen (1 to 120
   seconds), or keep it up while they're on camera. A new driver replaces the
   card and starts the time again, picking the same driver again in the app
@@ -409,6 +411,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     iRacing paused.
   - **Stay up for as long as they're on camera**: no timer; it changes when
     the camera does.
+  - **Team and car badge**: the team under the driver's name with the car
+    badge at the end of the card, or swapped (the car badge under the name,
+    the team at the end, bigger). **Team logo**: before or after the team
+    name.
   - Choose the details shown, the name style and the panel background. It
     only shows when the camera is on a driver, not on scenic cameras.
 - **Sponsors** (`/sponsors.html`): the active league's sponsor logos (added

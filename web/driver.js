@@ -18,11 +18,18 @@ function cardHtml(d, cfg, cls, multiclass) {
     ? `<div class="pos" style="color:${inkFor(cls.color)}"><span class="p">P${d.pos}</span>${multiclass && d.class_pos ? `<span class="cp">P${d.class_pos} ${esc(cls.name)}</span>` : ""}</div>` : "";
   const number = cfg.show_number && d.number
     ? `<span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(d.number)}</span>` : "";
+  // The team: its logo before or after its name; under the driver's name, or
+  // at the end of the card with the car badge under the name instead.
+  const swapped = cfg.team_place === "end";
+  const logo = cfg.show_logo && d.team_logo ? `<img src="${esc(d.team_logo)}" alt="">` : "";
+  const teamName = `<span class="team-name">${esc(d.team)}</span>`;
   const team = cfg.show_team && d.team
-    ? `<div class="team">${cfg.show_logo && d.team_logo ? `<img src="${esc(d.team_logo)}" alt="">` : ""}${esc(d.team)}</div>` : "";
+    ? `<div class="team ${swapped ? "end" : ""}">${cfg.team_logo_side === "last" ? teamName + logo : logo + teamName}</div>` : "";
   const klass = cfg.show_class && multiclass && cls.name ? `<span class="klass" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(cls.name)}</span>` : "";
-  const make = cfg.show_make && d.make_logo ? `<span class="make"><img src="${esc(d.make_logo)}" alt="${esc(d.make)}"></span>` : "";
-  return `${pos}<div class="who">${number}<div class="names"><div class="name">${esc(formatName(d, cfg.name_format))}${klass}</div>${team}</div></div>${make}`;
+  const make = cfg.show_make && d.make_logo ? `<span class="make ${swapped ? "small" : ""}"><img src="${esc(d.make_logo)}" alt="${esc(d.make)}"></span>` : "";
+  const under = swapped ? make : team;
+  const end = swapped ? team : make;
+  return `${pos}<div class="who">${number}<div class="names"><div class="name">${esc(formatName(d, cfg.name_format))}${klass}</div>${under}</div></div>${end}`;
 }
 
 function render(snap) {
