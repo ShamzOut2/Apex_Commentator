@@ -165,6 +165,8 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 }
 .gw-info .pos .p { font-size: 42px; font-weight: 900; line-height: 1; }
 .gw-info .pos .cp { font-size: 13px; font-weight: 800; letter-spacing: .06em; opacity: .9; white-space: nowrap; }
+.gw-info:not(:has(.pos)) { padding-left: 24px; }
+.gw-info .num.plain { background: none; color: #fff; }
 .gw-info .who { display: flex; align-items: center; gap: 18px; min-width: 0; flex: 1; padding: 14px 0; }
 .gw-info .num { font-size: 30px; font-weight: 900; min-width: 64px; height: 50px; padding: 0 10px; border-radius: 8px; flex: none; }
 .gw-info .names { min-width: 0; display: flex; flex-direction: column; gap: 4px; }

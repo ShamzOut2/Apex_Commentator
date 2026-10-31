@@ -169,13 +169,21 @@ function calendarHtml(b) {
     </div>`).join("")}</div>`;
 }
 
+// The last board's settings: taken off screen, it fades out in its own
+// background (yours, not the default one), the backdrop fading with it.
+let lastSettings = null;
+
 function render(snap) {
   const b = snap.board;
-  if (b) setSize(b.settings, true);
-  setBackground(b && b.settings, !!b);
-  podium = !b || b.settings.podium !== false;
-  setColumnOpacity(b && b.settings);
-  setLogoScale(b && b.settings);
+  if (b) {
+    setSize(b.settings, true);
+    lastSettings = b.settings;
+  }
+  const look = b ? b.settings : lastSettings;
+  setBackground(look, !!b);
+  podium = !look || look.podium !== false;
+  setColumnOpacity(look);
+  setLogoScale(look);
   if (!b) {
     if (shown !== "none") {
       leave();  // fade the board out

@@ -46,7 +46,22 @@ walk, Overlays, Boards and Race control.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- Grid walk: **car picture size** of your own.
+- Grid walk drivers' cards: the driver card's choices (grid position overall,
+  in class or both, class name with it, car number, class badge, team name
+  and logo, car badge, class colour from the main or secondary class), and
+  the qualifying **gap**, **interval** to the car ahead in class or lap time,
+  also painted on the track if you like.
+
 ### Fixes
+
+- The "everything on my screen" hotkeys put the overlays and boards on the
+  screen picked in the Overlays and Boards tabs (keys that work from
+  anywhere used the first screen).
+- A board taken off screen keeps your own background as it fades out,
+  instead of switching to the default one.
 
 - Championship boards: a penalty now comes off the driver's class standings
   too when it was given to their roster entry and their results were saved
@@ -269,7 +284,14 @@ as the camera moves on), and moving on to the next pair the camera glides
 down the grid to it. Each driver has a card
 in the driver-on-camera card's style (top right for the front car, bottom
 left for the second): the card opens from the middle with a light sweep,
-and closes the same way as it goes, with the driver's details: grid position (and class position in multiclass races), car
+and closes the same way as it goes. Its settings are the driver-on-camera
+card's: grid position overall, in class or both (the class name with it or
+not), class colour from the main or secondary class, car number, class
+badge, team name, team logo (and its size), car badge; and **Qualifying**:
+the gap to the class pole, the interval to the car ahead in class, the lap
+time or nothing, also painted on the track under each box's number if you
+like. **Car picture size** makes the cars bigger or smaller in their boxes.
+With everything on, the card shows the driver's details: grid position (and class position in multiclass races), car
 number in the class colour, class badge, car badge, name, nickname, team and
 team logo, and their qualifying time (the class pole's lap, the gap to it
 for everyone else). **Names** sets the name style (full name, A. Driver…)
@@ -737,7 +759,8 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
   game or the app underneath.
 - With more than one monitor, pick which one once, at the top of the
   Overlays tab (for every overlay and the grid walk) or the Boards tab. The
-  app remembers it; changing it moves anything from that tab already up.
+  app remembers it (the "everything on my screen" hotkeys use it too);
+  changing it moves anything from that tab already up.
 - **Remove** takes it down; *Remove all from my screen* clears everything.
   They also close with the app. **Show all on my screen** (Overlays tab) puts
   every overlay up at once: the standings tower, lap tracker, driver on

@@ -13,7 +13,22 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- Grid walk: **car picture size** of your own.
+- Grid walk drivers' cards: the driver card's choices (grid position overall,
+  in class or both, class name with it, car number, class badge, team name
+  and logo, car badge, class colour from the main or secondary class), and
+  the qualifying **gap**, **interval** to the car ahead in class or lap time,
+  also painted on the track if you like.
+
 ### Fixes
+
+- The "everything on my screen" hotkeys put the overlays and boards on the
+  screen picked in the Overlays and Boards tabs (keys that work from
+  anywhere used the first screen).
+- A board taken off screen keeps your own background as it fades out,
+  instead of switching to the default one.
 
 - Championship boards: a penalty now comes off the driver's class standings
   too when it was given to their roster entry and their results were saved

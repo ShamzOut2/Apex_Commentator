@@ -2310,8 +2310,22 @@ const OVERLAY_FIELDS = {
       ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
-  gridwalk: [["Drivers", [["name_format", "Names", "select", NAME_FORMATS], ["show_nickname", "Nickname under the name", "bool"]]],
-    ["Car pictures", [["neighbours", "Cars either side on the grid", "select", [["show", "Show them in their boxes"],
+  gridwalk: [["Drivers' cards", [["name_format", "Names", "select", NAME_FORMATS], ["show_nickname", "Nickname under the name", "bool"],
+      ["show_position", "Grid position", "bool"],
+      iff((v) => v.show_position, ["position_shown", "Position shown", "select", [["overall", "Overall (P3)"],
+        ["class", "In class only (P1, the class under it)"], ["both", "Both (P3, and P1 GT3 under it)"]]]),
+      iff((v) => v.show_position && v.position_shown !== "overall", ["pos_class_name", "Class name with the class position (P1 GT3; off: just P1)", "bool"]),
+      ["class_colors", "Class colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]],
+      ["show_number", "Car number", "bool"],
+      ["show_class", "Class badge by the name", "bool"],
+      ["show_team", "Team name", "bool"],
+      ["show_logo", "Team logo", "bool"],
+      ["show_make", "Car badge", "bool"],
+      ["qual_shown", "Qualifying", "select", [["gap", "Gap to the class pole"], ["interval", "Interval to the car ahead in class"],
+        ["time", "Lap time"], ["none", "Nothing"]]],
+      iff((v) => v.qual_shown !== "none", ["track_qual", "Also painted on the track, under each box's number", "bool"])]],
+    ["Car pictures", [["car_scale", "Car picture size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }],
+      ["neighbours", "Cars either side on the grid", "select", [["show", "Show them in their boxes"],
       ["hide", "Hide them: just the pair"]]],
       ["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
   pits: [
@@ -2897,14 +2911,31 @@ const deskTab = (page) => (page === "board" ? "boards" : "overlays");
 
 function deskScreen(tab, screens = (ui.snap && ui.snap.desktop && ui.snap.desktop.screens) || []) {
   let n = 0;
-  try {
-    n = +localStorage.getItem(DESK_SCREEN + tab) || 0;
-  } catch (e) { /* storage unavailable */ }
+  // Kept by the app (so its hotkeys use it too); an older pick only this PC's browser had, else.
+  const picked = ui.snap && ui.snap.desktop && ui.snap.desktop.picked;
+  if (picked && picked[tab] != null) n = +picked[tab];
+  else {
+    try {
+      n = +localStorage.getItem(DESK_SCREEN + tab) || 0;
+    } catch (e) { /* storage unavailable */ }
+  }
   return n < screens.length ? n : 0;
 }
 
+let deskMigrated = false;
+
 function renderDesktop(s) {
   const d = s.desktop || { available: false, on_screen: {}, screens: [] };
+  if (!deskMigrated && d.available) {
+    deskMigrated = true;
+    for (const tab of ["overlays", "boards"]) {
+      let n = null;
+      try {
+        n = localStorage.getItem(DESK_SCREEN + tab);
+      } catch (e) { /* storage unavailable */ }
+      if (n != null && !(d.picked && d.picked[tab] != null)) cmd("desktop_screen", { tab, screen: +n });
+    }
+  }
   const key = JSON.stringify(d);
   if (key === deskKey) return;
   deskKey = key;
@@ -2942,7 +2973,7 @@ async function deskShow(page, screen) {
 
 // Every overlay (or the boards) on screen at once: the Show all button and hotkeys.
 async function deskShowAll(group) {
-  const r = await cmd("desktop_show_all", { group, screen: deskScreen(group) }, group === "boards" ? "Boards on your screen" : "Overlays on your screen");
+  const r = await cmd("desktop_show_all", { group }, group === "boards" ? "Boards on your screen" : "Overlays on your screen");
   if (!r) return;
   let ok = false;
   try {
@@ -2998,6 +3029,7 @@ document.querySelectorAll("[data-desk-tab]").forEach((pick) => pick.addEventList
   try {
     localStorage.setItem(DESK_SCREEN + tab, pick.value);
   } catch (e) { /* storage unavailable */ }
+  cmd("desktop_screen", { tab, screen: +pick.value });  // the app keeps it, for its hotkeys
   // Whatever from this tab is already on screen moves to the screen picked.
   const on = (ui.snap && ui.snap.desktop && ui.snap.desktop.on_screen) || {};
   for (const [page, screen] of Object.entries(on)) {

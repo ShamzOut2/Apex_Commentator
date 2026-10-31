@@ -1175,12 +1175,18 @@ class App:
                 k = e["class_key"]
                 class_pole[k] = min(class_pole.get(k, e["qual_time"]), e["qual_time"])
         out = []
+        ahead = {}  # class key -> qualifying time of the car ahead on the grid in that class
         for pos, key in enumerate(order, start=1):
             e = entries[key]
             in_class[e["class_key"]] = in_class.get(e["class_key"], 0) + 1
             pole = class_pole.get(e["class_key"])
             gap = round(e["qual_time"] - pole, 3) if e["qual_time"] and pole else None
-            out.append(dict(e, key=key, grid_pos=pos, class_pos=in_class[e["class_key"]], qual_gap=gap))
+            # The interval: to the car ahead of them on the grid in their class.
+            before = ahead.get(e["class_key"])
+            interval = round(e["qual_time"] - before, 3) if e["qual_time"] and before else None
+            if e["qual_time"]:
+                ahead[e["class_key"]] = e["qual_time"]
+            out.append(dict(e, key=key, grid_pos=pos, class_pos=in_class[e["class_key"]], qual_gap=gap, qual_int=interval))
         th = self.thumbnails
         thumbs = {"folder": str(th.folder or ""), "count": th.count, "error": th.error,
                   "matched": sum(1 for e in out if e["has_thumb"]), "drivers": len(out)}
@@ -1209,9 +1215,12 @@ class App:
         pid = active_league["id"] if active_league else ""
         team = league.get("team") or d.get("team") or ""
         name, nickname = self._stream_name(d["name"], league.get("nickname", ""), active_league)
+        class_key = self._class_key(classes, active_league, league or None, d)
         return {
             "car_idx": car_idx,
             "cust_id": d.get("cust_id"),
+            # Main / secondary class colours (as the driver card's class_colors picks).
+            "paint": self._paint({"class_key": class_key, "league": league or None}, active_league),
             "car_name": d.get("car_name") or d.get("car", ""),
             "name": name,
             "nickname": nickname,
@@ -1225,7 +1234,7 @@ class App:
             "car_image": self._thumb_url(d) or (logo_url(pid, league.get("car_image")) if pid and league.get("car_image") else None),
             "has_thumb": bool(self._thumb_for(d)),
             "car_design": d.get("car_design"),
-            "class_key": self._class_key(classes, active_league, league or None, d),
+            "class_key": class_key,
             "in_session": in_session,
             "in_world": in_world,
             "qual_time": self._qual_times.get(car_idx),
@@ -1325,9 +1334,20 @@ class App:
 
     def _desktop_snapshot(self):
         d = self.desktop
+        picked = self.settings.get("desk_screens") or {}
         if d is None:
-            return {"available": False, "on_screen": {}, "screens": []}
-        return {"available": True, "on_screen": d.on_screen(), "screens": d.screens()}
+            return {"available": False, "on_screen": {}, "screens": [], "picked": picked}
+        return {"available": True, "on_screen": d.on_screen(), "screens": d.screens(), "picked": picked}
+
+    def cmd_desktop_screen(self, tab, screen=0):
+        """Which screen the Overlays tab's (or the Boards tab's) overlays go on,
+        kept by the app: the "everything on my screen" hotkeys use it too."""
+        if tab not in self.DESKTOP_GROUPS:
+            raise CommandError("Unknown tab")
+        picked = dict(self.settings.get("desk_screens") or {})
+        picked[tab] = max(0, int(screen or 0))
+        self.settings.set("desk_screens", picked)
+        return {"picked": picked}
 
     def cmd_desktop_show(self, page, screen=0):
         """Put an overlay on the user's own screen (``screen``: which monitor)."""
@@ -1344,10 +1364,13 @@ class App:
     # What "all of them on my screen" puts up (hotkeys desk:overlays / desk:boards).
     DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits"), "boards": ("board",)}
 
-    def cmd_desktop_show_all(self, group="overlays", screen=0):
-        """Put every overlay (or the boards) on the user's screen, at once."""
+    def cmd_desktop_show_all(self, group="overlays", screen=None):
+        """Put every overlay (or the boards) on the user's screen, at once: on
+        the screen picked for them (cmd_desktop_screen) unless ``screen`` says."""
         if group not in self.DESKTOP_GROUPS:
             raise CommandError("Unknown group of overlays.")
+        if screen is None:
+            screen = (self.settings.get("desk_screens") or {}).get(group, 0)
         on = self.desktop.on_screen() if self.desktop is not None else {}
         for page in self.DESKTOP_GROUPS[group]:
             if on.get(page) != int(screen or 0):
