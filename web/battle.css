@@ -41,7 +41,7 @@ body.panel-image .battle::before {
 .bt-row .names { min-width: 0; display: flex; flex-direction: column; }
 .bt-row .name { font-size: 22px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bt-row .team { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bt-row .logo { flex: none; height: 28px; width: 40px; object-fit: contain; }
+.bt-row .logo { flex: none; height: calc(28px * var(--logo-k, 1)); width: calc(40px * var(--logo-k, 1)); object-fit: contain; }
 .bt-row .pts { font-size: 26px; font-weight: 900; text-align: right; }
 .bt-row .race { font-size: 18px; font-weight: 800; color: var(--green); text-align: right; }
 .bt-row .race.zero { color: var(--muted); }

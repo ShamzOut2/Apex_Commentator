@@ -437,9 +437,21 @@ def standings(profile, live_round=None):
             names[r["driver"]] = r["name"] or names.get(r["driver"], "")
     penalties = {}
     licence = {}
+    # A penalty picked from the roster for a driver whose results are under
+    # another key (e.g. results saved before their iRacing ID was in the
+    # roster): it's theirs, matched by name, so it comes off every
+    # championship they score in (their class's as well as overall).
+    by_name = {}
+    for d in latest:
+        n = str((roster.get(d) or {}).get("name") or names.get(d) or "").strip().lower()
+        if n:
+            by_name.setdefault(n, d)
     for p in champ["penalties"]:
-        penalties[p["driver"]] = penalties.get(p["driver"], 0) + p["points"]
-        licence[p["driver"]] = licence.get(p["driver"], 0) + p["licence"]
+        d = p["driver"]
+        if d not in latest:
+            d = by_name.get(str((roster.get(d) or {}).get("name") or "").strip().lower(), d)
+        penalties[d] = penalties.get(d, 0) + p["points"]
+        licence[d] = licence.get(d, 0) + p["licence"]
     for d in list(penalties) + list(licence):
         if d not in latest:
             latest[d] = _group_keys({"driver": d, "class_id": ((roster.get(d) or {}).get("class_id", "")).replace("-", "")}, rules, second)

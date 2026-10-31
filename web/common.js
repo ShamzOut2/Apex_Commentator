@@ -520,11 +520,11 @@ function fitStage(stage) {
 // the visible parts below, in window pixels, whenever they change. Full-screen
 // versions (?screen=1) are a whole screen.
 const DESK_PARTS = {
-  "/standings.html": "#tower, .fl-pill",
+  "/standings.html": "#tower, .fin-tab, .fl-pill",
   "/laps.html": ".tracker",
   "/driver.html": "#slot > *",
   "/sponsors.html": ".sp",
-  "/gridwalk.html": ".gw-title, .gw-track, .gw-info",
+  "/gridwalk.html": ".walk",
   "/board.html": "#stage > *",
   "/battle.html": ".battle:not(.out)",
   "/pits.html": ".pit-card",
@@ -611,6 +611,7 @@ function setSize(cfg, whole = false, moved = !whole) {
 function setPanels(cfg) {
   const mode = cfg ? cfg.bg : "default";
   const st = document.body.style;
+  setLogoScale(cfg);
   const op = (cfg && cfg.bg_opacity != null ? cfg.bg_opacity : 100) / 100;
   const image = mode === "image" && cfg.bg_image;
   document.body.classList.toggle("custom-panels", mode === "color" || !!image);
@@ -625,6 +626,13 @@ function setPanels(cfg) {
   } else {
     st.removeProperty("--panel");
   }
+}
+
+// Team logos drawn at the size set (logo_scale, %): CSS sizes them by --logo-k.
+function setLogoScale(cfg) {
+  const k = ((cfg && cfg.logo_scale) || 100) / 100;
+  document.body.style.setProperty("--logo-k", String(k));
+  return k;
 }
 
 // Boards and full-screen pages: the whole page's backdrop. Only while there's

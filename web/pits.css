@@ -27,7 +27,7 @@ body.panel-image .pit-card::before {
 .pit-who .names { min-width: 0; flex: 1; display: flex; flex-direction: column; }
 .pit-who .name { font-size: 22px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pit-who .team { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pit-who .logo { height: 30px; max-width: 70px; object-fit: contain; }
+.pit-who .logo { height: calc(30px * var(--logo-k, 1)); max-width: calc(70px * var(--logo-k, 1)); object-fit: contain; }
 .pit-tag { font-size: 13px; font-weight: 900; letter-spacing: .1em; padding: 3px 8px; border-radius: 5px; background: var(--yellow); color: #111; }
 .pit-tag.out { background: var(--green); }
 

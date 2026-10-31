@@ -683,3 +683,8 @@ p.hint .desk { margin-left: 6px; }
 .scheme { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
 .scheme > input { width: 170px; }
 .scheme .grow { flex: 1; min-width: 200px; }
+
+/* The eyedropper by each colour box (pickColor in app.js). */
+.btn.dropper { padding: 4px; min-width: 0; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; flex: none; }
+.btn.dropper svg { width: 16px; height: 16px; }
+body.dropping, body.dropping * { cursor: crosshair !important; }

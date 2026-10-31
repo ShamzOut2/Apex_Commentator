@@ -172,6 +172,7 @@ function render(snap) {
   setBackground(b && b.settings, !!b);
   podium = !b || b.settings.podium !== false;
   setColumnOpacity(b && b.settings);
+  setLogoScale(b && b.settings);
   if (!b) {
     if (shown !== "none") {
       leave();  // fade the board out

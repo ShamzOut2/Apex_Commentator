@@ -1282,8 +1282,9 @@ class App:
         handler = getattr(self, f"cmd_{action}", None)
         if handler is None:
             raise CommandError(f"Unknown action '{action}'")
-        if action == "desktop_region":
-            # Sent often by on-screen overlays as they change: no lock, nothing to publish.
+        if action in ("desktop_region", "pick_color"):
+            # Sent often by on-screen overlays as they change / waits for a
+            # click on screen: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
         if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_")):
@@ -1292,6 +1293,15 @@ class App:
             result = handler(**params)
         self.publish()
         return result or {}
+
+    def cmd_pick_color(self):
+        """The eyedropper: waits for a click anywhere on screen and returns
+        {"color": "#rrggbb"} (None: cancelled, or not on Windows)."""
+        from . import screenpick
+
+        if not screenpick.available():
+            raise CommandError("Picking a colour off the screen works in the app on Windows.")
+        return {"color": screenpick.pick()}
 
     # Overlays that can go straight on the user's screen (see desktop.py):
     # page -> (name, path). "desktop" lets the page know (no drop shadows).

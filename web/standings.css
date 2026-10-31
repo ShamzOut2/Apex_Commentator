@@ -45,7 +45,7 @@ body.col-bg .srow.shead > span { padding: 0 4px; }
 body.col-bg .srow.shead > span:last-child { padding-right: 12px; }
 .srow .stripe { height: 100%; }
 .srow .num { font-size: 16px; height: 26px; }
-.srow .team-logo { width: 30px; height: 26px; }
+.srow .team-logo { width: calc(30px * var(--logo-k, 1)); height: min(calc(26px * var(--logo-k, 1)), 36px); }
 .srow .who { min-width: 0; display: flex; flex-direction: column; line-height: 1.05; }
 .srow .who .n { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .srow .who .tm { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -126,6 +126,18 @@ body.screen .fl-flash { top: 14px; }
   50% { transform: skewY(3deg) scaleX(.97); }
   75% { transform: skewY(8deg) scaleX(.88); }
 }
+/* On the tower: a tab of its own out of the tower's right edge, level with
+   the finisher's row (placeFinishTabs). It slides out from behind the tower. */
+.fin-rail { position: absolute; left: 100%; top: 0; bottom: 0; width: 60px; overflow: hidden; pointer-events: none; }
+.fin-tab {
+  position: absolute; left: 0; width: 46px; display: flex; align-items: center; justify-content: center;
+  background: var(--panel); border-radius: 0 8px 8px 0; border-top: 1px solid var(--line);
+  box-shadow: inset 6px 0 8px -6px rgba(0, 0, 0, .6); transition: top .45s ease;
+}
+.fin-tab .fin-flag { margin: 0; font-size: 22px; }
+.fin-tab.in { animation: fin-tab-in .6s cubic-bezier(.2, .9, .25, 1) both; }
+.fin-tab.in .fin-flag { animation: fin-pop .9s .35s cubic-bezier(.2, .9, .3, 1.4) both; transform-origin: 10% 100%; }
+@keyframes fin-tab-in { from { transform: translateX(-100%); } }
 .fin-flag.pop { animation: fin-pop .9s cubic-bezier(.2, .9, .3, 1.4) both; transform-origin: 10% 100%; }
 @keyframes fin-pop { 0% { transform: scale(0) rotate(-35deg); opacity: 0; } 55% { transform: scale(1.45) rotate(8deg); opacity: 1; } 100% { transform: none; } }
 @keyframes fl-pop { 0% { transform: scale(0) rotate(-90deg); opacity: 0; } 60% { transform: scale(1.5); opacity: 1; } }

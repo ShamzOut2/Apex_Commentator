@@ -68,14 +68,19 @@ walk, Overlays, Boards and Race control.
 - Timing tower: the coloured bar can take its colour from the main or the
   secondary class on its own, separately from the car number.
 - Teams: **✕** on a league under *Also in* takes the team out of that league.
-- Timing tower: a **chequered flag** pops up by each driver as they finish
-  the race, and keeps waving.
+- Timing tower: a **chequered flag** comes out on a tab at the tower's right
+  edge, level with each driver's row, as they finish the race, and keeps
+  waving.
 - Grid walk: **Cars either side on the grid**, shown or hidden (just the
   pair).
 - League builder: **—** in the main Class column, for a driver with no main
   class.
 - Driver on camera: the class name with the class position can be turned
   off.
+- **Eyedropper** by every colour box: click it, then click anywhere on your
+  screen to take that colour (the colour picker's own eyedropper doesn't work
+  in the app window).
+- **Team logo size** for every overlay and board with team logos.
 
 ### Improvements
 
@@ -109,6 +114,11 @@ walk, Overlays, Boards and Race control.
   whole header, the same size as the chequered flag.
 - The new fastest lap flash no longer shows a class name for a driver with
   no main class.
+- Drop-down lists of drivers, teams and leagues are in alphabetical order
+  (the Penalties tab's driver list, say).
+- A penalty for a driver whose results were saved under another name for them
+  (e.g. before their iRacing ID was in the roster) now comes off their class
+  points as well as overall.
 - Teams no longer end up in every league: sharing a team with one league
   doesn't share it with all the others that league shares with, and a
   league taken off a team stays off.
@@ -437,8 +447,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     over the whole header, the same size as the flag, and the text a shadow.
     Races only, and only if the app saw the finish.
   - **Finish flags**: in a race, as each driver crosses the line after the
-    chequered flag, a small chequered flag pops up by their name (tower and
-    full screen) and keeps waving, every flag in time. Rewinding a replay to
+    chequered flag, a small chequered flag comes out on a tab of its own on
+    the tower's right edge, level with their row (sliding out from behind
+    the tower), and keeps waving, every flag in time. On the full screen it's
+    by their name. Rewinding a replay to
     before the finish takes them away again. *Chequered flag by each driver
     as they finish the race* turns them off.
   - **Columns** (each on or off):
@@ -777,6 +789,13 @@ are matched to the roster by customer ID, and each gets their class in the
 league (their own pick, name tag or iRacing car class). A driver with no
 class (a safety car, say) is left out, as for results saved from the sim. A
 round without a track or date gets the event's.
+
+**Picking colours.** Next to every colour box is an **eyedropper**: click
+it, then click anywhere on your screen (the game, a logo, a photo) to take
+that colour; Esc cancels. In a browser it uses the browser's own eyedropper.
+**Team logo size** (in each overlay's and board's *Size* section) makes the
+team logos bigger or smaller, 40–250% (the tower's logo column grows with
+them).
 
 ## Overlays on your own screen (no OBS)
 

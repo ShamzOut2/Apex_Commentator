@@ -56,7 +56,7 @@ body.screen { background: #0b0d12; }
 .screen-table .stripe { width: 6px; padding: 0; }
 .screen-table .num { font-size: .8em; height: 1.4em; }
 .screen-table .team { color: var(--muted); }
-.screen-table td.lg img { height: 1.3em; width: 2.2em; object-fit: contain; vertical-align: middle; }
+.screen-table td.lg img { height: calc(1.3em * var(--logo-k, 1)); width: calc(2.2em * var(--logo-k, 1)); object-fit: contain; vertical-align: middle; }
 .screen-table .up { color: var(--green); }
 .screen-table .down { color: var(--red); }
 .screen-table .pit { font-size: .65em; font-weight: 800; padding: 1px 6px; border-radius: 3px; background: #fff; color: #111; margin-left: 8px; vertical-align: .15em; }

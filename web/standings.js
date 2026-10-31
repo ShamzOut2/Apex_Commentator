@@ -107,6 +107,46 @@ function finishFlag(e, cfg) {
   return `<span class="fin-flag ${pop ? "pop" : ""}" style="${pop ? `${pop};` : ""}${wave}" title="Finished">${FINISH_FLAG}</span>`;
 }
 
+// On the tower the flags are a tab of their own sticking out of its right
+// edge, level with each finisher's row: a rail beside the tower (kept across
+// redraws), each tab sliding out from behind the tower as they finish.
+const finRail = document.createElement("div");
+finRail.className = "fin-rail";
+const finTabs = new Map();  // car -> tab element
+
+function placeFinishTabs(entries, cfg) {
+  if (finRail.parentNode !== tower) tower.appendChild(finRail);
+  const done = new Map(entries.filter((e) => cfg.finish_flag !== false && e.finished).map((e) => [String(e.car_idx), e]));
+  const seen = new Set();
+  for (const row of tower.querySelectorAll(".srow[data-key]")) {
+    const key = row.dataset.key;
+    const e = done.get(key);
+    if (!e || seen.has(key)) continue;
+    seen.add(key);
+    // Its place in the tower as laid out (not mid-slide).
+    let top = 0;
+    for (let el = row; el && el !== tower; el = el.offsetParent) top += el.offsetTop;
+    let tab = finTabs.get(key);
+    if (!tab) {
+      tab = document.createElement("div");
+      const fresh = ongoing(finishers.get(e.car_idx) ?? -1e9, 1500);
+      tab.className = `fin-tab ${fresh ? "in" : ""}`;
+      tab.innerHTML = `<span class="fin-flag">${FINISH_FLAG}</span>`;
+      finTabs.set(key, tab);
+      finRail.appendChild(tab);
+    }
+    tab.style.top = `${top}px`;
+    tab.style.height = `${row.offsetHeight}px`;
+    tab.querySelector(".fin-flag").style.setProperty("--wave-delay", `-${Math.round(performance.now() % WAVE_MS)}ms`);
+  }
+  for (const [key, tab] of finTabs) {
+    if (!seen.has(key)) {
+      tab.remove();
+      finTabs.delete(key);
+    }
+  }
+}
+
 function renderFlash(snap, ov) {
   const f = snap.connected ? ov.fastest_flash : null;
   const id = f ? f.id : "";
@@ -220,10 +260,11 @@ function numberChip(e, cls, cfg) {
 function rowSpec(cfg, cols) {
   const spec = [["pos", "40px", false], ["stripe", "6px", false]];
   if (cfg.show_number) spec.push(["number", "50px", false]);
-  if (cfg.logo_col && !cfg.logo_last) spec.push(["logo", "34px", false]);
+  const logoW = `${Math.round(34 * Math.min(1.5, (cfg.logo_scale || 100) / 100))}px`;  // the logo column grows with the logos
+  if (cfg.logo_col && !cfg.logo_last) spec.push(["logo", logoW, false]);
   spec.push(["name", "minmax(60px, 1fr)", true]);
   if (cfg.team_col) spec.push(["team", "minmax(60px, .6fr)", true]);
-  if (cfg.logo_col && cfg.logo_last) spec.push(["logo", "34px", false]);
+  if (cfg.logo_col && cfg.logo_last) spec.push(["logo", logoW, false]);
   return spec.concat(cols.map((c) => [c[0], c[1], true]));
 }
 
@@ -301,7 +342,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
     stripe: () => `<span class="stripe" style="${cfg.show_stripe && paintFor(e, cls, stripeWhich(cfg)) ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : paintFor(e, cls, stripeWhich(cfg)))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
     logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
-    name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
+    name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
     team: () => `<span class="tmc" data-opcol="team">${esc(e.team || "")}</span>`,
   };
   return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
@@ -461,11 +502,13 @@ function render() {
     fitMode = mode;
     flipRows(tower, ".srow[data-key]", () => {
       tower.innerHTML = html;
+      tower.appendChild(finRail);
       placeSponsor(sponsor, cfg);
       if (auto) autoFit(cfg, cols);
     });
   }
   placeSponsor(sponsor, cfg);
+  placeFinishTabs(visible ? entries : [], cfg);
 }
 
 // -- full-screen board --------------------------------------------------------

@@ -304,6 +304,20 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual(rows["b"]["points"], 5)
         self.assertEqual(rows["b"]["licence_points"], 2)
 
+    def test_penalties_come_off_class_and_overall(self):
+        classes = [{"id": "pro", "name": "PRO"}]
+        rules = {"scoring": "both", "points": [10, 6], "overall_points": [10, 6], "classified_pct": 0}
+        rounds = [{"id": "r1", "results": [res("cust:1", 1, "pro"), res("name:bo", 2, "pro")]}]
+        # Bo's results were saved by name; the penalty was picked from the roster (by iRacing ID).
+        drivers = [{"cust_id": 1, "name": "Al"}, {"cust_id": 2, "name": "Bo"}]
+        p = profile(rules, rounds, penalties=[{"driver": "cust:2", "points": 2}, {"driver": "cust:1", "points": 1}],
+                    classes=classes, drivers=drivers)
+        p["championship"]["rounds"][0]["results"][1]["name"] = "Bo"
+        st = ch.standings(p)
+        tables = {g["name"]: {d["driver"]: d["points"] for d in g["drivers"]} for g in st["groups"]}
+        self.assertEqual(tables["PRO"], {"cust:1": 9, "name:bo": 4})
+        self.assertEqual(tables["Overall"], {"cust:1": 9, "name:bo": 4})
+
     def test_tie_broken_on_countback(self):
         p = profile({"points": [10, 10]}, [{"id": "r1", "results": [res("a", 2), res("b", 1)]}])
         st = ch.standings(p)

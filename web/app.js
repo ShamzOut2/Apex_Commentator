@@ -944,7 +944,7 @@ function renderBattlePick(s) {
       ${group ? "" : `<option value="${esc(cfg.group)}" selected>Pick one</option>`}</select></label>
     <div class="bp-drivers"><span>Drivers <span class="hint">(up to 6)</span></span>
       <div class="bp-chips">${chips || '<span class="hint">None picked yet</span>'}
-        ${picked.length < 6 && free.length ? `<select data-battle-add aria-label="Add a driver"><option value="">+ Add a driver…</option>${free.map((d) =>
+        ${picked.length < 6 && free.length ? `<select data-battle-add aria-label="Add a driver"><option value="">+ Add a driver…</option>${[...free].sort(byName()).map((d) =>
           `<option value="${esc(d.driver)}">P${d.pos} · ${esc(d.name)} (${esc(String(d.points))} pts)</option>`).join("")}</select>` : ""}
       </div></div>
     <div class="row bp-quick">${BATTLE_PICKS.map(([mode, label]) => `<button type="button" class="btn subtle" data-battle-pick="${mode}"
@@ -1169,8 +1169,13 @@ function parseLapTime(text) {
   return m ? (+(m[1] || 0)) * 60 + +m[2] : null;
 }
 
+// Lists of names in drop-downs go in alphabetical order (a "(P)" class tag in
+// front of a name doesn't count; numbers as numbers).
+const nameKey = (s) => String(s || "").replace(/^\s*\([^()]*\)\s*/, "").trim();
+const byName = (get = (x) => x.name) => (a, b) => nameKey(get(a)).localeCompare(nameKey(get(b)), undefined, { numeric: true, sensitivity: "base" });
+
 function rosterOptions(selected, fallbackName) {
-  const drivers = ui.editing.drivers || [];
+  const drivers = [...(ui.editing.drivers || [])].sort(byName());
   const keys = new Set(drivers.map(driverKey));
   const extra = selected && !keys.has(selected) ? `<option value="${esc(selected)}" selected>${esc(fallbackName || selected)}</option>` : "";
   return `<option value="">Pick a driver…</option>${extra}` + drivers.map((d) => {
@@ -2168,11 +2173,13 @@ const columnOpacity = (cols) => [["col_opacity_on", "A background of its own for
 // [title, fields]. A field is [key, label, kind, opts]; `iff(when, field)`
 // shows it only while when(values) holds (e.g. a timer for a flash that's on).
 const iff = (when, field) => Object.assign(field, { when });
-const LOOK = ["Size & background", [["scale", "Size", "size"], ["bg", "Background", "background"]]];
+// Team logos' size, where there are team logos.
+const LOGO_SIZE = iff((v) => "logo_scale" in v, ["logo_scale", "Team logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]);
+const LOOK = ["Size & background", [["scale", "Size", "size"], LOGO_SIZE, ["bg", "Background", "background"]]];
 // Overlays can also be moved from where they sit (px on the 1920×1080 screen), to keep clear of each other.
 const OFFSET = [["offset_x", "Move right (px; minus moves it left)", "number", { min: -1920, max: 1920, step: 5 }],
   ["offset_y", "Move down (px; minus moves it up)", "number", { min: -1080, max: 1080, step: 5 }]];
-const OVERLAY_LOOK = ["Size, position & background", [["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"]]];
+const OVERLAY_LOOK = ["Size, position & background", [["scale", "Size", "size"], LOGO_SIZE, ...OFFSET, ["bg", "Background", "background"]]];
 const OVERLAY_FIELDS = {
   standings: [
     ["What it shows", [
@@ -2263,7 +2270,7 @@ const OVERLAY_FIELDS = {
     ]],
     ["Size, position & background", [
       ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
-      ["scale", "Size", "size"], ...OFFSET, ["bg", "Background", "background"],
+      ["scale", "Size", "size"], LOGO_SIZE, ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
   laps: [
@@ -2987,6 +2994,69 @@ document.querySelectorAll("[data-desk-tab]").forEach((pick) => pick.addEventList
 $("#desk-hide-all").addEventListener("click", () => cmd("desktop_hide", {}));
 $("#desk-show-all").addEventListener("click", () => deskShowAll("overlays"));
 
+// ---------------------------------------------------------------------------
+// eyedropper: a button by every colour box. The system colour picker's own
+// eyedropper doesn't work in the app window, so in the app the app reads the
+// screen where you next click (pick_color); in a browser, its EyeDropper.
+// ---------------------------------------------------------------------------
+
+let dropping = false;
+
+async function pickColor(input) {
+  if (dropping) return;
+  dropping = true;
+  document.body.classList.add("dropping");
+  try {
+    let color = null;
+    const inApp = !!(ui.snap && ui.snap.desktop && ui.snap.desktop.available);
+    if (!inApp && window.EyeDropper) {
+      try {
+        color = (await new window.EyeDropper().open()).sRGBHex;
+      } catch (e) { /* cancelled */ }
+    } else {
+      toast("Click anywhere on your screen to pick its colour (Esc to cancel)");
+      const r = await cmd("pick_color", {});
+      color = r && r.color;
+    }
+    if (color && /^#[0-9a-f]{6}$/i.test(color)) {
+      input.value = color.toLowerCase();
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      toast(`Picked ${color.toLowerCase()}`);
+    }
+  } finally {
+    dropping = false;
+    document.body.classList.remove("dropping");
+  }
+}
+
+const DROPPER_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.7 5.6 18.4 3.3a1 1 0 0 0-1.4 0l-3.1 3.1-1.4-1.4-1.4 1.4 1.4 1.4L4 16.3V20h3.7l8.5-8.5 1.4 1.4 1.4-1.4-1.4-1.4 3.1-3.1a1 1 0 0 0 0-1.4zM6.9 18H6v-.9l8.5-8.5.9.9z"/></svg>';
+
+// Every colour box gets its button, including ones drawn later.
+function addDroppers(root = document) {
+  root.querySelectorAll('input[type="color"]:not([data-dropper])').forEach((input) => {
+    input.dataset.dropper = "1";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn subtle icon dropper";
+    b.title = "Pick a colour from the screen";
+    b.setAttribute("aria-label", "Pick a colour from the screen");
+    b.innerHTML = DROPPER_ICON;
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      pickColor(input);
+    });
+    input.insertAdjacentElement("afterend", b);
+  });
+}
+addDroppers();
+new MutationObserver((list) => {
+  for (const m of list) {
+    for (const n of m.addedNodes) if (n.nodeType === 1) addDroppers(n.matches && n.matches('input[type="color"]') ? n.parentNode : n);
+  }
+}).observe(document.body, { childList: true, subtree: true });
+
 // Scrolling the page with the mouse over a number box you'd clicked in
 // changed its value (e.g. a round's points multiplier, or a position):
 // scrolling now just scrolls.
@@ -3446,7 +3516,7 @@ async function renderLeaguePickers() {
     ui.leagueList = leagues;
     const current = ui.editing && ui.editing.id;
     const html = `<option value="">${leagues.length ? "Pick a league…" : "No saved leagues yet"}</option>` +
-      leagues.map((l) => `<option value="${esc(l.id)}" ${l.id === current ? "selected" : ""}>${esc(l.name)}${l.active ? " (active)" : ""}</option>`).join("");
+      [...leagues].sort(byName()).map((l) => `<option value="${esc(l.id)}" ${l.id === current ? "selected" : ""}>${esc(l.name)}${l.active ? " (active)" : ""}</option>`).join("");
     for (const sel of document.querySelectorAll(".league-picker")) sel.innerHTML = html;
     if (!current) {
       const active = leagues.find((l) => l.active);
@@ -3595,7 +3665,7 @@ function renderTeams() {
   const otherLeagues = (ui.leagueList || []).filter((l) => l.id !== ui.editing.id);
   cards.innerHTML = teams.length ? teams.map((t, i) => {
     const members = drivers.map((d, j) => [d, j]).filter(([d]) => sameTeam(d.team, t.name));
-    const others = drivers.map((d, j) => [d, j]).filter(([d]) => !sameTeam(d.team, t.name));
+    const others = drivers.map((d, j) => [d, j]).filter(([d]) => !sameTeam(d.team, t.name)).sort(byName(([d]) => d.name));
     return `<div class="team-card" style="--team:${esc(t.color || "#3a4150")}">
       <div class="team-card-head">
         <label class="team-logo big" title="${t.logo ? "Replace logo" : "Upload logo"}">

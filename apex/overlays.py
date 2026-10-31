@@ -16,6 +16,9 @@ from pathlib import Path
 # screen from the middle).
 # Overlays (not boards) can be moved from where they sit: px on the 1920x1080 screen.
 OFFSET = {"offset_x": 0, "offset_y": 0}
+# How big team logos are drawn, in % of their usual size (every overlay and
+# board that shows them).
+LOGO = {"logo_scale": 100}
 BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacity": 100, "scale": 100}
 
 # Overlays and boards with columns can dim each column on its own:
@@ -41,7 +44,7 @@ SCREEN_COLUMNS = ("laps", "gap", "interval", "last_lap", "best_lap", "pits")
 ORDERS = {"column_order": TOWER_COLUMNS, "screen_column_order": SCREEN_COLUMNS}
 
 DEFAULTS = {
-    "standings": {
+    "standings": {**LOGO, 
         "visible": True,
         "mode": "overall",        # "overall" or "class"
         "class_key": "",          # "class" mode: one class only ("" = every class, one block each)
@@ -133,7 +136,7 @@ DEFAULTS = {
         **BACKGROUND, **OFFSET,
     },
     # "Who's this": a board at the bottom centre for the driver on camera (driver.html).
-    "driver": {
+    "driver": {**LOGO, 
         "visible": True,
         "hide_s": 8.0,            # seconds it stays up after the camera moves to someone (0 = while they're on camera)
         "stay": False,            # stay up for as long as the camera's on them (hide_s not used)
@@ -152,7 +155,7 @@ DEFAULTS = {
     # lane time (entry line to exit line) and its time in the pit box. who:
     # "all" (every car in the pit lane, at most count) or "camera" (the car
     # on camera only); hold_s: how long a finished stop stays up.
-    "pits": {
+    "pits": {**LOGO, 
         "visible": True,
         "who": "all", "count": 3, "hold_s": 8.0, "race_only": True,
         "show_s": 0.0,  # a card goes after this long in the pit lane, even before the exit (0 = until the exit)
@@ -166,7 +169,7 @@ DEFAULTS = {
     # and points, live during a race (as if it finished now), and the points
     # between them. group: which championship ("overall" or a class id);
     # drivers: who, comma separated driver keys (cust:123), up to six.
-    "battle": {
+    "battle": {**LOGO, 
         "visible": False,
         "group": "overall",
         "drivers": "",
@@ -180,7 +183,7 @@ DEFAULTS = {
         **BACKGROUND, **OFFSET,
     },
     # The grid walk's own settings are with the grid walk; this is just its background.
-    "gridwalk": {**BACKGROUND, **OFFSET,
+    "gridwalk": {**LOGO, **BACKGROUND, **OFFSET,
                  "name_format": "full", "show_nickname": True,
                  "neighbours": "show",  # the cars either side on the grid: "show", or "hide" (just the pair)
                  "flip_cars": False},  # car pictures facing the other way (the cars should point right, up the road)
@@ -190,7 +193,7 @@ DEFAULTS = {
     # league_logo (the league's logo in the header), sponsors (where the
     # sponsor logos go, the same places as a banner) and sponsor_ids (which,
     # as for the sponsors overlay).
-    "board_championship": {**COLUMN_OPACITY, **PAGING, 
+    "board_championship": {**LOGO, **COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
@@ -198,7 +201,7 @@ DEFAULTS = {
         "show_gap": True, "show_ahead": False,  # gap to the leader; gap to the driver ahead
         "show_wins": False, "show_penalty": False,
     },
-    "board_teams": {**COLUMN_OPACITY, **PAGING, 
+    "board_teams": {**LOGO, **COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
@@ -222,7 +225,7 @@ DEFAULTS = {
                        # full: 22nd November 2026; weekday: Sunday 22nd November.
                        "date_format": "weekday_short",
                        "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
-    "board_results": {**COLUMN_OPACITY, **PAGING, 
+    "board_results": {**LOGO, **COLUMN_OPACITY, **PAGING, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True,
@@ -230,7 +233,7 @@ DEFAULTS = {
         "show_gap": True, "show_interval": True,
         "winner_gap": "laps",  # the winner's Gap cell: "laps" (13 laps), "time" (their race time, else laps) or "none"
     },
-    "laps": {
+    "laps": {**LOGO, 
         "visible": True,
         "count": 4,               # small trackers along the bottom
         "name_format": "initial_last",
@@ -248,7 +251,7 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
+LIMITS = {"logo_scale": (40, 250), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
