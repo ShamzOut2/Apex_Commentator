@@ -59,10 +59,9 @@ OBS dock.
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
-- Sort the League builder's driver list by clicking a column heading (name,
-  customer ID, car number, driver number, nickname, team, notes, class or
-  car). Click again for the reverse order, a third time for the original
-  order.
+- The standings tower's width fits its contents: each column (the name
+  column too) is as wide as what's in it, so there's no big empty gap. Or set
+  the width yourself in pixels.
 - Sort the League builder's driver list by clicking a column heading (name,
   customer ID, car number, driver number, nickname, team, notes, class or
   car). Click again for the reverse order, a third time for the original
@@ -343,6 +342,13 @@ are kept in `data/overlays.json`.
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
+  - **Width**: automatic (0, the default) or a width in pixels. In
+    automatic mode each column, the name column included, is as wide as its
+    widest entry plus a little room, and the tower is exactly as wide as
+    that. It grows straight away when something needs more room, and only
+    narrows once there's clearly room to spare, so it doesn't twitch as
+    numbers change. With a width set, the name column takes what the other
+    columns leave, and long names end in "…".
   - **Last N drivers** (Overall view): when there are more drivers than rows,
     the last few (last place included) are added at the bottom, after a
     small gap. 0 turns it off.
