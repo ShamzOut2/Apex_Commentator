@@ -794,6 +794,7 @@ function hotkeyActions(s = ui.snap || {}) {
     ["On my screen (the app window only)", [
       ["desk:overlays", "Every overlay on my screen", () => deskShowAll("overlays")],
       ["desk:boards", "Boards on my screen", () => deskShowAll("boards")],
+      ["desk:gridwalk", "Grid walk on my screen", () => deskShowAll("gridwalk")],
       ["desk:off", "Remove everything from my screen", () => cmd("desktop_hide", {}, "Removed from your screen")],
     ]],
     ["Boards (press again: off screen)", boards],
@@ -2973,7 +2974,7 @@ async function deskShow(page, screen) {
 
 // Every overlay (or the boards) on screen at once: the Show all button and hotkeys.
 async function deskShowAll(group) {
-  const r = await cmd("desktop_show_all", { group }, group === "boards" ? "Boards on your screen" : "Overlays on your screen");
+  const r = await cmd("desktop_show_all", { group }, group === "boards" ? "Boards on your screen" : group === "gridwalk" ? "Grid walk on your screen" : "Overlays on your screen");
   if (!r) return;
   let ok = false;
   try {

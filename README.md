@@ -44,11 +44,13 @@ walk, Overlays, Boards and Race control.
 ## What's new
 
 <!-- whats-new:start -->
-**Coming in the next update**
+**v0.5.1**
 
 ### New features
 
 - Grid walk: **car picture size** of your own.
+- A hotkey to put the **grid walk on your screen** (on the Overlays tab's
+  screen).
 - Boards: a **name style** for the drivers' names (full name, T. Smith,
   Smith T., last name…) on the championship, teams' and finishing order
   boards, as the calendar's winners already had.
@@ -181,8 +183,8 @@ Boards tabs) also sets keys for:
 - the championship battle's quick picks (the car on camera and the one
   ahead, the cars either side, the top 3), which also put it on screen;
 - the grid walk: on / off (starting from P1), and the next and previous pair;
-- on your own screen (app window): every overlay, the boards, or taking
-  everything off (see "Overlays on your own screen");
+- on your own screen (app window): every overlay, the boards, the grid
+  walk, or taking everything off (see "Overlays on your own screen");
 - every board in the Boards tab (each class's standings, teams',
   manufacturers', the calendar, finishing orders), its next and previous
   page, and taking the board off screen. A board's key puts it on screen; pressed again while it's up, it

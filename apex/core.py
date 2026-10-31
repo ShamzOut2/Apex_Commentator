@@ -1362,7 +1362,8 @@ class App:
         return {"on_screen": self.desktop.on_screen()}
 
     # What "all of them on my screen" puts up (hotkeys desk:overlays / desk:boards).
-    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits"), "boards": ("board",)}
+    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits"), "boards": ("board",),
+                      "gridwalk": ("gridwalk",)}
 
     def cmd_desktop_show_all(self, group="overlays", screen=None):
         """Put every overlay (or the boards) on the user's screen, at once: on
@@ -1370,7 +1371,9 @@ class App:
         if group not in self.DESKTOP_GROUPS:
             raise CommandError("Unknown group of overlays.")
         if screen is None:
-            screen = (self.settings.get("desk_screens") or {}).get(group, 0)
+            picked = self.settings.get("desk_screens") or {}
+            # The grid walk goes where the Overlays tab's overlays go (its screen picker).
+            screen = picked.get(group, picked.get("overlays", 0)) if group == "gridwalk" else picked.get(group, 0)
         on = self.desktop.on_screen() if self.desktop is not None else {}
         for page in self.DESKTOP_GROUPS[group]:
             if on.get(page) != int(screen or 0):
@@ -1643,7 +1646,7 @@ class App:
         cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, gw:prev, board:off,
         board:next, board:prev (its pages), board:<kind>:<group> (on screen,
         or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick),
-        desk:overlays / desk:boards (all of them on the user's screen), desk:off,
+        desk:overlays / desk:boards / desk:gridwalk (on the user's screen), desk:off,
         tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class),
         tower:header (its header: laps left / time left), all:toggle (every
         overlay and board off screen, and back again; see cmd_toggle_all)."""

@@ -11,11 +11,13 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
-## Unreleased
+## v0.5.1
 
 ### New features
 
 - Grid walk: **car picture size** of your own.
+- A hotkey to put the **grid walk on your screen** (on the Overlays tab's
+  screen).
 - Boards: a **name style** for the drivers' names (full name, T. Smith,
   Smith T., last name…) on the championship, teams' and finishing order
   boards, as the calendar's winners already had.
