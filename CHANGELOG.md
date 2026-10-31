@@ -33,6 +33,9 @@ How each version's entry is written:
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- The standings' column headings (GAP, INT…) can be turned off, and the
+  race leader's gap box can show the lap they're on ("Lap 12") instead of
+  "Leader".
 - The standings (tower and full screen) can turn off the coloured bar by
   each driver, and the background behind the car number (it's in the
   driver's class colour when on).

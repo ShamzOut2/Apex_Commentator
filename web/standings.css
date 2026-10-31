@@ -168,3 +168,6 @@ body.screen .fl-flash { top: 14px; }
   animation: flag-text .35s ease both; animation-delay: var(--go-delay, 0s);
 }
 @keyframes flag-text { from { background-color: transparent; } to { background-color: rgba(10, 12, 16, .82); } }
+
+/* Full screen without column headings. */
+.screen-table.no-labels thead { display: none; }

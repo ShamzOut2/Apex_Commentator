@@ -1337,6 +1337,8 @@ const OVERLAY_FIELDS = {
     ["show_number", "Car numbers", "bool"],
     ["color_number", "Car number background, in the driver's class colour (off: just the number)", "bool"],
     ["show_stripe", "Coloured bar by each driver", "bool"],
+    ["show_col_labels", "Column headings (GAP, INT…)", "bool"],
+    ["leader_cell", "The leader's gap shows", "select", [["leader", "Leader"], ["lap", "Their current lap (Lap 12)"]]],
     ["show_team", "Team names", "bool"],
     ["show_logo", "Team logos", "bool"],
     ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],

@@ -59,6 +59,9 @@ OBS dock.
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- The standings' column headings (GAP, INT…) can be turned off, and the
+  race leader's gap box can show the lap they're on ("Lap 12") instead of
+  "Leader".
 - The standings (tower and full screen) can turn off the coloured bar by
   each driver, and the background behind the car number (it's in the
   driver's class colour when on).
@@ -362,6 +365,9 @@ are kept in `data/overlays.json`.
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
+  - **Column headings** (the small GAP, INT… row) can be turned off.
+  - **The leader's gap shows**: "Leader", or the lap they're on ("Lap 12").
+    By class, each class leader shows their own lap.
   - **Colours**: *Coloured bar by each driver* (the class or team colour)
     and *Car number background* can each be turned off. The background is in
     the driver's class colour; with it off, just the number shows. Both the

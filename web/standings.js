@@ -130,11 +130,11 @@ const COLUMNS = [
   ["show_pits", "40px", "Pit", (e) => e.pit_stops || ""],
   ["show_last_lap", "92px", "Last", (e) => fmtLap(e.last_lap)],
   ["show_best_lap", "92px", "Best", (e, race) => fmtLap(race ? e.best_lap : e.best)],
-  ["show_gap", "92px", "Gap", (e, race, classMode) => {
+  ["show_gap", "92px", "Gap", (e, race, classMode, cfg) => {
     const gap = classMode ? e.class_gap : e.gap;
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
     if (!race && e.best == null) return '<span class="dim">No time</span>';
-    if (first) return `<span class="lead">${race ? "Leader" : fmtLap(e.best)}</span>`;
+    if (first) return `<span class="lead">${race ? leaderText(e, cfg) : fmtLap(e.best)}</span>`;
     const down = race && (classMode ? e.class_laps_down : e.laps_down);
     if (down) return `+${down} L`;
     return gap != null ? `+${race ? gap.toFixed(1) : gap.toFixed(3)}` : "";
@@ -166,6 +166,12 @@ function extraDrivers(entries, cfg) {
   const sets = Math.ceil(rest.length / n);
   const set = Math.floor(Date.now() / 1000 / cfg.rows_extra_s) % sets;
   return rest.slice(set * n, set * n + n);
+}
+
+// What the race leader (each class's, by class) shows where the gap would be:
+// "Leader", or the lap they're on.
+function leaderText(e, cfg) {
+  return cfg.leader_cell === "lap" && e.lap ? `Lap ${e.lap}` : "Leader";
 }
 
 // The car number: on a background in the driver's class colour, or just the number (Overlays tab).
@@ -273,7 +279,7 @@ function progressText(ov) {
 }
 
 function headRowHtml(cfg, cols) {
-  if (!cols.length) return "";
+  if (!cols.length || !cfg.show_col_labels) return "";
   return `<div class="srow shead">
     <span></span><span></span>${cfg.show_number ? "<span></span>" : ""}${cfg.show_logo ? "<span></span>" : ""}<span></span>
     ${cols.map((c) => `<span class="c">${c[2]}</span>`).join("")}</div>`;
@@ -406,7 +412,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   if (race) {
     cells.push(
       `<td class="r muted">${e.laps_completed ?? ""}</td>`,
-      `<td class="r ${first ? "lead" : ""}">${first ? "Leader" : (classMode ? e.class_laps_down : e.laps_down) ? `+${classMode ? e.class_laps_down : e.laps_down} L` : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`,
+      `<td class="r ${first ? "lead" : ""}">${first ? leaderText(e, cfg) : (classMode ? e.class_laps_down : e.laps_down) ? `+${classMode ? e.class_laps_down : e.laps_down} L` : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`,
       `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(1)}` : ""}</td>`,
       compact ? "" : `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
       `<td class="r">${fmtLap(e.best_lap)}</td>`,
@@ -477,7 +483,7 @@ function renderScreen(snap, ov) {
   const rowH = Math.max(26, Math.min(44, Math.floor((ROW_BUDGET - heads(tallest) * 54) / Math.max(fill(tallest), 1))));
   const body = !snap.connected ? '<div class="screen-empty">Waiting for iRacing…</div>'
     : !entries.length ? `<div class="screen-empty">${race ? "Waiting for the race" : "No lap times yet"}</div>`
-      : `<div class="screen-body">${cols.map((col) => `<div class="screen-col"><table class="screen-table">${screenHead(race, compact)}<tbody>${col.map((l) => l.head
+      : `<div class="screen-body">${cols.map((col) => `<div class="screen-col"><table class="screen-table ${cfg.show_col_labels ? "" : "no-labels"}">${screenHead(race, compact)}<tbody>${col.map((l) => l.head
         ? `<tr class="classrow"><td colspan="${spanFor(race, compact)}">${classHeaderHtml(l.head, `${l.n} cars`, rerender)}</td></tr>`
         : screenRow(l.e, cfg, classes.get(l.e.class_key) || DEFAULT_CLASS, race, classMode, multiclass, camIdx, compact)).join("")}</tbody></table></div>`).join("")}</div>`;
   const session = snap.session || {};
