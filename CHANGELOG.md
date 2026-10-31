@@ -33,6 +33,8 @@ How each version's entry is written:
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- The Timing tab's **LIVE** button sits with the replay buttons instead of
+  at the far end of the bar.
 - The Sponsors overlay's panel sits closer around the logos. In "one at a
   time" mode it fits whichever logo is showing.
 
