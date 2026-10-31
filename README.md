@@ -50,6 +50,11 @@ OBS dock.
   where each one went, with a button to open the folder. Standings, results
   and the roster also export as spreadsheets (CSV).
 
+### Improvements
+
+- The Sponsors overlay's panel sits closer around the logos. In "one at a
+  time" mode it fits whichever logo is showing.
+
 ### Fixes
 
 - "Show on my screen" overlays covered the whole monitor in dark instead of

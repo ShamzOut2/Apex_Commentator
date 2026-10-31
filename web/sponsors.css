@@ -1,17 +1,22 @@
-.sp { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 10px; animation: sp-in .4s ease both; }
+.sp { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 6px; animation: sp-in .4s ease both; }
 @keyframes sp-in { from { opacity: 0; } }
-.sp.panel { background: rgba(11, 13, 18, .82); border-radius: 12px; padding: 14px 22px; box-shadow: 0 6px 24px rgba(0, 0, 0, .35); }
+/* A snug panel: just a little room around the logos. */
+.sp.panel { background: rgba(11, 13, 18, .82); border-radius: 10px; padding: 8px 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, .35); }
 .sp.hidden-preview { opacity: .45; }
 .sp-title { font-size: 16px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff; opacity: .8; }
-.sp-logos { display: flex; align-items: center; gap: 36px; }
+.sp-logos { display: flex; align-items: center; gap: 20px; }
 .sp-logos img { height: var(--sp-h); max-width: calc(var(--sp-h) * 3.2); object-fit: contain; }
-.sp.vertical .sp-logos { flex-direction: column; gap: 28px; }
-.sp.vertical .sp-logos img { height: auto; max-height: var(--sp-h); width: calc(var(--sp-h) * 2.4); }
+.sp.vertical .sp-logos { flex-direction: column; gap: 14px; }
+.sp.vertical .sp-logos img { height: auto; max-height: var(--sp-h); width: auto; max-width: calc(var(--sp-h) * 2.4); }
 
 /* One at a time: the logos stack in one spot and fade between each other. */
-.sp.rotate .sp-logos { display: grid; }
-.sp.rotate .sp-logos img { grid-area: 1 / 1; justify-self: center; opacity: 0; transition: opacity .6s ease; width: calc(var(--sp-h) * 3.2); }
-.sp.rotate .sp-logos img.on { opacity: 1; }
+/* The panel fits the logo showing; the others wait (and fade) over it. */
+.sp.rotate .sp-logos { display: block; position: relative; }
+.sp.rotate .sp-logos img {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  opacity: 0; transition: opacity .6s ease; width: auto;
+}
+.sp.rotate .sp-logos img.on { position: static; display: block; transform: none; opacity: 1; }
 
 .sp.top-left { top: 40px; left: 40px; }
 .sp.top { top: 40px; left: 50%; transform: translateX(-50%); }
