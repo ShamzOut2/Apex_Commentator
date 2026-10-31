@@ -325,7 +325,7 @@
           <p class="hint">Nicknames, teams and notes show next to drivers in the overlay. Drivers are matched by iRacing customer ID, or by car number when there is no ID.</p>
           <div class="roster-scroll">
           <table class="grid roster">
-            <thead><tr><th>Driver</th><th class="c-id">Cust ID</th><th class="c-num" title="Car number">Car #</th><th class="c-num" title="Driver's own number, if the league uses one">Driver #</th><th>Nickname</th><th>Team</th><th>Notes</th><th class="c-class">Class</th><th class="c-make" title="The car's manufacturer: for badges and the manufacturers' championship. Auto uses the car they drive in iRacing.">Car</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
+            <thead id="roster-head"><tr><th data-sort="name">Driver</th><th class="c-id" data-sort="cust_id">Cust ID</th><th class="c-num" data-sort="car_number" title="Car number">Car #</th><th class="c-num" data-sort="driver_number" title="Driver's own number, if the league uses one">Driver #</th><th data-sort="nickname">Nickname</th><th data-sort="team">Team</th><th data-sort="notes">Notes</th><th class="c-class" data-sort="class_id">Class</th><th class="c-make" data-sort="car_make" title="The car's manufacturer: for badges and the manufacturers' championship. Auto uses the car they drive in iRacing.">Car</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
             <tbody id="roster-rows"></tbody>
           </table>
           </div>

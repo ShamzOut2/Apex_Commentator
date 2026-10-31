@@ -1948,13 +1948,56 @@ function makeBadge(name) {
   return `<span class="make-badge">${m && m.logo ? `<img src="${esc(m.logo)}" alt="${esc(name)}">` : ""}</span>`;
 }
 
+// Sorting the roster: click a column heading for A-Z, again for Z-A, a third
+// time for the order they were added. Only the list on screen is sorted; the
+// league keeps its own order.
+const ROSTER_SORT_KEY = "apex.rosterSort";
+let rosterSort = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(ROSTER_SORT_KEY)) || null;
+  } catch (e) {
+    return null;
+  }
+})();
+
+function rosterOrder(drivers, classes) {
+  const rows = drivers.map((d, i) => [d, i]);
+  if (!rosterSort) return rows;
+  const className = (id) => (classes.find((c) => c.id === id) || {}).name || "";
+  const value = (d) => String((rosterSort.key === "class_id" ? className(d.class_id) : d[rosterSort.key]) ?? "").trim();
+  const dir = rosterSort.dir === "desc" ? -1 : 1;
+  return rows.sort(([a, ia], [b, ib]) => {
+    const va = value(a), vb = value(b);
+    if (!va !== !vb) return va ? -1 : 1;  // blanks last, either way round
+    // Numbers as numbers (2 before 10); names whatever their capitals.
+    return (va.localeCompare(vb, undefined, { numeric: true, sensitivity: "base" }) || ia - ib) * dir;
+  });
+}
+
+$("#roster-head").addEventListener("click", (e) => {
+  const th = e.target.closest("[data-sort]");
+  if (!th) return;
+  const key = th.dataset.sort;
+  rosterSort = !rosterSort || rosterSort.key !== key ? { key, dir: "asc" } : rosterSort.dir === "asc" ? { key, dir: "desc" } : null;
+  try {
+    localStorage.setItem(ROSTER_SORT_KEY, JSON.stringify(rosterSort));
+  } catch (err) { /* storage unavailable */ }
+  renderRoster();
+});
+
 function renderRoster() {
   loadMakes();
   const drivers = ui.editing.drivers || [];
   const classes = ui.editing.classes || [];
   const classOptions = (selected) => `<option value="">Auto (by car)</option>` +
     classes.map((c) => `<option value="${esc(c.id)}" ${c.id === selected ? "selected" : ""}>${esc(c.name || "Unnamed")}</option>`).join("");
-  $("#roster-rows").innerHTML = drivers.map((d, i) => `<tr>${ROSTER_FIELDS.map(([f]) =>
+  document.querySelectorAll("#roster-head [data-sort]").forEach((th) => {
+    const on = rosterSort && rosterSort.key === th.dataset.sort;
+    th.classList.toggle("sorted", !!on);
+    th.dataset.dir = on ? rosterSort.dir : "";
+    th.title = th.title.replace(/ \(click to sort.*$/, "") + " (click to sort)";
+  });
+  $("#roster-rows").innerHTML = rosterOrder(drivers, classes).map(([d, i]) => `<tr>${ROSTER_FIELDS.map(([f]) =>
     `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"></td>`).join("")}
     <td><select data-row="${i}" data-field="class_id" aria-label="Class">${classOptions(d.class_id || "")}</select></td>
     <td class="make-cell">${makeBadge(d.car_make)}<select data-row="${i}" data-field="car_make" aria-label="Car">${makeOptions(d.car_make || "")}</select></td>

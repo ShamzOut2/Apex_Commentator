@@ -33,6 +33,14 @@ How each version's entry is written:
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- Sort the League builder's driver list by clicking a column heading (name,
+  customer ID, car number, driver number, nickname, team, notes, class or
+  car). Click again for the reverse order, a third time for the original
+  order.
+- Sort the League builder's driver list by clicking a column heading (name,
+  customer ID, car number, driver number, nickname, team, notes, class or
+  car). Click again for the reverse order, a third time for the original
+  order.
 - The Timing tab's **LIVE** button sits with the replay buttons instead of
   at the far end of the bar.
 - The Sponsors overlay's panel sits closer around the logos. In "one at a

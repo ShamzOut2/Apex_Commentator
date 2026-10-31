@@ -543,3 +543,11 @@ p.hint .desk { margin-left: 6px; }
 /* Export / import buttons, and the path of an export. */
 .transfer-row { gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
 .export-path { user-select: all; word-break: break-all; }
+
+/* Roster: click a column heading to sort by it. */
+#roster-head [data-sort] { cursor: pointer; user-select: none; white-space: nowrap; }
+#roster-head [data-sort]:hover { color: var(--text); }
+#roster-head [data-sort]::after { content: " ↕"; opacity: .35; font-size: .9em; }
+#roster-head .sorted { color: var(--accent); }
+#roster-head .sorted[data-dir="asc"]::after { content: " ▲"; opacity: 1; }
+#roster-head .sorted[data-dir="desc"]::after { content: " ▼"; opacity: 1; }

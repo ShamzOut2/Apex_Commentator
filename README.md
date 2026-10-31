@@ -59,6 +59,14 @@ OBS dock.
   Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
   Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
   November. The "×2 points" note on rounds worth more can be turned off.
+- Sort the League builder's driver list by clicking a column heading (name,
+  customer ID, car number, driver number, nickname, team, notes, class or
+  car). Click again for the reverse order, a third time for the original
+  order.
+- Sort the League builder's driver list by clicking a column heading (name,
+  customer ID, car number, driver number, nickname, team, notes, class or
+  car). Click again for the reverse order, a third time for the original
+  order.
 - The Timing tab's **LIVE** button sits with the replay buttons instead of
   at the far end of the bar.
 - The Sponsors overlay's panel sits closer around the logos. In "one at a
@@ -649,6 +657,12 @@ badge, for the manufacturers' championship and the boards. *Auto* uses the
 car they drive in iRacing, worked out from its name. Importing drivers from a
 session fills it in, and each championship result keeps the car driven that
 round.
+
+**Sorting the drivers**: click a column heading in the driver list (Driver,
+Cust ID, Car #, Driver #, Nickname, Team, Notes, Class, Car) to sort by it, A
+to Z. Click again for Z to A, and a third time for the order they were added.
+Numbers sort as numbers (2 before 10) and blanks go last. Only the list on
+screen is sorted; the app remembers your choice.
 
 **League logo, banners and calendar image** (for the boards):
 - **League logo**: shown in the board headers.
