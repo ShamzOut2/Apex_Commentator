@@ -260,12 +260,12 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
   const pit = cfg.show_pit_status && e.on_pit ? '<span class="pitb">PIT</span>' : "";
   const move = moveOf(e.car_idx);
   return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
-    <span class="p tnum">${pos}</span>
+    <span class="p tnum" data-opcol="pos">${pos}</span>
     <span class="stripe" style="${cfg.show_stripe ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : cls.color)}` : ""}"></span>
-    ${cfg.show_number ? `<span>${numberChip(e, cls, cfg)}</span>` : ""}
-    ${cfg.show_logo ? `<span>${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
-    <span class="who"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${team}</span>
-    ${cols.map((c) => `<span class="c tnum">${c[3](e, race, classMode, cfg, green)}</span>`).join("")}
+    ${cfg.show_number ? `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>` : ""}
+    ${cfg.show_logo ? `<span data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>` : ""}
+    <span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${team}</span>
+    ${cols.map((c) => `<span class="c tnum" data-opcol="${c[0].replace(/^show_/, "")}">${c[3](e, race, classMode, cfg, green)}</span>`).join("")}
   </div>`;
 }
 
@@ -296,6 +296,7 @@ function render() {
   const ov = snap && snap.overlays;
   if (!ov) return;
   renderFlash(snap, ov);
+  setColumnOpacity(ov.settings.standings);
   if (SCREEN) {
     setBackground(ov.settings.standings, true);
     setSize(ov.settings.standings, true);
@@ -409,11 +410,11 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   const team = e.team ? `${cfg.show_logo && e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}${esc(e.team)}` : "";
   const cells = [
     `<td class="stripe" style="${cfg.show_stripe ? `background:${esc(classMode && e.team_color ? e.team_color : cls.color)}` : "background:none"}"></td>`,
-    `<td class="p r">${pos}</td>`,
-    race ? `<td class="c">${change}</td>` : "",
-    `<td class="c">${numberChip(e, cls, cfg)}</td>`,
-    `<td>${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
-    compact ? "" : `<td class="team">${team}</td>`,
+    `<td class="p r" data-opcol="pos">${pos}</td>`,
+    race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
+    `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,
+    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
+    compact ? "" : `<td class="team" data-opcol="team">${team}</td>`,
   ];
   const down = classMode ? e.class_laps_down : e.laps_down;
   const cell = {
@@ -426,7 +427,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     best_lap: () => (race ? `<td class="r">${fmtLap(e.best_lap)}</td>` : `<td class="r lead">${fmtLap(e.best)}</td>`),
     pits: () => `<td class="r muted">${e.pit_stops || ""}</td>`,
   };
-  cells.push(...screenColumns(cfg, race, compact).map((k) => cell[k]()));
+  cells.push(...screenColumns(cfg, race, compact).map((k) => cell[k]().replace("<td", `<td data-opcol="${k}"`)));
   const moved = moveOf(e.car_idx);
   return `<tr class="${e.car_idx === camIdx ? "cam" : ""} ${moved ? moved.cls : ""}" data-key="${e.car_idx}" style="${moved ? moved.style : ""}">${cells.join("")}</tr>`;
 }

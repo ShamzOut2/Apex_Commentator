@@ -449,6 +449,9 @@ kbd {
 .ov-grid .wide, .ov-grid .hint { grid-column: 1 / -1; }
 /* A column order: chips to drag or move with their arrows. */
 .order-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.colop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px 14px; margin-top: 3px; }
+.colop { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text); }
+.colop input { width: 100%; }
 .order-item { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px;
   background: var(--panel-2); color: var(--text); font-size: 12px; cursor: grab; user-select: none; }
 .order-item > span { padding: 0 4px; }
@@ -509,6 +512,11 @@ kbd {
 .champ-rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 16px; }
 .champ-rules .wide { grid-column: 1 / -1; }
 .class-points > summary { cursor: pointer; font-weight: 600; }
+.champ-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px 16px; align-items: start; }
+.champ-kinds > .hint { grid-column: 1 / -1; margin: 0; }
+.champ-kind { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; gap: 8px; opacity: .7; }
+.champ-kind.on { opacity: 1; border-color: var(--accent); }
+.champ-kind .check { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .class-points-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 16px; }
 .obs-kind { min-width: 80px; font-size: 12px; color: var(--muted); font-weight: 600; }
 

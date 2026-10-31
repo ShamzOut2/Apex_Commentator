@@ -611,6 +611,24 @@ function reportDeskParts(page) {
 // - boards and full-screen pages, which are a whole screen: that screen's
 //   backdrop (setBackground), shown only while there's something on screen.
 
+// Custom opacity per column (cfg.col_opacity_on, cfg.col_opacity
+// "gap:60,laps:40"): a rule per column for the cells marked data-opcol.
+let colOpacityCss = null;
+function setColumnOpacity(cfg) {
+  const css = cfg && cfg.col_opacity_on ? String(cfg.col_opacity || "").split(",").map((p) => p.split(":"))
+    .filter(([k, v]) => /^[a-z_]+$/.test(k || "") && /^\d+$/.test(v || ""))
+    .map(([k, v]) => `[data-opcol="${k}"] { opacity: ${Math.min(100, +v) / 100}; }`).join("\n") : "";
+  if (css === colOpacityCss) return;
+  colOpacityCss = css;
+  let el = document.getElementById("col-opacity");
+  if (!el) {
+    el = document.createElement("style");
+    el.id = "col-opacity";
+    document.head.appendChild(el);
+  }
+  el.textContent = css;
+}
+
 // The Size setting (scale, percent). Overlays: their own elements grow or
 // shrink from where they sit (CSS zoom via --ov-size, in each page's CSS).
 // Boards and full screens: the whole stage, around the middle.

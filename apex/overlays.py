@@ -16,6 +16,11 @@ from pathlib import Path
 # screen from the middle).
 BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacity": 100, "scale": 100}
 
+# Overlays and boards with columns can dim each column on its own:
+# col_opacity "gap:60,laps:40" (percent; columns left out are 100), used
+# while col_opacity_on is ticked.
+COLUMN_OPACITY = {"col_opacity_on": False, "col_opacity": ""}
+
 NAME_FORMATS = ("full", "initial_last", "last_initial", "last", "first", "abbrev", "nickname")
 
 # The standings' columns after the driver, in the order shown: the tower's
@@ -60,6 +65,7 @@ DEFAULTS = {
         "show_pit_status": True,  # "PIT" while on pit road
         "column_order": ",".join(TOWER_COLUMNS),
         "screen_column_order": "",
+        **COLUMN_OPACITY,
         # Start of a session: only the header (session, laps / time left), and
         # each driver appears once they've completed a lap.
         "reveal": True,
@@ -109,21 +115,21 @@ DEFAULTS = {
     # league_logo (the league's logo in the header), sponsors (where the
     # sponsor logos go, the same places as a banner) and sponsor_ids (which,
     # as for the sponsors overlay).
-    "board_championship": {
+    "board_championship": {**COLUMN_OPACITY, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_gap": True, "show_ahead": False,  # gap to the leader; gap to the driver ahead
         "show_wins": False, "show_penalty": False,
     },
-    "board_teams": {
+    "board_teams": {**COLUMN_OPACITY, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
         "show_drivers": True,  # the drivers who scored for the team, under its name
         "show_gap": True, "show_ahead": False, "show_wins": False, "show_penalty": False,
     },
-    "board_makes": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND, "rows": 12, "show_logo": True,
+    "board_makes": {**COLUMN_OPACITY, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND, "rows": 12, "show_logo": True,
                     "show_gap": True, "show_wins": True},
     "board_calendar": {"banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
@@ -135,7 +141,7 @@ DEFAULTS = {
                        # full: 22nd November 2026; weekday: Sunday 22nd November.
                        "date_format": "weekday_short",
                        "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
-    "board_results": {
+    "board_results": {**COLUMN_OPACITY, 
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True, "show_status": True,
@@ -191,6 +197,14 @@ def _value(key, value, default):
             return value if re.fullmatch(r"(bg-[0-9a-f]{12}\.(png|jpg|webp|svg))?", value) else default
         if key in ORDERS:
             return column_order(value, ORDERS[key]) if value else ("" if key == "screen_column_order" else default)
+        if key == "col_opacity":
+            out = []
+            for part in value.split(","):
+                col, _, pct = part.partition(":")
+                col = col.strip()
+                if re.fullmatch(r"[a-z_]{1,20}", col) and pct.strip().isdigit() and int(pct) < 100:
+                    out.append(f"{col}:{max(0, int(pct))}")
+            return ",".join(out)
         if key == "sponsor_ids":
             return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
         return value if key not in CHOICES or value in CHOICES[key] else default

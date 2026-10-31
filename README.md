@@ -39,8 +39,17 @@ OBS dock.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- **Custom opacity per column** on the standings (tower and full screen) and
+  the championship, teams', manufacturers' and results boards: tick it and
+  set each column's opacity.
+
 ### Improvements
 
+- Championship scoring is clearer: tick **Class championships** and/or an
+  **Overall championship**, each with its own points table, so overall
+  points can differ from class points and both run at the same time.
 - Photo booth: **Only cars without a photo yet** skips drivers who already
   have a car photo, and **Photograph drivers as they load in** takes each
   driver's photo automatically a few seconds after their car loads in
@@ -351,6 +360,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
   - **Column headings** (the small GAP, INT… row) can be turned off.
+  - **Custom opacity per column**: tick it and set each column's opacity
+    (position, car number, driver, +/−, gap, interval…), for the tower and
+    the full-screen standings. The championship, teams', manufacturers' and
+    results boards have the same option for their own columns.
   - **Column order**: drag the columns into the order you want (or use their
     arrows), separately for the tower and the full-screen standings. Columns
     that are switched off keep their place for when they're on. The full
@@ -629,22 +642,25 @@ standings update from what's saved.
   - Points for each finishing position (e.g. `25, 18, 15, 12, 10, 8, 6, 4,
     2, 1`).
   - Optional points for qualifying positions, taken from the starting grid.
-  - **Championships**:
-    - *Per class*: scored on class positions; each class is its own
+  - **Championships**: tick **Class championships**, **Overall
+    championship**, or both. Each has its own points table: *Class points*
+    for class finishing positions, *Overall points* for overall finishing
+    positions, so two scoring systems run at the same time:
+    - *Class only*: scored on class positions; each class is its own
       championship.
-    - *Overall*: scored on overall positions; one championship for
-      everyone.
-    - *Both*: every result scores twice and the points are kept apart. Class
-      positions score in the class championship, and overall positions in
-      the Overall championship. The overall championship can have its own
-      points table. Bonuses and penalty points apply in both, and each
-      standings table shows what it's scored on.
+    - *Overall only*: scored on overall positions with the overall points;
+      one championship for everyone.
+    - *Both, as two separate championships*: every result scores twice and
+      the points are kept apart. Class positions score class points in the
+      class championship, and overall positions score overall points in the
+      Overall championship. Bonuses and penalty points apply in both, and
+      each standings table shows what it's scored on.
       Example (class points 10, 6, 4; overall 20, 15, 10, 5): a PRO driver
       who finishes 3rd overall and 2nd in PRO scores 10 towards Overall and
       6 towards PRO.
-    - *Added together*: every result scores once, as its class position's
-      points plus its overall position's points (the overall points table
-      can be its own). Bonuses count once. Each class's table and the
+    - *Both, added together*: every result scores once, as its class
+      position's class points plus its overall position's overall points.
+      Bonuses count once. Each class's table and the
       overall table rank the same totals. Same example: the PRO driver
       scores 6 + 10 = 16, in both PRO and Overall.
   - **Different points for a class**: any class (a secondary one too) can

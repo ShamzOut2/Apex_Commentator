@@ -172,6 +172,18 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual(pts["Am"], {"b": 28, "d": 12})
         self.assertIn("+ overall points (4, 3, 2, 1)", st["groups"][1]["basis"])
 
+    def test_overall_championship_has_its_own_points(self):
+        classes = [{"id": "pro", "name": "Pro"}, {"id": "am", "name": "Am"}]
+        rounds = [{"id": "r1", "results": [res("a", 1, "pro"), res("b", 2, "am"), res("c", 3, "pro")]}]
+        # Overall only, on its own points.
+        rows, st = table(profile({"scoring": "overall", "points": [10, 5], "overall_points": [3, 2, 1]}, rounds, classes=classes))
+        self.assertEqual([g["name"] for g in st["groups"]], ["Overall"])
+        self.assertEqual([rows[d]["points"] for d in "abc"], [3, 2, 1])
+        # With class championships too: each on its own points, side by side.
+        st = ch.standings(profile({"scoring": "both", "points": [10, 5], "overall_points": [3, 2, 1]}, rounds, classes=classes))
+        pts = {g["name"]: {r["driver"]: r["points"] for r in g["drivers"]} for g in st["groups"]}
+        self.assertEqual(pts, {"Overall": {"a": 3, "b": 2, "c": 1}, "Pro": {"a": 10, "c": 5}, "Am": {"b": 10}})
+
     def test_class_points_table(self):
         classes = [{"id": "pro", "name": "Pro"}, {"id": "am", "name": "Am"}]
         rules = {"points": [10, 5], "class_points": {"am": "3, 2", "pro": ""}}

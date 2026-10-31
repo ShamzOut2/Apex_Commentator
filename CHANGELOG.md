@@ -13,8 +13,17 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- **Custom opacity per column** on the standings (tower and full screen) and
+  the championship, teams', manufacturers' and results boards: tick it and
+  set each column's opacity.
+
 ### Improvements
 
+- Championship scoring is clearer: tick **Class championships** and/or an
+  **Overall championship**, each with its own points table, so overall
+  points can differ from class points and both run at the same time.
 - Photo booth: **Only cars without a photo yet** skips drivers who already
   have a car photo, and **Photograph drivers as they load in** takes each
   driver's photo automatically a few seconds after their car loads in

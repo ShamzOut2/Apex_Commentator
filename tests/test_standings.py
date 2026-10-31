@@ -284,3 +284,13 @@ class ColumnOrderTests(unittest.TestCase):
         s = o.get()["standings"]
         self.assertEqual(s["column_order"], "interval,gap,pos_change,laps,pits,last_lap,best_lap")
         self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap")
+
+
+class ColumnOpacityTests(unittest.TestCase):
+    def test_opacity_per_column(self):
+        from apex.overlays import OverlaySettings
+        o = OverlaySettings()
+        self.assertEqual((o.get()["standings"]["col_opacity_on"], o.get()["board_results"]["col_opacity"]), (False, ""))
+        o.update("standings", {"col_opacity_on": True, "col_opacity": "gap:60,laps:100,Bad Key:5,interval:-3,best_lap:40"})
+        # Full opacity and anything odd are left out.
+        self.assertEqual(o.get()["standings"]["col_opacity"], "gap:60,best_lap:40")
