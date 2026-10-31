@@ -56,6 +56,7 @@ DEFAULTS = {
         "show_stripe": True,      # the coloured bar by each driver (class or team colour)
         "show_col_labels": True,  # the column headings (GAP, INT...) under the header
         "leader_cell": "leader",  # race: the leader's gap box shows "leader" (Leader) or "lap" (the lap they're on)
+        "interval_leader": "blank",  # race: the leader's interval box: "blank", "leader" (Leader) or "lap" (the lap they're on)
         "color_number": True,     # the car number on a background in the class colour (off: just the number)
         "show_gap": True,         # race: gap to the leader; qualifying: gap to pole
         "show_interval": False,   # to the car ahead
@@ -78,6 +79,12 @@ DEFAULTS = {
         # your own ("" = RACE, QUALIFYING, or iRacing's name for practice).
         "show_series": True, "show_track": True,
         "title_race": "", "title_qualify": "", "title_practice": "",
+        # Heat racing: names of your own for the heats, consolation and feature
+        # ("" = iRacing's, e.g. HEAT 1), and on the day of a heat event each race
+        # named after its league round: "both" (Round 2 - Heat), "name" (Heat)
+        # or "off" (see heats.py).
+        "title_heat": "", "title_consolation": "", "title_feature": "",
+        "round_titles": "both",
         "title_wrap": False,      # a long session name: onto two lines (True) or one line, the tower widening for it
         # Fastest lap: a purple stopwatch by the holder's name (each class's
         # holder in "class" mode), and a purple pill at the top middle of the
@@ -193,7 +200,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "team_place": ("under", "end"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("both", "name", "off"), "team_place": ("under", "end"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
 
 

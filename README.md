@@ -57,6 +57,12 @@ OBS dock.
 
 ### Improvements
 
+- Standings (tower and full screen): the leader's interval can show
+  "Leader" or the lap they're on, like the gap column.
+- Heat racing: heats, the consolation and the feature are recognised, can
+  have names of your own, and on the day of a heat event each race is named
+  after its league round for that date (e.g. "Round 2 - Heat"), with its
+  results saved to that round.
 - Finishing order: a button for every class of the league, secondary
   classes and classes without points of their own included.
 - The finishing order board can show any session of the event in iRacing:
@@ -402,6 +408,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     change it.
   - **The leader's gap shows**: "Leader", or the lap they're on ("Lap 12").
     By class, each class leader shows their own lap.
+  - **The leader's interval shows**: nothing (as before), "Leader", or the
+    lap they're on ("Lap 12"); everyone else shows the gap to the car ahead.
+    The full-screen version follows it too.
   - **Colours**: *Coloured bar by each driver* (the class or team colour)
     and *Car number background* can each be turned off. The background is in
     the driver's class colour; with it off, just the number shows. Both the
@@ -412,7 +421,22 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     name* and *Practice / warm-up name* replace RACE, QUALIFYING and
     iRacing's name for practice, e.g. "FEATURE RACE" or "SUPERPOLE"; leave
     one blank for the usual name. Both the tower and the full-screen version
-    use these. *Wrap a long session name* puts a long name on two lines in the
+    use these.
+  - **Heat racing**: an event with heats, a consolation (last chance) race
+    and a feature is recognised from iRacing's session names. *Heat race
+    name*, *Consolation race name* and *Feature race name* replace iRacing's
+    names for those (several heats keep their number: "Qualifying Heat 2").
+    On the day of a heat event, each race is named after the league's round
+    for it instead: the rounds dated today (Championship → Calendar &
+    results) go with the races in order, a round called "Heat",
+    "Consolation" or "Feature" going with that kind of race first. So on 5
+    November, with rounds 2–4 that day named Heat, Consolation and Feature,
+    the header reads "Round 2 - Heat", "Round 3 - Consolation" and
+    "Round 4 - Feature". *Heat events: name each race after its league
+    round* chooses "Round 2 - Heat", just "Heat", or not at all. The live
+    championship and the results saved after each race go to that round
+    too. (Just after midnight, the day before still counts.)
+  - *Wrap a long session name* puts a long name on two lines in the
     tower; off, it stays on one line and the tower widens for it (or ends in
     "…" if you've set the width).
   - **Width**: automatic (0, the default) or a width in pixels. In

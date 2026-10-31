@@ -142,7 +142,8 @@ const COLUMNS = [
   ["show_interval", "80px", "Int", (e, race, classMode, cfg, green) => {
     const interval = classMode ? e.class_interval : e.interval;
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
-    if (first || interval == null) return "";
+    if (first) return race ? leaderInterval(e, cfg) : "";
+    if (interval == null) return "";
     const text = `+${race ? interval.toFixed(1) : interval.toFixed(3)}`;
     // Racing within close_s of the car ahead: red until they're past or it opens up.
     const close = race && green && cfg.close_s > 0 && interval <= cfg.close_s && e.in_world && !e.on_pit;
@@ -176,8 +177,13 @@ function extraDrivers(entries, cfg) {
 
 // What the race leader (each class's, by class) shows where the gap would be:
 // "Leader", or the lap they're on.
-function leaderText(e, cfg) {
-  return cfg.leader_cell === "lap" && e.lap ? `Lap ${e.lap}` : "Leader";
+function leaderText(e, cfg, setting = cfg.leader_cell) {
+  return setting === "lap" && e.lap ? `Lap ${e.lap}` : "Leader";
+}
+
+// The same for the interval column (interval_leader): nothing, "Leader" or their lap.
+function leaderInterval(e, cfg) {
+  return cfg.interval_leader === "blank" ? "" : `<span class="lead">${leaderText(e, cfg, cfg.interval_leader)}</span>`;
 }
 
 // The car number: on a background in the driver's class colour, or just the number (Overlays tab).
@@ -382,6 +388,15 @@ const ROW_BUDGET = 850;  // px of the 1080 stage left for table rows under the h
 function sessionTitle(snap, ov) {
   const session = snap.session || {};
   const cfg = ov.settings.standings;
+  // A heat event's race: its league round's name (Round 2 - Heat), else the
+  // name set for heats / the consolation / the feature, else iRacing's.
+  if (session.round_title) return session.round_title;
+  if (["heat", "consolation", "feature"].includes(session.kind)) {
+    const named = String(cfg[`title_${session.kind}`] || "").trim();
+    const number = (String(session.name || "").match(/\d+/) || [""])[0];
+    if (named) return number && !/\d/.test(named) ? `${named} ${number}` : named;
+    return String(session.name || session.kind).toUpperCase();
+  }
   const own = { race: cfg.title_race, qualify: cfg.title_qualify }[ov.session_kind] ?? cfg.title_practice;
   if (own && own.trim()) return own.trim();
   return ov.session_kind === "race" ? "RACE" : ov.session_kind === "qualify" ? "QUALIFYING"
@@ -427,7 +442,9 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     gap: () => (race
       ? `<td class="r ${first ? "lead" : ""}">${first ? leaderText(e, cfg) : down ? `+${down} L` : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`
       : `<td class="r">${first ? "" : gap != null ? `+${gap.toFixed(3)}` : ""}</td>`),
-    interval: () => `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(race ? 1 : 3)}` : ""}</td>`,
+    interval: () => (first && race && cfg.interval_leader !== "blank"
+      ? `<td class="r lead">${leaderText(e, cfg, cfg.interval_leader)}</td>`
+      : `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(race ? 1 : 3)}` : ""}</td>`),
     last_lap: () => `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
     best_lap: () => (race ? `<td class="r">${fmtLap(e.best_lap)}</td>` : `<td class="r lead">${fmtLap(e.best)}</td>`),
     pits: () => `<td class="r muted">${e.pit_stops || ""}</td>`,

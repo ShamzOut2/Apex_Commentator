@@ -31,6 +31,12 @@ How each version's entry is written:
 
 ### Improvements
 
+- Standings (tower and full screen): the leader's interval can show
+  "Leader" or the lap they're on, like the gap column.
+- Heat racing: heats, the consolation and the feature are recognised, can
+  have names of your own, and on the day of a heat event each race is named
+  after its league round for that date (e.g. "Round 2 - Heat"), with its
+  results saved to that round.
 - Finishing order: a button for every class of the league, secondary
   classes and classes without points of their own included.
 - The finishing order board can show any session of the event in iRacing:

@@ -6,6 +6,7 @@ import re
 import threading
 from dataclasses import replace
 import time
+from datetime import date
 
 from . import __version__, championship
 from .events import EventDetector
@@ -16,7 +17,7 @@ from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
 from .settings import UserSettings
 from .tracks import TrackCatalogue
-from . import boards
+from . import boards, heats
 from .league import driver_key, logo_url, strip_class_prefix
 from .makes import logo_for as make_logo
 from .makes import make_for
@@ -237,6 +238,7 @@ class App:
         self.tracks = TrackCatalogue()     # likewise: the season calendar's track list
         self.board = {"kind": None, "params": {}}  # the full-screen board on screen, if any
         self._board_cache = (None, None)
+        self._today = date.today  # the day it is, for a heat event's rounds (tests set their own)
         self._board_pages = 1  # how many pages the board on screen runs to
         self._class_of = {}        # car_idx -> class key, from the last snapshot
         self._track_sectors = self.laps.starts  # the track's own split points
@@ -401,7 +403,37 @@ class App:
         return self._session_meta.get("sessions", {}).get(frame.session_num, {})
 
     def _is_race(self, frame):
-        return str(self._session(frame).get("SessionType", "")).lower() == "race"
+        return bool(heats.race_kind(self._session(frame)))
+
+    def _meeting(self, league):
+        """A heat event's races matched to the league's rounds of the day:
+        {session number: (round number, round)} (see heats.match_rounds)."""
+        if not league:
+            return {}
+        races = [{"num": r["num"], "kind": r["kind"]} for r in self.race_sessions()]
+        rounds = championship.normalise(league.get("championship"))["rounds"]
+        return {num: (i + 1, rounds[i]) for num, i in heats.match_rounds(races, rounds, self._today()).items()}
+
+    def _round_title(self, league, session_num):
+        style = self.overlays.get()["standings"]["round_titles"]
+        matched = self._meeting(league).get(session_num) if style != "off" else None
+        return heats.round_title(matched[0], matched[1]["name"], style) if matched else ""
+
+    def _live_round(self, champ, league, key):
+        """The round the race ``key`` (subsession:session) counts as, or None:
+        on a heat event, its round of the day; otherwise championship.live_round_for."""
+        if not key or any(rd["session"] == key for rd in champ["rounds"]):
+            return None
+        try:
+            num = int(key.rsplit(":", 1)[1])
+        except (IndexError, ValueError):
+            num = None
+        matched = self._meeting(league).get(num)
+        if matched:
+            rd = next((r for r in champ["rounds"] if r["id"] == matched[1]["id"]), None)
+            if rd is not None and not (rd["results"] and rd["session"]):
+                return rd
+        return championship.live_round_for(champ, key)
 
     # -- snapshot -----------------------------------------------------------
 
@@ -494,6 +526,10 @@ class App:
                     "flags": frame.session_flags,
                     "track": self._session_meta.get("track", ""),
                     "track_config": self._session_meta.get("track_config", ""),
+                    # Heat racing: "heat", "consolation" or "feature" (heats.race_kind), and the
+                    # name of the league's round this race is (Round 2 - Heat), if matched.
+                    "kind": heats.race_kind(session),
+                    "round_title": self._round_title(active_league, frame.session_num),
                 },
                 "camera": {"car_idx": frame.cam_car_idx, "group": frame.cam_group, "groups": self._camera_groups},
                 "replay": {
@@ -524,11 +560,12 @@ class App:
 
     def race_sessions(self):
         """The race sessions of the event on screen (heats and a feature, say),
-        in order: [{"num", "name", "results": bool}]."""
+        in order: [{"num", "name", "kind" (heats.race_kind), "results": bool}]."""
         out = []
         for num, s in sorted(self._session_meta.get("sessions", {}).items(), key=lambda kv: kv[0] if kv[0] is not None else -1):
-            if str(s.get("SessionType", "")).lower() == "race":
-                out.append({"num": num, "name": str(s.get("SessionName") or f"Race {len(out) + 1}"),
+            kind = heats.race_kind(s)
+            if kind:
+                out.append({"num": num, "name": str(s.get("SessionName") or f"Race {len(out) + 1}"), "kind": kind,
                             "results": bool(s.get("ResultsPositions"))})
         return out
 
@@ -613,7 +650,7 @@ class App:
         champ = championship.normalise(champ)
         if not racing and not any(rd["results"] for rd in champ["rounds"]):
             return None
-        rd = championship.live_round_for(champ, self.session_key()) if racing else None
+        rd = self._live_round(champ, active_league, self.session_key()) if racing else None
         if racing and rd is None and not champ["rounds"]:
             rd = {"id": "live", "name": "This race", "track": "", "date": "", "multiplier": 1.0, "no_drop": False}
         if rd is not None:
@@ -809,7 +846,7 @@ class App:
     def _overlay_snapshot(self, rows, frame, session, active_league):
         settings = self.overlays.get()
         kind = str(session.get("SessionType", "")).lower()
-        is_race = kind == "race"
+        is_race = bool(heats.race_kind(session))
         entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
         # Standings: race order in a race; otherwise fastest clean lap, and
         # only drivers who have set one (blank at the start of qualifying).
@@ -1480,7 +1517,7 @@ class App:
         session = self._session_meta.get("sessions", {}).get(num)
         if session is None:
             return None
-        race = str(session.get("SessionType", "")).lower() == "race"
+        race = bool(heats.race_kind(session))
         results, _ = self.session_results(league, rows if num == frame.session_num else None, session_num=num)
         if not race:
             for r in results:  # no laps set: no time, rather than a DNF
@@ -1640,7 +1677,7 @@ class App:
         champ = championship.normalise(profile.get("championship"))
         if any(rd["session"] == key for rd in champ["rounds"]):
             return  # imported already (by hand, perhaps corrected): those stand
-        rd = championship.live_round_for(champ, key)
+        rd = self._live_round(champ, profile, key)
         if rd is None:
             rd = {"id": f"r{int(time.time())}", "name": f"Round {len(champ['rounds']) + 1}", "event": "", "track": track,
                   "config": "", "track_id": None, "date": time.strftime("%Y-%m-%d"), "time": "", "length": "",
