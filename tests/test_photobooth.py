@@ -213,3 +213,78 @@ class CutoutModelTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeBooth:
+    """Records what it's asked to photograph."""
+
+    def __init__(self):
+        self.busy = False
+        self.started = []
+
+    def start(self, cars, group, use_cutout=True):
+        self.started.append((list(cars), group, use_cutout))
+
+    def status(self):
+        return {"state": "idle"}
+
+
+class MissingAndAutomaticPhotoTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.source = MockSource(seed=5, session="qualify")
+        self.app = App(self.source, dict(DEFAULTS), LeagueStore(Path(self.tmp.name) / "leagues"))
+        for _ in range(5):
+            self.app.tick()
+        drivers = self.app.build_snapshot()["drivers"]
+        league = profile_from_session(drivers, "Booth League")
+        # The first two drivers have a car photo already.
+        for d in league["drivers"][:2]:
+            d["car_image"] = "car-x-0123abcd.png"
+        self.with_photo = {d["cust_id"] for d in league["drivers"][:2]}
+        self.app.leagues.set_active(self.app.leagues.save(league)["id"])
+        self.booth = self.app.photobooth = FakeBooth()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def cust(self, cars):
+        return {self.app._drivers[i]["cust_id"] for i in cars}
+
+    def test_only_cars_without_a_photo(self):
+        self.app.command("photobooth_start", {"missing_only": True})
+        cars = self.booth.started[-1][0]
+        self.assertEqual(len(cars), len(self.app._drivers) - 2)
+        self.assertFalse(self.cust(cars) & self.with_photo)
+        self.app.command("photobooth_start", {})
+        self.assertEqual(len(self.booth.started[-1][0]), len(self.app._drivers))
+
+    def test_drivers_photographed_as_they_load_in(self):
+        self.app.AUTO_PHOTO_WAIT_S = 3600  # not yet: still settling
+        self.app.command("photobooth_auto", {"enabled": True, "cutout": False})
+        self.app.tick()
+        self.assertEqual(self.booth.started, [])
+        self.assertEqual(self.app.build_snapshot()["photobooth"]["auto"]["waiting"], len(self.app._drivers) - 2)
+        self.app.AUTO_PHOTO_WAIT_S = 0
+        self.app.tick()
+        (cars, _, cutout), = self.booth.started
+        self.assertFalse(self.cust(cars) & self.with_photo)
+        self.assertFalse(cutout)
+        # Each driver is tried once a session.
+        self.app.tick()
+        self.assertEqual(len(self.booth.started), 1)
+        # Off: nothing more.
+        self.app.command("photobooth_auto", {"enabled": False})
+        self.assertFalse(self.app.build_snapshot()["photobooth"]["auto"]["on"])
+
+    def test_never_once_a_race_is_green(self):
+        source = MockSource(seed=5)
+        app = App(source, dict(DEFAULTS), LeagueStore(Path(self.tmp.name) / "leagues"))
+        app.leagues.set_active(self.app.leagues.active()["id"])
+        app.photobooth = FakeBooth()
+        app.AUTO_PHOTO_WAIT_S = 0
+        app.command("photobooth_auto", {"enabled": True})
+        connected = all(app.tick() for _ in range(600))
+        self.assertTrue(connected)
+        self.assertEqual(app.build_snapshot()["photobooth"]["auto"]["paused"], "paused during the race")
+        self.assertEqual(app.photobooth.started, [])

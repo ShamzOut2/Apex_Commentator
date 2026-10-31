@@ -101,6 +101,7 @@ function render() {
   renderHome(s);
   renderPhotoboothFolder(s.photobooth);
   renderUpdates(s.update);
+  renderResultsAuto(s.results_auto);
   renderOverlaySettings(s);
   renderChampLive(s);
   renderBoards(s);
@@ -591,6 +592,16 @@ function renderPhotobooth(s) {
   $("#pb-cancel").hidden = !busy;
   $("#pb-cutout").disabled = busy || !pb.cutout_available;
   if (!pb.cutout_available) $("#pb-cutout").checked = false;
+  // Automatic photos: on or off is kept by the app, so every window agrees.
+  const auto = pb.auto || {};
+  if (document.activeElement !== $("#pb-auto")) $("#pb-auto").checked = !!auto.on;
+  const autoText = auto.error ? `Automatic photos stopped: ${auto.error}`
+    : !auto.on ? "" : auto.paused ? `Automatic photos: ${auto.paused}.`
+      : auto.waiting ? `Automatic photos: ${auto.waiting} car${auto.waiting === 1 ? "" : "s"} just loaded in, photographing in a few seconds…`
+        : `Automatic photos: on${auto.camera ? ` (${auto.camera} camera)` : ""}, waiting for drivers without a photo.`;
+  $("#pb-auto-status").textContent = autoText;
+  $("#pb-auto-status").hidden = !autoText;
+  $("#pb-auto-status").classList.toggle("error-text", !!auto.error);
   const dl = pb.model_download || {};
   const pct = dl.total ? Math.round((dl.done / dl.total) * 100) : 0;
   const n = pb.total;
@@ -618,6 +629,7 @@ function renderPhotobooth(s) {
 function startPhotobooth(carIdx) {
   const params = { group: +$("#pb-camera").value || undefined, cutout: $("#pb-cutout").checked };
   if (carIdx != null) params.car_idx = carIdx;
+  else params.missing_only = $("#pb-missing").checked;
   return cmd("photobooth_start", params, (r) => `Photographing ${r.cars} car${r.cars === 1 ? "" : "s"}…`);
 }
 
@@ -626,6 +638,26 @@ $("#pb-cancel").addEventListener("click", () => cmd("photobooth_cancel", {}, "Ca
 $("#pb-camera").addEventListener("change", (e) => {
   try {
     localStorage.setItem(PB_CAMERA_KEY, e.target.selectedOptions[0].textContent);
+  } catch (err) { /* storage unavailable */ }
+  if ($("#pb-auto").checked) setAutoPhotos(true);  // automatic photos use the new camera
+});
+
+// Automatic photos, with the camera and cut-out picked here.
+function setAutoPhotos(on) {
+  return cmd("photobooth_auto", { enabled: on, group: +$("#pb-camera").value || undefined, cutout: $("#pb-cutout").checked },
+    on ? "Automatic photos on: each driver without a photo is photographed as their car loads in" : "Automatic photos off");
+}
+$("#pb-auto").addEventListener("change", (e) => setAutoPhotos(e.target.checked));
+$("#pb-cutout").addEventListener("change", () => {
+  if ($("#pb-auto").checked) setAutoPhotos(true);
+});
+const PB_MISSING_KEY = "apex.pbMissing";
+try {
+  $("#pb-missing").checked = localStorage.getItem(PB_MISSING_KEY) === "1";
+} catch (e) { /* storage unavailable */ }
+$("#pb-missing").addEventListener("change", (e) => {
+  try {
+    localStorage.setItem(PB_MISSING_KEY, e.target.checked ? "1" : "");
   } catch (err) { /* storage unavailable */ }
 });
 
@@ -991,15 +1023,21 @@ function renderChampLive(s) {
 
 // Points each driver scored in a round; with class and overall
 // championships, both ("overall / class").
+// What each driver scored in a round, in every championship they're in
+// ("Overall 20 · Pro 10 · Rookie Cup 10"; just the points when there's one).
 function roundPoints(roundId) {
-  const out = {};
+  const parts = {};
   for (const g of (champ.standings && champ.standings.groups) || []) {
     for (const d of g.drivers) {
       const s = d.rounds.find((x) => x.round === roundId);
       if (!s || !s.result) continue;
-      const text = s.result.short ? "DNF" : fmtPts(s.points);
-      out[d.driver] = out[d.driver] != null ? `${out[d.driver]} / ${text}` : text;
+      (parts[d.driver] = parts[d.driver] || []).push([g.name, s.result.short ? "DNF" : fmtPts(s.points)]);
     }
+  }
+  const out = {};
+  for (const [driver, list] of Object.entries(parts)) {
+    out[driver] = list.length === 1 ? esc(list[0][1])
+      : list.map(([name, pts]) => `<span class="pts-part"><span class="sub">${esc(name)}</span> ${esc(pts)}</span>`).join(" ");
   }
   return out;
 }
@@ -1044,10 +1082,8 @@ function renderTrackStatus() {
   const st = trackList.status;
   if (!st) return;
   $("#track-source").textContent = st.official
-    ? `${st.official} official layouts from iRacing (fetched ${st.fetched_at})${st.seen ? `, plus ${st.seen} seen in sessions` : ""}.`
-    : `Built-in list of iRacing tracks${st.seen ? `, plus ${st.seen} layouts seen in sessions` : ""}. ` +
-      (st.api ? "Fetch the official list for every layout." : "Set iRacing API credentials to fetch the official list.");
-  $("#btn-fetch-tracks").hidden = !st.api;
+    ? `${st.official} official layouts from iRacing${st.seen ? `, plus ${st.seen} seen in sessions` : ""}. A track not in the list can be typed in.`
+    : `Built-in list of iRacing tracks${st.seen ? `, plus ${st.seen} layouts seen in sessions` : ""}. A track not in the list can be typed in.`;
 }
 
 function renderChampRounds() {
@@ -1076,6 +1112,7 @@ function renderChampRounds() {
         <span class="sub">${(rd.results || []).length ? `${rd.results.length} results` : "No results"}</span>
         <button class="btn" data-round-toggle="${esc(rd.id)}">${open ? "Close" : "Results"}</button>
         <button class="btn" data-round-import="${i}" title="Fill this round with the results of the race session you're in">⤓ Import from session</button>
+        ${rd.event ? "" : `<button class="btn subtle" data-round-meeting="${i}" title="Make this round a race meeting of several races (heat races, say), each a round of its own. Its results stay with the first race.">⇉ Race meeting</button>`}
         <button class="btn icon danger" data-round-delete="${i}" title="Delete round">✕</button>
       </div>
       ${open ? `<div class="row transfer-row"><span class="hint">This round's results:</span>
@@ -1084,7 +1121,7 @@ function renderChampRounds() {
         <label class="btn subtle" title="From a round export (.json) or a CSV with the same columns as the CSV export">⤒ Import…<input type="file" accept=".json,.csv,application/json,text/csv" data-import="round" data-import-round="${esc(rd.id)}" hidden></label>
       </div>
       <div class="table-scroll"><table class="grid champ-table results-table">
-        <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored (after saving)">${c.rules.scoring === "both" ? "Pts overall / class" : "Pts"}</th><th></th></tr></thead>
+        <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored in each championship (after saving)">Pts</th><th></th></tr></thead>
         <tbody>${results.map(([r, j]) => `<tr>
           <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"></td>
           <td><select data-round="${i}" data-res="${j}" data-key="driver">${rosterOptions(r.driver, r.name)}</select></td>
@@ -1125,6 +1162,7 @@ function meetingHtml(first, last, inner) {
       <span class="grow"></span>
       <button class="btn" data-meeting-import="${first}" title="Each race session of the event you're in (heats, then the feature...) into these races, in order">⤓ Import every race from session</button>
       <button class="btn subtle" data-meeting-add="${last}">+ Add a race</button>
+      <button class="btn subtle" data-meeting-split="${first}" title="Its races become separate rounds again">Separate rounds</button>
     </div>
     ${inner}
   </div>`;
@@ -1173,13 +1211,11 @@ function renderChampPenalties() {
 
 // -- rules -------------------------------------------------------------------------
 
-const SCORING = [["class", "Per class (class positions)"], ["overall", "Overall (overall positions)"],
-  ["both", "Class and overall, as separate championships"], ["sum", "Class and overall points added together"]];
 const SCORING_HELP = {
-  class: "Each class is a championship of its own, scored on class finishing positions.",
-  overall: "One championship for everyone, scored on overall finishing positions.",
-  both: "Each driver scores twice: in their class's championship (class positions) and in the overall championship (overall positions), each with its own points and its own table.",
-  sum: "Each driver scores once a race: the points for their class position plus the points for their overall position, added up. Each class's table and the overall table rank those totals.",
+  class: "Each class is a championship of its own, scored on class finishing positions with the class points.",
+  overall: "One championship for everyone, scored on overall finishing positions with the overall points.",
+  both: "Every race scores twice, each with its own points: a driver's class position in their class's championship (class points) and their overall position in the overall championship (overall points). Each has its own table and board.",
+  sum: "Each driver scores once a race: the class points for their class position plus the overall points for their overall position, added up. Each class's table and the overall table rank those totals.",
 };
 
 // A points table for any class that scores differently (empty = the class points above).
@@ -1196,21 +1232,52 @@ function classPointsFields(r) {
   </details>`;
 }
 
+// How each secondary class scores (rules.secondary_scoring, by class id).
+function secondaryScoringFields(r) {
+  const sec = ((ui.editing && ui.editing.classes) || []).filter(isSecondary);
+  if (!sec.length) return "";
+  const how = r.secondary_scoring || {};
+  return `<div class="wide secondary-scoring"><h3 class="section-title">Secondary classes</h3>
+    <div class="class-points-grid">${sec.map((c) => `<label class="ov-field">${esc(c.name || "Unnamed")} scores
+      <select data-secondary-scoring="${esc(c.id)}">${[["own", "On where its drivers finish among each other"],
+        ["class", "The points its drivers score in their own class"], ["overall", "The points its drivers score overall"]]
+        .map(([v, l]) => `<option value="${v}" ${(how[c.id] || "own") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>`).join("")}</div>
+    <p class="hint">A driver in a secondary class scores in it as well as in their main class (and overall), each on its
+      own points. "Among each other" uses the class's own points table above, or the class points.</p></div>`;
+}
+
 function renderChampRules() {
   const r = champData().rules;
   const b = r.bonuses || {};
+  const scoring = r.scoring || "class";
+  const hasClass = scoring !== "overall";
+  const hasOverall = scoring !== "class";
+  const secondary = ((ui.editing && ui.editing.classes) || []).some(isSecondary);
+  const overallPts = (r.overall_points || []).length ? r.overall_points : r.points || [];
   $("#champ-rules").innerHTML = `
-    <label class="ov-field wide">Points for each finishing position (1st, 2nd, 3rd…)
-      <input data-rule="points" value="${esc((r.points || []).join(", "))}"></label>
+    <h3 class="section-title wide">Championships</h3>
+    <div class="wide champ-kinds">
+      <div class="champ-kind ${hasClass ? "on" : ""}">
+        <label class="check"><input type="checkbox" data-champ-kind="class" ${hasClass ? "checked" : ""}> <b>Class championships</b>
+          <span class="hint">a championship for each class, scored on class finishing positions</span></label>
+        ${hasClass || secondary ? `<label class="ov-field">${hasClass ? "Class points" : "Points for the secondary classes"} (1st, 2nd, 3rd… in class)
+          <input data-rule="points" value="${esc((r.points || []).join(", "))}"></label>` : ""}
+      </div>
+      <div class="champ-kind ${hasOverall ? "on" : ""}">
+        <label class="check"><input type="checkbox" data-champ-kind="overall" ${hasOverall ? "checked" : ""}> <b>Overall championship</b>
+          <span class="hint">everyone together, scored on overall finishing positions, with its own points</span></label>
+        ${hasOverall ? `<label class="ov-field">Overall points (1st, 2nd, 3rd… overall)
+          <input data-rule="overall_points" value="${esc(overallPts.join(", "))}"></label>` : ""}
+      </div>
+      ${hasClass && hasOverall ? `<label class="ov-field">Class and overall points count
+        <select data-rule="scoring">${[["both", "As two separate championships"], ["sum", "Added together into one total"]].map(([v, l]) =>
+          `<option value="${v}" ${scoring === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
+      <p class="hint">${esc(SCORING_HELP[scoring])}</p>
+    </div>
+    ${classPointsFields(r)}
+    ${secondaryScoringFields(r)}
     <label class="ov-field wide">Qualifying points (pole, 2nd, 3rd…; leave empty for none). Uses the starting grid.
       <input data-rule="qualifying_points" value="${esc((r.qualifying_points || []).join(", "))}"></label>
-    <label class="ov-field">Championships
-      <select data-rule="scoring">${SCORING.map(([v, l]) =>
-        `<option value="${v}" ${(r.scoring || "class") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-    <p class="hint wide">${esc(SCORING_HELP[r.scoring || "class"])}</p>
-    ${r.scoring === "both" || r.scoring === "sum" ? `<label class="ov-field wide">Points for overall positions (1st, 2nd, 3rd… overall; leave empty to use the same as above)
-      <input data-rule="overall_points" value="${esc((r.overall_points || []).join(", "))}"></label>` : ""}
-    ${classPointsFields(r)}
     <label class="ov-field">Drop rounds (each driver's worst N don't count)
       <input type="number" min="0" max="50" data-rule="drop_rounds" value="${r.drop_rounds || 0}"></label>
     <label class="ov-field">Fastest-lap bonus only in the top N (0 = anyone)
@@ -1235,7 +1302,21 @@ function champChange(e, final) {
   const c = champData();
   const d = el.dataset;
   let rerender = false;
-  if (d.rule) {
+  if (d.champKind) {
+    // Class and / or overall championships (at least one).
+    if (!final) return;
+    const r = c.rules;
+    const scoring = r.scoring || "class";
+    const want = { class: scoring !== "overall", overall: scoring !== "class", [d.champKind]: el.checked };
+    if (!want.class && !want.overall) {
+      el.checked = true;
+      return toast("There has to be a class or an overall championship", true);
+    }
+    // A new overall championship starts from the class points, as its own copy.
+    if (want.overall && !(r.overall_points || []).length) r.overall_points = [...(r.points || [])];
+    r.scoring = want.class && want.overall ? (scoring === "sum" ? "sum" : "both") : want.class ? "class" : "overall";
+    rerender = true;
+  } else if (d.rule) {
     const r = c.rules;
     if (d.rule === "points" || d.rule === "qualifying_points" || d.rule === "overall_points") {
       if (!final) return;
@@ -1244,6 +1325,11 @@ function champChange(e, final) {
     } else if (el.type === "checkbox") r[d.rule] = el.checked;
     else r[d.rule] = el.type === "number" ? +el.value : el.value;
     if (d.rule === "scoring" && final) rerender = true;
+  } else if (d.secondaryScoring) {
+    if (!final) return;
+    c.rules.secondary_scoring = { ...(c.rules.secondary_scoring || {}), [d.secondaryScoring]: el.value };
+    if (el.value === "own") delete c.rules.secondary_scoring[d.secondaryScoring];
+    rerender = true;
   } else if (d.classPoints) {
     if (!final) return;
     const pts = el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
@@ -1332,6 +1418,16 @@ $("#tab-championship").addEventListener("click", async (e) => {
     return importRound(c.rounds[+d.roundImport]);
   } else if (d.meetingImport != null) {
     return importMeeting(meetingRounds(+d.meetingImport));
+  } else if (d.roundMeeting != null) {
+    const races = askRaces();
+    if (!races) return;
+    toMeeting(c, +d.roundMeeting, races);
+  } else if (d.meetingSplit != null) {
+    const ev = c.rounds[+d.meetingSplit].event;
+    for (const rd of meetingRounds(+d.meetingSplit)) {
+      rd.name = `${ev} · ${rd.name}`;
+      rd.event = "";
+    }
   } else if (d.meetingAdd != null) {
     const last = c.rounds[+d.meetingAdd];
     const n = meetingRounds(c.rounds.findIndex((r) => r.event === last.event)).length;
@@ -1341,22 +1437,64 @@ $("#tab-championship").addEventListener("click", async (e) => {
   renderChampionship();
 });
 
-$("#btn-fetch-tracks").addEventListener("click", async () => {
-  try {
-    const r = await api("/api/tracks/refresh", { method: "POST", body: {} });
-    toast(`Fetched ${r.count} track layouts from iRacing`);
-    await loadTracks(true);
-  } catch (err) {
-    toast(err.message, true);
-  }
-});
-
 $("#btn-add-round").addEventListener("click", () => {
   if (!ui.editing) return toast("Pick a league first", true);
   const c = champData();
   c.rounds.push({ id: newId(), name: `Round ${c.rounds.length + 1}`, track: "", date: "", multiplier: 1, no_drop: false, results: [] });
   markChampDirty();
   renderChampionship();
+});
+
+// How many races at a race meeting (null: cancelled).
+function askRaces() {
+  const n = parseInt(prompt("How many races at the meeting? Each race is a round of its own.", "3"), 10);
+  return n >= 2 && n <= 10 ? n : null;
+}
+
+// A name for a new race meeting made from round ``i``: the round's own name,
+// unless it's just "Round 3" (each race is a round, so that would confuse):
+// "Event 3", by where it is in the calendar (a meeting counts once).
+function meetingName(c, i) {
+  const used = new Set(c.rounds.filter((r) => r.event).map((r) => r.event));
+  const own = String(c.rounds[i].name || "").trim();
+  if (own && !/^round \d+$/i.test(own) && !used.has(own)) return own;
+  let n = 1;
+  for (let k = 0; k < i; k++) if (!c.rounds[k].event || c.rounds[k].event !== (c.rounds[k + 1] || {}).event) n++;
+  while (used.has(`Event ${n}`)) n++;
+  return `Event ${n}`;
+}
+
+// Round ``i`` becomes the first race of a meeting of ``races`` races (it keeps
+// its results, penalties and session); the rest are new rounds after it, at
+// the same track, date and time.
+function toMeeting(c, i, races) {
+  const rd = c.rounds[i];
+  if (!rd.event) {
+    rd.event = meetingName(c, i);
+    rd.name = "Race 1";
+  }
+  const more = [];
+  for (let k = 2; k <= races; k++) more.push({ ...rd, id: newId(), name: `Race ${k}`, results: [], session: "" });
+  c.rounds.splice(i + 1, 0, ...more);
+}
+
+$("#btn-all-meetings").addEventListener("click", () => {
+  if (!ui.editing) return toast("Pick a league first", true);
+  const c = champData();
+  const single = c.rounds.map((rd, i) => [rd, i]).filter(([rd]) => !rd.event);
+  if (!single.length) return toast("Every round is a race meeting already");
+  const races = askRaces();
+  if (!races) return;
+  // Named in order (Event 1, Event 2...), then filled in from the end so the
+  // rounds still to fill keep their places.
+  for (const [rd, i] of single) {
+    rd.event = meetingName(c, i);
+    rd.name = "Race 1";
+  }
+  for (const [, i] of single.reverse()) toMeeting(c, i, races);
+  markChampDirty();
+  renderChampionship();
+  toast(`${single.length} round${single.length === 1 ? "" : "s"} made race meetings of ${races} races. Save to keep them.`);
 });
 
 $("#btn-add-meeting").addEventListener("click", () => {
@@ -1373,10 +1511,10 @@ $("#btn-add-meeting").addEventListener("click", () => {
 });
 
 // -- building the rounds from a calendar ------------------------------------------
-// From the league's season in iRacing, a scanned calendar image or pasted
-// text: the server finds the rounds, they're checked and corrected here, then made.
+// From a scanned calendar image or pasted text: the server finds the rounds,
+// they're checked and corrected here, then made.
 
-const build = { mode: null, busy: "", seasons: null, rounds: null, text: "", races: 1, raceName: "Race", replace: false, note: "" };
+const build = { mode: null, busy: "", rounds: null, text: "", races: 1, raceName: "Race", replace: false, note: "" };
 
 // 22/11 or 11/22: what this PC's language writes (a date that can only be one decides anyway).
 const dayFirst = () => !/^en-US|^en-CA|^es-US|^fil/.test(navigator.language || "");
@@ -1389,11 +1527,7 @@ function renderBuild() {
     return;
   }
   let html = "";
-  if (build.mode === "iracing" && build.seasons) {
-    html = build.seasons.length ? `<div class="row"><label class="field">Season <select data-b="season">${build.seasons.map((x) =>
-      `<option value="${x.season_id}">${esc(x.season_name)}${x.active ? " (current)" : ""}</option>`).join("")}</select></label>
-      <button class="btn primary" data-build="season">Read its sessions</button></div>` : '<p class="hint">The league has no seasons in iRacing.</p>';
-  } else if (build.mode === "paste" && !build.rounds) {
+  if (build.mode === "paste" && !build.rounds) {
     html = `<textarea data-b="text" rows="8" placeholder="Paste the calendar here, e.g.&#10;Round 1 - Spa - Sun 8th November - 8PM - 60 min&#10;Round 2 - Monza - 15/11/26 - 20:00 - 45 mins">${esc(build.text)}</textarea>
       <div class="row"><button class="btn primary" data-build="read">Find the rounds</button></div>`;
   }
@@ -1510,21 +1644,7 @@ $("#build-rounds").addEventListener("click", async (e) => {
   }
   const what = b.dataset.build;
   try {
-    if (what === "iracing") {
-      build.mode = "iracing";
-      build.rounds = null;
-      build.busy = "Asking iRacing for the league's seasons…";
-      renderBuild();
-      const saved = ui.editing.id ? ui.editing : await saveEditor();
-      build.seasons = (await api(`/api/leagues/${encodeURIComponent(saved.id)}/seasons`)).seasons;
-      build.busy = "";
-    } else if (what === "season") {
-      const season = $("#build-step [data-b=season]").value;
-      build.busy = "Reading the season's sessions…";
-      renderBuild();
-      const data = await api(`/api/leagues/${encodeURIComponent(ui.editing.id)}/schedule`, { method: "POST", body: { season_id: season } });
-      return buildFound(data, "iracing", "From the season's sessions in iRacing, at your PC's local time.");
-    } else if (what === "scan") {
+    if (what === "scan") {
       if (!ui.editing.calendar_image) return toast("Add the calendar image in the League builder (Logos tab), or choose an image to scan", true);
       return scanImage(logoSrc(ui.editing.calendar_image));
     } else if (what === "paste") {
@@ -1537,7 +1657,7 @@ $("#build-rounds").addEventListener("click", async (e) => {
       const data = await api("/api/calendar/parse", { method: "POST", body: { text: build.text, day_first: dayFirst() } });
       return buildFound({ ...data, text: build.text }, "paste", "Found in the text: check every round, then make them.");
     } else if (what === "cancel") {
-      Object.assign(build, { mode: null, rounds: null, seasons: null, note: "" });
+      Object.assign(build, { mode: null, rounds: null, note: "" });
     } else if (what === "create") {
       return createBuiltRounds();
     }
@@ -1606,7 +1726,7 @@ function createBuiltRounds() {
     if (gone.has(c.live_round)) c.live_round = "";
   }
   c.rounds.push(...made);
-  Object.assign(build, { mode: null, rounds: null, seasons: null, note: "" });
+  Object.assign(build, { mode: null, rounds: null, note: "" });
   $("#build-rounds").open = false;
   markChampDirty();
   renderChampionship();
@@ -1637,6 +1757,50 @@ $("#btn-save-champ").addEventListener("click", () => {
   saveChampionship().catch((err) => toast(err.message, true));
 });
 
+// Race results saved by the app when a race is over (see core._auto_results).
+let resultsSeen = undefined;
+function renderResultsAuto(ra) {
+  if (!ra) return;
+  const box = $("#auto-results");
+  if (document.activeElement !== box) box.checked = !!ra.on;
+  const key = ra.saved ? JSON.stringify(ra.saved) : "";
+  if (resultsSeen === undefined) {
+    resultsSeen = key;  // what was saved before this window opened: nothing to say
+    return;
+  }
+  if (key === resultsSeen) return;
+  resultsSeen = key;
+  if (!ra.saved) return;
+  const n = ra.saved;
+  toast(`Race results saved to ${[n.event, n.name].filter(Boolean).join(" · ")} (${n.count} drivers): the standings are up to date`);
+  if (ui.editing && ui.editing.id === n.league) mergeSavedRound(n).catch((err) => toast(err.message, true));
+  loadChampStandings();
+}
+
+// Bring a round the app saved into the league being edited: straight in when
+// nothing's been changed here, or merged into the changes not saved yet (so
+// saving them doesn't lose the race).
+async function mergeSavedRound(n) {
+  const fresh = await api(`/api/leagues/${encodeURIComponent(n.league)}`);
+  if (!champ.dirty) {
+    openEditor(fresh);
+    return;
+  }
+  const saved = (fresh.championship.rounds || []).find((r) => r.id === n.round);
+  const c = champData();
+  const mine = c.rounds.find((r) => r.id === n.round);
+  if (mine) Object.assign(mine, { results: saved.results, session: saved.session, track: mine.track || saved.track });
+  else c.rounds.push(saved);
+  if (c.live_round === n.round) c.live_round = "";
+  // Drivers the race added to the roster.
+  const known = new Set((ui.editing.drivers || []).map(driverKey));
+  for (const d of fresh.drivers || []) if (!known.has(driverKey(d))) ui.editing.drivers.push(d);
+  renderChampionship();
+}
+
+$("#auto-results").addEventListener("change", (e) => cmd("auto_results", { enabled: e.target.checked },
+  e.target.checked ? "Race results will be saved when each race is over" : "Race results won't be saved by themselves"));
+
 async function importRound(rd) {
   if ((rd.results || []).length && !confirm(`Replace the results of ${rd.name} with the current session's?`)) return;
   try {
@@ -1656,6 +1820,10 @@ async function importRound(rd) {
 
 const NAME_FORMATS = [["full", "Full name"], ["initial_last", "A. Driver"], ["last_initial", "Driver A."],
   ["last", "Last name"], ["first", "First name"], ["abbrev", "DRI (3 letters)"], ["nickname", "Nickname"]];
+
+// Custom opacity per column: a tick box, then a slider for each column.
+const columnOpacity = (cols) => [["col_opacity_on", "Custom opacity per column", "bool"],
+  iff((v) => v.col_opacity_on, ["col_opacity", "Opacity of each column", "colopacity", cols])];
 
 // Each overlay's settings, in named sections that open and close:
 // [title, fields]. A field is [key, label, kind, opts]; `iff(when, field)`
@@ -1703,6 +1871,9 @@ const OVERLAY_FIELDS = {
         ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"]]],
       ["screen_column_order", "Column order on the full screen", "order", [["laps", "Laps"], ["gap", "Gap"], ["interval", "Interval"],
         ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"]]],
+      ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["logo", "Team logo"], ["name", "Driver"], ["team", "Team (full screen)"],
+        ["pos_change", "+/−"], ["laps", "Laps"], ["pits", "Pit stops"], ["last_lap", "Last lap"], ["best_lap", "Best lap"], ["gap", "Gap"],
+        ["interval", "Interval"]]),
     ]],
     ["Drivers", [
       ["name_format", "Names", "select", NAME_FORMATS],
@@ -1850,6 +2021,10 @@ function sponsorPicker(sponsors, value) {
 
 // A settings field's new value.
 function fieldValue(el) {
+  if (el.dataset.kind === "colopacity") {
+    return [...el.closest(".colop-field").querySelectorAll("input")].filter((i) => +i.value < 100)
+      .map((i) => `${i.dataset.opcol}:${i.value}`).join(",");
+  }
   if (el.dataset.kind === "sponsors") {
     const boxes = [...el.closest(".sponsor-pick").querySelectorAll("input")];
     const on = boxes.filter((b) => b.checked).map((b) => b.value);
@@ -1884,6 +2059,7 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   if (kind === "background") return backgroundFields(section, values);
   if (kind === "size") return sizeField(v);
   if (kind === "order") return orderField(k, label, v, opts, values);
+  if (kind === "colopacity") return opacityField(k, label, v, opts);
   if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
   if (kind === "number") {
     return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
@@ -1897,6 +2073,14 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
       : opts;
   return `<label class="ov-field">${label}<select ${attrs}>${options.map(([o, l]) =>
     `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+}
+
+// A slider for each column's opacity (percent; 100 = as normal).
+function opacityField(key, label, value, cols) {
+  const set = Object.fromEntries(String(value || "").split(",").map((p) => p.split(":")).filter((p) => p.length === 2).map(([k, v]) => [k, +v]));
+  return `<div class="ov-field wide colop-field"><span>${label}</span><div class="colop-grid">${cols.map(([k, name]) => `<label class="colop">
+      <span>${esc(name)} <span class="rng-val">${set[k] ?? 100}%</span></span>
+      <input type="range" min="10" max="100" step="5" data-key="${key}" data-kind="colopacity" data-opcol="${k}" value="${set[k] ?? 100}"></label>`).join("")}</div></div>`;
 }
 
 // A column order: chips to drag, or move with the arrows. ``cols``: [key,
@@ -2017,13 +2201,19 @@ const BOARD_FIELDS = {
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
     ["show_make", "Car badges", "bool"], ["show_gap", "Points gap to the leader", "bool"],
     ["show_ahead", "Points gap to the driver ahead", "bool"], ["show_wins", "Wins", "bool"],
-    ["show_penalty", "Penalty points", "bool"]],
+    ["show_penalty", "Penalty points", "bool"],
+    ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["car", "Car badge"],
+      ["rounds", "Round points"], ["wins", "Wins"], ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"],
+      ["ahead", "Gap to driver ahead"]])],
   board_teams: [["rows", "Teams shown", "number", { min: 1, max: 64 }], ["rounds", "Points from the last N rounds", "number", { min: 0, max: 10 }],
     ["show_logo", "Team logos", "bool"], ["show_color", "Team colour stripe", "bool"], ["show_drivers", "Drivers who scored", "bool"],
     ["show_gap", "Points gap to the leader", "bool"], ["show_ahead", "Points gap to the team ahead", "bool"],
-    ["show_wins", "Wins", "bool"], ["show_penalty", "Penalty points", "bool"]],
+    ["show_wins", "Wins", "bool"], ["show_penalty", "Penalty points", "bool"],
+    ...columnOpacity([["pos", "Position"], ["team", "Team"], ["drivers", "Drivers"], ["rounds", "Round points"], ["wins", "Wins"],
+      ["penalty", "Penalty points"], ["points", "Points"], ["gap", "Gap to leader"], ["ahead", "Gap to team ahead"]])],
   board_makes: [["rows", "Manufacturers shown", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
-    ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"]],
+    ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"],
+    ...columnOpacity([["pos", "Position"], ["make", "Manufacturer"], ["wins", "Wins"], ["points", "Points"], ["gap", "Gap"]])],
   board_calendar: [["style", "Show", "select", [["cards", "The calendar built from the rounds"], ["image", "The league's own calendar image"]]],
     iff(cards, ["round_title", "Round titles", "select", [["both", "Round 3 · your round name"], ["name", "Your round name"], ["number", "Round 3"]]]),
     iff(cards, ["show_date", "Dates", "bool"]),
@@ -2035,7 +2225,9 @@ const BOARD_FIELDS = {
   board_results: [["rows", "Drivers shown", "number", { min: 1, max: 64 }], ["show_gained", "Places gained / lost", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
-    ["show_status", "DNF / DSQ", "bool"], ["show_points", "Points scored", "bool"]],
+    ["show_status", "DNF / DSQ", "bool"], ["show_points", "Points scored", "bool"],
+    ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"],
+      ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["status", "DNF / DSQ"], ["points", "Points"]])],
 };
 const BOARD_SECTION_NAMES = {
   board_championship: "Championship standings", board_teams: "Teams' championship",
@@ -2390,11 +2582,8 @@ async function loadLeagues() {
       ui.library = (await api("/api/logo-library")).logos;
       ui.libraryLoaded = true;
     }
-    const [{ leagues, active }, cfg] = await Promise.all([api("/api/leagues"), api("/api/config")]);
+    const { leagues, active } = await api("/api/leagues");
     ui.activeLeague = active;
-    $("#api-hint").textContent = cfg.api_configured
-      ? "Pulls the roster from the iRacing Data API."
-      : "iRacing API credentials aren't set (see README), so fetching won't work. You can still build a league from the current session or by hand.";
     $("#league-list").innerHTML = leagues.length ? leagues.map((l) => `
       <li data-league="${esc(l.id)}" class="${ui.editing && ui.editing.id === l.id ? "selected" : ""}">
         <div><div>${esc(l.name)} ${l.active ? '<span class="badge live">ACTIVE</span>' : ""}</div>
@@ -2410,7 +2599,6 @@ function openEditor(profile) {
   ui.editing = profile;
   $("#league-editor").hidden = false;
   $("#edit-name").value = profile.name || "";
-  $("#edit-league-id").value = profile.league_id ?? "";
   $("#edit-strip-class").checked = !!profile.strip_class_prefix;
   $("#btn-activate-league").textContent = profile.id && profile.id === ui.activeLeague ? "Active in overlay" : "Use in overlay";
   profile.classes = profile.classes || [];
@@ -2699,6 +2887,7 @@ const sameTeam = (a, b) => String(a || "").trim().toLowerCase() === String(b || 
 async function renderLeaguePickers() {
   try {
     const { leagues } = await api("/api/leagues");
+    ui.leagueList = leagues;
     const current = ui.editing && ui.editing.id;
     const html = `<option value="">${leagues.length ? "Pick a league…" : "No saved leagues yet"}</option>` +
       leagues.map((l) => `<option value="${esc(l.id)}" ${l.id === current ? "selected" : ""}>${esc(l.name)}${l.active ? " (active)" : ""}</option>`).join("");
@@ -2730,6 +2919,7 @@ function renderTeams() {
   const teams = editorTeams();
   const drivers = ui.editing.drivers || [];
   const label = (d) => `${d.car_number ? `#${esc(d.car_number)} ` : ""}${esc(d.name || "Unnamed")}`;
+  const otherLeagues = (ui.leagueList || []).filter((l) => l.id !== ui.editing.id);
   cards.innerHTML = teams.length ? teams.map((t, i) => {
     const members = drivers.map((d, j) => [d, j]).filter(([d]) => sameTeam(d.team, t.name));
     const others = drivers.map((d, j) => [d, j]).filter(([d]) => !sameTeam(d.team, t.name));
@@ -2756,6 +2946,9 @@ function renderTeams() {
         <option value="">+ Add driver…</option>
         ${others.map(([d, j]) => `<option value="${j}">${label(d)}${d.team ? ` (${esc(d.team)})` : ""}</option>`).join("")}
       </select>
+      ${otherLeagues.length ? `<div class="team-shared"><span class="hint" title="The team, and its drivers who race there too, in these leagues as well. Drivers who join one later are put in the team by themselves.">Also in:</span>
+        ${otherLeagues.map((l) => `<label class="chip ${(t.shared || []).includes(l.id) ? "active" : ""}">
+          <input type="checkbox" data-team-share="${i}" value="${esc(l.id)}" ${(t.shared || []).includes(l.id) ? "checked" : ""} hidden>${esc(l.name)}</label>`).join("")}</div>` : ""}
     </div>`;
   }).join("") : '<p class="hint">No teams yet: add one, or fill in the Team column in the League builder roster.</p>';
   const free = drivers.map((d, j) => [d, j]).filter(([d]) => !String(d.team || "").trim());
@@ -2798,6 +2991,16 @@ $("#team-cards").addEventListener("change", async (e) => {
     } catch (err) {
       toast(err.message, true);
     }
+    return;
+  }
+  if (el.dataset.teamShare != null) {
+    const team = teams[+el.dataset.teamShare];
+    const shared = new Set(team.shared || []);
+    if (el.checked) shared.add(el.value);
+    else shared.delete(el.value);
+    team.shared = [...shared];
+    renderTeams();
+    toast(el.checked ? `Save to add ${team.name} (and its drivers) to that league` : "Save to unlink it (that league keeps its copy)");
     return;
   }
   if (el.dataset.teamAdd != null) {
@@ -3046,7 +3249,6 @@ $("#btn-add-class").addEventListener("click", () => {
 function readEditor() {
   const p = ui.editing;
   p.name = $("#edit-name").value.trim();
-  p.league_id = $("#edit-league-id").value.trim() || null;
   p.strip_class_prefix = $("#edit-strip-class").checked;
   return p;
 }
@@ -3137,26 +3339,6 @@ $("#league-list").addEventListener("click", async (e) => {
     } catch (err) {
       toast(err.message, true);
     }
-  }
-});
-
-$("#fetch-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const id = $("#fetch-id").value.trim();
-  if (!/^\d+$/.test(id)) return toast("Enter a numeric League ID", true);
-  const btn = e.submitter;
-  btn.disabled = true;
-  btn.textContent = "Fetching…";
-  try {
-    const { league } = await api("/api/leagues/fetch", { method: "POST", body: { league_id: id } });
-    toast(`Loaded ${league.name} (${league.drivers.length} drivers)`);
-    await loadLeagues();
-    openEditor(league);
-  } catch (err) {
-    toast(err.message, true);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Fetch";
   }
 });
 

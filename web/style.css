@@ -421,6 +421,8 @@ kbd {
 .team-fields input.narrow { width: 80px; }
 .team-fields input[type=color] { width: 40px; height: 30px; padding: 0; border: none; background: none; }
 .team-members .chip { display: inline-flex; align-items: center; gap: 4px; }
+.team-shared { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.team-shared .chip { cursor: pointer; }
 .chip .clear { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0 2px; }
 .chip .clear:hover { color: var(--bad); }
 
@@ -449,6 +451,9 @@ kbd {
 .ov-grid .wide, .ov-grid .hint { grid-column: 1 / -1; }
 /* A column order: chips to drag or move with their arrows. */
 .order-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.colop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px 14px; margin-top: 3px; }
+.colop { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text); }
+.colop input { width: 100%; }
 .order-item { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 999px;
   background: var(--panel-2); color: var(--text); font-size: 12px; cursor: grab; user-select: none; }
 .order-item > span { padding: 0 4px; }
@@ -462,6 +467,7 @@ kbd {
 /* --- championship ------------------------------------------------------------ */
 .home.wide { max-width: 1400px; }
 .champ-views { margin: 4px 0 12px; }
+.auto-results { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; margin: 2px 0 6px; }
 .champ-view { margin-top: 6px; }
 .champ-table td.c-num, .champ-table th.c-num { text-align: right; width: 1%; white-space: nowrap; }
 .champ-table td.sub { margin: 0; }
@@ -469,6 +475,8 @@ kbd {
 .champ-table .bad { color: var(--bad); }
 .champ-table input, .champ-table select { width: 100%; min-width: 0; }
 .champ-table input.c-num { width: 64px; text-align: right; }
+.pts-part { white-space: nowrap; margin-left: 6px; }
+.pts-part:first-child { margin-left: 0; }
 .champ-table input.lap-input { width: 96px; }
 .champ-table input.grow { min-width: 220px; }
 .standings-table th.c-rd, .standings-table td.c-rd { text-align: center; width: 1%; min-width: 34px; }
@@ -509,6 +517,11 @@ kbd {
 .champ-rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 16px; }
 .champ-rules .wide { grid-column: 1 / -1; }
 .class-points > summary { cursor: pointer; font-weight: 600; }
+.champ-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px 16px; align-items: start; }
+.champ-kinds > .hint { grid-column: 1 / -1; margin: 0; }
+.champ-kind { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; gap: 8px; opacity: .7; }
+.champ-kind.on { opacity: 1; border-color: var(--accent); }
+.champ-kind .check { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .class-points-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 16px; }
 .obs-kind { min-width: 80px; font-size: 12px; color: var(--muted); font-weight: 600; }
 

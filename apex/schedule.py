@@ -20,7 +20,7 @@ app shows the rounds for checking before it creates them.
 import difflib
 import re
 import unicodedata
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 MONTHS = {m: i for i, names in enumerate((
     ("jan", "january"), ("feb", "february"), ("mar", "march"), ("apr", "april"), ("may",), ("jun", "june"),
@@ -443,34 +443,6 @@ def rounds_from_pieces(pieces, grouped_tracks, day_first=True, today=None):
 
 def rounds_from_text(text, grouped_tracks, day_first=True, today=None):
     return rounds_from_pieces(lines_to_pieces(text), grouped_tracks, day_first, today)
-
-
-def rounds_from_iracing(sessions, tz=None):
-    """Rounds from a league season's sessions in iRacing (``league/season_sessions``),
-    in date order, at the PC's local time (or ``tz``)."""
-    out = []
-    for s in sessions:
-        when = None
-        try:
-            when = datetime.fromisoformat(str(s.get("launch_at") or "").replace("Z", "+00:00")).astimezone(tz)
-        except ValueError:
-            pass
-        track = s.get("track") if isinstance(s.get("track"), dict) else {}
-        laps = s.get("race_laps") or 0
-        mins = s.get("race_length") or s.get("time_limit") or 0
-        length = f"{laps} laps" if isinstance(laps, int) and laps > 0 else \
-            (f"{mins // 60} h" if mins % 60 == 0 else f"{mins} min") if isinstance(mins, int) and mins > 0 else ""
-        out.append({
-            "number": None, "name": str(s.get("session_name") or "").strip(),
-            "track": str(track.get("track_name") or ""), "config": str(track.get("config_name") or ""),
-            "track_id": track.get("track_id") if isinstance(track.get("track_id"), int) else None,
-            "unknown_track": False, "date": when.date().isoformat() if when else "",
-            "time": when.strftime("%H:%M") if when else "", "length": length, "text": "",
-        })
-    out.sort(key=lambda r: (r["date"] or "9999", r["time"]))
-    for i, r in enumerate(out, start=1):
-        r["name"] = r["name"] or f"Round {i}"
-    return out
 
 
 def races_per_event(rounds, races, name="Race"):

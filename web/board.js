@@ -21,53 +21,54 @@ const panelled = (b) => b.settings.bg === "color" || (b.settings.bg === "image" 
 // The car number, in the driver's class colour.
 const numberChip = (r) => (r.number ? `<span class="num" style="${r.class_color ? `background:${esc(r.class_color)};color:${inkFor(r.class_color)}` : ""}">${esc(r.number)}</span>` : "");
 
-// [label, width, class, cell(row)] for each column a board shows.
+// [label, width, class, cell(row), key] for each column a board shows (the
+// key is what Custom opacity per column calls it).
 function columns(b) {
   const s = b.settings;
   const cols = [];
-  const add = (on, label, width, cls, cell) => on && cols.push([label, width, cls, cell]);
+  const add = (on, key, label, width, cls, cell) => on && cols.push([label, width, cls, cell, key]);
   if (b.kind === "championship") {
-    add(true, "Pos", "70px", "p r", (r) => r.pos);
-    add(s.show_number, "#", "80px", "c", numberChip);
-    add(true, "Driver", "auto", "", (r) => esc(r.name));
-    add(s.show_team, "Team", "auto", "muted", (r) => `${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}${esc(r.team)}`);
-    add(s.show_make, "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
-    b.round_names.forEach((name, i) => add(true, name, "70px", "rd", (r) => {
+    add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
+    add(s.show_number, "number", "#", "80px", "c", numberChip);
+    add(true, "driver", "Driver", "auto", "", (r) => esc(r.name));
+    add(s.show_team, "team", "Team", "auto", "muted", (r) => `${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}${esc(r.team)}`);
+    add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
+    b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => {
       const x = r.rounds[i];
       return x && x.played ? `<span class="${x.dropped ? "rd dropped" : ""}">${fmtPts(x.points)}</span>` : "–";
     }));
-    add(s.show_wins, "Wins", "80px", "r muted", (r) => r.wins || "");
-    add(s.show_penalty, "Pen", "80px", "r down", (r) => (r.penalty ? `−${fmtPts(r.penalty)}` : ""));
-    add(true, "Pts", "100px", "r pts", (r) => fmtPts(r.points));
-    add(s.show_gap, s.show_ahead ? "To leader" : "Gap", s.show_ahead ? "140px" : "100px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
-    add(s.show_ahead, "To ahead", "140px", "r muted", (r) => (r.ahead != null ? `−${fmtPts(r.ahead)}` : ""));
+    add(s.show_wins, "wins", "Wins", "80px", "r muted", (r) => r.wins || "");
+    add(s.show_penalty, "penalty", "Pen", "80px", "r down", (r) => (r.penalty ? `−${fmtPts(r.penalty)}` : ""));
+    add(true, "points", "Pts", "100px", "r pts", (r) => fmtPts(r.points));
+    add(s.show_gap, "gap", s.show_ahead ? "To leader" : "Gap", s.show_ahead ? "140px" : "100px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
+    add(s.show_ahead, "ahead", "To ahead", "140px", "r muted", (r) => (r.ahead != null ? `−${fmtPts(r.ahead)}` : ""));
   } else if (b.kind === "teams") {
-    add(true, "Pos", "70px", "p r", (r) => r.pos);
-    add(true, "Team", "auto", "", (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(r.color)}"></span>` : ""}${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
-    add(s.show_drivers, "Drivers", "auto", "muted team-drivers", (r) => esc(r.drivers.join(" · ")));
-    b.round_names.forEach((name, i) => add(true, name, "70px", "rd", (r) => (r.rounds[i] == null ? "–" : fmtPts(r.rounds[i]))));
-    add(s.show_wins, "Wins", "80px", "r muted", (r) => r.wins || "");
-    add(s.show_penalty, "Pen", "80px", "r down", (r) => (r.penalty_points ? `−${fmtPts(r.penalty_points)}` : ""));
-    add(true, "Pts", "110px", "r pts", (r) => fmtPts(r.points));
-    add(s.show_gap, s.show_ahead ? "To leader" : "Gap", s.show_ahead ? "140px" : "110px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
-    add(s.show_ahead, "To ahead", "140px", "r muted", (r) => (r.ahead != null ? `−${fmtPts(r.ahead)}` : ""));
+    add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
+    add(true, "team", "Team", "auto", "", (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(r.color)}"></span>` : ""}${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
+    add(s.show_drivers, "drivers", "Drivers", "auto", "muted team-drivers", (r) => esc(r.drivers.join(" · ")));
+    b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => (r.rounds[i] == null ? "–" : fmtPts(r.rounds[i]))));
+    add(s.show_wins, "wins", "Wins", "80px", "r muted", (r) => r.wins || "");
+    add(s.show_penalty, "penalty", "Pen", "80px", "r down", (r) => (r.penalty_points ? `−${fmtPts(r.penalty_points)}` : ""));
+    add(true, "points", "Pts", "110px", "r pts", (r) => fmtPts(r.points));
+    add(s.show_gap, "gap", s.show_ahead ? "To leader" : "Gap", s.show_ahead ? "140px" : "110px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
+    add(s.show_ahead, "ahead", "To ahead", "140px", "r muted", (r) => (r.ahead != null ? `−${fmtPts(r.ahead)}` : ""));
   } else if (b.kind === "makes") {
-    add(true, "Pos", "70px", "p r", (r) => r.pos);
-    add(true, "Manufacturer", "auto", "", (r) => (s.show_logo ? makeChip({ name: r.make, logo: r.make_logo, withName: true }) : esc(r.make)));
-    add(s.show_wins, "Wins", "100px", "r muted", (r) => r.wins || "");
-    add(true, "Pts", "120px", "r pts", (r) => fmtPts(r.points));
-    add(s.show_gap, "Gap", "120px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
+    add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
+    add(true, "make", "Manufacturer", "auto", "", (r) => (s.show_logo ? makeChip({ name: r.make, logo: r.make_logo, withName: true }) : esc(r.make)));
+    add(s.show_wins, "wins", "Wins", "100px", "r muted", (r) => r.wins || "");
+    add(true, "points", "Pts", "120px", "r pts", (r) => fmtPts(r.points));
+    add(s.show_gap, "gap", "Gap", "120px", "r muted", (r) => (r.behind ? `−${fmtPts(r.behind)}` : ""));
   } else if (b.kind === "results") {
-    add(true, "Pos", "70px", "p r", (r) => (r.rank ?? (r.status || "").toUpperCase()));
-    add(s.show_gained, "", "90px", "c", (r) => (r.gained ? `<span class="${r.gained > 0 ? "up" : "down"}">${r.gained > 0 ? "▲" : "▼"}${Math.abs(r.gained)}</span>` : ""));
-    add(s.show_number, "#", "80px", "c", numberChip);
-    add(true, "Driver", "auto", "", (r) => esc(r.name));
-    add(s.show_team, "Team", "auto", "muted", (r) => `${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}${esc(r.team)}`);
-    add(s.show_make, "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
-    add(s.show_laps, "Laps", "80px", "r muted", (r) => r.laps ?? "");
-    add(s.show_fastest, "Fastest", "140px", "r", (r) => (r.fastest_lap ? `<span class="${r.has_fastest ? "fl" : "muted"}">${fmtLap(r.fastest_lap)}</span>` : ""));
-    add(s.show_status, "", "90px", "c", (r) => (r.status !== "finished" || r.short ? `<span class="st">${r.short ? "DNF" : esc(r.status.toUpperCase())}</span>` : ""));
-    add(s.show_points, "Pts", "90px", "r pts", (r) => (r.points == null ? "" : `+${fmtPts(r.points)}`));
+    add(true, "pos", "Pos", "70px", "p r", (r) => (r.rank ?? (r.status || "").toUpperCase()));
+    add(s.show_gained, "gained", "", "90px", "c", (r) => (r.gained ? `<span class="${r.gained > 0 ? "up" : "down"}">${r.gained > 0 ? "▲" : "▼"}${Math.abs(r.gained)}</span>` : ""));
+    add(s.show_number, "number", "#", "80px", "c", numberChip);
+    add(true, "driver", "Driver", "auto", "", (r) => esc(r.name));
+    add(s.show_team, "team", "Team", "auto", "muted", (r) => `${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}${esc(r.team)}`);
+    add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
+    add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
+    add(s.show_fastest, "fastest", "Fastest", "140px", "r", (r) => (r.fastest_lap ? `<span class="${r.has_fastest ? "fl" : "muted"}">${fmtLap(r.fastest_lap)}</span>` : ""));
+    add(s.show_status, "status", "", "90px", "c", (r) => (r.status !== "finished" || r.short ? `<span class="st">${r.short ? "DNF" : esc(r.status.toUpperCase())}</span>` : ""));
+    add(s.show_points, "points", "Pts", "90px", "r pts", (r) => (r.points == null ? "" : `+${fmtPts(r.points)}`));
   }
   return cols;
 }
@@ -75,7 +76,7 @@ function columns(b) {
 function tableHtml(cols, rows) {
   return `<table class="btable"><colgroup>${cols.map((c) => `<col style="width:${c[1]}">`).join("")}</colgroup>
     <thead><tr>${cols.map((c) => `<th class="${c[2].replace(/\b(pts|p|muted|down)\b/g, "")}">${c[0]}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map((r, i) => `<tr class="${(r.pos || r.rank) <= 3 ? "top3" : ""}" style="--i:${i}">${cols.map((c) => `<td class="${c[2]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    <tbody>${rows.map((r, i) => `<tr class="${(r.pos || r.rank) <= 3 ? "top3" : ""}" style="--i:${i}">${cols.map((c) => `<td class="${c[2]}" data-opcol="${c[4]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -130,6 +131,7 @@ function calendarHtml(b) {
 function render(snap) {
   const b = snap.board;
   if (b) setSize(b.settings, true);
+  setColumnOpacity(b && b.settings);
   if (!b) {
     if (shown !== "none") {
       leave();  // fade the board out

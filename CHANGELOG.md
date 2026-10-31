@@ -11,6 +11,52 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.4.6
+
+### New features
+
+- **Race results save themselves**: when a race is over (or the session
+  moves on), its finishing order, with DNFs, DNSs and the points, goes into
+  the championship round it counts as, so the standings are ready to show
+  straight after the race. It can be turned off in Calendar & results.
+- **Secondary classes score how you choose**: on where their drivers finish
+  among each other, or the points they score in their own class, or
+  overall. A driver in two classes scores in both (and overall), each on
+  its own points, and the round results show each.
+- **Teams in more than one league**: in the team builder, tick the other
+  leagues a team races in. The team and its drivers are set up there too,
+  and drivers who join one of those leagues later are put in their team
+  automatically.
+- **Custom opacity per column** on the standings (tower and full screen) and
+  the championship, teams', manufacturers' and results boards: tick it and
+  set each column's opacity.
+
+### Improvements
+
+- Championship scoring is clearer: tick **Class championships** and/or an
+  **Overall championship**, each with its own points table, so overall
+  points can differ from class points and both run at the same time.
+- Photo booth: **Only cars without a photo yet** skips drivers who already
+  have a car photo, and **Photograph drivers as they load in** takes each
+  driver's photo automatically a few seconds after their car loads in
+  (never during a race once it's green).
+- Turn rounds into race meetings (and back) on the fly: one round at a
+  time, or every round at once, e.g. after building the season from a
+  calendar. A round's results stay with the meeting's first race.
+- Leagues are set up by hand or from the session you're in: the iRacing
+  login (loading a league by its League ID, building rounds from the
+  iRacing season, fetching the official track list) is gone, and with it
+  the API settings. Existing leagues are unchanged.
+
+### Fixes
+
+- "Show on my screen" overlays covered the whole screen in some cases. Each
+  overlay's window is now cut down to the overlay itself (the tower, the
+  driver board…), so the rest of the screen is never covered and the mouse
+  goes straight through, and it's made see-through the way the Apex
+  Overlays app does it. The log (`%APPDATA%\Apex Commentator\apex.log`)
+  notes each overlay put up.
+
 ## v0.4.5
 
 ### New features

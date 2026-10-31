@@ -79,7 +79,7 @@ class OnScreenOverlayTests(unittest.TestCase):
         self.settle()
         w = self.made[0]
         self.assertEqual((w.kw["screen"].width, w.kw["on_top"], w.kw["focus"], w.kw["frameless"]), (1920, True, False, True))
-        self.assertTrue(w.kw["transparent"])  # the page's browser view must be see-through for the colour key to work
+        self.assertTrue(w.kw["transparent"])  # the page's browser view must be see-through
         desktop.show_overlay("standings", "http://x/standings.html?desktop=1", "Standings", 0)  # move it
         self.settle()
         self.assertTrue(w.destroyed)
@@ -112,3 +112,31 @@ class OnScreenOverlayTests(unittest.TestCase):
         desktop._main_window = None
         self.assertFalse(desktop.show_overlay("board", "u", "Boards", 0))
         self.assertEqual(desktop.screens(), [])
+
+    def test_the_page_says_where_it_draws(self):
+        desktop.show_overlay("standings", "u", "Standings", 0)
+        self.settle()
+        desktop.set_region("standings", [[50, 50, 580, 93]])
+        self.assertEqual(desktop._regions["standings"], [[50, 50, 580, 93]])
+        desktop.show_overlay("standings", "u", "Standings", 1)  # a new window: its page reports again
+        self.settle()
+        self.assertNotIn("standings", desktop._regions)
+
+
+class RegionCommandTests(unittest.TestCase):
+    def test_rectangles_reach_the_window(self):
+        from apex.core import App
+        from apex.config import DEFAULTS
+        from apex.league import LeagueStore
+        from apex.sources import MockSource
+        import tempfile
+
+        got = []
+        with tempfile.TemporaryDirectory() as tmp:
+            app = App(MockSource(seed=1), dict(DEFAULTS), LeagueStore(tmp))
+            app.desktop = types.SimpleNamespace(region=lambda page, rects: got.append((page, rects)))
+            app.command("desktop_region", {"page": "standings", "rects": [[1.6, 2, 30, 40, 99], "junk"]})
+            app.command("desktop_region", {"page": "standings_screen", "rects": None})
+            app.command("desktop_region", {"page": "not-an-overlay", "rects": []})
+        self.assertEqual(got, [("standings", [[1, 2, 30, 40]]), ("standings_screen", None)])
+

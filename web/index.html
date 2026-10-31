@@ -47,7 +47,7 @@
           </button>
           <button class="tile" data-goto="league">
             <span class="tile-icon">👥</span><b>League builder</b>
-            <span class="tile-text">Drivers, teams, classes and logos, from the League ID, the session, or by hand.</span>
+            <span class="tile-text">Drivers, teams, classes and logos, from the session or by hand.</span>
             <span class="tile-status" id="tile-league"></span>
           </button>
           <button class="tile" data-goto="teams">
@@ -223,7 +223,12 @@
               <label>Camera <select id="pb-camera"></select></label>
               <label class="toggle" title="Remove the track behind the car (an AI model, about 170 MB downloaded the first time)">
                 <input type="checkbox" id="pb-cutout" checked> Cut out background</label>
+              <label class="toggle" title="Photograph the grid only takes the cars whose driver has no car photo yet">
+                <input type="checkbox" id="pb-missing"> Only cars without a photo yet</label>
+              <label class="toggle" title="Each driver without a car photo is photographed by themselves a few seconds after their car loads in. Never during a race once it's green.">
+                <input type="checkbox" id="pb-auto"> Photograph drivers as they load in</label>
             </div>
+            <p id="pb-auto-status" class="hint" hidden></p>
             <div class="gw-controls">
               <button class="btn primary" id="pb-start">📷 Photograph the grid</button>
               <button class="btn subtle" id="pb-cancel" hidden>Cancel</button>
@@ -257,12 +262,8 @@
     <section id="tab-league" class="panel">
       <div class="league-layout">
         <aside class="league-side">
-          <h3>Load a league</h3>
-          <form id="fetch-form" class="row">
-            <input id="fetch-id" inputmode="numeric" placeholder="League ID" aria-label="League ID">
-            <button class="btn primary" type="submit">Fetch</button>
-          </form>
-          <p id="api-hint" class="hint"></p>
+          <h3>New league</h3>
+          <p class="hint">From the drivers in the iRacing session you're in, or start blank and add them by hand.</p>
           <form id="session-form" class="row">
             <input id="session-name" placeholder="Name (from current session)" aria-label="League name">
             <button class="btn" type="submit">Build</button>
@@ -276,7 +277,6 @@
         <div class="league-editor" id="league-editor" hidden>
           <div class="row league-head">
             <input id="edit-name" class="grow" placeholder="League name" aria-label="League name">
-            <input id="edit-league-id" class="narrow" placeholder="League ID" aria-label="iRacing League ID">
             <button id="btn-save-league" class="btn primary">Save</button>
             <button id="btn-activate-league" class="btn">Use in overlay</button>
             <button class="btn subtle" data-export="league" title="Everything about this league, images included, to import on this PC or another">⤓ Export league</button>
@@ -494,21 +494,23 @@
         </div>
 
         <div class="champ-view" data-view="rounds" hidden>
-          <p class="hint">Add the season's rounds. After a race, open its round and press <b>Import from session</b>
-            (while still in the session) to fill in the results. Who <b>finished</b> (took the chequered flag), retired
+          <label class="toggle auto-results" title="When a race is over (everyone in, or the session moves on), its results go into the round it counts as, by themselves">
+            <input type="checkbox" id="auto-results"> Save each race's results by themselves when it's over</label>
+          <p class="hint">Add the season's rounds. With the box above ticked, each race's results are saved to its round when
+            the race is over, so the standings are up to date straight away. Or, after a race, open its round and press
+            <b>Import from session</b> (while still in the session) to fill in the results. Who <b>finished</b> (took the chequered flag), retired
             (<b>DNF</b>) or never started (<b>DNS</b>) is worked out from watching the race. Anyone who covered less than the
             minimum share of the race (Points &amp; rules) is a DNF and scores nothing. Correct anything by hand: positions,
             laps led, fastest laps, status, or extra points (+ or −). During a race the live standings count it as the
             round marked <b>live</b> (by default the first round without results).</p>
-          <p class="hint"><span id="track-source"></span> <button id="btn-fetch-tracks" class="btn subtle" hidden>Fetch official track list</button></p>
+          <p class="hint"><span id="track-source"></span></p>
           <datalist id="track-names"></datalist>
           <details class="build-rounds" id="build-rounds">
             <summary>Build the rounds from a calendar</summary>
-            <p class="hint">Fill in the season in one go: from the league's season in iRacing, by scanning the league's
-              calendar graphic, or from its text pasted in (from Discord or the league's website, say). You check and
-              correct everything before any rounds are made.</p>
+            <p class="hint">Fill in the season in one go: by scanning the league's calendar graphic, or from its text
+              pasted in (from Discord or the league's website, say). You check and correct everything before any rounds
+              are made.</p>
             <div class="row build-sources">
-              <button class="btn" data-build="iracing" title="The sessions scheduled in the league's season in iRacing (needs API credentials)">From the iRacing season</button>
               <button class="btn" data-build="scan" title="Read the calendar image added in the League builder">Scan the calendar image</button>
               <label class="btn" title="Read the rounds from any image of the calendar">Scan another image…<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif,image/bmp" id="build-scan-file" hidden></label>
               <button class="btn" data-build="paste">Paste text</button>
@@ -519,6 +521,8 @@
           <div class="row">
             <button id="btn-add-round" class="btn subtle">+ Add round</button>
             <button id="btn-add-meeting" class="btn subtle" title="Several races on one night (heat races, say), each a round of its own">+ Add race meeting (several races)</button>
+            <span class="grow"></span>
+            <button id="btn-all-meetings" class="btn subtle" title="Every round that isn't a race meeting yet becomes one, with that many races (a round's results stay with its first race)">Make every round a race meeting…</button>
           </div>
         </div>
 

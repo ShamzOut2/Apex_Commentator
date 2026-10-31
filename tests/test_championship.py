@@ -158,6 +158,32 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual([(r["driver"], r["rank"], r["points"]) for r in rows], [("cust:2", 1, 10), ("cust:4", 2, 5)])
         self.assertIn("rookie", [w["group"] for w in ch.calendar(p)[0]["winners"]])
 
+    def test_secondary_class_scoring_choices(self):
+        classes = [{"id": "pro", "name": "Pro"}, {"id": "am", "name": "Am"},
+                   {"id": "rookie", "name": "Rookie Cup", "role": "secondary"}]
+        drivers = [{"cust_id": i, "name": n, "class2_id": c2} for i, n, c2 in
+                   ((1, "A", ""), (2, "B", "rookie"), (3, "C", ""), (4, "D", "rookie"))]
+        rounds = [{"id": "r1", "results": [res("cust:1", 1, "pro"), res("cust:2", 2, "am"),
+                                           res("cust:3", 3, "pro"), res("cust:4", 4, "pro")]}]
+
+        def rookie(scoring, how):
+            rules = {"scoring": scoring, "points": [10, 5, 2], "overall_points": [20, 15, 10, 5], "classified_pct": 0,
+                     "secondary_scoring": {"rookie": how}}
+            st = ch.standings(profile(rules, rounds, classes=classes, drivers=drivers))
+            g = next(g for g in st["groups"] if g["key"] == "rookie")
+            return [(r["driver"], r["points"]) for r in g["drivers"]], g["basis"]
+
+        # Ranked among themselves on the class points: B 1st (10), D 2nd (5).
+        self.assertEqual(rookie("both", "own")[0], [("cust:2", 10), ("cust:4", 5)])
+        # Their main class points: B won Am (10), D was 3rd in Pro (2).
+        pts, basis = rookie("both", "class")
+        self.assertEqual((pts, basis), ([("cust:2", 10), ("cust:4", 2)], "The points its drivers score in their own class"))
+        # Their overall points: B 2nd (15), D 4th (5); even when only classes are scored.
+        self.assertEqual(rookie("both", "overall")[0], [("cust:2", 15), ("cust:4", 5)])
+        self.assertEqual(rookie("class", "overall")[0], [("cust:2", 15), ("cust:4", 5)])
+        self.assertEqual(ch.normalise_rules({"secondary_scoring": {"rookie": "own", "x": "bogus", "y": "class"}})["secondary_scoring"],
+                         {"y": "class"})
+
     def test_sum_adds_class_and_overall_points(self):
         classes = [{"id": "pro", "name": "Pro"}, {"id": "am", "name": "Am"}]
         rules = {"scoring": "sum", "points": [10, 5], "overall_points": [4, 3, 2, 1], "classified_pct": 0,
@@ -171,6 +197,18 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual(pts["Pro"], {"a": 28, "c": 14})
         self.assertEqual(pts["Am"], {"b": 28, "d": 12})
         self.assertIn("+ overall points (4, 3, 2, 1)", st["groups"][1]["basis"])
+
+    def test_overall_championship_has_its_own_points(self):
+        classes = [{"id": "pro", "name": "Pro"}, {"id": "am", "name": "Am"}]
+        rounds = [{"id": "r1", "results": [res("a", 1, "pro"), res("b", 2, "am"), res("c", 3, "pro")]}]
+        # Overall only, on its own points.
+        rows, st = table(profile({"scoring": "overall", "points": [10, 5], "overall_points": [3, 2, 1]}, rounds, classes=classes))
+        self.assertEqual([g["name"] for g in st["groups"]], ["Overall"])
+        self.assertEqual([rows[d]["points"] for d in "abc"], [3, 2, 1])
+        # With class championships too: each on its own points, side by side.
+        st = ch.standings(profile({"scoring": "both", "points": [10, 5], "overall_points": [3, 2, 1]}, rounds, classes=classes))
+        pts = {g["name"]: {r["driver"]: r["points"] for r in g["drivers"]} for g in st["groups"]}
+        self.assertEqual(pts, {"Overall": {"a": 3, "b": 2, "c": 1}, "Pro": {"a": 10, "c": 5}, "Am": {"b": 10}})
 
     def test_class_points_table(self):
         classes = [{"id": "pro", "name": "Pro"}, {"id": "am", "name": "Am"}]
@@ -189,6 +227,7 @@ class ScoringTests(unittest.TestCase):
         p = profile({"points": [10, 8], "dnf_scores": False},
                     [{"id": "r1", "results": [res("a", 1), res("b", 2, status="dnf")]}])
         self.assertEqual(table(p)[0]["b"]["points"], 0)
+        self.assertEqual(repr(table(p)[1]["groups"][0]["drivers"][1]["rounds"][0]["points"]), "0")  # not 0.0
 
     def test_classes_score_separately(self):
         classes = [{"id": "pro", "name": "Pro", "color": "#ff0000"}, {"id": "am", "name": "Am", "color": "#0000ff"}]
@@ -297,6 +336,76 @@ class SessionTests(unittest.TestCase):
             winner = results[0]
             self.assertEqual((winner["status"], winner["laps"]), ("finished", 3))
             self.assertGreater(winner["laps_led"], 0)
+
+    def test_results_saved_by_themselves_when_the_race_is_over(self):
+        from apex.config import DEFAULTS
+        from apex.core import App
+        from apex.sources import MockSource
+        with tempfile.TemporaryDirectory() as tmp:
+            t = [0.0]
+            src = MockSource(seed=5, clock=lambda: t[0], race_laps=3, no_shows=1)
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            app.RESULTS_EVERY_S = app.RESULTS_GRACE_S = 0
+            app.tick()
+            league = profile_from_session(app.build_snapshot()["drivers"], "S")
+            league["championship"] = {"rules": {"points": [25, 18, 15]}, "rounds": [
+                {"id": "r1", "name": "Round 1"}, {"id": "r2", "name": "Round 2"}]}
+            league = app.leagues.save(league)
+            app.leagues.set_active(league["id"])
+            saved_at = None
+            for k in range(6000):
+                t[0] += 0.1
+                if k == 1500:
+                    src.out[4] = True  # car 5 retires on lap 2
+                app.tick()
+                if app.leagues.get(league["id"])["championship"]["rounds"][0]["results"]:
+                    saved_at = k
+                    break
+            self.assertIsNotNone(saved_at, "results weren't saved")
+            self.assertTrue(src.checkered)
+            champ = app.leagues.get(league["id"])["championship"]
+            r1, r2 = champ["rounds"]
+            names = [d["UserName"] for d in src.drivers[1:]]
+            status = {r["name"]: r["status"] for r in r1["results"]}
+            self.assertEqual((status[names[4]], status[names[-1]]), ("dnf", "dns"))
+            self.assertEqual(r1["session"], app.session_key())
+            self.assertEqual(r2["results"], [])
+            notice = app.build_snapshot()["results_auto"]
+            self.assertEqual((notice["on"], notice["saved"]["name"], notice["saved"]["round"]), (True, "Round 1", "r1"))
+            # The standings have the race in them; it's saved once.
+            winner = ch.standings(app.leagues.get(league["id"]))["groups"][0]["drivers"][0]
+            self.assertEqual(winner["points"], 25)
+            for _ in range(50):
+                t[0] += 0.1
+                app.tick()
+            self.assertEqual(app.leagues.get(league["id"])["championship"]["rounds"][1]["results"], [])
+
+    def test_results_saved_when_the_session_moves_on(self):
+        from apex.config import DEFAULTS
+        from apex.core import App
+        from apex.sources import MockSource
+        with tempfile.TemporaryDirectory() as tmp:
+            t = [0.0]
+            src = MockSource(seed=5, clock=lambda: t[0])
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            app.RESULTS_EVERY_S = 0
+            for _ in range(600):
+                t[0] += 0.1
+                app.tick()
+            league = app.leagues.save(dict(profile_from_session(app.build_snapshot()["drivers"], "S"),
+                                           championship={"rounds": []}))
+            app.leagues.set_active(league["id"])
+            app.tick()  # racing: the race is being watched
+            self.assertIsNotNone(app._results_watch)
+            app._session_meta["subsession"] = 999  # a new session
+            app.tick()
+            champ = app.leagues.get(league["id"])["championship"]
+            self.assertEqual(len(champ["rounds"]), 1)  # no rounds yet: one is made
+            self.assertEqual(champ["rounds"][0]["name"], "Round 1")
+            self.assertEqual(len(champ["rounds"][0]["results"]), len(app._drivers))
+            # Turned off: nothing is saved.
+            app.command("auto_results", {"enabled": False})
+            self.assertFalse(app.build_snapshot()["results_auto"]["on"])
 
     def test_saved_with_league(self):
         with tempfile.TemporaryDirectory() as tmp:

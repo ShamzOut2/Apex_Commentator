@@ -12,8 +12,8 @@ OBS dock.
   pick a line and replay it from 5 to 30 seconds before. Camera buttons with
   your own hotkeys sit along the top, and replay controls and **LIVE** along
   the bottom.
-- **League builder**: pull a league roster from iRacing by **League ID**, from
-  the current session, or add drivers by hand. Add nicknames, teams, team
+- **League builder**: set a league up from the drivers in the current
+  session, or add drivers by hand. Add nicknames, teams, team
   logos, notes and car and helmet photos. Define **classes** with your own
   names, colours and logos.
 - **Grid walk**: an on-stream graphic that walks the starting grid two drivers
@@ -37,95 +37,51 @@ OBS dock.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.4.5**
+**v0.4.6**
 
 ### New features
 
-- **Build the season's rounds from a calendar**: from the league's season in
-  iRacing, by scanning the league's calendar image, or from its text pasted
-  in. Check and correct the rounds found, then make them all at once.
-- **Race meetings** for leagues that run several races in one event (heat
-  races) and count each as a round. Import every race of the event in one
-  go, and the calendar board shows the meeting as one.
-- **Secondary classes**: a driver can be in a second class as well as their
-  main one (e.g. a Rookie Cup or Pro-Am trophy). It works in the background:
-  the overlays show the main class, and the secondary class gets its own
-  championship, standings, results and board.
-- **Class and overall points added together**: a new way to score, where
-  each driver gets the points for their class position plus the points for
-  their overall position. Any class can also have its own points table.
-- **Driver on camera**: a small board at the bottom centre names the driver
-  you're spectating (position, number, name, team and car). It slides in each
-  time the camera moves to someone, and can hide itself after a few seconds.
-- **Import and export** leagues (with all their images), teams,
-  championships, round results, the driver roster and overlay settings.
-  Exports go to `Documents\Apex Commentator\Exports`, and the app shows
-  where each one went, with a button to open the folder. Standings, results
-  and the roster also export as spreadsheets (CSV).
-
-- **Size** for every overlay and board (50–200%). An overlay grows or
-  shrinks from where it sits; a board from the middle of the screen.
+- **Race results save themselves**: when a race is over (or the session
+  moves on), its finishing order, with DNFs, DNSs and the points, goes into
+  the championship round it counts as, so the standings are ready to show
+  straight after the race. It can be turned off in Calendar & results.
+- **Secondary classes score how you choose**: on where their drivers finish
+  among each other, or the points they score in their own class, or
+  overall. A driver in two classes scores in both (and overall), each on
+  its own points, and the round results show each.
+- **Teams in more than one league**: in the team builder, tick the other
+  leagues a team races in. The team and its drivers are set up there too,
+  and drivers who join one of those leagues later are put in their team
+  automatically.
+- **Custom opacity per column** on the standings (tower and full screen) and
+  the championship, teams', manufacturers' and results boards: tick it and
+  set each column's opacity.
 
 ### Improvements
 
-- Car badges and team logos no longer sit in a white box anywhere. Team logos
-  that come with a white background show without it, and dark badges and
-  logos are shown light so they stand out on the dark panels.
-- Choose the order of the columns on the standings tower and on the
-  full-screen standings: drag them, or use their arrows.
-- The League builder is tidier: its settings are on three tabs (Drivers,
-  Classes, and Logos, banners & sponsors), with shortcuts to Teams and the
-  season. The driver list has room for full names and teams.
-- Overlay and board settings are tidier: each is split into short sections
-  (What it shows, Header, Columns, Drivers…) that open and close, and the app
-  remembers which you left open. Settings that depend on another (like the
-  red-interval threshold or the fastest lap flash timer) only appear when
-  that one is on.
-- Pick the screen for **Show on my screen** once, at the top of the
-  Overlays tab or the Boards tab, instead of under every overlay. It's
-  remembered, and changing it moves whatever is already up.
-- The season calendar board can show your own round names ("Round 3 ·
-  Spa 6 Hours", just the name, or just "Round 3"). Dates can be shown as
-  Sun 22 Nov, 22/11/26, 22nd November, 22nd November 2026 or Sunday 22nd
-  November. The "×2 points" note on rounds worth more can be turned off.
-- The Overlays tab is shorter: the preview panes are replaced by a
-  **Preview ↗** button that opens an overlay in its own window.
-- The standings' column headings (GAP, INT…) can be turned off, and the
-  race leader's gap box can show the lap they're on ("Lap 12") instead of
-  "Leader".
-- The standings (tower and full screen) can turn off the coloured bar by
-  each driver, and the background behind the car number (it's in the
-  driver's class colour when on).
-- When the chequered flag comes out, the standings header turns into a
-  waving black-and-white chequered flag, on the tower and the full-screen
-  standings. It flashes in, then keeps waving until the session changes or
-  the overlay is taken off.
-- The extra drivers under the Overall tower's top rows can rotate through
-  the rest of the field, a few at a time on a timer, then start again. They
-  can also be dimmed with their own opacity.
-- The standings header (tower and full screen) can hide the series name
-  and/or the track name, and the session names can be your own (e.g.
-  "FEATURE RACE" instead of "RACE"). A long session name can wrap onto two
-  lines, or stay on one line with the tower widening for it.
-- The standings tower's width fits its contents: each column (the name
-  column too) is as wide as what's in it, so there's no big empty gap. Or set
-  the width yourself in pixels.
-- Sort the League builder's driver list by clicking a column heading (name,
-  customer ID, car number, driver number, nickname, team, notes, class or
-  car). Click again for the reverse order, a third time for the original
-  order.
-- The Timing tab's **LIVE** button sits with the replay buttons instead of
-  at the far end of the bar.
-- The Sponsors overlay's panel sits closer around the logos. In "one at a
-  time" mode it fits whichever logo is showing.
+- Championship scoring is clearer: tick **Class championships** and/or an
+  **Overall championship**, each with its own points table, so overall
+  points can differ from class points and both run at the same time.
+- Photo booth: **Only cars without a photo yet** skips drivers who already
+  have a car photo, and **Photograph drivers as they load in** takes each
+  driver's photo automatically a few seconds after their car loads in
+  (never during a race once it's green).
+- Turn rounds into race meetings (and back) on the fly: one round at a
+  time, or every round at once, e.g. after building the season from a
+  calendar. A round's results stay with the meeting's first race.
+- Leagues are set up by hand or from the session you're in: the iRacing
+  login (loading a league by its League ID, building rounds from the
+  iRacing season, fetching the official track list) is gone, and with it
+  the API settings. Existing leagues are unchanged.
 
 ### Fixes
 
-- Scrolling with the mouse over a number box you'd clicked in (like a
-  round's points multiplier) no longer changes its value by accident.
-- "Show on my screen" overlays covered the whole monitor in dark instead of
-  being see-through (since v0.4.4). They're see-through again, and the app
-  checks with you after each update in case they ever come up solid.
+- "Show on my screen" overlays covered the whole screen in some cases. Each
+  overlay's window is now cut down to the overlay itself (the tower, the
+  driver board…), so the rest of the screen is never covered and the mouse
+  goes straight through, and it's made see-through the way the Apex
+  Overlays app does it. The log (`%APPDATA%\Apex Commentator\apex.log`)
+  notes each overlay put up.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -332,6 +288,22 @@ grid walk uses it straight away. 📷 on a driver's row retakes just that car.
   the **Screenshots folder** to the real one (e.g. `D:\iRacing\screenshots`).
 - **When**: it takes over the camera for about 2 seconds per car, so run it
   before you go live. The cut-outs are made afterwards, in the background.
+- **Only cars without a photo yet**: tick it and *Photograph the grid* skips
+  drivers who already have a car photo, so you can press it again as people
+  join and it only takes the new ones.
+- **Photograph drivers as they load in**: with it on, each driver without a
+  car photo is photographed automatically a few seconds after their car
+  loads into the session (cars that load in together are taken in one go),
+  with the camera and cut-out setting picked above. It never runs during a
+  race once it's green, and tries each driver once a session: one that fails
+  can be retaken with 📷. It stays on until you turn it off, even after a
+  restart. Photos are kept in the league, so a photo taken in practice is
+  used on race day.
+- **A front three-quarter view**: the app can pick a camera but can't move
+  one. Make one in iRacing's camera tool (Ctrl+F12): take a camera fixed to
+  the car (e.g. *Chase*), move it ahead of the car and to one side, turn it
+  back to face the car's front corner and save the camera set. Then pick it
+  in the *Camera* list.
 - **Cars spread out make better photos**: the cut-out keeps the car in the
   middle of the shot and drops cars that merely touch it. A car that
   overlaps another in the frame can't be separated, so practice and
@@ -400,6 +372,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   - Choose the name style, how many drivers, and whether to show car numbers,
     team names and team logos.
   - **Column headings** (the small GAP, INT… row) can be turned off.
+  - **Custom opacity per column**: tick it and set each column's opacity
+    (position, car number, driver, +/−, gap, interval…), for the tower and
+    the full-screen standings. The championship, teams', manufacturers' and
+    results boards have the same option for their own columns.
   - **Column order**: drag the columns into the order you want (or use their
     arrows), separately for the tower and the full-screen standings. Columns
     that are switched off keep their place for when they're on. The full
@@ -511,6 +487,21 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
 
+**Teams in more than one league.** Under each team, **Also in** lists your
+other leagues: tick the ones the team races in too, then **Save**. The team
+(name, short name, colour and logo) is copied into those leagues, and its
+drivers who are in them too (the same iRacing customer ID, or the same name
+for drivers without one) are put in it there. From then on:
+- changes to the team in any of its leagues reach the others when saved;
+- a driver who joins one of those leagues later, without a team, is put in
+  their team by themselves;
+- moving a driver to another shared team moves them in the other leagues
+  too. Taking a driver out of a team only changes the league you're in.
+
+Unticking a league stops the link; that league keeps its copy of the team.
+Teams are matched by name, so a renamed team starts a new team in the other
+leagues (the old one stays there until you delete it).
+
 ## Import & export
 
 Everything you set up can be saved to a file: a backup, to move to another
@@ -586,8 +577,9 @@ What it colours depends on what it is:
 Uploaded backgrounds are kept with the app's data and can be used by any
 overlay or board.
 
-On your own screen (*Show on my screen*), a part-opaque colour or image shows
-as solid: only fully see-through parts can show what's behind.
+On your own screen (*Show on my screen*), the background only fills the
+overlay's own panels, like everywhere else; the rest of the screen is never
+touched.
 
 ## Overlays on your own screen (no OBS)
 
@@ -598,6 +590,10 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
 
 - It sits over whatever is on that monitor, always on top. Run iRacing in
   **windowed or borderless** mode: a game in exclusive full screen covers it.
+- Only the overlay itself is on screen: its window is cut down to where the
+  overlay draws (the tower, the fastest lap pill, the driver board…) and
+  follows it as it grows, shrinks or slides. The rest of the screen isn't
+  covered at all. Full-screen versions and boards are a whole screen.
 - It never takes the keyboard, and your mouse goes straight through to the
   game or the app underneath.
 - With more than one monitor, pick which one once, at the top of the
@@ -610,6 +606,9 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
   If you don't answer within 15 seconds it takes the overlay down by itself
   (in case it came up solid and covered your screen). From then on it just
   appears.
+- The app notes each on-screen overlay it puts up, and anything that went
+  wrong, in its log: `apex.log` in `%APPDATA%\Apex Commentator` (paste that
+  into the Windows + R box).
 
 This needs the app window (it isn't available when the app runs in a browser).
 Soft drop shadows are left out on screen, since only fully see-through parts
@@ -670,31 +669,43 @@ standings update from what's saved.
   - Points for each finishing position (e.g. `25, 18, 15, 12, 10, 8, 6, 4,
     2, 1`).
   - Optional points for qualifying positions, taken from the starting grid.
-  - **Championships**:
-    - *Per class*: scored on class positions; each class is its own
+  - **Championships**: tick **Class championships**, **Overall
+    championship**, or both. Each has its own points table: *Class points*
+    for class finishing positions, *Overall points* for overall finishing
+    positions, so two scoring systems run at the same time:
+    - *Class only*: scored on class positions; each class is its own
       championship.
-    - *Overall*: scored on overall positions; one championship for
-      everyone.
-    - *Both*: every result scores twice and the points are kept apart. Class
-      positions score in the class championship, and overall positions in
-      the Overall championship. The overall championship can have its own
-      points table. Bonuses and penalty points apply in both, and each
-      standings table shows what it's scored on.
+    - *Overall only*: scored on overall positions with the overall points;
+      one championship for everyone.
+    - *Both, as two separate championships*: every result scores twice and
+      the points are kept apart. Class positions score class points in the
+      class championship, and overall positions score overall points in the
+      Overall championship. Bonuses and penalty points apply in both, and
+      each standings table shows what it's scored on.
       Example (class points 10, 6, 4; overall 20, 15, 10, 5): a PRO driver
       who finishes 3rd overall and 2nd in PRO scores 10 towards Overall and
       6 towards PRO.
-    - *Added together*: every result scores once, as its class position's
-      points plus its overall position's points (the overall points table
-      can be its own). Bonuses count once. Each class's table and the
+    - *Both, added together*: every result scores once, as its class
+      position's class points plus its overall position's overall points.
+      Bonuses count once. Each class's table and the
       overall table rank the same totals. Same example: the PRO driver
       scores 6 + 10 = 16, in both PRO and Overall.
   - **Different points for a class**: any class (a secondary one too) can
     have its own points table; leave it empty for the usual one.
   - **Secondary classes** (set up in the League builder) always have their
-    own championship, whichever option above is picked. Their drivers are
-    ranked by where they finished among each other: with a Rookie Cup of
-    drivers who finish 4th, 9th and 12th overall, the 4th-placed one wins
-    the Rookie Cup. Their main class and overall points don't change.
+    own championship, whichever option above is picked, so a driver in two
+    classes scores in both (and overall), each on its own points. Under
+    *Secondary classes* choose how each one scores:
+    - *On where its drivers finish among each other* (the default), on the
+      class's own points table (or the class points);
+    - *The points its drivers score in their own class*;
+    - *The points its drivers score overall*.
+
+    The round results show what each driver scored in every championship
+    they're in ("Overall 20 · Pro 10 · Rookie Cup 10"). Ranked among each
+    other, with a Rookie Cup of drivers who finish 4th, 9th and 12th
+    overall, the 4th-placed one wins the Rookie Cup. Their main class and
+    overall points don't change.
   - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
   - The fastest-lap bonus can be limited to the top N finishers.
@@ -713,9 +724,6 @@ standings update from what's saved.
   - Add the season's rounds, with a points multiplier (2 for double points)
     and *Can't drop* for rounds that always count.
   - **Build the rounds from a calendar** makes the whole season at once, from:
-    - **the iRacing season**: the sessions scheduled in the league's season
-      in iRacing (track, layout, date and start time at your PC's local time,
-      race length). Needs the league's iRacing League ID and API credentials.
     - **a scan of the league's calendar graphic**: the calendar image from the
       League builder, or any image you choose. The app reads its text (with
       Windows' own text recognition, so nothing to install) and finds each
@@ -735,13 +743,29 @@ standings update from what's saved.
     its own for the points; the meeting groups them. Make them with *Races at
     each* when building from a calendar (each entry becomes a meeting of that
     many races, called Race or Heat 1, 2…), or with **+ Add race meeting**.
+    Rounds already made can be changed on the fly: **⇉ Race meeting** on a
+    round makes it the first race of a meeting (its results stay with that
+    race) and adds the others after it, at the same track, date and time;
+    **Make every round a race meeting…** does that for every round at once.
+    **Separate rounds** on a meeting turns its races back into rounds.
     **Import every race from session** fills a meeting's races from the race
     sessions of the event you're in, in order (heat 1 into the first race,
     and so on), including races that already finished: those come from
     iRacing's results, so their statuses and starting places are worth a
     check. During the event, the live standings count the race in progress
     as the first race without results.
-  - After a race, press **Import from session** while still in the session.
+  - **Results save themselves** (ticked by default, at the top of
+    *Calendar & results*): when a race is over (cool-down, or every car that
+    started has taken the flag or left the track), its finishing order goes
+    into the round it counts as: the one marked *Live*, else the first round
+    without results, or a new round if there's none. Statuses (finished,
+    DNF, DNS, DSQ) and points are worked out as for an import, so the
+    championship standings and boards are up to date for after the race. If
+    the session moves on, or iRacing is closed, before that, the race is
+    saved as it last stood. A race already imported isn't touched, and the
+    app says when it has saved one. Heat races go into a meeting's races one
+    after another.
+  - Or, after a race, press **Import from session** while still in the session.
     This fills in finishing order, class, grid, laps, laps led, fastest lap
     and incidents from iRacing, and adds drivers missing from the roster.
   - Each driver's status comes from the app watching the race:
@@ -776,12 +800,13 @@ standings update from what's saved.
 
 Open the **League builder** tab.
 
-1. **Fetch by League ID**: pulls the league name and roster (names, customer
-   IDs, car numbers, nicknames) from the iRacing Data API. Needs API
-   credentials (below).
-2. **Build from the current session**: no credentials needed. It takes the
-   drivers in the session you are in.
-3. **Blank league**: type it in by hand.
+1. **Build from the current session**: takes the drivers in the iRacing
+   session you're in (names, customer IDs, car numbers, teams).
+2. **Blank league**: type it in by hand.
+3. **Import league…**: a league exported from Apex Commentator, on this PC
+   or another.
+
+No iRacing login is needed for any of it.
 
 The league's settings are on three tabs: **Drivers** (the roster),
 **Classes**, and **Logos, banners & sponsors**. *Teams ↗* and *Season &
@@ -790,8 +815,9 @@ points ↗* jump to the team builder and the championship.
 Edit nicknames, teams and notes (for example "Championship leader" or a
 pronunciation hint), **Save**, then **Use in overlay**. Drivers are matched by
 iRacing customer ID, or by car number for hand-added entries without one.
-Re-fetching a league updates names and numbers, adds new members and keeps your
-notes. Profiles are plain JSON in `data/leagues/`.
+**Add drivers from session** adds anyone new from the session you're in and
+fills in blanks, keeping your edits. Profiles are plain JSON in
+`data/leagues/`.
 
 **Car**: each driver's car make (Porsche, BMW, Mercedes-AMG…), with its
 badge, for the manufacturers' championship and the boards. Badges show
@@ -826,18 +852,16 @@ a track and a **configuration** picked from lists, plus date, start time and
 length (e.g. "60 min").
 - Type to search the track list; the configuration list then shows that
   track's layouts.
-- With iRacing API credentials set, **Fetch official track list** downloads
-  iRacing's complete list of tracks and layouts.
-- Without credentials, a built-in list of iRacing's tracks and main layouts
-  is used, plus every track the app has seen in a session. A track not in
-  the lists can be typed in.
+- The list is a built-in one of iRacing's tracks and main layouts, plus
+  every track the app has seen in a session. A track not in the list can be
+  typed in.
 
 **Hide the class tag in front of names**: some leagues put the class in front of
 driver names, like `(P) Dave Price` or `(PA) Mat Gatter`. Tick this box
 (on the Classes tab) and:
 - Every driver with a tag like that gets the name without it, minus the
   space, as their **Nickname** (`Dave Price`). Nicknames you've already typed
-  are kept. Drivers added later (from the session or a re-fetch) get one when
+  are kept. Drivers added later (from the session) get one when
   the league is saved.
 - The overlays (standings, lap tracker, grid walk, full-screen boards) show
   that nickname as the driver's name, so the name styles work properly
@@ -930,27 +954,6 @@ python tools/logo_to_svg.py my-logo.png --out-dir web/logos
 Drop the result in `web/logos/` to add it to the library, or upload it to a
 class. In a hand-made SVG, mark the part that should take the class colour
 with `data-apex-fill="class"`, and the lettering with `data-apex-fill="ink"`.
-
-### iRacing API credentials
-
-iRacing retired username/password API logins in December 2025. The Data
-API now uses OAuth, and a script like this needs a **client ID and client
-secret** issued by iRacing ("password limited" grant) plus your iRacing login.
-iRacing support handles client ID requests, and has paused new ones at times.
-See their [OAuth client credentials article](https://support.iracing.com/support/solutions/articles/31000177790-oauth-client-credentials).
-
-Put them in `config.json` (copy `config.example.json`; `config.json` is
-git-ignored) or set environment variables:
-
-```bat
-set IRACING_USERNAME=you@example.com
-set IRACING_PASSWORD=...
-set IRACING_CLIENT_ID=...
-set IRACING_CLIENT_SECRET=...
-```
-
-Credentials are masked as iRacing requires before they are sent, and only go
-to `oauth.iracing.com` and `members-ng.iracing.com`.
 
 ## Updates
 
@@ -1055,7 +1058,7 @@ apex/
   overlays.py  stream overlay settings
   championship.py  championship points, drop rounds, penalties and live projection
   transfer.py  import and export (leagues, teams, championships, results, settings)
-  league.py    iRacing Data API client and league profiles
+  league.py    league profiles
   server.py    stdlib HTTP server + Server-Sent Events
   updater.py   update checks and in-app updates from GitHub releases
   desktop.py   app window, single instance, message boxes, log file

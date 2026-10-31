@@ -20,7 +20,7 @@ from .settings import UserSettings
 from .tracks import TrackCatalogue
 from .core import App
 from .cutout import Cutout
-from .league import IRacingDataClient, LeagueStore
+from .league import LeagueStore
 from .paths import APP_DIR, FROZEN, iracing_screenshots_dir
 from .photobooth import PhotoBooth
 from .server import make_server, serve_in_thread
@@ -54,14 +54,10 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
     else:
         from .sources import IRacingSource  # ImportError when pyirsdk is missing
         source = IRacingSource()
-    client = IRacingDataClient(
-        cfg["iracing_username"], cfg["iracing_password"],
-        cfg["iracing_client_id"], cfg["iracing_client_secret"],
-    )
-    app = App(source, cfg, LeagueStore(cfg["leagues_dir"], client))
+    app = App(source, cfg, LeagueStore(cfg["leagues_dir"]))
     app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
     app.settings = UserSettings(ROOT / "data" / "settings.json")
-    app.tracks = TrackCatalogue(ROOT / "data" / "tracks.json", client)
+    app.tracks = TrackCatalogue(ROOT / "data" / "tracks.json")
     app.backgrounds = Backgrounds(ROOT / "data" / "backgrounds")
     if mock:
         # The mock "iRacing" writes its screenshots here.
@@ -131,6 +127,9 @@ class OnScreen:
 
     def hide(self, page=None):
         desktop.hide_overlay(page)
+
+    def region(self, page, rects):
+        desktop.set_region(page, rects)
 
     def on_screen(self):
         return desktop.overlays_on_screen()

@@ -70,10 +70,6 @@ class TrackTests(unittest.TestCase):
             hits = TrackCatalogue(f"{tmp}/t.json").search("mock raceway")
             self.assertEqual((hits[0]["id"], hits[0]["config"]), (999, "Grand Prix"))
 
-    def test_official_list_needs_credentials(self):
-        with self.assertRaises(ValueError):
-            TrackCatalogue().refresh("now")
-
 
 class BoardTests(unittest.TestCase):
     def setUp(self):
@@ -205,11 +201,11 @@ class BoardTests(unittest.TestCase):
             app.desktop = fake = Fake()
             app.command("desktop_show", {"page": "standings", "screen": 1})
             app.command("desktop_show", {"page": "board"})
-            self.assertEqual(fake.urls, ["/standings.html?desktop=1", "/board.html?desktop=1"])
+            self.assertEqual(fake.urls, ["/standings.html?desktop=standings", "/board.html?desktop=board"])
             d = app.build_snapshot()["desktop"]
             self.assertEqual((d["available"], d["on_screen"], len(d["screens"])), (True, {"standings": 1, "board": 0}, 2))
             app.command("desktop_show", {"page": "standings_screen"})
-            self.assertEqual(fake.urls[-1], "/standings.html?screen=1&desktop=1")
+            self.assertEqual(fake.urls[-1], "/standings.html?screen=1&desktop=standings_screen")
             app.command("desktop_hide", {"page": "board"})
             self.assertNotIn("board", app.build_snapshot()["desktop"]["on_screen"])
             app.command("desktop_hide", {})

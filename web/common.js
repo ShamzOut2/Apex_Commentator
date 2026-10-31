@@ -558,7 +558,50 @@ function fitStage(stage) {
   if (new URLSearchParams(location.search).has("preview")) document.body.classList.add("preview");
   // Straight on the user's screen (see desktop.py): no soft shadows, which
   // can't be see-through there and would show as dark smudges.
-  if (new URLSearchParams(location.search).has("desktop")) document.body.classList.add("desktop");
+  const desk = new URLSearchParams(location.search).get("desktop");
+  if (desk) {
+    document.body.classList.add("desktop");
+    reportDeskParts(desk);
+  }
+}
+
+// On the user's own screen, the app cuts the overlay's window down to where
+// the page draws (desktop.py), so nothing else of the screen is covered and
+// the mouse goes straight through everywhere else. This tells it where:
+// the visible parts below, in window pixels, whenever they change. Full-screen
+// versions (?screen=1) are a whole screen.
+const DESK_PARTS = {
+  "/standings.html": "#tower, .fl-pill",
+  "/laps.html": ".tracker",
+  "/driver.html": "#slot > *",
+  "/sponsors.html": ".sp",
+  "/gridwalk.html": "#stage > *",
+  "/board.html": "#stage > *",
+};
+
+function reportDeskParts(page) {
+  const whole = new URLSearchParams(location.search).has("screen");
+  const parts = DESK_PARTS[location.pathname];
+  let sent = null;
+  const shows = (el) => !el.checkVisibility || el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+  const tick = () => {
+    let rects = null;
+    if (!whole && parts) {
+      const k = devicePixelRatio || 1;
+      const pad = 3;  // anti-aliased edges and the odd pixel of movement
+      rects = [...document.querySelectorAll(parts)].filter(shows).map((el) => el.getBoundingClientRect())
+        .filter((r) => r.width > 1 && r.height > 1)
+        .map((r) => [Math.floor(r.left * k) - pad, Math.floor(r.top * k) - pad, Math.ceil(r.width * k) + 2 * pad, Math.ceil(r.height * k) + 2 * pad]);
+    }
+    const key = JSON.stringify(rects);
+    if (key === sent) return;
+    sent = key;
+    fetch("/api/cmd", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "desktop_region", params: { page, rects } }) })
+      .catch(() => { sent = null; });  // try again next time
+  };
+  setInterval(tick, 100);
+  tick();
 }
 
 // The Background setting (a solid colour or an uploaded image, at the opacity
@@ -567,6 +610,24 @@ function fitStage(stage) {
 //   panels, nothing else (setPanels);
 // - boards and full-screen pages, which are a whole screen: that screen's
 //   backdrop (setBackground), shown only while there's something on screen.
+
+// Custom opacity per column (cfg.col_opacity_on, cfg.col_opacity
+// "gap:60,laps:40"): a rule per column for the cells marked data-opcol.
+let colOpacityCss = null;
+function setColumnOpacity(cfg) {
+  const css = cfg && cfg.col_opacity_on ? String(cfg.col_opacity || "").split(",").map((p) => p.split(":"))
+    .filter(([k, v]) => /^[a-z_]+$/.test(k || "") && /^\d+$/.test(v || ""))
+    .map(([k, v]) => `[data-opcol="${k}"] { opacity: ${Math.min(100, +v) / 100}; }`).join("\n") : "";
+  if (css === colOpacityCss) return;
+  colOpacityCss = css;
+  let el = document.getElementById("col-opacity");
+  if (!el) {
+    el = document.createElement("style");
+    el.id = "col-opacity";
+    document.head.appendChild(el);
+  }
+  el.textContent = css;
+}
 
 // The Size setting (scale, percent). Overlays: their own elements grow or
 // shrink from where they sit (CSS zoom via --ov-size, in each page's CSS).

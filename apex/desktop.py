@@ -23,11 +23,10 @@ _main_window = None
 _popouts = {}  # page -> its pop-out window
 _overlays = {}  # overlay page -> (its on-screen window, the screen it's on)
 
-# On-screen overlays: the page's empty (transparent) parts are drawn in this
-# colour, which Windows then leaves out: see-through, and clicks go through.
-SEE_THROUGH = (1, 1, 1)
 GWL_EXSTYLE = -20
 WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE = 0x20, 0x80, 0x80000, 0x8000000
+SWP_REFRESH = 0x1 | 0x2 | 0x4 | 0x10 | 0x20  # no size / move / z-order / activate; frame changed
+DWM_BB_ENABLE, DWM_BB_BLURREGION, RGN_OR = 0x1, 0x2, 2
 
 
 def log_to_file():
@@ -158,11 +157,16 @@ def _close_popouts():
 # never takes the keyboard and lets the mouse through to whatever is under it
 # (iRacing, this app). Needs the app window (pywebview, WebView2 on Windows).
 #
-# The page's browser view is transparent (transparent=True), so its empty
-# parts show the window's own background colour, SEE_THROUGH, which Windows
-# is told to leave out (and pass clicks through). Both are needed: the
-# browser view draws in a layer of its own, which the colour key can't reach,
-# so an opaque browser background covers the whole screen.
+# Two things keep it to the overlay itself, as Tauri does for the Apex
+# Overlays app's windows:
+# - The window is clipped to where the page draws something (the tower, the
+#   fastest-lap pill...): the page reports those rectangles (common.js) and
+#   the window is cut to them (set_region). Everywhere else the window isn't
+#   there at all, so it can't cover the screen or catch the mouse, whatever
+#   else happens.
+# - Inside that, see-through by its own transparency: the browser view's
+#   background is transparent (transparent=True) and Windows' compositor is
+#   told to use the window's transparency (blur-behind with an empty region).
 # Opening and closing run one at a time on their own thread, so a slow window
 # never holds up the app, and each waits for the last to finish.
 
@@ -237,11 +241,11 @@ def _show(key, url, title, screen):
     if key not in _overlays:
         return  # taken down again before it got here
     monitors = webview.screens
-    r, g, b = SEE_THROUGH
+    _regions.pop(key, None)  # the new page reports its own
     window = webview.create_window(
         title, url, screen=monitors[screen] if 0 <= screen < len(monitors) else None,
         fullscreen=True, frameless=True, on_top=True, focus=False, shadow=False, easy_drag=False,
-        resizable=False, transparent=True, background_color=f"#{r:02x}{g:02x}{b:02x}",
+        resizable=False, transparent=True, background_color="#000000",
     )
     _windows[key] = window
     _overlays[key] = (window, screen)
@@ -257,9 +261,9 @@ def _show(key, url, title, screen):
     # Windows opened once the app is running are made there and then; if not
     # yet, as soon as it's shown.
     if window.native is not None:
-        _see_through(window)
+        _see_through(key, window)
     else:
-        window.events.shown += lambda: _see_through(window)
+        window.events.shown += lambda: _see_through(key, window)
 
 
 def _close(key):
@@ -280,9 +284,62 @@ def _close(key):
     _hwnds.pop(window, None)
 
 
-def _see_through(window):
+_regions = {}  # overlay page -> the rectangles its page last reported (window pixels; None: all of it)
+
+
+def _win32():
+    """user32 / gdi32 / dwmapi with the argument types the calls below need."""
+    from ctypes import wintypes
+
+    user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
+    gdi32.CreateRectRgn.restype = wintypes.HRGN
+    gdi32.CreateRectRgn.argtypes = [ctypes.c_int] * 4
+    gdi32.CombineRgn.argtypes = [wintypes.HRGN, wintypes.HRGN, wintypes.HRGN, ctypes.c_int]
+    gdi32.DeleteObject.argtypes = [wintypes.HGDIOBJ]
+    user32.SetWindowRgn.argtypes = [wintypes.HWND, wintypes.HRGN, wintypes.BOOL]
+    user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+    user32.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.LONG]
+    user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND] + [ctypes.c_int] * 4 + [wintypes.UINT]
+    return user32, gdi32, ctypes.windll.dwmapi
+
+
+class _BlurBehind(ctypes.Structure):
+    from ctypes import wintypes as _w
+    _fields_ = [("dwFlags", _w.DWORD), ("fEnable", _w.BOOL), ("hRgnBlur", _w.HRGN), ("fTransitionOnMaximized", _w.BOOL)]
+
+
+def _clip(hwnd, rects):
+    """Cut the window to ``rects`` ([x, y, width, height] in window pixels;
+    [] = nothing shows, None = the whole window)."""
+    user32, gdi32, _ = _win32()
+    if rects is None:
+        user32.SetWindowRgn(hwnd, None, True)
+        return
+    region = gdi32.CreateRectRgn(0, 0, 0, 0)
+    for x, y, w, h in rects:
+        part = gdi32.CreateRectRgn(x, y, x + w, y + h)
+        gdi32.CombineRgn(region, region, part, RGN_OR)
+        gdi32.DeleteObject(part)
+    if not user32.SetWindowRgn(hwnd, region, True):  # on success Windows owns the region
+        gdi32.DeleteObject(region)
+
+
+def set_region(key, rects):
+    """The parts of an on-screen overlay's page that show (see _clip)."""
+    _regions[key] = rects
+    hwnd = _hwnds.get(_windows.get(key))
+    if hwnd and IS_WINDOWS:
+        try:
+            _clip(hwnd, rects)
+        except Exception as e:
+            print(f"[apex] couldn't fit the overlay window to its overlay: {e!r}")
+
+
+def _see_through(key, window):
     """Make the overlay window see-through where the page is, and let every
-    click through (Windows: a colour-keyed, layered, click-through tool window)."""
+    click through: what Tauri does for a transparent, click-through window
+    (blur-behind with an empty region, then a layered, click-through tool
+    window), and cut it to the parts of the page that show."""
     if not IS_WINDOWS:
         return
     try:
@@ -290,22 +347,31 @@ def _see_through(window):
         from System.Drawing import Color
 
         form = window.native
-        user32 = ctypes.windll.user32
+        user32, gdi32, dwmapi = _win32()
+        steps = []
 
         def apply():
-            key = Color.FromArgb(*SEE_THROUGH)
             try:
                 form.browser.webview.DefaultBackgroundColor = Color.Transparent  # the page's empty parts
             except Exception:
                 pass  # pywebview set it already (transparent=True)
-            form.BackColor = key
-            form.TransparencyKey = key
-            hwnd = form.Handle.ToInt32()
+            form.BackColor = Color.Black  # what the compositor treats as see-through
+            hwnd = int(form.Handle.ToInt64())
             _hwnds[window] = hwnd
+            _clip(hwnd, _regions.get(key, []))  # nothing shows until the page says where it draws
+            steps.append("clipped")
+            empty = gdi32.CreateRectRgn(0, 0, -1, -1)
+            blur = _BlurBehind(DWM_BB_ENABLE | DWM_BB_BLURREGION, True, empty, False)
+            result = dwmapi.DwmEnableBlurBehindWindow(hwnd, ctypes.byref(blur))
+            gdi32.DeleteObject(empty)
+            steps.append(f"blur-behind {'on' if result == 0 else f'failed ({result & 0xFFFFFFFF:#x})'}")
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT
                                   | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)
+            user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_REFRESH)
+            steps.append("click-through")
 
         form.Invoke(Func[Type](apply))
-    except Exception as e:  # e.g. an older WebView2: the trial in the app takes it down again
-        print(f"[apex] couldn't make the overlay see-through: {e!r}")
+        print(f"[apex] on-screen overlay '{key}': {', '.join(steps)}")
+    except Exception as e:  # the trial in the app takes it down again if it came up solid
+        print(f"[apex] couldn't make the overlay '{key}' see-through: {e!r}")
