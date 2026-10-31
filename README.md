@@ -67,7 +67,6 @@ walk, Overlays, Boards and Race control.
   anywhere used the first screen).
 - A board taken off screen keeps your own background as it fades out,
   instead of switching to the default one.
-
 - Championship boards: a penalty now comes off the driver's class standings
   too when it was given to their roster entry and their results were saved
   under a slightly different name (capitals, spacing or a "(P)" class tag).
