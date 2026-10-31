@@ -233,6 +233,7 @@ class App:
         # watched, the sessions already saved, and the last one saved.
         self._results_watch, self._results_saved, self._results_notice = None, set(), None
         self._camera_picks = 0  # drivers picked from the app (_camera_driver)
+        self.global_hotkeys = None  # set by __main__ on Windows (apex.hotkeys)
         self.tracks = TrackCatalogue()     # likewise: the season calendar's track list
         self.board = {"kind": None, "params": {}}  # the full-screen board on screen, if any
         self._board_cache = (None, None)
@@ -413,6 +414,8 @@ class App:
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                     "photobooth": self._photobooth_snapshot(),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
+                "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
+                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else []},
                     "desktop": self._desktop_snapshot(),
                     **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
@@ -502,6 +505,8 @@ class App:
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
                 "photobooth": self._photobooth_snapshot(),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
+                "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
+                            "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else []},
                 "classes": self._ordered_classes(classes),
                 "events": events[-200:],
                 "desktop": self._desktop_snapshot(),
@@ -1040,7 +1045,7 @@ class App:
             # Sent often by on-screen overlays as they change: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "photobooth_auto", "auto_results", "board_", "popout", "desktop_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "photobooth_folder", "photobooth_auto", "auto_results", "hotkey", "board_", "popout", "desktop_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -1299,6 +1304,47 @@ class App:
         except PhotoBoothError as e:
             raise CommandError(str(e)) from e
         return {"cars": len(cars)}
+
+    # -- hotkeys ------------------------------------------------------------------
+
+    def cmd_hotkey(self, action):
+        """What a hotkey does, by name (the same as the app's own key handling):
+        cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, board:off,
+        board:<kind>:<group> (on screen, or off if it's up)."""
+        kind, _, rest = str(action).partition(":")
+        if kind == "cam":
+            group = next((g["num"] for g in self._camera_groups if g["name"] == rest), None)
+            if group is None:
+                raise CommandError(f"No camera called {rest}")
+            return self.cmd_camera_group(group)
+        if kind == "ov":
+            current = self.overlays.get().get(rest)
+            if current is None or "visible" not in current:
+                raise CommandError(f"Unknown overlay '{rest}'")
+            return self.cmd_overlay_settings(rest, {"visible": not current["visible"]})
+        if kind == "gw":
+            if rest == "next":
+                return self.cmd_gridwalk_next()
+            return self.cmd_gridwalk_hide() if self.gridwalk.visible else self.cmd_gridwalk_start(0)
+        if kind == "board":
+            if rest == "off":
+                return self.cmd_board_hide()
+            board_kind, _, group = rest.partition(":")
+            if self.board.get("kind") == board_kind and self.board.get("params", {}).get("group", "") == group:
+                return self.cmd_board_hide()
+            return self.cmd_board_show(board_kind, group, "latest")
+        raise CommandError(f"Unknown hotkey '{action}'")
+
+    def cmd_hotkeys(self, keys=None):
+        """The Hotkeys window's keys ({key: action}): those with Ctrl or Alt work
+        system-wide (Windows), kept for the next start too."""
+        from .hotkeys import system_wide
+
+        wanted = system_wide(keys if isinstance(keys, dict) else {})
+        self.settings.set("global_hotkeys", wanted or None)
+        if self.global_hotkeys:
+            self.global_hotkeys.set(wanted)
+        return {"system_wide": len(wanted)}
 
     def cmd_board_show(self, kind, group="", round=""):
         """Put a full-screen board on screen (board.html)."""

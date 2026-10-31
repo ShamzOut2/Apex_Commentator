@@ -15,6 +15,10 @@ How each version's entry is written:
 
 ### New features
 
+- **Hotkeys that work from anywhere**: give a camera, overlay, board or the
+  grid walk a key with Ctrl or Alt (e.g. Ctrl+Alt+1) and it works whichever
+  program is in front, iRacing and OBS included. Plain keys still work in
+  the app's own windows.
 - **Hotkeys for overlays and boards**: a key for each overlay (on / off),
   the grid walk and every board (on screen, and off again), set in the
   Hotkeys window, now also on the Overlays and Boards tabs.

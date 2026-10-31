@@ -69,6 +69,11 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
                                 settle_s=float(cfg["photobooth_settle_s"]))
     if app.settings.get("screenshots_dir") and not mock:
         app.photobooth.set_folder(app.settings.get("screenshots_dir"))
+    from .hotkeys import IS_WINDOWS, GlobalHotkeys
+    if IS_WINDOWS:
+        # Keys with Ctrl / Alt work whichever program is in front (see hotkeys.py).
+        app.global_hotkeys = GlobalHotkeys(lambda action: app.command("hotkey", {"action": action}))
+        app.global_hotkeys.set(app.settings.get("global_hotkeys", {}))
     app.updater = Updater(
         __version__, cfg["update_repo"], APP_DIR, ROOT / "data" / "update.json",
         token=cfg["github_token"] or app.settings.get("github_token", ""), enabled=cfg["update_check"],

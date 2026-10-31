@@ -90,8 +90,14 @@ function connectStream() {
 // rendering
 // ---------------------------------------------------------------------------
 
+let hotkeysSent = false;
+
 function render() {
   const s = ui.snap;
+  if (!hotkeysSent && s.camera) {
+    hotkeysSent = true;
+    sendHotkeys();  // this PC's keys, once the cameras are known
+  }
   $("#status-dot").classList.toggle("on", !!s.connected);
   const league = s.league;
   const lb = $("#league-badge");
@@ -198,7 +204,32 @@ function hotkeys(groups) {
 }
 
 function keyLabel(k) {
-  return { arrowup: "↑", arrowdown: "↓", " ": "Space" }[k] || (k.length === 1 ? k.toUpperCase() : k);
+  const one = (p) => ({ arrowup: "↑", arrowdown: "↓", " ": "Space", ctrl: "Ctrl", alt: "Alt", shift: "Shift" }[p]
+    || (/^num\d$/.test(p) ? `Num ${p.slice(3)}` : p.length === 1 || /^f\d+$/.test(p) ? p.toUpperCase() : p));
+  return String(k).split("+").map((p) => one(p || "+")).join("+");
+}
+
+// A key as the hotkeys keep it: "c", "1", or with Ctrl / Alt (and Shift)
+// "ctrl+alt+1". With modifiers, the key itself is read from where it is on
+// the keyboard (so Shift+1 is "shift+1", not "!").
+function keyOf(e) {
+  const mods = (e.ctrlKey ? "ctrl+" : "") + (e.altKey ? "alt+" : "") + ((e.ctrlKey || e.altKey) && e.shiftKey ? "shift+" : "");
+  if (!mods) return e.key.toLowerCase();
+  const c = e.code || "";
+  const base = /^Key[A-Z]$/.test(c) ? c.slice(3).toLowerCase() : /^Digit\d$/.test(c) ? c.slice(5)
+    : /^Numpad\d$/.test(c) ? `num${c.slice(6)}` : /^F\d{1,2}$/.test(c) ? c.toLowerCase() : e.key.toLowerCase();
+  return mods + base;
+}
+
+// Keys with Ctrl or Alt work whichever program is in front (the app registers
+// them with Windows; see apex/hotkeys.py): it's told about every change.
+const systemWide = (k) => /(^|\+)(ctrl|alt)\+/.test(k);
+function sendHotkeys() {
+  const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
+  const keys = {};
+  for (const [name, k] of Object.entries(hotkeys(groups))) if (systemWide(k)) keys[k] = `cam:${name}`;
+  for (const [id, k] of Object.entries(settings.actionKeys || {})) if (systemWide(k)) keys[k] = id;
+  return api("/api/cmd", { method: "POST", body: { action: "hotkeys", params: { keys } } }).catch(() => {});
 }
 
 function renderCamButtons(cam) {
@@ -814,8 +845,16 @@ function renderHotkeyList() {
   const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
   const cams = hotkeys(groups);
   const acts = settings.actionKeys || {};
-  const btn = (kind, id, label, key) => `<button class="btn hk ${hotkeyTarget && hotkeyTarget.kind === kind && hotkeyTarget.id === id ? "primary" : ""}"
-      data-hk-kind="${kind}" data-hk="${esc(id)}" data-hk-label="${esc(label)}">${esc(label)} <kbd>${key ? esc(keyLabel(key)) : "–"}</kbd></button>`;
+  const hk = (ui.snap && ui.snap.hotkeys) || {};
+  const taken = new Set(hk.taken || []);
+  const btn = (kind, id, label, key) => {
+    const wide = key && systemWide(key) && hk.system_wide;
+    const note = !key ? "" : taken.has(key) ? "Another program has this combination: pick another"
+      : wide ? "Works whichever program is in front" : "Works when an Apex Commentator window is in front";
+    return `<button class="btn hk ${hotkeyTarget && hotkeyTarget.kind === kind && hotkeyTarget.id === id ? "primary" : ""} ${taken.has(key) ? "taken" : ""}"
+      data-hk-kind="${kind}" data-hk="${esc(id)}" data-hk-label="${esc(label)}" title="${note}">${esc(label)}
+      <kbd>${key ? `${wide ? "🌐 " : ""}${esc(keyLabel(key))}` : "–"}</kbd></button>`;
+  };
   const sections = [["Cameras", groups.length ? groups.map((g) => btn("cam", g.name, g.name, cams[g.name])).join("")
     : '<p class="hint">Cameras appear once iRacing is connected.</p>'],
   ...hotkeyActions().map(([title, items]) => [title, items.map(([id, label]) => btn("act", id, label, acts[id])).join("")])];
@@ -845,17 +884,18 @@ $("#hotkey-done").addEventListener("click", () => {
 $("#hotkey-reset").addEventListener("click", () => {
   settings.hotkeys = null;
   saveSettings();
+  sendHotkeys();
   renderHotkeyList();
 });
 
 function captureHotkey(e) {
-  const key = e.key.toLowerCase();
   const t = hotkeyTarget;
-  if (key === "escape") {
+  if (e.key === "Escape") {
     hotkeyTarget = null;
     return renderHotkeyList();
   }
-  if (NOT_KEYS.has(key)) return;  // a modifier on its own: wait for the key
+  if (NOT_KEYS.has(e.key.toLowerCase())) return;  // a modifier on its own: wait for the key
+  const key = keyOf(e);
   const groups = (ui.snap && ui.snap.camera && ui.snap.camera.groups) || [];
   const cams = { ...hotkeys(groups) };
   const acts = { ...(settings.actionKeys || {}) };
@@ -873,6 +913,7 @@ function captureHotkey(e) {
   settings.hotkeys = cams;
   settings.actionKeys = acts;
   saveSettings();
+  sendHotkeys();
   hotkeyTarget = null;
   renderHotkeyList();
 }
@@ -882,9 +923,11 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     return captureHotkey(e);
   }
-  if (e.target.closest("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest("input, select, textarea") || e.metaKey) return;
   if (!$("#hotkey-modal").hidden || !$("#update-modal").hidden) return;
-  const key = e.key.toLowerCase();
+  // (System-wide ones reach the app through Windows instead; these are the rest,
+  // and all of them when the app runs in a browser.)
+  const key = keyOf(e);
   const act = Object.entries(settings.actionKeys || {}).find(([, k]) => k === key);
   const action = act && hotkeyActions().flatMap(([, items]) => items).find(([id]) => id === act[0]);
   if (action) {

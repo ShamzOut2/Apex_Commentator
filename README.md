@@ -41,6 +41,10 @@ OBS dock.
 
 ### New features
 
+- **Hotkeys that work from anywhere**: give a camera, overlay, board or the
+  grid walk a key with Ctrl or Alt (e.g. Ctrl+Alt+1) and it works whichever
+  program is in front, iRacing and OBS included. Plain keys still work in
+  the app's own windows.
 - **Hotkeys for overlays and boards**: a key for each overlay (on / off),
   the grid walk and every board (on screen, and off again), set in the
   Hotkeys window, now also on the Overlays and Boards tabs.
@@ -166,9 +170,19 @@ Boards tabs) also sets keys for:
   takes it off.
 
 A key does one thing: giving it to something else takes it off the first
-(cameras included). Board keys show on the board buttons. Like the camera
-keys, they work in any Apex Commentator window (pop-outs too) when it's the
-window in front, and they're kept per PC.
+(cameras included). Board keys show on the board buttons.
+
+**Keys that work from anywhere.** A plain key (`1`, `C`…) works when an Apex
+Commentator window is in front (pop-outs too). A key pressed with **Ctrl**
+or **Alt**, and Shift if you like (e.g. `Ctrl+Alt+1`, `Ctrl+Shift+C`,
+`Alt+F5`), works whichever program is in front, iRacing and OBS included,
+for cameras as much as boards and overlays: the app registers it with
+Windows and does the action itself. These show 🌐 in the Hotkeys window,
+and are kept for the next start. One another program already uses is
+shown in red: pick another. Letters, numbers, the number pad and F1–F24 can
+be used this way. (On keyboards where Ctrl+Alt is AltGr, a Ctrl+Alt key
+can't be typed in other programs while the app is running; Ctrl+Shift
+combinations avoid that.)
 
 ## How replays work
 

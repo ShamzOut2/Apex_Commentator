@@ -361,6 +361,7 @@ kbd {
 #hotkey-modal .modal { width: min(900px, 94vw); max-width: none; }
 #hotkey-modal .hotkey-list { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
 #hotkey-modal .hk { display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left; }
+#hotkey-modal .hk.taken kbd { background: var(--bad); color: #fff; }
 .hk-section { margin: 12px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .board-btn kbd { margin-left: 6px; }
 .btn.hk { display: flex; justify-content: space-between; align-items: center; }
