@@ -651,7 +651,9 @@ class App:
                     "on_pit": bool(_at(frame.on_pit, idx, False)),
                     "surface": SURFACES.get(surface, "unknown"),
                     "in_world": surface != TRK_NOT_IN_WORLD,
-                    "gap": round(_at(frame.f2_time, idx, 0.0), 3) if is_race else None,  # live timing replaces it (_live_gaps)
+                    # Live timing replaces it (_live_gaps). In a replay iRacing's own
+                    # figure isn't the replay's (it showed every gap as 1.0): ours or none.
+                    "gap": round(_at(frame.f2_time, idx, 0.0), 3) if is_race and frame.is_live else None,
                     "laps_down": 0,
                     "last_lap": _lap_time(_at(frame.last_lap, idx)),
                     "best_lap": _lap_time(_at(frame.best_lap, idx)),

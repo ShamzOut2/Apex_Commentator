@@ -435,3 +435,25 @@ class ColumnOpacityTests(unittest.TestCase):
         self.assertEqual(round(f((0, 10.6), 3, 6.95), 2), 6.95)
         # A replay going back starts afresh: no correction from before.
         self.assertEqual(round(f((0, 3.0), 1, 2.02), 2), 2.02)
+
+    def test_a_replay_shows_no_made_up_gaps(self):
+        """In a replay the app has no timing for, the gaps are blank, not iRacing's
+        own figure (which isn't the replay's: it showed every gap as 1.0)."""
+        from dataclasses import replace
+
+        from apex.sources import STATE_COOLDOWN
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            app = App(MockSource(seed=4, clock=lambda: clock["t"]), dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(1200):
+                clock["t"] += 0.1
+                app.tick()
+            frame = app._frame
+            with app._lock:  # after the race, replaying a moment from before the app was there
+                app._frame = replace(frame, session_state=STATE_COOLDOWN, replay_frames_from_end=9000,
+                                     replay_session_time=0.0001, f2_time=[1.0] * len(frame.f2_time))
+            app.gaps.reset()
+            gaps = [e["gap"] for e in app.build_snapshot()["drivers"] if e["pos"] and e["pos"] > 1]
+            self.assertTrue(gaps)
+            self.assertNotIn(1.0, gaps)

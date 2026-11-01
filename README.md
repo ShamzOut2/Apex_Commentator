@@ -82,6 +82,9 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
   before's finish, also when it's an iRacing event of its own (from the
   saved results); a meeting's reverse grid stays on when the session moves
   on. With no qualifying in the event, the grid iRacing lines up.
+- Timing tower in a replay: no more made-up gaps (every gap showing 1.0):
+  during the race it keeps the live gaps, after it the replay's own (or
+  none where the app has no timing for that moment).
 - Timing Screen: before the start, drivers are listed in starting grid
   order (not at random); places gained count from that grid.
 - Driver on camera: no longer flashes the last driver as the camera cuts.
