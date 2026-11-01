@@ -2,11 +2,12 @@
 rounds each race of a heat event is.
 
 A heat event in iRacing runs practice and qualifying, then heats, a
-consolation (last chance) race and the feature. On the day of such an event
-the league's rounds dated that day are matched to its races in order (a
-round whose name says "Heat", "Consolation" or "Feature" goes with that kind
-of race first), so the overlays can name each race after its round and its
-results go to that round.
+consolation (last chance) race and the feature; other events have two or more
+races of their own. The league's rounds for such an event (dated that day, or
+the race meeting still to be run) are matched to its races in order (a round
+whose name says "Heat", "Consolation" or "Feature" goes with that kind of
+race first), so the overlays and boards name each race after its round and
+its results go to that round.
 """
 
 from datetime import timedelta
@@ -37,28 +38,72 @@ def _kind_of_name(text):
     return next((kind for kind, words in WORDS if any(w in text for w in words)), None)
 
 
-def match_rounds(races, rounds, today):
-    """{session number: index into ``rounds``} for a heat event's races.
+def match_rounds(races, rounds, today, live_id="", event_key=None):
+    """{session number: index into ``rounds``} for an event's races.
 
     ``races``: [{"num", "kind"}] in order; ``rounds``: the championship's rounds
-    (``date`` "YYYY-MM-DD"). Nothing unless it's a heat event and some rounds
-    are dated today (or yesterday, for an event that runs past midnight)."""
-    if not any(r["kind"] in HEAT_KINDS for r in races):
+    (``date`` "YYYY-MM-DD", ``event`` the race meeting, ``session`` the
+    "subsession:session" its results came from, ``results``). Only for an
+    event of several races (two or more, or heats / a consolation / a
+    feature): a single race is just the season's next round.
+
+    A race whose results went into a round (this event's) keeps that round.
+    The rest are matched in order to the rounds dated today (or yesterday,
+    for an event that runs past midnight); without any, to the race meeting
+    of the round marked Live (``live_id``), else the first meeting with a
+    round still to be run (a round of its own: it and the ones after it)."""
+    if not races or (len(races) < 2 and not any(r["kind"] in HEAT_KINDS for r in races)):
         return {}
-    dated = []
-    for day in (today, today - timedelta(days=1)):
-        dated = [i for i, rd in enumerate(rounds) if rd.get("date") == day.isoformat()]
-        if dated:
-            break
-    out, free = {}, list(dated)
+    linked = {}
+    if event_key is not None:
+        for i, rd in enumerate(rounds):
+            num = str(rd.get("session") or "").rpartition(":")
+            if num[0] == str(event_key) and num[2].isdigit():
+                linked[int(num[2])] = i
+    pool = _dated(rounds, today) or _meeting_of(rounds, live_id, len(races), set(linked.values()))
+    out, free = {}, [i for i in pool if i not in linked.values()]
     for race in races:
+        if race["num"] in linked:
+            out[race["num"]] = linked[race["num"]]
+            continue
         if not free:
-            break
+            continue
         same = next((i for i in free if _kind_of_name(f"{rounds[i].get('name')} {rounds[i].get('event')}") == race["kind"]), None)
         pick = same if same is not None else next((i for i in free if _kind_of_name(rounds[i].get("name")) is None), free[0])
         free.remove(pick)
         out[race["num"]] = pick
     return out
+
+
+def _dated(rounds, today):
+    """The rounds dated today (else yesterday)."""
+    for day in (today, today - timedelta(days=1)):
+        dated = [i for i, rd in enumerate(rounds) if rd.get("date") == day.isoformat()]
+        if dated:
+            return dated
+    return []
+
+
+def _meeting_of(rounds, live_id, count, linked):
+    """The rounds an event is (none of them dated today): the race meeting of
+    the round marked Live, else of the first round still to be run (or
+    already holding one of this event's races). A round that's no meeting:
+    it and the ``count`` - 1 after it."""
+    start = next((i for i, rd in enumerate(rounds) if live_id and rd.get("id") == live_id), None)
+    if start is None:
+        start = next((i for i, rd in enumerate(rounds) if not rd.get("results") or i in linked), None)
+    if start is None:
+        return []
+    event = rounds[start].get("event")
+    if not event:
+        return list(range(start, min(len(rounds), start + count)))
+    first = start
+    while first > 0 and rounds[first - 1].get("event") == event:
+        first -= 1
+    last = start
+    while last + 1 < len(rounds) and rounds[last + 1].get("event") == event:
+        last += 1
+    return list(range(first, last + 1))
 
 
 def round_title(number, name):

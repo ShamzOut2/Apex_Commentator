@@ -525,8 +525,10 @@ class App:
         if not league:
             return {}
         races = [{"num": r["num"], "kind": r["kind"]} for r in self.race_sessions()]
-        rounds = championship.normalise(league.get("championship"))["rounds"]
-        return {num: (i + 1, rounds[i]) for num, i in heats.match_rounds(races, rounds, self._today()).items()}
+        champ = championship.normalise(league.get("championship"))
+        rounds = champ["rounds"]
+        matched = heats.match_rounds(races, rounds, self._today(), champ["live_round"], self._session_meta.get("subsession"))
+        return {num: (i + 1, rounds[i]) for num, i in matched.items()}
 
     def _round_title(self, league, session_num):
         on = self.overlays.get()["standings"]["round_titles"] != "off"
@@ -2311,8 +2313,10 @@ class App:
         if not race:
             for r in results:  # no laps set: no time, rather than a DNF
                 r["status"] = "finished" if r["fastest_lap"] else "dns"
-        return {"name": str(session.get("SessionName") or session.get("SessionType") or "Session"), "race": race,
-                "results": results}
+        # A race: its round's name, as the tower's header gives it.
+        name = (self._race_title(self.leagues.active(), num, session) if race
+                else str(session.get("SessionName") or session.get("SessionType") or "Session").title())
+        return {"name": name, "race": race, "results": results}
 
     def _board_snapshot(self, active_league, session_board):
         """(board, options): cached until the league, the board or its settings change."""

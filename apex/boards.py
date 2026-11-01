@@ -172,7 +172,7 @@ def build(league, board, settings, live_results=None):
         if live:
             rd = {"id": "live", "name": live_results["name"], "track": "", "multiplier": 1.0,
                   "results": live_results["results"], "provisional": True}
-            out["title"] = "Running order" if source == "live" else f"{live_results['name'].title()} result"
+            out["title"] = "Running order" if source == "live" else f"{live_results['name']} result"  # named as the tower names it
         else:
             scored = [r for r in champ["rounds"] if r["results"]]
             rd = next((r for r in scored if r["id"] == source), scored[-1] if scored else None)
