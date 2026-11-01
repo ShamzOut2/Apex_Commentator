@@ -1409,7 +1409,7 @@ class App:
             self.desktop.hide(page)
         return {"on_screen": self.desktop.on_screen() if self.desktop else {}}
 
-    POPOUT_PAGES = {"timing": "Timing", "boards": "Boards"}
+    POPOUT_PAGES = {"timing": "Timing Screen", "boards": "Boards"}
 
     def cmd_popout(self, page):
         """Open a control panel page in its own window. ``opened`` False: the

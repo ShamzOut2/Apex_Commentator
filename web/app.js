@@ -173,6 +173,19 @@ function sameButClassTag(name, nickname) {
 
 function showPage(name) {
   if (!document.getElementById(`tab-${name}`)) name = "home";
+  const was = document.querySelector(".panel.active");
+  if (was && was.id === "tab-hotkeys" && name !== "hotkeys") {
+    // Leaving the Hotkeys tab: the camera and board buttons show their new keys.
+    hotkeyTarget = null;
+    camKey = "";
+    boardButtonsKey = "";
+    if (ui.snap && ui.snap.connected) renderCamButtons(ui.snap.camera);
+  }
+  if (name === "hotkeys") {
+    hotkeyTarget = null;
+    renderHotkeyList();
+    $("#hotkeys-back").hidden = !POPOUT;
+  }
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("active", p.id === `tab-${name}`));
   // The timing screen fills the window; the other pages scroll.
@@ -200,6 +213,8 @@ function renderHome(s) {
   const league = s.league;
   $("#tile-teams").textContent = league ? `${league.teams} teams in ${league.name}` : "No league active";
   const g = s.gridwalk || {};
+  const keysSet = Object.keys(settings.actionKeys || {}).length + Object.keys(settings.hotkeys || {}).length;
+  $("#tile-hotkeys").textContent = keysSet ? `${keysSet} keys set` : "No keys set yet";
   $("#tile-gridwalk").textContent = g.visible ? (g.running ? "● On air" : "❚❚ On air, paused") : `${(g.entries || []).length} on the grid`;
   $("#tile-league").textContent = s.league ? `Active: ${s.league.name}` : "No league active";
 }
@@ -258,7 +273,7 @@ function sendHotkeys() {
 // Keys saved by another window (or before an update): use them here too.
 function adoptHotkeys(s) {
   const saved = s.hotkeys && s.hotkeys.saved;
-  if (!saved || hotkeySending || saved.v === hotkeyV || !$("#hotkey-modal").hidden) return false;
+  if (!saved || hotkeySending || saved.v === hotkeyV || hotkeyTarget) return false;
   hotkeyV = saved.v;
   settings.hotkeys = saved.cameras || null;
   settings.actionKeys = saved.actions || {};
@@ -1089,24 +1104,18 @@ function renderHotkeyList() {
   $("#hotkey-prompt").textContent = hotkeyTarget ? `Press a key for ${hotkeyTarget.label}…` : "";
 }
 
+// The ⌨ Hotkeys buttons on other tabs: the Hotkeys tab (in a pop-out, with a Back button).
 document.addEventListener("click", (e) => {
   if (!e.target.closest("[data-open-hotkeys]")) return;
-  hotkeyTarget = null;
-  renderHotkeyList();
-  $("#hotkey-modal").hidden = false;
+  showPage("hotkeys");
 });
+$("#hotkeys-back").addEventListener("click", () => showPage(POPOUT || "home"));
+const hotkeysOpen = () => $("#tab-hotkeys").classList.contains("active");
 $("#hotkey-list").addEventListener("click", (e) => {
   const b = e.target.closest("[data-hk]");
   if (!b) return;
   hotkeyTarget = { kind: b.dataset.hkKind, id: b.dataset.hk, label: b.dataset.hkLabel };
   renderHotkeyList();
-});
-$("#hotkey-done").addEventListener("click", () => {
-  hotkeyTarget = null;
-  $("#hotkey-modal").hidden = true;
-  camKey = "";
-  boardButtonsKey = "";
-  if (ui.snap && ui.snap.connected) renderCamButtons(ui.snap.camera);
 });
 $("#hotkey-reset").addEventListener("click", () => {
   settings.hotkeys = null;
@@ -1146,12 +1155,12 @@ function captureHotkey(e) {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (!$("#hotkey-modal").hidden && hotkeyTarget) {
+  if (hotkeysOpen() && hotkeyTarget) {
     e.preventDefault();
     return captureHotkey(e);
   }
   if (e.target.closest("input, select, textarea") || e.metaKey) return;
-  if (!$("#hotkey-modal").hidden || !$("#update-modal").hidden) return;
+  if (hotkeysOpen() || !$("#update-modal").hidden) return;
   // (System-wide ones reach the app through Windows instead; these are the rest,
   // and all of them when the app runs in a browser.)
   const key = keyOf(e);

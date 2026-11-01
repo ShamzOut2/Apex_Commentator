@@ -31,6 +31,12 @@ How each version's entry is written:
   a key to switch), next row, back a row, every row, and the boards on your
   screen and off it.
 
+### Improvements
+
+- **Hotkeys** is a tab of its own (and a box on the Home page), next to Home;
+  Race control moves between Championship and the Timing Screen (the Timing
+  tab's new name).
+
 ### Fixes
 
 - Race control: the commands are sent in iRacing's chat by themselves; they

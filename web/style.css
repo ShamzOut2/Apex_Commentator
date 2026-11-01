@@ -344,11 +344,13 @@ kbd {
 .live-btn { font-weight: 800; letter-spacing: .06em; background: var(--bad); color: #fff; border-color: transparent; }
 .live-btn.on-air { background: transparent; color: var(--good); border-color: var(--good); }
 .hotkey-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin: 10px 0; }
-.hotkey-sections { max-height: 60vh; overflow-y: auto; padding-right: 4px; }
-#hotkey-modal .modal { width: min(900px, 94vw); max-width: none; }
-#hotkey-modal .hotkey-list { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
-#hotkey-modal .hk { display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left; }
-#hotkey-modal .hk.taken kbd { background: var(--bad); color: #fff; }
+.hotkey-sections { padding-right: 4px; }
+#tab-hotkeys .hotkey-list { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+#tab-hotkeys .hk { display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left;
+  white-space: normal; line-height: 1.25; min-height: 36px; height: auto; padding-top: 6px; padding-bottom: 6px; }
+#tab-hotkeys .hk kbd { flex: none; }
+#tab-hotkeys .hk.taken kbd { background: var(--bad); color: #fff; }
+#hotkey-prompt { position: sticky; bottom: 0; padding: 8px 0; background: var(--bg, #0e1116); font-weight: 600; }
 .hk-section { margin: 12px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .board-btn kbd { margin-left: 6px; }
 .btn.hk { display: flex; justify-content: space-between; align-items: center; }

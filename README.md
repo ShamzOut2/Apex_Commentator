@@ -36,8 +36,8 @@ OBS dock.
   stop & hold, clear), the grid timer, starting the race and messages to
   every driver, sent to iRacing as its admin commands.
 
-The tabs, in order: Home, League builder, Teams, Championship, Timing, Grid
-walk, Overlays, Boards and Race control.
+The tabs, in order: Home, Hotkeys, League builder, Teams, Championship, Race
+control, Timing Screen, Grid walk, Overlays and Boards.
 
 ![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.png)
 
@@ -63,6 +63,12 @@ walk, Overlays, Boards and Race control.
 - Starting grid **hotkeys**: the grid on and off, full grid / row by row (or
   a key to switch), next row, back a row, every row, and the boards on your
   screen and off it.
+
+### Improvements
+
+- **Hotkeys** is a tab of its own (and a box on the Home page), next to Home;
+  Race control moves between Championship and the Timing Screen (the Timing
+  tab's new name).
 
 ### Fixes
 
@@ -168,7 +174,8 @@ shows something else. Camera hotkeys work in whichever window has focus.
 | `R` | Rewind the car on camera (by the rewind setting) |
 | `↑` / `↓` | Watch the car ahead / behind |
 
-**Hotkeys for overlays and boards.** *⌨ Hotkeys* (on the Timing, Overlays and
+**Hotkeys for overlays and boards.** The **Hotkeys** tab (also on the Home page,
+and the *⌨ Hotkeys* buttons on the Timing Screen, Overlays and
 Boards tabs) also sets keys for:
 - each overlay: the standings tower, lap tracker, driver on camera,
   sponsors, championship battle and pit stops, on and off;
