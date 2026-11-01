@@ -44,37 +44,22 @@ control, Timing Screen, Grid walk, Overlays and Boards.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.5.7**
-
-### New features
-
-- Starting grid: **Automatic** grid for race meetings: the heats from
-  qualifying, the consolation from the heat before it, the feature from the
-  consolation (the others stay there for when it's needed).
-- Race meeting rounds: a **Reverse grid** box with how many from the front
-  are turned round; the starting grid board follows it.
-- Timing tower: the header turns white on the final lap (or LAST LAP), then
-  into the chequered flag at the finish.
-- Timing tower: watching a replay, the header is just REPLAY, in the
-  middle, on the accent colour.
-- Drivers who leave the session can stay listed: on the Timing Screen
-  (marked LEFT) and on the full-screen standings (where they were).
+**Coming in the next update**
 
 ### Improvements
 
-- Starting grid board: its title is the race's name as the tower gives it
-  (the round's name, or your names for heats, consolation and feature).
-- Timing tower: the finish flag tick box is in the tower's Drivers settings
-  (it was under Fastest lap).
+- Lighter on the PC with several overlays open: each update is prepared
+  once for every page (the app, pop-outs, each overlay in OBS) instead of
+  once per page, and is smaller.
 
 ### Fixes
 
-- Timing tower: the chequered flag no longer comes out mid-race in the next
-  iRacing event after one the app already saw finish.
-- Timing tower: the chequered flags by finished drivers no longer flash in
-  again every time the tower updates.
-- Timing Screen: the flag column's chequered flag stays put instead of
-  flashing on and off.
+- An error while preparing an update no longer freezes every overlay and
+  the app until it's restarted: the app carries on and logs it.
+- Overlays and the app reconnect by themselves if their connection to the
+  app stalls (after the PC sleeps, say), instead of needing a reopen.
+- The log file (apex.log) no longer grows without end: past 5 MB it's
+  trimmed to its latest part.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

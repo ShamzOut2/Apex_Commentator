@@ -11,6 +11,23 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- Lighter on the PC with several overlays open: each update is prepared
+  once for every page (the app, pop-outs, each overlay in OBS) instead of
+  once per page, and is smaller.
+
+### Fixes
+
+- An error while preparing an update no longer freezes every overlay and
+  the app until it's restarted: the app carries on and logs it.
+- Overlays and the app reconnect by themselves if their connection to the
+  app stalls (after the PC sleeps, say), instead of needing a reopen.
+- The log file (apex.log) no longer grows without end: past 5 MB it's
+  trimmed to its latest part.
+
 ## v0.5.7
 
 ### New features

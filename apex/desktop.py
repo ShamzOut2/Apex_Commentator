@@ -29,12 +29,31 @@ SWP_REFRESH = 0x1 | 0x2 | 0x4 | 0x10 | 0x20  # no size / move / z-order / activa
 DWM_BB_ENABLE, DWM_BB_BLURREGION, RGN_OR = 0x1, 0x2, 2
 
 
+LOG_MAX, LOG_KEEP = 5_000_000, 1_000_000  # apex.log: trimmed to its last 1 MB once it's over 5 MB
+
+
+def trim_log(path, most=None, keep=None):
+    """The log is added to on every run: past ``most`` bytes, only its last
+    ``keep`` (from a line's start) are kept."""
+    most, keep = most or LOG_MAX, keep or LOG_KEEP
+    try:
+        if path.stat().st_size > most:
+            with open(path, "rb") as f:
+                f.seek(-keep, os.SEEK_END)
+                tail = f.read()
+            path.write_bytes(tail[tail.find(b"\n") + 1:])
+    except OSError:
+        pass
+
+
 def log_to_file():
     """Send output to a log file when there is no console (the packaged app)."""
     if sys.stdout is not None and sys.stderr is not None:
         return None
     USER_DIR.mkdir(parents=True, exist_ok=True)
-    log = open(USER_DIR / "apex.log", "a", encoding="utf-8", buffering=1)
+    path = USER_DIR / "apex.log"
+    trim_log(path)
+    log = open(path, "a", encoding="utf-8", buffering=1)
     sys.stdout = sys.stderr = log
     return log
 

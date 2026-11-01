@@ -295,3 +295,57 @@ class ServerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PollerTests(unittest.TestCase):
+    def test_an_error_doesnt_stop_the_updates(self):
+        """An error building a snapshot used to end the poller for good (every
+        overlay frozen until a restart): it carries on now."""
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = App(MockSource(seed=3), dict(DEFAULTS, poll_hz=60, push_hz=30), LeagueStore(tmp))
+            real, fails = app.build_snapshot, {"n": 3}
+
+            def flaky():
+                if fails["n"]:
+                    fails["n"] -= 1
+                    raise KeyError("odd data")
+                return real()
+
+            app.build_snapshot = flaky
+            log = io.StringIO()
+            with contextlib.redirect_stdout(log), contextlib.redirect_stderr(io.StringIO()):
+                app.start()
+                try:
+                    self.assertTrue(wait_for(lambda: app._version >= 3, timeout=5.0))
+                finally:
+                    app.stop()
+            self.assertEqual(fails["n"], 0)
+            self.assertIn("publish error", log.getvalue())
+            # Logged in full once, not every time round.
+            self.assertEqual(log.getvalue().count("publish error"), 1)
+            # The stream's payload: encoded once, the same bytes for every page.
+            v, data = app.wait_payload(-1, timeout=0.1)
+            self.assertIs(app.wait_payload(-1, timeout=0.1)[1], data)
+            self.assertEqual(json.loads(data)["connected"], app._snapshot["connected"])
+
+
+class LogTests(unittest.TestCase):
+    def test_a_big_log_is_trimmed_to_its_latest_lines(self):
+        from pathlib import Path
+
+        from apex.desktop import trim_log
+
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "apex.log"
+            log.write_text("".join(f"line {i}\n" for i in range(1000)))
+            trim_log(log, most=100_000)  # small enough: left alone
+            self.assertTrue(log.read_text().startswith("line 0\n"))
+            trim_log(log, most=1000, keep=200)
+            text = log.read_text()
+            self.assertTrue(text.endswith("line 999\n"))
+            self.assertLessEqual(len(text), 200)
+            self.assertTrue(text.startswith("line "))  # from a line's start
+            trim_log(Path(tmp) / "none.log")  # no log yet: nothing to do

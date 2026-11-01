@@ -2,8 +2,10 @@
 snapshot the overlay renders, and runs spectate / replay commands.
 """
 
+import json
 import re
 import threading
+import traceback
 from dataclasses import replace
 import time
 from datetime import date
@@ -202,6 +204,9 @@ class App:
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._snapshot = {"connected": False}
+        self._payload = (None, b"")         # (version, the snapshot as JSON): encoded once for every page listening
+        self._encode_lock = threading.Lock()
+        self._errors = {}                   # poller errors logged: (where, error) -> (when, times since)
         self._version = 0
         self._changed = threading.Condition()
         self._info_update = None
@@ -269,18 +274,40 @@ class App:
         push_period = 1.0 / max(0.5, float(self.cfg["push_hz"]))
         while not self._stop.is_set():
             started = time.monotonic()
+            # Whatever goes wrong in one go round (odd data from iRacing, say),
+            # the loop carries on: an error here used to stop it for good,
+            # freezing every overlay until the app was restarted.
             try:
                 self.tick()
-            except Exception as e:  # keep the overlay alive whatever happens
-                print(f"[apex] poll error: {e!r}")
-            with self._lock:
-                stepped = self.gridwalk.tick(len(self._grid_keys))
-            if stepped:
-                self.publish()
-            if time.monotonic() - self._last_push >= push_period:
-                self._last_push = time.monotonic()
-                self.publish()
+            except Exception as e:
+                self._report("poll", e)
+            try:
+                with self._lock:
+                    stepped = self.gridwalk.tick(len(self._grid_keys))
+                if stepped or time.monotonic() - self._last_push >= push_period:
+                    self._last_push = time.monotonic()
+                    self.publish()
+            except Exception as e:
+                self._last_push = time.monotonic()  # not straight away again
+                self._report("publish", e)
             self._stop.wait(max(0.0, period - (time.monotonic() - started)))
+
+    def _report(self, where, e):
+        """Log an error from the poller: in full the first time, then at most
+        once a minute while it keeps happening (not many times a second)."""
+        key = (where, type(e).__name__, str(e)[:200])
+        now = time.monotonic()
+        seen = self._errors.get(key)
+        if seen and now - seen[0] < 60:
+            self._errors[key] = (seen[0], seen[1] + 1)
+            return
+        again = f" (x{seen[1] + 1} in the last minute)" if seen else ""
+        print(f"[apex] {where} error{again}: {e!r}")
+        if not seen:
+            traceback.print_exc()
+        if len(self._errors) > 100:
+            self._errors.clear()
+        self._errors[key] = (now, 0)
 
     def tick(self):
         """Read one frame and update state. Returns False while disconnected."""
@@ -1015,6 +1042,8 @@ class App:
         screen = self._keep_left(frame.timeline()[0], standings, rows, is_race) if settings["standings"]["screen_keep_left"] else None
         _rank(standings, is_race)
         flash = self._fastest_laps(standings, is_race, settings["standings"], frame)
+        if screen is not None and not any(e.get("left") for e in screen):
+            screen = None  # nobody's left: the same as the tower's (not sent twice)
         if screen is not None:
             _rank(screen, is_race)
             marks = {e["car_idx"]: (e["fastest"], e["class_fastest"]) for e in standings}
@@ -1353,6 +1382,20 @@ class App:
         with self._changed:
             self._changed.wait_for(lambda: self._version != last_version, timeout)
             return self._version, self._snapshot
+
+    def wait_payload(self, last_version, timeout=15.0):
+        """``wait_snapshot``, the snapshot as JSON bytes for the event stream.
+
+        Every page open (the app, pop-outs, each overlay in OBS) gets each
+        snapshot; it's encoded once for all of them, not once each (encoding
+        is most of the work of sending one)."""
+        version, snap = self.wait_snapshot(last_version, timeout)
+        if version == last_version:
+            return version, None
+        with self._encode_lock:
+            if self._payload[0] != version:
+                self._payload = (version, json.dumps(snap, separators=(",", ":")).encode("utf-8"))
+            return self._payload
 
     # -- commands -----------------------------------------------------------
 
