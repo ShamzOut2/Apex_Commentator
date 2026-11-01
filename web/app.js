@@ -2249,7 +2249,7 @@ const OVERLAY_FIELDS = {
   standings: [
     ["What it shows", [
       ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
-      ["class_key", "Class", "class"],
+      iff((v) => v.mode === "class", ["class_keys", "Classes shown, in this order", "classorder"]),
       iff((v) => v.mode !== "class", ["rows", "Drivers shown (overall)", "number", { min: 1, max: 64 }]),
       iff((v) => v.mode !== "class", ["rows_last", "Extra drivers under the top ones, when there are more (overall; 0 = none)", "number", { min: 0, max: 30 }]),
       iff((v) => v.mode === "class", ["rows_class", "Drivers shown in each class (by class)", "number", { min: 1, max: 64 }]),
@@ -2588,6 +2588,7 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   if (kind === "background") return backgroundFields(section, values);
   if (kind === "size") return sizeField(v);
   if (kind === "order") return orderField(k, label, v, opts, values);
+  if (kind === "classorder") return classOrderField(k, label, values, s.classes || []);
   if (kind === "colopacity") return opacityField(k, label, v, opts);
   if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
   if (kind === "number") {
@@ -2706,8 +2707,56 @@ function saveOrder(field, keys) {
   const form = field.closest(".ov-form");
   overlayFormKey = "";
   boardSettingsKey = "";
-  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [field.dataset.orderKey]: keys.join(",") } });
+  const values = field.dataset.orderKind === "classes" ? classOrderValue(field, keys)
+    : { [field.dataset.orderKey]: keys.join(",") };
+  cmd("overlay_settings", { overlay: form.dataset.overlay, values });
 }
+
+// The tower's classes (by class): every class in the session, a tick box
+// each for whether it shows, in the order they're shown (drag or arrows).
+// Saved as the ticked ones in order ("" = every class in the league's
+// order); picked classes not in this session keep their place at the end.
+function classOrderField(key, label, values, classes) {
+  if (!classes.length) return '<p class="hint">The classes show here once there are drivers in the session.</p>';
+  const known = classes.map((c) => c.key);
+  const picked = String(values.class_keys || values.class_key || "").split(",").filter(Boolean);
+  const keys = [...picked.filter((k) => known.includes(k)), ...known.filter((k) => !picked.includes(k))];
+  const away = picked.filter((k) => !known.includes(k));
+  return `<div class="ov-field wide order-field class-order" data-order-key="${key}" data-order-kind="classes"
+      data-default="${esc(known.join(","))}" data-away="${esc(away.join(","))}">
+    <span>${label} <span class="hint">(tick the ones to show; drag, or use the arrows, to order them)</span></span>
+    <div class="order-list">${keys.map((k, i) => {
+      const c = classes.find((x) => x.key === k);
+      const on = !picked.length || picked.includes(k);
+      return `<span class="order-item ${on ? "" : "off"}" draggable="true" data-col="${esc(k)}">
+        <button type="button" data-order-move="-1" ${i === 0 ? "disabled" : ""} aria-label="Move earlier">◀</button>
+        <label class="check"><input type="checkbox" data-class-show ${on ? "checked" : ""}>
+          <span class="dot" style="background:${esc(c.color || "#8b93a3")}"></span>${esc(c.name)}</label>
+        <button type="button" data-order-move="1" ${i === keys.length - 1 ? "disabled" : ""} aria-label="Move later">▶</button></span>`;
+    }).join("")}</div></div>`;
+}
+
+function classOrderValue(field, keys) {
+  const on = new Set([...field.querySelectorAll(".order-item")].filter((x) => x.querySelector("[data-class-show]").checked)
+    .map((x) => x.dataset.col));
+  const away = field.dataset.away ? field.dataset.away.split(",") : [];
+  const shown = keys.filter((k) => on.has(k));
+  const all = shown.length === keys.length && !away.length && shown.join(",") === field.dataset.default;
+  return { class_keys: all ? "" : [...shown, ...away].join(","), class_key: "" };
+}
+
+document.addEventListener("change", (e) => {
+  const box = e.target.closest && e.target.closest("[data-class-show]");
+  if (!box) return;
+  const field = box.closest(".order-field");
+  // At least one class stays ticked.
+  if (!field.querySelector("[data-class-show]:checked")) {
+    box.checked = true;
+    return;
+  }
+  box.blur();
+  saveOrder(field, [...field.querySelectorAll(".order-item")].map((x) => x.dataset.col));
+});
 
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-order-move]");

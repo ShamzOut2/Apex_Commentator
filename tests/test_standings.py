@@ -324,3 +324,11 @@ class ColumnOpacityTests(unittest.TestCase):
         o.update("standings", {"col_opacity_on": True, "col_opacity": "gap:60,laps:100,Bad Key:5,interval:-3,best_lap:40"})
         # Full opacity and anything odd are left out.
         self.assertEqual(o.get()["standings"]["col_opacity"], "gap:60,best_lap:40")
+
+    def test_classes_shown_by_class_keep_their_order(self):
+        from apex.overlays import OverlaySettings
+        o = OverlaySettings()
+        self.assertEqual(o.get()["standings"]["class_keys"], "")  # every class
+        o.update("standings", {"class_keys": "league:gt4, league:gt3,league:gt4,,iracing:GT3 Class"})
+        # In the order given, each once, odd bits left out.
+        self.assertEqual(o.get()["standings"]["class_keys"], "league:gt4,league:gt3,iracing:GT3 Class")

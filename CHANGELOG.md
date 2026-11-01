@@ -17,6 +17,8 @@ How each version's entry is written:
 
 - Timing tower: the coloured bar can show the driver's team colour
   (*Coloured bar's colour from*).
+- Timing tower by class: tick which classes show (one, some or all) and
+  put them in the order you want.
 
 ### Fixes
 

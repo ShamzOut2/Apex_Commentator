@@ -243,6 +243,13 @@ function leaderInterval(e, cfg) {
 
 // The bar's class colour: the car number's (class_colors), unless it has its own.
 const stripeWhich = (cfg) => (cfg.stripe_colors === "main" || cfg.stripe_colors === "secondary" ? cfg.stripe_colors : cfg.class_colors);
+// By class: the classes shown, in the order picked (every class, in the
+// league's order, when none are picked).
+function towerClassKeys(cfg, snap) {
+  const picked = String(cfg.class_keys || cfg.class_key || "").split(",").filter(Boolean);
+  return picked.length ? picked : (snap.classes || []).map((c) => c.key);
+}
+
 // The coloured bar's colour: the class picked for it (by class and overall
 // alike), or the team's colour when "Team colour" is picked (the class
 // colour for a driver whose team has none). "" = no bar.
@@ -461,7 +468,7 @@ function render() {
     race, classMode, multiclass, camIdx, ov.green)).join("");
   let body;
   if (classMode) {
-    const keys = cfg.class_key ? [cfg.class_key] : (snap.classes || []).map((c) => c.key);
+    const keys = towerClassKeys(cfg, snap);
     // Each class: its top drivers, then (if asked) a few more of the rest of
     // the class after a small gap, as overall does for the whole field.
     const dim = cfg.rows_extra_opacity < 100 ? ` style="opacity:${cfg.rows_extra_opacity / 100}"` : "";
@@ -647,7 +654,7 @@ function renderScreen(snap, ov) {
   // Lines: class headers and drivers, in order.
   const lines = [];
   if (classMode) {
-    const keys = cfg.class_key ? [cfg.class_key] : (snap.classes || []).map((c) => c.key);
+    const keys = towerClassKeys(cfg, snap);
     for (const k of keys) {
       const rows = entries.filter((e) => e.class_key === k);
       if (!rows.length) continue;

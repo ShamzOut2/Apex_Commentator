@@ -50,6 +50,8 @@ control, Timing Screen, Grid walk, Overlays and Boards.
 
 - Timing tower: the coloured bar can show the driver's team colour
   (*Coloured bar's colour from*).
+- Timing tower by class: tick which classes show (one, some or all) and
+  put them in the order you want.
 
 ### Fixes
 
@@ -368,8 +370,12 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     race or after the flag, shows the gaps as they were.
   - *Overall* lists everyone. Each driver's class shows in the colour of
     their number and stripe.
-  - *By class* gives each class its own block with its header and logo, or
-    shows just one class.
+  - *By class* gives each class its own block with its header and logo.
+    **Classes shown, in this order** lists the session's classes: tick the
+    ones to show (one, some or all) and drag them, or use the arrows, into
+    the order you want, top to bottom. With every class ticked in the usual
+    order, the tower shows each class as it comes (a new one joins too).
+    The full-screen Timing Screen follows the same pick.
   - **Header**: the session, with laps or time left. *Automatic* follows how
     the session is limited ("LAP 5 / 20", then "FINAL LAP" and
     "FINISHED"; or "12:34 LEFT", then "LAST LAP" once the clock has run out,
