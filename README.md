@@ -44,7 +44,7 @@ walk, Overlays, Boards and Race control.
 ## What's new
 
 <!-- whats-new:start -->
-**Coming in the next update**
+**v0.5.3**
 
 ### New features
 
