@@ -788,11 +788,14 @@ class App:
         """(name, nickname) to show on stream.
 
         With the league's "Remove driver class in name" on, the stream name
-        is the nickname (the name without its "(P)" tag) and isn't shown again
-        as a nickname. The control panel keeps the full name.
+        is the full name without its "(P)" tag; a nickname that's just that
+        clean name (filled in by the league builder) isn't a nickname of its
+        own. A real nickname stays the nickname, for the "Nickname" name
+        style. The control panel keeps the full name.
         """
         if active_league and active_league.get("strip_class_prefix"):
-            return (nickname or strip_class_prefix(name)), ""
+            clean = strip_class_prefix(name)
+            return clean, ("" if str(nickname or "").strip().lower() == clean.lower() else nickname)
         return name, nickname
 
     @staticmethod

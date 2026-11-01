@@ -552,7 +552,12 @@ function renderGridwalk(s) {
   $("#gw-reset-order").hidden = !g.manual_order;
   $("#gw-empty").hidden = entries.length > 0;
   // Rebuild rows only when they change, so buttons aren't replaced mid-click.
-  const key = JSON.stringify([g.index, g.visible, entries.map((e) => [e.key, e.number, e.name, e.nickname, e.team,
+  const gwCfg = (s.overlays && s.overlays.settings && s.overlays.settings.gridwalk) || {};
+  for (const [id, value, prop] of [["#gw-names", gwCfg.name_format || "full", "value"], ["#gw-nick", gwCfg.show_nickname !== false, "checked"]]) {
+    const el = $(id);
+    if (document.activeElement !== el) el[prop] = value;
+  }
+  const key = JSON.stringify([g.index, g.visible, gwCfg.name_format, gwCfg.show_nickname, entries.map((e) => [e.key, e.number, e.name, e.nickname, e.team,
     e.in_session, e.in_world, e.has_thumb, e.car_name, (classes.get(e.class_key) || {}).color])]);
   if (key === gwRowsKey) return;
   gwRowsKey = key;
@@ -568,7 +573,7 @@ function renderGridwalk(s) {
     return `<tr class="${onScreen ? "on-screen" : ""}">
       <td class="pos">P${e.grid_pos}</td>
       <td><span class="num" style="border-left-color:${esc(color)}">${esc(e.number)}</span></td>
-      <td><span class="name">${esc(e.name)}</span>${e.nickname ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
+      <td><span class="name">${esc(formatName(e, gwCfg.name_format))}</span>${gwCfg.show_nickname !== false && e.nickname && gwCfg.name_format !== "nickname" ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
       <td class="sub">${esc(e.team)}</td>
       <td>${pic} ${status}</td>
       <td><div class="actions">
@@ -602,6 +607,8 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
 $("#gw-interval").addEventListener("change", (e) => cmd("gridwalk_settings", { interval: +e.target.value }));
 $("#gw-loop").addEventListener("change", (e) => cmd("gridwalk_settings", { loop: e.target.checked }));
 $("#gw-autoplay").addEventListener("change", (e) => cmd("gridwalk_settings", { autoplay: e.target.checked }));
+$("#gw-names").addEventListener("change", (e) => cmd("overlay_settings", { overlay: "gridwalk", values: { name_format: e.target.value } }));
+$("#gw-nick").addEventListener("change", (e) => cmd("overlay_settings", { overlay: "gridwalk", values: { show_nickname: e.target.checked } }));
 $("#gw-absent").addEventListener("change", (e) => cmd("gridwalk_settings", { include_absent: e.target.checked }));
 $("#gw-url").textContent = `${location.origin}/gridwalk.html`;
 
@@ -733,12 +740,18 @@ $("#timing-nick").checked = settings.showNick;
 $("#timing-names").addEventListener("change", (e) => {
   settings.nameFormat = e.target.value;
   saveSettings();
-  if (ui.snap) renderStandings(ui.snap);
+  if (ui.snap) {
+    renderStandings(ui.snap);
+    renderGridwalk(ui.snap);
+  }
 });
 $("#timing-nick").addEventListener("change", (e) => {
   settings.showNick = e.target.checked;
   saveSettings();
-  if (ui.snap) renderStandings(ui.snap);
+  if (ui.snap) {
+    renderStandings(ui.snap);
+    renderGridwalk(ui.snap);
+  }
 });
 $("#battle-color").addEventListener("input", (e) => {
   settings.battleColor = e.target.value;

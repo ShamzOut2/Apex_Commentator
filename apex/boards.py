@@ -45,9 +45,11 @@ def options(league):
 
 
 def _person(league, name, nickname):
-    """A driver's name as the stream shows it (see App._stream_name)."""
+    """A driver's full name as the stream shows it (see App._stream_name):
+    without its "(P)" class tag when the league says so. The nickname is
+    separate (the boards' "Nickname" name style)."""
     if league.get("strip_class_prefix"):
-        return nickname or strip_class_prefix(name)
+        return strip_class_prefix(name)
     return name
 
 
