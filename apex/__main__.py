@@ -54,6 +54,7 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
     app = App(source, cfg, LeagueStore(cfg["leagues_dir"]))
     app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
     app.settings = UserSettings(ROOT / "data" / "settings.json")
+    app.load_gridwalk_settings()
     app.tracks = TrackCatalogue(ROOT / "data" / "tracks.json")
     app.backgrounds = Backgrounds(ROOT / "data" / "backgrounds")
     try:

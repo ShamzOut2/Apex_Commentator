@@ -143,3 +143,24 @@ class GridWalkTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GridWalkSettingsKeptTests(unittest.TestCase):
+    def test_seconds_per_pair_kept_and_used(self):
+        import tempfile
+
+        from apex.settings import UserSettings
+        from tests.test_app import make_app
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=0.1)
+            app.settings = UserSettings(f"{tmp}/settings.json")
+            app.command("gridwalk_settings", {"interval": 15})
+            app.command("gridwalk_start", {"index": 0})
+            clock = app.gridwalk.clock
+            self.assertEqual(app.build_snapshot()["gridwalk"]["interval"], 15)
+            # A new start of the app: the same seconds per pair.
+            again, _ = make_app(tmp, minutes=0.1)
+            again.settings = UserSettings(f"{tmp}/settings.json")
+            again.load_gridwalk_settings()
+            self.assertEqual(again.gridwalk.interval, 15)
+            self.assertTrue(clock)

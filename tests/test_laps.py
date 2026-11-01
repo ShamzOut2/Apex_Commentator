@@ -148,6 +148,18 @@ class LapTrackerTests(unittest.TestCase):
         t = drive(tr, 1, start_t=5.1, start_pct=0.96)
         self.assertIsNotNone(tr.state(0, tr.cars[0].t))
 
+    def test_overall_reference_is_anyones_best(self):
+        tr = LapTracker()
+        classes = {0: "A", 1: "B"}
+        # Car 1 (class B) sets a quick first sector; car 0 (class A) then a slower one.
+        for t, p0, p1 in ((0.0, 0.95, 0.95), (1.0, 0.01, 0.01), (5.0, 0.15, 0.2), (9.0, 0.3, 0.36), (12.0, 0.36, 0.45)):
+            tr.update(F(t, [p0, p1], surface=[TRK_ON_TRACK] * 2, on_pit=[False] * 2, last_lap=[-1.0] * 2, lap=[-1] * 2),
+                      lambda i: classes[i])
+        mine = tr.cars[0].lap["colours"][0]
+        self.assertEqual(mine["session"], "purple")   # fastest in its class
+        self.assertEqual(mine["overall"], "yellow")   # but not overall
+        self.assertEqual(tr.state(0, 12.0, "overall")["sectors"][0]["colour"], "yellow")
+
     def test_new_session_resets(self):
         lt = LapTracker()
         drive(lt, 1)

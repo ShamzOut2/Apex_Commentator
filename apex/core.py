@@ -1634,9 +1634,22 @@ class App:
     def cmd_gridwalk_hide(self):
         self.gridwalk.hide()
 
+    def load_gridwalk_settings(self):
+        """The grid walk's seconds per pair, loop, auto-play and absent drivers
+        as last set (kept in the app's settings: they used to go back to the
+        defaults, 8 seconds, every time the app started)."""
+        saved = self.settings.get("gridwalk") or {}
+        try:
+            self.gridwalk.configure(saved.get("interval"), saved.get("loop"), saved.get("include_absent"), saved.get("autoplay"))
+        except (TypeError, ValueError):
+            pass
+
     def cmd_gridwalk_settings(self, interval=None, loop=None, include_absent=None, autoplay=None):
         try:
             self.gridwalk.configure(interval, loop, include_absent, autoplay)
+            g = self.gridwalk
+            self.settings.set("gridwalk", {"interval": g.interval, "loop": g.loop,
+                                           "include_absent": g.include_absent, "autoplay": g.autoplay})
         except ValueError as e:
             raise CommandError(str(e)) from e
 

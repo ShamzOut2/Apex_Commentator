@@ -604,7 +604,20 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
   }
 });
 
-$("#gw-interval").addEventListener("change", (e) => cmd("gridwalk_settings", { interval: +e.target.value }));
+// The seconds per pair: used as soon as it's typed (a whole number, 2 to 120), and kept.
+let gwIntervalTimer = null;
+const sendInterval = (el) => {
+  const v = Math.round(+el.value);
+  if (v >= 2 && v <= 120) cmd("gridwalk_settings", { interval: v });
+};
+$("#gw-interval").addEventListener("input", (e) => {
+  clearTimeout(gwIntervalTimer);
+  gwIntervalTimer = setTimeout(() => sendInterval(e.target), 600);
+});
+$("#gw-interval").addEventListener("change", (e) => {
+  clearTimeout(gwIntervalTimer);
+  sendInterval(e.target);
+});
 $("#gw-loop").addEventListener("change", (e) => cmd("gridwalk_settings", { loop: e.target.checked }));
 $("#gw-autoplay").addEventListener("change", (e) => cmd("gridwalk_settings", { autoplay: e.target.checked }));
 $("#gw-names").addEventListener("change", (e) => cmd("overlay_settings", { overlay: "gridwalk", values: { name_format: e.target.value } }));
@@ -2301,7 +2314,8 @@ const OVERLAY_FIELDS = {
     ]],
     ["Sectors", [
       ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
-      ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"]]],
+      ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"],
+        ["overall", "Fastest overall this session (any class)"]]],
       ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
     ]],
     ["Drivers", [

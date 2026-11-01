@@ -280,7 +280,7 @@ DEFAULTS = {
         "visible": True,
         "count": 4,               # small trackers along the bottom
         "name_format": "initial_last",
-        "reference": "personal",  # sector colours against "personal" bests or the "session" (class) best
+        "reference": "personal",  # sector colours against "personal" bests, the "session" (class) best or the "overall" best
         "sectors": 3,             # sectors shown: the track's split points merged into this many (0 = all of them)
         "green_s": 0.2,
         "hide_s": 5.0,
@@ -302,7 +302,7 @@ CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("n
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_from": ("qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "qual_shown": ("gap", "interval", "time", "none"),
-           "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
+           "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS}
 
 
 def normalise(settings):
