@@ -44,7 +44,7 @@ control, Timing Screen, Grid walk, Overlays and Boards.
 ## What's new
 
 <!-- whats-new:start -->
-**Coming in the next update**
+**v0.5.6**
 
 ### New features
 
