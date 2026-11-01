@@ -47,7 +47,10 @@ DEFAULTS = {
     "standings": {**LOGO, 
         "visible": True,
         "mode": "overall",        # "overall" or "class"
-        "class_key": "",          # "class" mode: one class only ("" = every class, one block each)
+        "class_key": "",          # (older single-class pick; class_keys takes over)
+        # "class" mode: the classes shown and their order, comma-separated
+        # class keys ("" = every class, in the league's order, one block each).
+        "class_keys": "",
         "rows": 20,               # most drivers shown (per class in "class" mode)
         # More drivers than rows: rows_last more under the top of the order
         # (by class: of each class), after a small gap. "rotate": the rest of the field, that many at
@@ -69,7 +72,7 @@ DEFAULTS = {
         # the driver's "main" or "secondary" class (none, a plain number and no
         # bar, for a driver without one; with no league, iRacing's class colours).
         "class_colors": "main",
-        "stripe_colors": "same",  # the bar's class colour: "same" as the car number's, or its own "main" / "secondary"
+        "stripe_colors": "same",  # the bar's colour: "same" class as the car number's, its own "main" / "secondary", or "team"
         "show_number": True,
         "show_stripe": True,      # the coloured bar by each driver (class or team colour)
         "show_col_labels": True,  # the column headings (GAP, INT...) under the header
@@ -307,7 +310,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_from": ("qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_from": ("qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS}
 
 
@@ -328,7 +331,7 @@ def _value(key, value, default):
             value = type(default)(value)
             lo, hi = LIMITS.get(key, (value, value))
             return min(max(value, lo), hi)
-        value = str(value)[:600 if key == "drivers" else 200]
+        value = str(value)[:600 if key in ("drivers", "class_keys") else 200]
         if key.endswith("bg_color") or key.startswith("accent_") or key.startswith("invalid_"):
             return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
         if key == "bg_image":
@@ -346,6 +349,9 @@ def _value(key, value, default):
         if key == "drivers":
             keys = [k.strip() for k in value.split(",") if re.fullmatch(r"(cust:\d{1,12}|name:[^,]{1,60})", k.strip())]
             return ",".join(dict.fromkeys(keys[:6]))
+        if key == "class_keys":
+            keys = [k.strip() for k in value.split(",") if re.fullmatch(r"[^,]{1,80}", k.strip())]
+            return ",".join(dict.fromkeys(keys[:30]))
         if key == "group":
             return value if re.fullmatch(r"[A-Za-z0-9:_ .\-]{1,80}", value) else default
         if key in ("sponsor_ids", "sponsor_bar_ids"):

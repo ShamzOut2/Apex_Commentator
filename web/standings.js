@@ -242,7 +242,22 @@ function leaderInterval(e, cfg) {
 }
 
 // The bar's class colour: the car number's (class_colors), unless it has its own.
-const stripeWhich = (cfg) => (cfg.stripe_colors && cfg.stripe_colors !== "same" ? cfg.stripe_colors : cfg.class_colors);
+const stripeWhich = (cfg) => (cfg.stripe_colors === "main" || cfg.stripe_colors === "secondary" ? cfg.stripe_colors : cfg.class_colors);
+// By class: the classes shown, in the order picked (every class, in the
+// league's order, when none are picked).
+function towerClassKeys(cfg, snap) {
+  const picked = String(cfg.class_keys || cfg.class_key || "").split(",").filter(Boolean);
+  return picked.length ? picked : (snap.classes || []).map((c) => c.key);
+}
+
+// The coloured bar's colour: the class picked for it (by class and overall
+// alike), or the team's colour when "Team colour" is picked (the class
+// colour for a driver whose team has none). "" = no bar.
+function stripeColor(e, cls, cfg) {
+  if (!cfg.show_stripe) return "";
+  const paint = paintFor(e, cls, stripeWhich(cfg));
+  return cfg.stripe_colors === "team" ? e.team_color || paint || "" : paint || "";
+}
 
 // The car number: on a background in the driver's class colour, or just the number (Overlays tab).
 function numberChip(e, cls, cfg) {
@@ -341,7 +356,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
   // The cells in the order rowSpec gives: the team logo and the team name are columns of their own.
   const cell = {
     pos: () => `<span class="p tnum" data-opcol="pos">${pos}</span>`,
-    stripe: () => `<span class="stripe" style="${cfg.show_stripe && paintFor(e, cls, stripeWhich(cfg)) ? `background:${esc((classMode || !multiclass) && e.team_color ? e.team_color : paintFor(e, cls, stripeWhich(cfg)))}` : ""}"></span>`,
+    stripe: () => `<span class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(stripeColor(e, cls, cfg))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
     logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
     name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
@@ -453,7 +468,7 @@ function render() {
     race, classMode, multiclass, camIdx, ov.green)).join("");
   let body;
   if (classMode) {
-    const keys = cfg.class_key ? [cfg.class_key] : (snap.classes || []).map((c) => c.key);
+    const keys = towerClassKeys(cfg, snap);
     // Each class: its top drivers, then (if asked) a few more of the rest of
     // the class after a small gap, as overall does for the whole field.
     const dim = cfg.rows_extra_opacity < 100 ? ` style="opacity:${cfg.rows_extra_opacity / 100}"` : "";
@@ -567,7 +582,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     ? `<td class="lg c" data-opcol="logo">${e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}</td>`
     : `<td class="team" data-opcol="team">${esc(e.team || "")}</td>`)).join("");
   const cells = [
-    `<td class="stripe" style="${cfg.show_stripe && paintFor(e, cls, stripeWhich(cfg)) ? `background:${esc(classMode && e.team_color ? e.team_color : paintFor(e, cls, stripeWhich(cfg)))}` : "background:none"}"></td>`,
+    `<td class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(stripeColor(e, cls, cfg))}` : "background:none"}"></td>`,
     `<td class="p r" data-opcol="pos">${pos}</td>`,
     race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
     `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,
@@ -639,7 +654,7 @@ function renderScreen(snap, ov) {
   // Lines: class headers and drivers, in order.
   const lines = [];
   if (classMode) {
-    const keys = cfg.class_key ? [cfg.class_key] : (snap.classes || []).map((c) => c.key);
+    const keys = towerClassKeys(cfg, snap);
     for (const k of keys) {
       const rows = entries.filter((e) => e.class_key === k);
       if (!rows.length) continue;

@@ -11,6 +11,20 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.5.6
+
+### New features
+
+- Timing tower: the coloured bar can show the driver's team colour
+  (*Coloured bar's colour from*).
+- Timing tower by class: tick which classes show (one, some or all) and
+  put them in the order you want.
+
+### Fixes
+
+- Timing tower: by class, the coloured bar shows the class colour picked for
+  it again, not the team's colour.
+
 ## v0.5.5
 
 ### Improvements
