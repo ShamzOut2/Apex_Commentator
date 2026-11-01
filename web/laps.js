@@ -61,7 +61,10 @@ function topHtml(item, cfg, cls, kind) {
 
 function build(kind) {
   const el = document.createElement("div");
-  el.className = `tracker ${kind}`;
+  // Opens from the middle with a light sweep (laps.css); once in, moving it
+  // (reordering) doesn't play that again.
+  el.className = `tracker ${kind} entering`;
+  setTimeout(() => el.classList.remove("entering"), 1300);
   el.innerHTML = '<div class="tk-top"></div><div class="tk-body"><div class="sectors"></div><div class="timebox"><span class="lt tnum"></span><span class="dl tnum"></span><span class="pv tnum"></span></div></div>';
   return el;
 }
@@ -126,6 +129,20 @@ function update(entry, item, cfg, classes, nsec) {
   const dl = el.querySelector(".dl");
   lt.classList.toggle("done", !!lap && lap.state === "finished");
   lt.classList.toggle("void", !!lap && lap.state === "finished" && !lap.valid);
+  // A lap just finished lands: the time pops in, the tracker flashes purple
+  // (the fastest) or green (a personal best).
+  const landKey = lap && lap.state === "finished" ? `${lap.lap_time}:${lap.elapsed}` : "";
+  if (landKey && entry.landKey !== landKey) {
+    entry.landKey = landKey;
+    if (lap.shown_for == null || lap.shown_for < 1.5) {
+      el.classList.remove("landed", "land-purple", "land-green");
+      void el.offsetWidth;
+      el.classList.add("landed");
+      if (lap.lap_colour) el.classList.add(`land-${lap.lap_colour}`);
+      clearTimeout(entry.landTimer);
+      entry.landTimer = setTimeout(() => el.classList.remove("landed", "land-purple", "land-green"), 2600);
+    }
+  }
   if (lap && lap.state === "finished" && lap.delta != null && lap.valid) {
     dl.textContent = `${lap.delta > 0 ? "+" : lap.delta < 0 ? "−" : "±"}${Math.abs(lap.delta).toFixed(3)}`;
     dl.className = `dl tnum ${lap.delta <= 0 ? "faster" : "slower"}`;
@@ -169,8 +186,9 @@ function render() {
     const w = want.get(idx);
     if (!w || w[0] !== entry.kind) {
       shown.delete(idx);
+      entry.el.classList.remove("entering", "landed", "land-purple", "land-green");
       entry.el.classList.add("gone");
-      setTimeout(() => entry.el.remove(), 350);
+      setTimeout(() => entry.el.remove(), 650);
     }
   }
   for (const [idx, [kind, item]] of want) {
@@ -186,7 +204,18 @@ function render() {
   // entrance animation, so only when the order changed).
   const order = laps.trackers.slice(0, cfg.count).map((t) => shown.get(t.car_idx)).filter((e) => e && e.kind === "small");
   const current = [...smallSlot.children].filter((el) => !el.classList.contains("gone"));
-  if (order.some((e, i) => current[i] !== e.el)) for (const e of order) smallSlot.appendChild(e.el);
+  if (order.some((e, i) => current[i] !== e.el)) {
+    // The trackers slide to their new places rather than jumping.
+    const was = new Map(order.map((e) => [e.el, e.el.getBoundingClientRect()]));
+    for (const e of order) smallSlot.appendChild(e.el);
+    for (const [el, r] of was) {
+      const now = el.getBoundingClientRect();
+      const k = now.width / el.offsetWidth || 1;  // the screen's scaling
+      const dx = (r.left - now.left) / k, dy = (r.top - now.top) / k;
+      if (!dx && !dy) continue;
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 450, easing: "cubic-bezier(.2, .8, .2, 1)" });
+    }
+  }
 }
 
 // -- full-screen live timing ---------------------------------------------------

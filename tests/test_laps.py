@@ -104,10 +104,21 @@ class LapTrackerTests(unittest.TestCase):
         last = lt.state(0, t)
         self.assertLess(abs(last["delta"]), 0.2)
         self.assertEqual([s["colour"] for s in last["sectors"]], ["purple", "green", "yellow"])
+        self.assertIsNone(last["lap_colour"])  # 90.1 s: slower than their 90.0, so no highlight as it lands
         # Each sector against what it was compared with (their best before), and how long ago it was done.
         self.assertEqual([round(s["delta"]) for s in last["sectors"]], [-1, 0, 1])
         self.assertLess(last["sectors"][2]["age"], 1.0)  # the last one: just now
         self.assertGreater(last["sectors"][0]["age"], 50)
+
+    def test_a_lap_lands_purple_or_green(self):
+        lt = LapTracker()
+        drive(lt, 1, sector_s=(30.0, 30.0, 30.0))
+        t = lt.cars[0].t
+        self.assertEqual(lt.state(0, t, "session")["lap_colour"], "purple")  # the first lap: the fastest so far
+        t = drive(lt, 1, start_t=t, start_pct=lt.cars[0].pct, sector_s=(29.0, 30.0, 30.0))
+        self.assertEqual(lt.state(0, t, "personal")["lap_colour"], "purple")  # their best yet
+        lt.class_best["A"]["lap"] = 80.0  # someone in the class went faster
+        self.assertEqual(lt.state(0, t, "session")["lap_colour"], "green")  # a personal best, not the fastest
 
     def test_off_track_lap_is_invalid_and_not_a_best(self):
         lt = LapTracker()

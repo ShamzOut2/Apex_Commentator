@@ -11,6 +11,15 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.5.5
+
+### Improvements
+
+- Lap tracker: trackers open out from the middle with a light sweep and
+  close the same way, a finished lap's time pops in with a purple (fastest)
+  or green (personal best) glow, and the small trackers slide when they
+  change places.
+
 ## v0.5.4
 
 ### New features
