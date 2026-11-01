@@ -75,6 +75,11 @@ body.screen { background: #0b0d12; }
 .screen-table .sec .green { background: var(--green); color: #06210f; }
 .screen-table .sec .yellow { background: var(--yellow); color: #2a2100; }
 .screen-table .lapclock { font-weight: 800; }
+/* An invalidated lap on the full-screen timing: as the tracker (laps.css). */
+.screen-table .sec.struck div, .screen-table .sec.grey div { background: var(--inv-sector, #5b616b); color: #fff; }
+.screen-table .sec.grey div { opacity: .75; }
+.screen-table .sec.struck div::after { content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 2px; background: var(--inv-line, #ff4d4d); }
+.screen-table .lapclock.void { color: var(--inv-text, #ff4d4d); letter-spacing: .06em; }
 .screen-table .faster { color: var(--green); }
 .screen-table .slower { color: var(--red); }
 .screen-table .invalid { color: var(--muted); text-decoration: line-through; }

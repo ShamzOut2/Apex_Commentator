@@ -111,6 +111,23 @@ class LapTrackerTests(unittest.TestCase):
         self.assertFalse(lt.state(0, t)["valid"])
         self.assertIsNone(lt.best(0))
 
+    def test_an_invalid_lap_is_marked(self):
+        lt = LapTracker()
+        t = drive(lt, 1, sector_s=(25.0, 25.0, 25.0), off_at=0.5)  # off in the second sector
+        st = lt.state(0, t)
+        self.assertEqual(st["state"], "finished")
+        self.assertEqual([s["mark"] for s in st["sectors"]], ["struck"] * 3)  # done: every sector struck through
+        # On the way round: the sector it happened in struck, the rest greyed.
+        lt = LapTracker()
+        drive(lt, 0)
+        t = lt.cars[0].t
+        for i, pct in enumerate((0.15, 0.30, 0.40, 0.50, 0.55, 0.60, 0.70)):
+            surface = [TRK_OFF_TRACK] if pct == 0.50 else [TRK_ON_TRACK]
+            lt.update(F(t + 3 * (i + 1), [pct], surface=surface), lambda i: "A")
+        # (The lap started at the line before 0.40; sector 1 ended at 1/3.)
+        st = lt.state(0, t + 21, hide_s=0)
+        self.assertEqual([s["mark"] for s in st["sectors"]], [None, "struck", "grey"])
+
     def test_out_lap_is_not_timed(self):
         lt = LapTracker()
         lt.update(F(0.0, [0.95], on_pit=[True]), lambda i: "A")

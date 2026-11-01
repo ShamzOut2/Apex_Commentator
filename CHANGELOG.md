@@ -13,6 +13,12 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- Lap tracker: an **invalidated lap** shows: a line through the sector it
+  happened in, the rest of the lap greyed out, and at the line every sector
+  struck through and INVALID in place of the lap time, in colours you pick.
+
 ### Improvements
 
 - Lap tracker: against the class or overall best, a purple sector turns

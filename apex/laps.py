@@ -201,6 +201,8 @@ class LapTracker:
             return
         lap = car.lap
         if lap is not None and (on_pit or surface == TRK_OFF_TRACK):
+            if lap["valid"]:
+                lap["invalid_at"] = len(lap["splits"])  # the sector it happened in (the tracker strikes it through)
             lap["valid"] = False
             if on_pit:
                 car.lap = lap = None  # in lap: stop timing
@@ -247,6 +249,7 @@ class LapTracker:
         car.last = {
             "lap_time": lap_time, "sectors": list(lap["splits"]), "colours": lap["colours"],
             "valid": lap["valid"], "ref_lap": lap["ref_lap"], "finished": when, "number": car.laps,
+            "invalid_at": lap.get("invalid_at"),
             "iracing_before": iracing_before,
         }
         if lap["valid"]:
@@ -348,7 +351,9 @@ class LapTracker:
             prev = last["ref_lap"]
             return {
                 "state": "finished",
-                "sectors": [{"time": s, "colour": self._now_colour(car, n, s, c, reference, last["valid"]), "done": 1.0}
+                # An invalid lap, done: every sector struck through.
+                "sectors": [{"time": s, "colour": self._now_colour(car, n, s, c, reference, last["valid"]), "done": 1.0,
+                             "mark": None if last["valid"] else "struck"}
                             for n, (s, c) in enumerate(zip(last["sectors"], last["colours"]))],
                 "lap_time": last["lap_time"],
                 "elapsed": last["lap_time"],
@@ -370,6 +375,11 @@ class LapTracker:
             progress = ((car.pct - lo) % 1.0) / (hi - lo) if hi > lo else 0.0
             sectors.append({"time": None, "colour": None, "done": round(min(max(progress, 0.0), 0.99), 3)})
         sectors += [{"time": None, "colour": None, "done": 0.0} for _ in range(nsec - len(sectors))]
+        # Invalidated on the way round: the sector it happened in struck
+        # through, the rest of the lap greyed out.
+        bad = lap.get("invalid_at")
+        for n, s in enumerate(sectors):
+            s["mark"] = None if bad is None or n < bad else "struck" if n == bad else "grey"
         return {
             "state": "running",
             "sectors": sectors,

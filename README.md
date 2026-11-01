@@ -46,6 +46,12 @@ walk, Overlays, Boards and Race control.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- Lap tracker: an **invalidated lap** shows: a line through the sector it
+  happened in, the rest of the lap greyed out, and at the line every sector
+  struck through and INVALID in place of the lap time, in colours you pick.
+
 ### Improvements
 
 - Lap tracker: against the class or overall best, a purple sector turns
@@ -591,6 +597,12 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     while its lap is clean: a lap that's invalidated (off track) loses its
     sectors from the bests, and whoever's now fastest (on a clean lap)
     turns purple.
+  - **An invalidated lap** (off track): the sector it happened in gets a
+    line through it, and the rest of the lap greys out as the driver carries
+    on; at the line every sector is struck through and **INVALID** takes the
+    lap time's place (the full-screen timing too). The colour of INVALID,
+    of the invalidated sectors and of the line through them can each be set
+    in the lap tracker's settings.
   - The driver's best lap is always shown. When a lap is done, its time
     stays up with the gap to that best (green if faster, red if slower), then
     the tracker goes after 5 s (adjustable).

@@ -54,9 +54,21 @@
 .timebox .dl { font-size: 15px; font-weight: 800; }
 .timebox .dl.faster { color: var(--green); }
 .timebox .dl.slower { color: var(--red); }
-.tracker.invalid .sector i { background: rgba(255,255,255,.3); }
-.tracker.invalid .sector .st { color: #fff; }
-.tracker.invalid .lt { color: var(--muted); text-decoration: line-through; }
+/* An invalidated lap: the sector it happened in struck through, the rest of
+   the lap greyed out as it goes on; at the line, every sector struck through
+   and INVALID in the lap time's place (colours: the lap tracker's settings). */
+.tracker .sector.struck i, .tracker .sector.grey i { background: var(--inv-sector, #5b616b); }
+.tracker .sector.struck .st, .tracker .sector.grey .st { color: #fff; }
+.tracker .sector.grey { opacity: .75; }
+.tracker .sector.struck::after {
+  content: ""; position: absolute; left: 5px; right: 5px; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 2px;
+  background: var(--inv-line, #ff4d4d); box-shadow: 0 0 0 1px rgba(0, 0, 0, .25);
+  animation: strike .35s ease-out both; transform-origin: 0 50%;
+}
+@keyframes strike { from { transform: scaleX(0); } }
+.tracker.invalid .lt:not(.void) { color: var(--muted); }
+.timebox .lt.void { color: var(--inv-text, #ff4d4d); letter-spacing: .06em; }
+.tk-top .badge:not(.info) { background: var(--inv-text, var(--red)); color: #fff; }
 
 .tracker.big .tk-top .n { font-size: 26px; }
 .tracker.big .tk-top .pos { font-size: 26px; }

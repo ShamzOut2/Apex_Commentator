@@ -25,6 +25,14 @@ function fmtSector(t) {
   return t == null ? "" : t >= 60 ? fmtLap(t) : t.toFixed(3);
 }
 
+// An invalidated lap's colours (the lap tracker's settings).
+function setInvalidColours(cfg) {
+  const st = document.body.style;
+  st.setProperty("--inv-text", cfg.invalid_text_color || "#ff4d4d");
+  st.setProperty("--inv-sector", cfg.invalid_sector_color || "#5b616b");
+  st.setProperty("--inv-line", cfg.invalid_line_color || "#ff4d4d");
+}
+
 function topHtml(item, cfg, cls, kind) {
   const lap = item.lap;
   // Small trackers use the team's short name when it has one.
@@ -78,6 +86,9 @@ function update(entry, item, cfg, classes, nsec) {
     if (s.done < parseFloat(bar.style.width || "0") - 1) bar.style.transition = "none";
     bar.style.width = width;
     if (bar.style.transition === "none") requestAnimationFrame(() => (bar.style.transition = ""));
+    // An invalidated lap: the sector it happened in struck through, the rest greyed out.
+    node.classList.toggle("struck", s.mark === "struck");
+    node.classList.toggle("grey", s.mark === "grey");
     const st = node.querySelector(".st");
     st.textContent = fmtSector(s.time);
     node.classList.toggle("tight", !!s.time && st.scrollWidth > node.clientWidth - 6);
@@ -85,6 +96,7 @@ function update(entry, item, cfg, classes, nsec) {
   const lt = el.querySelector(".lt");
   const dl = el.querySelector(".dl");
   lt.classList.toggle("done", !!lap && lap.state === "finished");
+  lt.classList.toggle("void", !!lap && lap.state === "finished" && !lap.valid);
   if (lap && lap.state === "finished" && lap.delta != null && lap.valid) {
     dl.textContent = `${lap.delta > 0 ? "+" : lap.delta < 0 ? "−" : "±"}${Math.abs(lap.delta).toFixed(3)}`;
     dl.className = `dl tnum ${lap.delta <= 0 ? "faster" : "slower"}`;
@@ -102,6 +114,7 @@ function render() {
   const ov = snap && snap.overlays;
   if (!ov) return;
   if (SCREEN) {
+    setInvalidColours(ov.settings.laps);
     setBackground(ov.settings.laps, true);
     setSize(ov.settings.laps, true);
     return renderScreen(ov);
@@ -109,6 +122,7 @@ function render() {
   const cfg = ov.settings.laps;
   setPanels(cfg);
   setSize(cfg);
+  setInvalidColours(cfg);
   const laps = ov.laps;
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const want = new Map();
@@ -159,7 +173,7 @@ function screenRowHtml(item, cfg, cls, nsec, camIdx) {
   if (!lap) lapCell = `<span class="state">${item.on_pit ? "IN PITS" : item.in_world ? "OUT LAP" : "—"}</span>`;
   else if (lap.state === "finished") {
     const d = lap.delta != null && lap.valid ? `<span class="${lap.delta <= 0 ? "faster" : "slower"}"> ${lap.delta > 0 ? "+" : "−"}${Math.abs(lap.delta).toFixed(3)}</span>` : "";
-    lapCell = `<span class="lapclock ${lap.valid ? "" : "invalid"}">${fmtLap(lap.lap_time)}</span>${d}`;
+    lapCell = lap.valid ? `<span class="lapclock">${fmtLap(lap.lap_time)}</span>${d}` : '<span class="lapclock void">INVALID</span>';
   } else lapCell = `<span class="lapclock ${lap.valid ? "" : "invalid"}" data-clock="${item.car_idx}"></span>`;
   const team = item.team ? `${cfg.show_logo && item.team_logo ? `<img src="${esc(item.team_logo)}" alt="">` : ""}${esc(item.team)}` : "";
   return `<tr class="${item.car_idx === camIdx ? "cam" : ""}">
@@ -168,7 +182,7 @@ function screenRowHtml(item, cfg, cls, nsec, camIdx) {
     <td class="c"><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(item.number)}</span></td>
     <td>${esc(formatName(item, cfg.name_format))}</td>
     <td class="team">${team}</td>
-    ${sectors.map((sc) => `<td class="sec"><div class="${sc.colour || ""}">${sc.colour ? "" : `<i style="width:${Math.round(sc.done * 100)}%"></i>`}<span>${sc.time != null ? fmtSector(sc.time) : ""}</span></div></td>`).join("")}
+    ${sectors.map((sc) => `<td class="sec ${sc.mark || ""}"><div class="${sc.colour || ""}">${sc.colour ? "" : `<i style="width:${Math.round(sc.done * 100)}%"></i>`}<span>${sc.time != null ? fmtSector(sc.time) : ""}</span></div></td>`).join("")}
     <td class="r">${lapCell}</td>
     <td class="r lead">${fmtLap(item.best)}</td>
     <td class="r">${item.pos > 1 && item.gap != null ? `+${item.gap.toFixed(3)}` : ""}</td>
@@ -222,7 +236,7 @@ function tick() {
     const lap = entry.item && entry.item.lap;
     const lt = entry.el.querySelector(".lt");
     if (!lap) lt.textContent = "";
-    else if (lap.state === "finished") lt.textContent = fmtLap(lap.lap_time);
+    else if (lap.state === "finished") lt.textContent = lap.valid ? fmtLap(lap.lap_time) : "INVALID";
     else lt.textContent = fmtLap(lap.elapsed + ((now - entry.received) / 1000) * speed).replace(/(\.\d)\d\d$/, "$1");
   }
   requestAnimationFrame(tick);
