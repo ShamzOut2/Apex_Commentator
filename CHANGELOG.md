@@ -11,6 +11,18 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- Lap tracker: against the class or overall best, a purple sector turns
+  green once someone else goes faster through it.
+
+### Fixes
+
+- Lap tracker: a sector on a lap that's then invalidated no longer counts as
+  the fastest; whoever's fastest on a clean lap is purple instead.
+
 ## v0.5.2
 
 ### New features

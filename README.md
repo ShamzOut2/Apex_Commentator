@@ -44,52 +44,17 @@ walk, Overlays, Boards and Race control.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.5.2**
-
-### New features
-
-- Boards: **Qualifying results** (a qualifying session of the event, by best
-  lap, with gaps and intervals) and **Starting grid** (any race of the event,
-  before anyone loads in: from qualifying, the previous race's finish or the
-  grid walk's order, with a **reverse grid** of the top N, overall or in each
-  class; as a list or as the cars line up). Every board setting the others
-  have, and hotkeys.
-- Championship: **overall points count as class points** (each class's table
-  ranks its drivers on their overall points).
-- Grid walk: the top and bottom rows of cars can be sized and moved on their
-  own; the cards' size; the NOT ON TRACK tag can be turned off.
-- Grid walk tab: **Names** and **Nicknames** (the grid walk on stream and the
-  list on the tab).
-- **Officials mode**: a League | Officials switch in the top bar, for an
-  official or AI race: iRacing's own data on screen, none of the league's
-  names, classes or rules (the league stays picked for switching back).
-- Starting grid board: **row by row**, the front row first and the next row
-  on a button or hotkey (or all at once); every driver and row comes in with
-  its own animation, and the qualifying results wipe in from pole.
-- Lap tracker: purple sectors can be the **fastest overall this session**
-  (any class).
-- Grid walk: each row's car pictures can be **turned** to line up with the
-  boxes.
-- Grid walk: moving on to the next pair, the new cars **slide in along the
-  road** into their boxes as the last pair's slide on out, and each driver's
-  card slides in from (and back out to) its own side of the screen.
+**Coming in the next update**
 
 ### Improvements
 
-- Grid walk: the car pictures go much bigger (up to 600%, and each row up to
-  400% of that).
+- Lap tracker: against the class or overall best, a purple sector turns
+  green once someone else goes faster through it.
 
 ### Fixes
 
-- Grid walk: the seconds per pair you set are kept (they went back to 8
-  seconds) and used as soon as you type them.
-- Lap tracker: times a replay of a session the app has already seen (it
-  froze on OUT LAP), keeps timing through a second or two of the app being
-  busy, and picks a lap up when iRacing's lap counter ticks over if the line
-  crossing was missed.
-- "Full name" now shows the full name everywhere (boards and overlays) with
-  the league's "Remove driver class in name" on: the class tag comes off,
-  but the name isn't swapped for the nickname (that's the Nickname style).
+- Lap tracker: a sector on a lap that's then invalidated no longer counts as
+  the fastest; whoever's fastest on a clean lap is purple instead.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -620,7 +585,12 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     the small trackers show just the colours.
   - The reference is the driver's own best ("personal"), the fastest in
     their class this session ("session"), or the fastest of anyone this
-    session, whatever their class ("overall").
+    session, whatever their class ("overall"). Against the class or overall
+    best, the colours keep up: a purple sector turns green once someone
+    else goes faster through it, and a sector only counts as the fastest
+    while its lap is clean: a lap that's invalidated (off track) loses its
+    sectors from the bests, and whoever's now fastest (on a clean lap)
+    turns purple.
   - The driver's best lap is always shown. When a lap is done, its time
     stays up with the gap to that best (green if faster, red if slower), then
     the tracker goes after 5 s (adjustable).

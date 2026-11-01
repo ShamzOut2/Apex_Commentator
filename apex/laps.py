@@ -18,6 +18,11 @@ references, so the commentator can switch between them live:
 
 Faster than (or equal to) the reference is purple, within ``green_s`` is green,
 anything slower is yellow. With no reference yet, it's purple.
+
+A purple sector against the class or overall best turns green once someone
+else (in the class / anyone) goes faster through it: it's no longer the
+fastest. A sector only counts towards the bests while its lap is clean: a lap
+that's invalidated (off track) takes its sectors out of the bests again.
 """
 
 from .sources import TRK_NOT_IN_WORLD, TRK_OFF_TRACK
@@ -89,10 +94,11 @@ class _Car:
         self.lap = None          # the lap being timed, or None
         self.last = None         # the last completed lap
         self.best_lap = None
-        self.best_sectors = []   # personal best per sector (valid only)
+        self.best_sectors = []   # personal best per sector, from its clean laps done (the lap on now counts separately)
         self.laps = 0            # completed timed laps
         self.iracing_last = None
         self.lap_no = None       # iRacing's lap number for the car (CarIdxLap), last seen
+        self.cls = None          # its class key
 
 
 class LapTracker:
@@ -101,8 +107,8 @@ class LapTracker:
         self.starts = DEFAULT_SECTORS
         self.session = None
         self.cars = {}
-        self.class_best = {}     # class key -> {"lap": t, "sectors": [..]}
-        self.overall_best = {"lap": None, "sectors": []}  # anyone's, whatever the class
+        self.class_best = {}     # class key -> {"lap": t} (sector bests: sector_best())
+        self.overall_best = {"lap": None}  # anyone's, whatever the class
         self._logged = 0         # dropped laps logged this session
         self._t = None           # the timeline's time last fed
 
@@ -112,7 +118,7 @@ class LapTracker:
         self._t = None
         self.cars = {}
         self.class_best = {}
-        self.overall_best = {"lap": None, "sectors": []}
+        self.overall_best = {"lap": None}
 
     def set_sectors(self, starts):
         starts = tuple(starts)
@@ -122,9 +128,6 @@ class LapTracker:
                 c.lap = None
                 c.best_sectors = []
                 c.last = None
-            for b in self.class_best.values():
-                b["sectors"] = []
-            self.overall_best["sectors"] = []
 
     # -- updates ------------------------------------------------------------
 
@@ -147,13 +150,14 @@ class LapTracker:
             if pct is None or pct < 0 or surface == TRK_NOT_IN_WORLD:
                 if car:
                     car.pct = car.t = None
-                    car.lap = None
+                    self._close(car)
                 continue
             if car is None:
                 car = self.cars[idx] = _Car()
             self._step(idx, car, t, pct, frame, class_of)
 
     def _step(self, idx, car, t, pct, frame, class_of):
+        car.cls = class_of(idx)
         on_pit = bool(frame.on_pit[idx]) if idx < len(frame.on_pit) else False
         surface = frame.surface[idx]
         prev_pct, prev_t = car.pct, car.t
@@ -193,7 +197,7 @@ class LapTracker:
                 self._logged += 1
                 print(f"[apex] lap timing: car {idx}'s lap dropped (lap position {prev_pct:.4f} -> {pct:.4f} "
                       f"in {dt:.2f} s)")
-            car.lap = None  # skipped: the timing can't be trusted
+            self._close(car)  # skipped: the timing can't be trusted from here
             return
         lap = car.lap
         if lap is not None and (on_pit or surface == TRK_OFF_TRACK):
@@ -222,21 +226,16 @@ class LapTracker:
         n = len(lap["splits"])
         start = lap["start"] + sum(lap["splits"])
         sector = round(when - start, 3)
-        lap["splits"].append(sector)
-        best = self.class_best.setdefault(class_of(idx), {"lap": None, "sectors": []})
         ref_p = lap["ref_sectors"][n] if n < len(lap["ref_sectors"]) else None
-        ref_s = best["sectors"][n] if n < len(best["sectors"]) else None
-        top = self.overall_best["sectors"]
-        ref_o = top[n] if n < len(top) else None
+        # Against the bests as they stand (this sector isn't in them yet).
+        ref_s = self.sector_best(n, car.cls)
+        ref_o = self.sector_best(n)
+        lap["splits"].append(sector)
         lap["colours"].append({
             "personal": colour(sector, ref_p, self.green_s),
             "session": colour(sector, ref_s, self.green_s),
             "overall": colour(sector, ref_o, self.green_s),
         })
-        if lap["valid"]:
-            _keep_best(car.best_sectors, n, sector)
-            _keep_best(best["sectors"], n, sector)
-            _keep_best(top, n, sector)
 
     def _finish_lap(self, idx, car, when, iracing_before, class_of):
         lap = car.lap
@@ -252,6 +251,44 @@ class LapTracker:
         }
         if lap["valid"]:
             self._record_best(idx, car, lap_time, class_of)
+        self._close(car)
+
+    def _close(self, car):
+        """The lap being timed is over (finished, or dropped): if it's clean,
+        its sectors go into the car's bests for good; if not, they're gone."""
+        lap, car.lap = car.lap, None
+        if lap is not None and lap["valid"]:
+            for n, s in enumerate(lap["splits"]):
+                _keep_best(car.best_sectors, n, s)
+
+    def sector_best(self, n, cls=None):
+        """The fastest sector ``n`` this session, of class ``cls`` (None: anyone):
+        from clean laps done, and the laps on now while they're clean."""
+        best = None
+        for c in self.cars.values():
+            if cls is not None and c.cls != cls:
+                continue
+            mine = c.best_sectors[n] if n < len(c.best_sectors) else None
+            lap = c.lap
+            if lap is not None and lap["valid"] and n < len(lap["splits"]):
+                mine = lap["splits"][n] if mine is None else min(mine, lap["splits"][n])
+            if mine is not None and (best is None or mine < best):
+                best = mine
+        return best
+
+    def _now_colour(self, car, n, time, colours, reference, valid):
+        """A finished sector's colour now, against the class or overall best as
+        it stands: a purple someone has since beaten is green; on a clean lap,
+        a sector that's become the fastest (the faster one was on a lap that
+        got invalidated) is purple."""
+        col = colours.get(reference, colours["personal"])
+        if reference in ("session", "overall"):
+            best = self.sector_best(n, car.cls if reference == "session" else None)
+            if best is not None and best < time - 1e-4:
+                return "green" if col == "purple" else col
+            if valid and best is not None and time <= best + 1e-4:
+                return "purple"
+        return col
 
     def _record_best(self, idx, car, lap_time, class_of):
         if car.best_lap is None or lap_time < car.best_lap:
@@ -276,7 +313,12 @@ class LapTracker:
         value = round(value, 3)
         diff = value - last["lap_time"]
         last["lap_time"] = value
-        last["sectors"][-1] = round(last["sectors"][-1] + diff, 3)
+        n = len(last["sectors"]) - 1
+        old_sector = last["sectors"][-1]
+        last["sectors"][-1] = round(old_sector + diff, 3)
+        if last["valid"] and n < len(car.best_sectors) and car.best_sectors[n] is not None \
+                and abs(car.best_sectors[n] - old_sector) < 1e-6:
+            car.best_sectors[n] = last["sectors"][-1]  # the best was the estimate: now exact
         if last["valid"]:
             estimate = value - diff
             if car.best_lap is not None and abs(car.best_lap - estimate) < 1e-6:
@@ -306,8 +348,8 @@ class LapTracker:
             prev = last["ref_lap"]
             return {
                 "state": "finished",
-                "sectors": [{"time": s, "colour": c.get(reference, c["personal"]), "done": 1.0}
-                            for s, c in zip(last["sectors"], last["colours"])],
+                "sectors": [{"time": s, "colour": self._now_colour(car, n, s, c, reference, last["valid"]), "done": 1.0}
+                            for n, (s, c) in enumerate(zip(last["sectors"], last["colours"]))],
                 "lap_time": last["lap_time"],
                 "elapsed": last["lap_time"],
                 "valid": last["valid"],
@@ -319,7 +361,8 @@ class LapTracker:
         lap = car.lap
         if lap is None:
             return None
-        sectors = [{"time": s, "colour": c.get(reference, c["personal"]), "done": 1.0} for s, c in zip(lap["splits"], lap["colours"])]
+        sectors = [{"time": s, "colour": self._now_colour(car, n, s, c, reference, lap["valid"]), "done": 1.0}
+                   for n, (s, c) in enumerate(zip(lap["splits"], lap["colours"]))]
         n = len(sectors)
         if n < nsec:
             lo = self.starts[n]
