@@ -11,6 +11,38 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- Starting grid: **Automatic** grid for race meetings: the heats from
+  qualifying, the consolation from the heat before it, the feature from the
+  consolation (the others stay there for when it's needed).
+- Race meeting rounds: a **Reverse grid** box with how many from the front
+  are turned round; the starting grid board follows it.
+- Timing tower: the header turns white on the final lap (or LAST LAP), then
+  into the chequered flag at the finish.
+- Timing tower: watching a replay, the header says REPLAY on the accent
+  colour (the rest of its text stays readable).
+- Drivers who leave the session can stay listed: on the Timing Screen
+  (marked LEFT) and on the full-screen standings (where they were).
+
+### Improvements
+
+- Starting grid board: its title is the race's name as the tower gives it
+  (the round's name, or your names for heats, consolation and feature).
+- Timing tower: the finish flag tick box is in the tower's Drivers settings
+  (it was under Fastest lap).
+
+### Fixes
+
+- Timing tower: the chequered flag no longer comes out mid-race in the next
+  iRacing event after one the app already saw finish.
+- Timing tower: the chequered flags by finished drivers no longer flash in
+  again every time the tower updates.
+- Timing Screen: the flag column's chequered flag stays put instead of
+  flashing on and off.
+
 ## v0.5.6
 
 ### New features

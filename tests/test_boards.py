@@ -451,9 +451,54 @@ class GridBoardTests(unittest.TestCase):
     def test_grid_from_the_grid_walk_order(self):
         keys = self.app.gridwalk.apply_order(self.app._grid_keys)
         self.app.command("gridwalk_move", {"key": keys[1], "direction": -1})  # second up to pole by hand
-        b = self.grid(grid_from="gridwalk", reverse_top=0)
+        b = self.grid(grid_source="gridwalk", reverse_top=0)
         first = self.app._drivers[int(keys[1][4:])]["number"]
         self.assertEqual(b["rows"][0]["number"], first)
+
+    def test_race_meeting_grids_follow_the_race_before(self):
+        from datetime import date
+
+        cars = list(self.app._drivers)
+
+        def finish(order):
+            return [{"Position": i, "CarIdx": c} for i, c in enumerate(order, start=1)]
+
+        heat = list(reversed(cars))                   # the heat finished the other way round
+        consi = cars[1:] + cars[:1]                  # the consolation: the leader dropped to last
+        self.app._session_meta["sessions"] = {
+            0: {"SessionNum": 0, "SessionType": "Lone Qualify", "SessionName": "QUALIFY"},
+            1: {"SessionNum": 1, "SessionType": "Race", "SessionName": "HEAT 1", "ResultsPositions": finish(heat)},
+            2: {"SessionNum": 2, "SessionType": "Race", "SessionName": "CONSOLATION", "ResultsPositions": finish(consi)},
+            3: {"SessionNum": 3, "SessionType": "Race", "SessionName": "FEATURE"},
+        }
+        number = lambda idx: self.app._drivers[idx]["number"]  # noqa: E731
+
+        def grid_of(num, **settings):
+            if settings:
+                self.app.command("overlay_settings", {"overlay": "board_grid", "values": settings})
+            self.app.command("board_show", {"kind": "grid", "group": "", "round": f"session:{num}"})
+            return self.app.build_snapshot()["board"]
+
+        # Automatic (as it starts): the heat from qualifying, the consolation
+        # from the heat, the feature from the consolation; named as the tower names them.
+        b = grid_of(1, rows=64, reverse_top=0)
+        self.assertEqual((b["title"], b["grid_from"]), ("Heat 1 · starting grid", "qualifying"))
+        b = grid_of(2)
+        self.assertEqual([r["number"] for r in b["rows"]], [number(i) for i in heat])
+        self.assertEqual((b["title"], b["grid_from"]), ("Consolation · starting grid", "previous race"))
+        b = grid_of(3)
+        self.assertEqual([r["number"] for r in b["rows"]], [number(i) for i in consi])
+        self.app.command("overlay_settings", {"overlay": "standings", "values": {"title_feature": "A-Main"}})
+        self.assertEqual(grid_of(3)["title"], "A-Main · starting grid")
+        # The meeting's rounds: the feature's round reverses its top 4 (and names it).
+        league = self.app.leagues.active()
+        rounds = [{"name": n, "event": "Night 1", "date": "2026-11-05"} for n in ("Heat", "Consolation", "Feature")]
+        rounds[2].update(reverse_grid=True, reverse_top=4)
+        self.app.leagues.save(dict(league, championship={"rounds": rounds}))
+        self.app._today = lambda: date(2026, 11, 5)
+        b = grid_of(3)
+        self.assertEqual([r["number"] for r in b["rows"]][:5], [number(i) for i in consi[3::-1] + consi[4:5]])
+        self.assertEqual(b["title"], "Feature · starting grid")
 
     def test_qualifying_board_has_no_session_without_qualifying(self):
         self.app.command("board_show", {"kind": "qualifying", "group": "", "round": "latest"})

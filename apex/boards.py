@@ -238,7 +238,7 @@ def build(league, board, settings, live_results=None):
                 row["hidden"] = i >= shown * 2
             out["reveal"] = shown
         out["reveal_total"] = total
-        out["title"] = f"{data['name'].title()} · starting grid" if data["name"] else "Starting grid"
+        out["title"] = f"{data['name']} · starting grid" if data["name"] else "Starting grid"
         out["grid_from"] = data["from"]
         out["rows"] = rows
     return _page(out, cfg, params)

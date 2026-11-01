@@ -332,3 +332,60 @@ class ColumnOpacityTests(unittest.TestCase):
         o.update("standings", {"class_keys": "league:gt4, league:gt3,league:gt4,,iracing:GT3 Class"})
         # In the order given, each once, odd bits left out.
         self.assertEqual(o.get()["standings"]["class_keys"], "league:gt4,league:gt3,iracing:GT3 Class")
+
+    def test_full_screen_keeps_drivers_who_leave(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = App(MockSource(seed=4, clock=lambda: 0.0), dict(DEFAULTS), LeagueStore(tmp))
+
+            def entry(idx):
+                return {"car_idx": idx, "class_key": "c", "time": None, "finished": False, "in_world": True, "on_pit": False}
+
+            def rows(laps):
+                return [{"car_idx": i, "lap": int(p), "pct": p - int(p)} for i, p in laps.items()]
+
+            # Three cars racing: 1 leads 2 leads 3.
+            out = app._keep_left(2, [entry(1), entry(2), entry(3)], rows({1: 5.5, 2: 5.2, 3: 4.9}), True)
+            self.assertEqual([e["car_idx"] for e in out], [1, 2, 3])
+            # Car 2 leaves (gone from the list): it stays where it last was, marked.
+            out = app._keep_left(2, [entry(1), entry(3)], rows({1: 5.8, 3: 5.1}), True)
+            self.assertEqual([(e["car_idx"], e.get("left", False)) for e in out], [(1, False), (2, True), (3, False)])
+            # Car 3 gets further round than car 2 got: it goes ahead of it.
+            out = app._keep_left(2, [entry(1), entry(3)], rows({1: 6.4, 3: 5.4}), True)
+            self.assertEqual([e["car_idx"] for e in out], [1, 3, 2])
+            # Another iRacing event: nobody's kept from the last one.
+            app._new_event()
+            self.assertEqual([e["car_idx"] for e in app._keep_left(2, [entry(1)], rows({1: 1.1}), True)], [1])
+
+    def test_another_event_forgets_the_last_ones_chequered_flag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = App(MockSource(seed=4, clock=lambda: 0.0), dict(DEFAULTS), LeagueStore(tmp))
+            app._load_session_info({"WeekendInfo": {"SubSessionID": 111}}, None)
+            app._chequered, app._green = {2: 1500.0}, {2: 30.0}
+            app._load_session_info({"WeekendInfo": {"SubSessionID": 111}}, None)  # the same event, info updated
+            self.assertEqual(app._chequered, {2: 1500.0})
+            # The next race of the night (its race is session 2 too): its flag
+            # mustn't come out 1500 s in.
+            app._load_session_info({"WeekendInfo": {"SubSessionID": 222}}, None)
+            self.assertEqual((app._chequered, app._green), ({}, {}))
+
+    def test_a_driver_who_leaves_stays_listed(self):
+        import copy
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            source = MockSource(seed=4, clock=lambda: clock["t"])
+            app = App(source, dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(50):
+                clock["t"] += 0.1
+                app.tick()
+            _, info = source.session_info()
+            gone = info["DriverInfo"]["Drivers"][1]
+            less = copy.deepcopy(info)
+            less["DriverInfo"]["Drivers"] = [d for d in less["DriverInfo"]["Drivers"] if d is not None and d.get("CarIdx") != gone["CarIdx"]]
+            app._load_session_info(less, app._frame)
+            rows = {r["car_idx"]: r for r in app.build_snapshot()["drivers"]}
+            self.assertTrue(rows[gone["CarIdx"]]["left"])
+            self.assertFalse(any(r["left"] for i, r in rows.items() if i != gone["CarIdx"]))
+            # Back again: no longer marked.
+            app._load_session_info(info, app._frame)
+            self.assertFalse(app.build_snapshot()["drivers"][0]["left"])

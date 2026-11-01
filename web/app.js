@@ -53,7 +53,7 @@ const ui = {
 const SETTINGS_KEY = "apex.timing";
 const settings = Object.assign(
   { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null, actionKeys: {},
-    nameFormat: "full", showNick: true },
+    nameFormat: "full", showNick: true, keepLeft: true },
   (() => {
     try {
       return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
@@ -328,7 +328,9 @@ function isRace(s) {
 
 // Rows in the current view (all classes, or one), with gaps worked out for it.
 function standingsView(s) {
-  const rows = (s.drivers || []).filter((r) => ui.classFilter === "all" || r.class_key === ui.classFilter);
+  // Drivers who've left the event: listed (marked LEFT) unless that's turned off.
+  const rows = (s.drivers || []).filter((r) => (ui.classFilter === "all" || r.class_key === ui.classFilter)
+    && (settings.keepLeft || !r.left));
   const race = isRace(s);
   const fastest = Math.min(...rows.map((r) => r.best_lap || Infinity));
   const leaderGap = rows.length ? rows[0].gap : null;
@@ -411,7 +413,8 @@ function renderStandings(s) {
     } else if (r.best_lap && isFinite(v.fastest)) {
       gap = v.fastestLap ? "Fastest" : fmtDelta(r.best_lap - v.fastest);
     }
-    const status = !r.in_world ? '<span class="tag out">OUT</span>'
+    const status = r.left ? '<span class="tag out" title="Left the session">LEFT</span>'
+      : !r.in_world ? '<span class="tag out">OUT</span>'
       : r.on_pit ? '<span class="tag pit">PIT</span>'
       : r.surface === "off_track" ? '<span class="tag off">OFF</span>' : "";
     const watching = s.camera.car_idx === r.car_idx;
@@ -768,6 +771,12 @@ $("#battle-gap").addEventListener("change", (e) => {
 });
 $("#timing-names").value = settings.nameFormat;
 $("#timing-nick").checked = settings.showNick;
+$("#timing-left").checked = settings.keepLeft;
+$("#timing-left").addEventListener("change", (e) => {
+  settings.keepLeft = e.target.checked;
+  saveSettings();
+  if (ui.snap) renderStandings(ui.snap);
+});
 $("#timing-names").addEventListener("change", (e) => {
   settings.nameFormat = e.target.value;
   saveSettings();
@@ -1469,6 +1478,8 @@ function renderChampRounds() {
         ${lengthField(rd, i)}
         <label class="field" title="Points multiplier: 1 for normal points, 2 for double points, and so on">Points ×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
         <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
+        ${rd.event ? `<label class="field" title="This race's grid has its first N turned round (the starting grid board shows it so)"><input type="checkbox" data-round="${i}" data-rkey="reverse_grid" ${rd.reverse_grid ? "checked" : ""}> Reverse grid</label>
+        ${rd.reverse_grid ? `<label class="field" title="How many from the front are turned round">Top<input type="number" class="narrow" min="0" max="60" step="1" data-round="${i}" data-rkey="reverse_top" value="${rd.reverse_top || 0}"></label>` : ""}` : ""}
         ${c.rules.custom_schemes && (c.rules.schemes || []).length ? `<label class="field" title="The points system this round is scored with">Points
           <select data-round="${i}" data-rkey="scheme"><option value="">Usual points</option>${c.rules.schemes.map((sc) =>
             `<option value="${esc(sc.id)}" ${rd.scheme === sc.id ? "selected" : ""}>${esc(sc.name || "Unnamed")}</option>`).join("")}</select></label>` : ""}
@@ -2264,6 +2275,7 @@ const OVERLAY_FIELDS = {
     ["Header", [
       ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
         ["time", "Time left"], ["none", "Nothing"]]],
+      ["replay_header", "Watching a replay: REPLAY in the header, on the accent colour", "bool"],
       ["show_series", "Series name (the league's name)", "bool"],
       ["show_track", "Track name", "bool"],
       ["title_race", "Race name (blank = RACE)", "text"],
@@ -2306,12 +2318,14 @@ const OVERLAY_FIELDS = {
         ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"]]],
       ["screen_column_order", "Column order on the full screen", "order", [["laps", "Laps"], ["gap", "Gap"], ["interval", "Interval"],
         ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"]]],
+      ["screen_keep_left", "Full screen: keep drivers who leave the session in the list (where they were, marked OUT)", "bool"],
       ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["logo", "Team logo"], ["name", "Driver"], ["team", "Team name"],
         ["pos_change", "+/−"], ["laps", "Laps"], ["pits", "Pit stops"], ["last_lap", "Last lap"], ["best_lap", "Best lap"], ["gap", "Gap"],
         ["interval", "Interval"]]),
     ]],
     ["Drivers", [
       ["name_format", "Names", "select", NAME_FORMATS],
+      ["finish_flag", "Chequered flag by each driver as they finish the race (a waving flag on a tab at the tower's right edge)", "bool"],
       ["show_number", "Car numbers", "bool"],
       iff((v) => v.show_number, ["color_number", "Car number background, in the driver's class colour (off: just the number)", "bool"]),
       ["class_colors", "Car number background colour from", "select", [["main", "The driver's main class"],
@@ -2328,7 +2342,6 @@ const OVERLAY_FIELDS = {
     ]],
     ["Fastest lap", [
       ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
-      ["finish_flag", "Chequered flag by each driver as they finish the race (waving)", "bool"],
       ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
       iff((v) => v.fl_flash, ["fl_flash_s", "Flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }]),
       iff((v) => v.fl_flash, ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"]),
@@ -2906,9 +2919,10 @@ const BOARD_FIELDS = {
     ["show_interval", "Interval to the car ahead", "bool"], ["show_laps", "Laps", "bool"],
     ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
       ["car", "Car badge"], ["laps", "Laps"], ["best", "Best lap"], ["gap", "Gap"], ["interval", "Interval"]])],
-  board_grid: [["grid_from", "The grid from", "select", [["qualifying", "Qualifying (its order)"], ["previous", "The previous race's finish"],
+  board_grid: [["grid_source", "The grid from", "select", [["auto", "Automatic (heats from qualifying, the consolation from the heat before it, the feature from the consolation)"],
+      ["qualifying", "Qualifying (its order)"], ["previous", "The previous race's finish"],
       ["gridwalk", "The grid walk's order (as set by hand on the Grid walk tab)"]]],
-    ["reverse_top", "Reverse grid: the first N turned round (0 = none)", "number", { min: 0, max: 64 }],
+    ["reverse_top", "Reverse grid: the first N turned round (0 = none; a race meeting's round can set its own)", "number", { min: 0, max: 64 }],
     iff((v) => v.reverse_top > 0, ["reverse_in_class", "Reverse the first N of each class (not overall)", "bool"]),
     ["grid_layout", "Layout", "select", [["list", "A list"], ["grid", "As the cars line up (two staggered columns)"]]],
     ["grid_reveal", "Show the drivers", "select", [["all", "All at once (each comes in in turn)"],

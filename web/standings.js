@@ -76,7 +76,7 @@ let goAt = -1e9;
 
 // The header's flag animation, if one is running: green at the start,
 // chequered at the finish (only if this page saw it happen).
-function goFlash(ov) {
+function goFlash(ov, replay = false) {
   const race = ov.session_kind === "race";
   const since = ov.since_green;
   if (race && since != null && since >= 0 && since * 1000 < GO_FLASH_MS * GO_FLASHES) {
@@ -86,6 +86,10 @@ function goFlash(ov) {
   // the time since the flag came out.
   const fin = ov.since_chequered;
   if (race && fin != null && fin >= 0) return ` chequered" style="--go-delay:-${Math.round(fin * 1000)}ms`;
+  // The last lap (FINAL LAP, or LAST LAP once a timed race's clock has run
+  // out): the header goes white, until the chequered flag takes over.
+  const pr = ov.progress;
+  if (race && !replay && pr && !pr.finished && (pr.time_up || (pr.laps_total && pr.lap >= pr.laps_total))) return " final-lap";
   const style = ongoing(goAt, GO_FLASH_MS * GO_FLASHES);
   return style ? ` go" style="--go-delay:${style.split(":")[1]}` : "";
 }
@@ -134,6 +138,21 @@ function placeFinishTabs(entries, cfg) {
       tab.innerHTML = `<span class="fin-flag">${FINISH_FLAG}</span>`;
       finTabs.set(key, tab);
       finRail.appendChild(tab);
+    }
+    // The tower's redraws take the rail out and put it back, which starts
+    // its animations again: the slide-out and pop carry on from where they
+    // are (by the time since the finish), then come off, so a flag is
+    // only brought in once rather than flashing in at every redraw.
+    if (tab.classList.contains("in")) {
+      const t = Math.round(performance.now() - (finishers.get(e.car_idx) ?? -1e9));
+      const flag = tab.querySelector(".fin-flag");
+      if (t > 1300) {
+        tab.classList.remove("in");
+        tab.style.animationDelay = flag.style.animationDelay = "";
+      } else {
+        tab.style.animationDelay = `-${t}ms`;
+        flag.style.animationDelay = `${350 - t}ms`;
+      }
     }
     tab.style.top = `${top}px`;
     tab.style.height = `${row.offsetHeight}px`;
@@ -395,6 +414,33 @@ function setAccent(cfg, ov) {
   else document.body.style.removeProperty("--head-accent");
 }
 
+// The header's accent colour as it stands (the one picked, else the usual orange).
+function accentColor() {
+  return getComputedStyle(document.body).getPropertyValue("--head-accent").trim()
+    || getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#ff7a1a";
+}
+
+// Text that reads on a colour: near-black on a light one, white on a dark one.
+function inkOn(color) {
+  let rgb = null;
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
+  if (hex) {
+    const h = hex[1].length === 3 ? hex[1].replace(/./g, "$&$&") : hex[1];
+    rgb = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  } else {
+    const m = String(color).match(/\d+(\.\d+)?/g);
+    if (m && m.length >= 3) rgb = m.slice(0, 3).map(Number);
+  }
+  if (!rgb) return "#111317";
+  const lin = rgb.map((c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  const lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  // Whichever of black or white stands out more against it.
+  return (lum + 0.05) / 0.05 > 1.05 / (lum + 0.05) ? "#111317" : "#ffffff";
+}
+
 // The sponsor bar under the tower's header: one logo, several taking turns.
 // It's one element kept from redraw to redraw (placeSponsor), so the logo
 // only changes, with a fade, when it's the next one's turn.
@@ -491,7 +537,9 @@ function render() {
       ? `<div class="block">${rows(top)}${tail.length ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div><div class="extra"${dim}>${rows(tail)}</div>` : ""}</div>` : "";
   }
   const session = snap.session || {};
-  const title = sessionTitle(snap, ov);
+  // Watching a replay (not live): REPLAY in the header, on the accent colour.
+  const replay = cfg.replay_header !== false && !!snap.replay && snap.replay.live === false;
+  const title = replay ? "REPLAY" : sessionTitle(snap, ov);
   const sub = headerSub(snap, cfg, false);
   const progress = progressText(ov);
   const sponsor = sponsorLogo(snap, cfg);
@@ -500,7 +548,8 @@ function render() {
   const visible = snap.connected && cfg.visible && (entries.length > 0 || cfg.reveal);
   // The header (with the column labels) is one panel; the drivers follow it,
   // joined on (overall) or as a separate panel per class, evenly spaced.
-  const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head${goFlash(ov)}"><div class="head-text">
+  if (replay) tower.style.setProperty("--replay-ink", inkOn(accentColor()));
+  const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head${replay ? " replay" : ""}${goFlash(ov, replay)}"><div class="head-text">
       <div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
       ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}
     </div></div>${sponsor ? '<div class="tower-sponsor-slot"></div>' : ""}${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
@@ -604,7 +653,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   };
   cells.push(...screenColumns(cfg, race, compact).map((k) => cell[k]().replace("<td", `<td data-opcol="${k}"`)));
   const moved = moveOf(e.car_idx);
-  return `<tr class="${e.car_idx === camIdx ? "cam" : ""} ${moved ? moved.cls : ""}" data-key="${e.car_idx}" style="${moved ? moved.style : ""}">${cells.join("")}</tr>`;
+  return `<tr class="${e.car_idx === camIdx ? "cam" : ""} ${e.left ? "left" : ""} ${moved ? moved.cls : ""}" data-key="${e.car_idx}" style="${moved ? moved.style : ""}">${cells.join("")}</tr>`;
 }
 
 // The full screen's columns after the driver and team, in the order picked
@@ -646,7 +695,8 @@ function renderScreen(snap, ov) {
   const cfg = ov.settings.standings;
   const race = ov.session_kind === "race";
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
-  const entries = ov.standings;
+  // With those who've left the session, if it keeps them (screen_keep_left).
+  const entries = ov.screen_standings || ov.standings;
   const multiclass = new Set(entries.map((e) => e.class_key)).size > 1;
   const classMode = cfg.mode === "class";
   const camIdx = snap.camera && snap.camera.car_idx;

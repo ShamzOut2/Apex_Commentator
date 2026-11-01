@@ -225,6 +225,8 @@ class App:
         self._fl_records = {}      # "overall" / class key -> fastest lap so far,
         self._fl_flash = None      # and the newest one, for the flash on stream
         self._logged_until = {}    # session num -> race time logged so far
+        self._seen_in = {}         # session num -> car_idx -> (place, standings entry): the full-screen timing's leavers
+        self._gone = {}            # car_idx -> driver: drivers who've left the event (gone from iRacing's list)
         self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
         self._header_mode = "laps" # what the tower's header last showed: "laps", "time" or "none"
@@ -359,8 +361,27 @@ class App:
 
     # -- session info -------------------------------------------------------
 
+    def _new_event(self):
+        """Forget the timing of the last iRacing event (see _load_session_info)."""
+        self._green, self._chequered, self._last_state, self._logged_until, self._seen_in = {}, {}, {}, {}, {}
+        self._drivers, self._gone = {}, {}  # the last event's drivers aren't this one's leavers
+        self._race = RaceProgress()
+        self._fl_session, self._fl_records, self._fl_flash = None, {}, None
+        self._laps_t = self._laps_num = None
+        self.laps.reset()
+        self.pits.reset()
+        self.gaps.reset()
+        self.detector.reset()
+
     def _load_session_info(self, info, frame):
         weekend = info.get("WeekendInfo") or {}
+        # Another iRacing event (a new subsession: the next race of the night,
+        # say): what was kept about the last one goes, or its race's session
+        # number (usually the same) would carry it over: its chequered flag
+        # would come out in this race once the clock passed the time it did there.
+        sub, was = weekend.get("SubSessionID"), self._session_meta.get("subsession")
+        if sub is not None and was is not None and sub != was:
+            self._new_event()
         self._track_m = parse_track_length(weekend.get("TrackLength"))
         self.gaps.set_track(self._track_m)
         self.tracks.remember(weekend.get("TrackID"), weekend.get("TrackDisplayName", ""), weekend.get("TrackConfigName", ""))
@@ -405,6 +426,12 @@ class App:
                 "car_design": parse_design(d.get("CarDesignStr")),
                 "helmet_design": parse_design(d.get("HelmetDesignStr")),
             }
+        # Drivers who've left (no longer in iRacing's list), kept for this event.
+        for idx, d in self._drivers.items():
+            if idx not in drivers:
+                self._gone[idx] = d
+        for idx in drivers:
+            self._gone.pop(idx, None)
         self._drivers = drivers
         official = {i: p for i, p in enumerate(frame.position) if i in drivers} if frame else None
         self._grid_order, self._grid_source = grid_order(drivers, info, official)
@@ -497,7 +524,9 @@ class App:
             classes = {}
             active_league = self.leagues.active()
             rows = []
-            for idx, d in self._drivers.items():
+            # Drivers who've left the event (gone from iRacing's list) stay
+            # in it, marked: the Timing Screen can keep them listed.
+            for idx, d in {**self._gone, **self._drivers}.items():
                 lap = _at(frame.lap, idx, -1)
                 pct = _at(frame.pct, idx, -1.0)
                 surface = _at(frame.surface, idx, TRK_NOT_IN_WORLD)
@@ -526,7 +555,12 @@ class App:
                     "best_lap": _lap_time(_at(frame.best_lap, idx)),
                     "event_count": counts.get(idx, 0),
                     "pit_stops": pit_stops.get(idx, 0),
-                    **car_flags(_at(frame.car_flags, idx, 0) | (frame.session_flags & CAUTION_FLAGS)),
+                    # iRacing's chequered flag comes and goes (it's waved): the
+                    # chequered flag here is the app's own, steady from when
+                    # the car crossed the line after the flag.
+                    **car_flags((_at(frame.car_flags, idx, 0) | (frame.session_flags & CAUTION_FLAGS)) & ~FLAG_CHECKERED
+                                | (FLAG_CHECKERED if self._race.checkered and idx in self._race.finished else 0)),
+                    "left": idx in self._gone and idx not in self._drivers,
                     "last_event_id": last_event.get(idx),
                     "progress": (lap + pct) if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1,
                 })
@@ -976,8 +1010,16 @@ class App:
             timed.sort(key=lambda x: x[0])
             for best, r in timed + untimed:
                 standings.append(dict(entries[r["car_idx"]], time=best, pos_change=None))
+        # The full-screen timing can keep drivers who've left the session in
+        # its list, where they last were ("screen_keep_left").
+        screen = self._keep_left(frame.timeline()[0], standings, rows, is_race) if settings["standings"]["screen_keep_left"] else None
         _rank(standings, is_race)
         flash = self._fastest_laps(standings, is_race, settings["standings"], frame)
+        if screen is not None:
+            _rank(screen, is_race)
+            marks = {e["car_idx"]: (e["fastest"], e["class_fastest"]) for e in standings}
+            for e in screen:
+                e["fastest"], e["class_fastest"] = marks.get(e["car_idx"], (False, False))
         # The lap tracker: qualifying only (or practice, if asked).
         lap_cfg = settings["laps"]
         active = "qualify" in kind or (lap_cfg["practice"] and "practice" in kind)
@@ -1014,6 +1056,7 @@ class App:
             if is_race and frame.timeline()[0] in self._chequered else None,
             "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
+            "screen_standings": screen,  # the full-screen timing's, with those who left (None: as the tower's)
             "fastest_flash": flash,
             # The driver on camera, for the "who's this" board (driver.html).
             "driver": self._camera_driver(frame, rows, entries, is_race, self._camera_picks),
@@ -1024,6 +1067,36 @@ class App:
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
                      "all": sorted(everyone, key=lambda x: (x["pos"] or 10_000, x["name"].lower()))},
         }
+
+    def _keep_left(self, num, standings, rows, is_race):
+        """The standings (unranked, copies) with the drivers seen in them this
+        session who've since left (gone from iRacing's list, or no longer
+        placed) put back where they last were: in a race by how far round
+        they'd got (the rest pass them as they go on), otherwise by their best
+        lap. Marked ``left``, with no gap."""
+        seen = self._seen_in.setdefault(num, {})
+        where = {r["car_idx"]: r["lap"] + r["pct"] for r in rows if r["lap"] is not None and r["pct"] is not None}
+
+        def key(e):
+            if not is_race:
+                return e["time"] if e["time"] is not None else 1e9
+            idx = e["car_idx"]
+            return -where[idx] if idx in where else (seen[idx][0] if idx in seen else 1.0)
+
+        out = []
+        for e in standings:
+            k = key(e)
+            seen[e["car_idx"]] = (k, dict(e))
+            out.append((k, dict(e)))
+        here = {e["car_idx"] for e in standings}
+        for idx, (k, e) in sorted(seen.items(), key=lambda kv: kv[1][0]):
+            if idx in here:
+                continue
+            gone = dict(e, left=True, in_world=False, on_pit=False, finished=False, time=None if is_race else e["time"])
+            # In before the first one who's behind it.
+            at = next((i for i, (k2, _) in enumerate(out) if k2 > k), len(out))
+            out.insert(at, (k, gone))
+        return [e for _, e in out]
 
     @staticmethod
     def _camera_driver(frame, rows, entries, is_race, picks=0):
@@ -1975,7 +2048,14 @@ class App:
                         or (n == cur and frame.session_state < STATE_CHECKERED)), races[-1])
         drivers = self._drivers
         qual = [i for i in self._qual_order if i in drivers]
-        how = cfg["grid_from"]
+        session = sessions.get(num, {}) if num is not None else {}
+        kind = heats.race_kind(session)
+        how = cfg["grid_source"]
+        if how == "auto":
+            # A race meeting: the heats from qualifying, the consolation from
+            # the heat before it, the feature from the consolation (the race
+            # before each); any other race from qualifying.
+            how = "previous" if kind in ("consolation", "feature") else "qualifying"
         order, note = qual, "qualifying"
         prev = max((n for n in races if num is not None and n < num), default=None)
         finish = {}
@@ -2009,8 +2089,12 @@ class App:
                 "make": (entry or {}).get("car_make") or d.get("make", ""),
                 "qual_time": self._qual_times.get(idx), "from": finish.get(idx),
             })
-        # Reverse grid: the top N turned round, overall or in each class.
+        # Reverse grid: the top N turned round, overall or in each class. A
+        # race meeting's round can say so itself (its Reverse grid box).
         n = cfg["reverse_top"]
+        matched = self._meeting(league).get(num) if num is not None else None
+        if matched and matched[1].get("reverse_grid"):
+            n = matched[1].get("reverse_top") or 0
         if n > 0:
             if cfg["reverse_in_class"]:
                 for key in dict.fromkeys(e["class_id"] for e in entries):
@@ -2020,9 +2104,25 @@ class App:
                         entries[i] = e
             else:
                 entries[:n] = entries[:n][::-1]
-        session = sessions.get(num, {}) if num is not None else {}
-        return {"name": str(session.get("SessionName") or session.get("SessionType") or "Race"), "rows": entries,
-                "from": note, "session": num}
+        return {"name": self._race_title(league, num, session), "rows": entries, "from": note, "session": num,
+                "reversed": n}
+
+    def _race_title(self, league, num, session):
+        """A race's name as the tower's header gives it: its league round's
+        name (a race meeting's race), else the name set for heats / the
+        consolation / the feature / races (Overlays tab: the tower), else
+        iRacing's ("Heat 1")."""
+        title = self._round_title(league, num) if num is not None else ""
+        if title:
+            return title
+        cfg = self.overlays.get()["standings"]
+        name = str(session.get("SessionName") or session.get("SessionType") or "Race").strip()
+        kind = heats.race_kind(session)
+        own = str(cfg.get(f"title_{kind}") or "").strip() if kind else ""
+        if own:
+            number = re.search(r"\d+", name) if kind in heats.HEAT_KINDS else None
+            return f"{own} {number.group()}" if number and not re.search(r"\d", own) else own
+        return name.title()
 
     def _session_board(self, league, source, rows):
         """A session of the event as a finishing order (boards.build): the one
