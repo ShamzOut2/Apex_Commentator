@@ -539,7 +539,7 @@ function render() {
   const session = snap.session || {};
   // Watching a replay (not live): REPLAY in the header, on the accent colour.
   const replay = cfg.replay_header !== false && !!snap.replay && snap.replay.live === false;
-  const title = replay ? "REPLAY" : sessionTitle(snap, ov);
+  const title = sessionTitle(snap, ov);
   const sub = headerSub(snap, cfg, false);
   const progress = progressText(ov);
   const sponsor = sponsorLogo(snap, cfg);
@@ -549,9 +549,11 @@ function render() {
   // The header (with the column labels) is one panel; the drivers follow it,
   // joined on (overall) or as a separate panel per class, evenly spaced.
   if (replay) tower.style.setProperty("--replay-ink", inkOn(accentColor()));
-  const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head${replay ? " replay" : ""}${goFlash(ov, replay)}"><div class="head-text">
-      <div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
-      ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}
+  const html = `<div class="head-box ${body ? "" : "alone"}"><div class="tower-head${replay ? " replay" : ""}${goFlash(ov, replay)}"><div class="head-text">${replay
+      // A replay: just REPLAY, in the middle.
+      ? '<div class="h1"><span class="t1">REPLAY</span></div>'
+      : `<div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
+      ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}`}
     </div></div>${sponsor ? '<div class="tower-sponsor-slot"></div>' : ""}${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
   tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("wrap-title", !!cfg.title_wrap);

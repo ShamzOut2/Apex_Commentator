@@ -185,6 +185,10 @@ body.screen .fl-flash { top: 14px; }
 .tower-head.replay { background: var(--head-accent, var(--accent)); color: var(--replay-ink, #111317); text-shadow: none; }
 .tower-head.replay .t2, .tower-head.replay .t3 { color: var(--replay-ink, #111317); }
 .tower-head.replay .t2 { opacity: .85; }
+/* Just REPLAY, in the middle, the header keeping its usual height. */
+.tower-head.replay .head-text { min-height: var(--head-h, 44px); justify-content: center; }
+.tower-head.replay .h1 { justify-content: center; }
+.tower-head.replay .t1 { text-align: center; }
 
 /* The chequered flag: from the moment it's out, the header is a
    black-and-white chequered flag. It flashes in a few times with a light

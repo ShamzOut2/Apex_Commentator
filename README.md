@@ -55,8 +55,8 @@ control, Timing Screen, Grid walk, Overlays and Boards.
   are turned round; the starting grid board follows it.
 - Timing tower: the header turns white on the final lap (or LAST LAP), then
   into the chequered flag at the finish.
-- Timing tower: watching a replay, the header says REPLAY on the accent
-  colour (the rest of its text stays readable).
+- Timing tower: watching a replay, the header is just REPLAY, in the
+  middle, on the accent colour.
 - Drivers who leave the session can stay listed: on the Timing Screen
   (marked LEFT) and on the full-screen standings (where they were).
 
@@ -422,7 +422,7 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     (the next race of the night, say) starts afresh: the last one's flag
     never carries over into it.
   - **Replay**: while you're watching a replay (not live), the tower's
-    header says REPLAY on the accent colour, its other text in black or
+    header is just REPLAY, in the middle, on the accent colour, in black or
     white, whichever reads on that colour (*Watching a replay* in the
     Header settings turns it off).
   - **Last lap**: on the final lap (FINAL LAP, or LAST LAP once a timed
