@@ -1241,7 +1241,7 @@ function renderChampStandings() {
   const anyPen = st.groups.some((g) => g.drivers.some((d) => d.penalty_points));
   // Class and overall championships: each table says which points it adds up.
   const rules = (ui.editing && champData().rules) || {};
-  const both = rules.scoring === "both" || rules.scoring === "sum";
+  const both = ["both", "sum", "overall_class"].includes(rules.scoring);
   const teamPen = st.teams.some((t) => t.penalty_points);
   const teamBasis = both ? ` <span class="hint">${(rules.team_points || "overall") === "class" ? "Drivers' class points" : "Drivers' overall points"}</span>` : "";
   const help = rules.scoring === "both"
@@ -1532,6 +1532,7 @@ const SCORING_HELP = {
   overall: "One championship for everyone, scored on overall finishing positions with the overall points.",
   both: "Every race scores twice, each with its own points: a driver's class position in their class's championship (class points) and their overall position in the overall championship (overall points). Each has its own table and board.",
   sum: "Each driver scores once a race: the class points for their class position plus the overall points for their overall position, added up. Each class's table and the overall table rank those totals.",
+  overall_class: "Each driver scores the overall points for their overall position, and those same points count in their class's championship: each class's table ranks its drivers on their overall points.",
 };
 
 // A points table for any class that scores differently (empty = the class points above).
@@ -1586,7 +1587,8 @@ function renderChampRules() {
           <input data-rule="overall_points" value="${esc(overallPts.join(", "))}"></label>` : ""}
       </div>
       ${hasClass && hasOverall ? `<label class="ov-field">Class and overall points count
-        <select data-rule="scoring">${[["both", "As two separate championships"], ["sum", "Added together into one total"]].map(([v, l]) =>
+        <select data-rule="scoring">${[["both", "As two separate championships"], ["sum", "Added together into one total"],
+          ["overall_class", "Overall points count as class points"]].map(([v, l]) =>
           `<option value="${v}" ${scoring === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
       <p class="hint">${esc(SCORING_HELP[scoring])}</p>
     </div>
@@ -1641,7 +1643,7 @@ function champChange(e, final) {
     }
     // A new overall championship starts from the class points, as its own copy.
     if (want.overall && !(r.overall_points || []).length) r.overall_points = [...(r.points || [])];
-    r.scoring = want.class && want.overall ? (scoring === "sum" ? "sum" : "both") : want.class ? "class" : "overall";
+    r.scoring = want.class && want.overall ? (["sum", "overall_class"].includes(scoring) ? scoring : "both") : want.class ? "class" : "overall";
     rerender = true;
   } else if (d.rule) {
     const r = c.rules;

@@ -132,6 +132,17 @@ class ScoringTests(unittest.TestCase):
         p["championship"]["rules"]["team_points"] = "class"
         self.assertEqual({t["team"]: t["points"] for t in ch.standings(p)["teams"]}, {"Red": 31, "Blue": 33})
 
+    def test_overall_points_count_as_class_points(self):
+        classes = [{"id": "pro", "name": "PRO"}, {"id": "am", "name": "AM"}]
+        rules = {"scoring": "overall_class", "points": [10, 6], "overall_points": [20, 15, 10, 5], "classified_pct": 0}
+        rounds = [{"id": "r1", "results": [res("a", 1, "pro"), res("b", 2, "am"), res("c", 3, "pro"), res("d", 4, "am")]}]
+        st = ch.standings(profile(rules, rounds, classes=classes))
+        tables = {g["name"]: {d["driver"]: d["points"] for d in g["drivers"]} for g in st["groups"]}
+        self.assertEqual(tables["Overall"], {"a": 20, "b": 15, "c": 10, "d": 5})
+        self.assertEqual(tables["PRO"], {"a": 20, "c": 10})  # their overall points, not class points (10, 6)
+        self.assertEqual(tables["AM"], {"b": 15, "d": 5})
+        self.assertIn("Overall points", next(g for g in st["groups"] if g["name"] == "PRO")["basis"])
+
     def test_secondary_class_has_its_own_championship(self):
         classes = [{"id": "pro", "name": "Pro"}, {"id": "am", "name": "Am"},
                    {"id": "rookie", "name": "Rookie Cup", "role": "secondary"}]

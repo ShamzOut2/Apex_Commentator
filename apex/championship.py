@@ -49,7 +49,7 @@ BONUSES = (
 )
 BONUS_KEYS = tuple(k for k, _ in BONUSES)
 STATUSES = ("finished", "dnf", "dsq", "dns")
-SCORING = ("class", "overall", "both", "sum")
+SCORING = ("class", "overall", "both", "sum", "overall_class")
 SECONDARY_SCORING = ("own", "class", "overall")
 OVERALL = "overall"  # the key of the overall championship
 
@@ -60,6 +60,8 @@ DEFAULT_RULES = {
     "scoring": "class",         # "class": a championship per class; "overall": one for everyone;
                                 # "both": a championship per class and one overall, scored separately
                                 # "sum": class points + overall points, one total
+                                # "overall_class": overall points (by overall position) count in the
+                                #   class tables too: each class ranks its drivers on their overall points
     "overall_points": [],       # "both"/"sum": points for overall positions ([] = same as "points")
     "class_points": {},         # a class's own points table, by class id (else "points")
     "secondary_scoring": {},    # a secondary class's points: "own" (default), "class" or "overall", by class id
@@ -227,7 +229,7 @@ def _group_keys(result, rules, second=None):
     both; and its driver's secondary class's (``second``: {driver: class id})."""
     if rules["scoring"] == "overall":
         keys = [OVERALL]
-    elif rules["scoring"] in ("both", "sum"):
+    elif rules["scoring"] in ("both", "sum", "overall_class"):
         keys = [result["class_id"], OVERALL]
     else:
         keys = [result["class_id"]]
@@ -297,6 +299,8 @@ def score_round(rd, rules, second=None):
            for key, results in groups.items()}
     if added and OVERALL in out:
         _add_overall(out, rd, rules)
+    if rules["scoring"] == "overall_class" and OVERALL in out:
+        _overall_as_class(out, rd)
     _secondary_points(out, rd, rules, second, distance)
     return out
 
@@ -319,6 +323,19 @@ def _secondary_points(scores, rd, rules, second, distance):
             if source:
                 own[r["driver"]] = dict(entry, **{k: source[k] for k in ("position", "qualifying", "bonus", "adjust", "total")
                                                   if k in source}, from_group=OVERALL if how == "overall" else r["class_id"])
+
+
+def _overall_as_class(scores, rd):
+    """Overall points are class points: each driver's class score is what
+    they scored overall (their overall position's points, bonuses and all);
+    their place in the class (wins, countback) stays their class finish."""
+    overall = scores[OVERALL]
+    for r in rd["results"]:
+        d = r["driver"]
+        mine, ov = scores.get(r["class_id"], {}).get(d), overall.get(d)
+        if mine and ov:
+            scores[r["class_id"]][d] = dict(mine, **{k: ov[k] for k in ("position", "qualifying", "bonus", "adjust", "total") if k in ov},
+                                            from_group=OVERALL)
 
 
 def _add_overall(scores, rd, rules):
@@ -519,6 +536,8 @@ def _basis(key, secondary, rules):
         if key == OVERALL:
             return f"Class points + overall points ({overall})"
         return f"Class points ({_points_text(_points_table(key, rules))}) + overall points ({overall})"
+    if rules["scoring"] == "overall_class" and key != OVERALL:
+        return f"Overall points, by overall position: {_points_text(_points_table(OVERALL, rules))}"
     basis = "overall positions" if key == OVERALL else "class positions"
     return f"Scored on {basis}: {_points_text(_points_table(key, rules))}"
 
