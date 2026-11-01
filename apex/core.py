@@ -227,6 +227,7 @@ class App:
         self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
         self._header_mode = "laps" # what the tower's header last showed: "laps", "time" or "none"
+        self._laps_t = self._laps_num = None  # the timeline last fed to the lap tracker
         self._put_away = None      # what the all:toggle hotkey took off screen, to bring back
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
         self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
@@ -306,6 +307,13 @@ class App:
         replay seeking uses.
         """
         num, t = frame.timeline()
+        # The lap tracker times whatever's on screen: live, or a replay of
+        # time already seen (it starts again by itself when the replay
+        # jumps), every time the picture moves on.
+        if t != self._laps_t or num != self._laps_num:
+            self._laps_t, self._laps_num = t, num
+            self.laps.green_s = self.overlays.get()["laps"]["green_s"]
+            self.laps.update(replace(frame, session_num=num, session_time=t), self._lap_class)
         logged = self._logged_until.get(num, -1.0)
         if t < logged - 1e-3:
             self.detection = "paused"  # watching something already logged
@@ -329,8 +337,6 @@ class App:
             # Gap timing: race time not timed yet (live, or a replay of a part
             # the app didn't see); a replay of time already timed reads it back.
             self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
-        self.laps.green_s = self.overlays.get()["laps"]["green_s"]
-        self.laps.update(timeline_frame, self._lap_class)
         # Pit stops (the pit stop overlay): on pit road, in the pit box.
         self.pits.update(num, t, [(idx, bool(_at(frame.on_pit, idx, False)),
                                    _at(frame.surface, idx, TRK_NOT_IN_WORLD) == TRK_IN_PIT_STALL,
