@@ -381,6 +381,32 @@ class SessionResultsBoardTests(unittest.TestCase):
             self.assertIsNotNone(board["rows"][0]["points"])
 
 
+class FinishingGapTests(unittest.TestCase):
+    def test_gaps_when_the_winner_has_none(self):
+        """No gap with the winner (no race times yet, an earlier heat, a replay):
+        the others' gaps still show, measured from them."""
+        rows = [{"rank": 1, "status": "finished", "laps": 10, "gap": None},
+                {"rank": 2, "status": "finished", "laps": 10, "gap": 1.5},
+                {"rank": 3, "status": "finished", "laps": 10, "gap": 4.0},
+                {"rank": 4, "status": "finished", "laps": 9, "gap": None}]
+        boards._gaps(rows)
+        self.assertEqual([(r["gap"], r["interval"], r["gap_laps"]) for r in rows],
+                         [(None, None, None), (1.5, 1.5, None), (4.0, 2.5, None), (None, None, 1)])
+        self.assertTrue(rows[0]["winner"])
+
+    def test_an_earlier_race_without_race_times_uses_the_apps_own(self):
+        import tempfile
+
+        from tests.test_app import make_app
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=0.2)
+            cars = list(app._drivers)[:3]
+            app._finish_gaps[7] = {cars[0]: 0.0, cars[1]: 2.25, cars[2]: 9.5}
+            rows = app._finished_rows({"SessionNum": 7, "ResultsPositions": [
+                {"Position": i, "CarIdx": c, "LapsComplete": 12} for i, c in enumerate(cars, start=1)]})
+            self.assertEqual([r["gap"] for r in rows], [0.0, 2.25, 9.5])
+
+
 class GridBoardTests(unittest.TestCase):
     """The starting grid board, from the iRacing event (a mock race with qualifying results)."""
 
@@ -499,6 +525,65 @@ class GridBoardTests(unittest.TestCase):
         b = grid_of(3)
         self.assertEqual([r["number"] for r in b["rows"]][:5], [number(i) for i in consi[3::-1] + consi[4:5]])
         self.assertEqual(b["title"], "Feature · starting grid")
+
+    def test_two_race_event_second_race_from_the_first(self):
+        cars = list(self.app._drivers)
+        first = cars[3:] + cars[:3]
+        self.app._session_meta["sessions"] = {
+            0: {"SessionNum": 0, "SessionType": "Lone Qualify", "SessionName": "QUALIFY"},
+            1: {"SessionNum": 1, "SessionType": "Race", "SessionName": "RACE",
+                "ResultsPositions": [{"Position": i, "CarIdx": c} for i, c in enumerate(first, start=1)]},
+            2: {"SessionNum": 2, "SessionType": "Race", "SessionName": "RACE"},
+        }
+        number = lambda idx: self.app._drivers[idx]["number"]  # noqa: E731
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 0}})
+        self.app.command("board_show", {"kind": "grid", "group": "", "round": "session:1"})
+        self.assertEqual(self.app.build_snapshot()["board"]["grid_from"], "qualifying")
+        self.app.command("board_show", {"kind": "grid", "group": "", "round": "session:2"})
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual((b["grid_from"], [r["number"] for r in b["rows"]]), ("previous race", [number(i) for i in first]))
+
+    def test_a_meetings_race_run_as_an_event_of_its_own(self):
+        """Race 2 of a meeting in a new iRacing event (one race in it): its
+        round still counts, its grid is race 1's finish (as saved), reversed
+        as its round says, and stays so."""
+        from apex.league import driver_key
+
+        cars = list(self.app._drivers)
+        league = self.app.leagues.active()
+        keys = {idx: driver_key({"cust_id": d["cust_id"], "name": d["name"]}) for idx, d in self.app._drivers.items()}
+        finish = cars[::-1]  # how race 1 (an earlier iRacing event) finished
+        cls = league["classes"][0]["id"]
+        results = [{"driver": keys[c], "name": "x", "class_id": cls, "position": i, "status": "finished"} for i, c in enumerate(finish, 1)]
+        rounds = [{"id": "r1", "name": "Race 1", "event": "Night", "results": results, "session": "999:2"},
+                  {"id": "r2", "name": "Race 2", "event": "Night", "reverse_grid": True, "reverse_top": 3}]
+        self.app.leagues.save(dict(league, championship={"rounds": rounds}))
+        sessions = self.app._session_meta["sessions"]
+        race = next(n for n, x in sessions.items() if "race" in str(x.get("SessionType", "")).lower())
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 0}})
+        self.app.command("board_show", {"kind": "grid", "group": "", "round": f"session:{race}"})
+        number = lambda idx: self.app._drivers[idx]["number"]  # noqa: E731
+        want = [number(i) for i in finish[2::-1] + finish[3:]]
+        for _ in range(3):  # and again as the session goes on
+            b = self.app.build_snapshot()["board"]
+            self.assertEqual((b["title"], b["grid_from"]), ("Race 2 · starting grid", "previous race"))
+            self.assertEqual([r["number"] for r in b["rows"]], want)
+            self.app.tick()
+
+    def test_timing_list_before_the_start_is_the_starting_grid(self):
+        from dataclasses import replace
+
+        STATE_PARADE = 3  # iRacing: parade laps
+
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 3}})
+        with self.app._lock:
+            self.app._frame = replace(self.app._frame, session_state=STATE_PARADE)  # lining up, before the green
+        snap = self.app.build_snapshot()
+        self.app.command("board_show", {"kind": "grid", "group": "", "round": f"session:{self.app._frame.session_num}"})
+        grid = [r["number"] for r in self.app.build_snapshot()["board"]["rows"]]
+        listed = [r["number"] for r in sorted(snap["drivers"], key=lambda r: r["pos"]) if not r["hidden"]]
+        self.assertEqual(listed[:len(grid)], grid)
+        self.assertEqual([r["start_pos"] for r in sorted(snap["drivers"], key=lambda r: r["pos"])][:5], [1, 2, 3, 4, 5])
 
     def test_qualifying_board_has_no_session_without_qualifying(self):
         self.app.command("board_show", {"kind": "qualifying", "group": "", "round": "latest"})

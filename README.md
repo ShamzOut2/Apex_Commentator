@@ -37,29 +37,77 @@ OBS dock.
   every driver, sent to iRacing as its admin commands.
 
 The tabs, in order: Home, Hotkeys, League builder, Teams, Championship, Race
-control, Timing Screen, Grid walk, Overlays and Boards.
+control, Timing Screen, Grid walk, Widgets and Widget Settings.
+
+- **Widgets**: a dashboard of every overlay and board, a card each: big
+  **Show** / **Hide** buttons (the card lights up while it's on screen), the
+  settings that change most (name style, overall / by class, header, who's
+  in the pit stops card…), **Show on my screen**, and **⚙ Settings** for
+  everything else. The boards are along the bottom, a button per board and
+  class, with the board on screen in the preview, its pages / rows, and
+  **Hide board**. **All off / back** takes everything off screen and brings
+  it back.
+- **Widget Settings**: every setting of every widget. Pick a widget on the
+  left; its settings are a list of label and value, in sections that open
+  and close, with its OBS links and a live preview beside them.
 
 ![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.png)
 
 ## What's new
 
 <!-- whats-new:start -->
-**v0.5.8**
+**v0.5.9**
+
+### New features
+
+- **Widgets** tab: every overlay and board on one dashboard, a card each
+  with big Show / Hide buttons and the settings that change most (name
+  style, overall / by class, header…), the boards along the bottom, and
+  All off / back.
+- **Widget Settings** tab: every setting of every overlay and board, picked
+  from a list on the left, laid out label | value in sections, with its OBS
+  links and a live preview. (These two replace the Overlays and Boards tabs.)
+- **Delay**: the race shows 1 s behind iRacing in the app and on every
+  overlay (Timing Screen, next to the battle settings; 0 turns it off).
 
 ### Improvements
 
-- Lighter on the PC with several overlays open: each update is prepared
-  once for every page (the app, pop-outs, each overlay in OBS) instead of
-  once per page, and is smaller.
+- Timing tower: drivers who leave the session stay where they were, greyed
+  out (the same setting as the full screen's).
 
 ### Fixes
 
-- An error while preparing an update no longer freezes every overlay and
-  the app until it's restarted: the app carries on and logs it.
-- Overlays and the app reconnect by themselves if their connection to the
-  app stalls (after the PC sleeps, say), instead of needing a reopen.
-- The log file (apex.log) no longer grows without end: past 5 MB it's
-  trimmed to its latest part.
+- Starting grid (Automatic): every race after the first (a two-race
+  round's second race, a consolation, a feature) starts from the race
+  before's finish, also when it's an iRacing event of its own (from the
+  saved results); a meeting's reverse grid stays on when the session moves
+  on. With no qualifying in the event, the grid iRacing lines up.
+- Finishing order board: gaps no longer go missing when the winner has no
+  race time (just after the flag, an earlier heat, a replay); an earlier
+  race without iRacing's race times uses the app's own gaps at the finish.
+- Timing tower in a replay: no more made-up gaps (every gap showing 1.0):
+  during the race it keeps the live gaps, after it the replay's own (or
+  none where the app has no timing for that moment).
+- Timing Screen: before the start, drivers are listed in starting grid
+  order (not at random); places gained count from that grid.
+- Driver on camera: no longer flashes the last driver as the camera cuts.
+- Timing Screen: a battle lights just the interval cell, not the whole line.
+- Race log: **Hide…** leaves kinds of event out (incidents, warnings…).
+- An event with two (or more) races, called RACE by iRacing, now takes its
+  rounds' names on the tower, the starting grid and the finishing order
+  board, without changing them by hand, even when the rounds aren't dated
+  that day (it takes the meeting marked Live, else the next one to be run).
+- Drop rounds count straight away: changing the points rules (drop rounds
+  included) in the Championship tab applies them to the standings, boards
+  and overlays at once, without pressing Save.
+- Drop rounds now apply to the teams' and manufacturers' championships too.
+- Race meeting rounds: the box for how many cars are reversed is always
+  there next to *Reverse grid*.
+- In a replay during a race, the standings (tower, Timing Screen, live
+  championship) stay on the live race instead of showing the replay's.
+- Cars crossing the line no longer jump a lap back or forward for a moment.
+- Live championship standings: a car off the track for a while (towed, in
+  the garage) keeps its place instead of counting as out.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -132,11 +180,19 @@ shows something else. Camera hotkeys work in whichever window has focus.
   them. The class chips show one class at a time, with gaps and places within
   it.
 - **Battles**: a driver within the battle gap of the car ahead (0.15 s by
-  default) is lit up, steadily, in the colour you pick: just that driver,
-  not the car they're closing on. Both settings sit above the standings.
+  default) has their interval cell lit up, steadily, in the colour you pick
+  (just that cell, not the whole line), not the car they're closing on. Both settings sit above the standings.
 - **Names**: the name style in the list (full name, D. Price, Price D., last
   name), and **Nicknames** by the names on or off. Next to the battle
   settings, kept for this PC.
+- **Delay**: how far behind iRacing the race shows, in the app and on every
+  overlay (1 s to start with; 0 = straight away; up to 10 s). Settings you
+  change still apply straight away.
+- **Replays**: while a replay is on screen during a race, the standings (the
+  tower, the full screen, this list and the live championship standings)
+  stay on the live race: iRacing's car data is the replay's then, so the
+  live order as it last stood is kept and brought up to date as each car
+  crosses the line.
 - **Drivers who left**: a driver who leaves the session (gone from
   iRacing's list) stays in the standings for the rest of the event, marked
   LEFT; untick it to drop them. The flag column's chequered flag is steady
@@ -144,7 +200,10 @@ shows something else. Camera hotkeys work in whichever window has focus.
   comes and goes as it's waved).
 - **Race log**: everything that happens, newest first, filterable: overtakes,
   off tracks, spins, incident points, places lost after an off, pit in/out
-  (with stop time and places lost), penalties and class fastest laps. **Click
+  (with stop time and places lost), penalties and class fastest laps.
+  **Hide…** leaves kinds out (overtakes, contact, off tracks, slowdowns,
+  spins, incident points, pit stops, places lost, warnings, other
+  penalties, fastest laps), kept for this PC. **Click
   a line**, then pick how far back to start the replay: −5 s, −10 s and so
   on up to −30 s. The camera follows that driver. The line above the log shows
   whether logging is running: it logs live races and saved replays you play,
@@ -166,8 +225,8 @@ shows something else. Camera hotkeys work in whichever window has focus.
 | `↑` / `↓` | Watch the car ahead / behind |
 
 **Hotkeys for overlays and boards.** The **Hotkeys** tab (also on the Home page,
-and the *⌨ Hotkeys* buttons on the Timing Screen, Overlays and
-Boards tabs) also sets keys for:
+and the *⌨ Hotkeys* buttons on the Timing Screen and Widgets tabs) also
+sets keys for:
 - each overlay: the standings tower, lap tracker, driver on camera,
   sponsors, championship battle and pit stops, on and off;
 - everything at once: every overlay, the board and the grid walk off
@@ -187,7 +246,7 @@ Boards tabs) also sets keys for:
   row and every row, and the boards on your screen or off it;
 - on your own screen (app window): every overlay, the boards, the grid
   walk, or taking everything off (see "Overlays on your own screen");
-- every board in the Boards tab (each class's standings, teams',
+- every board in the Widgets tab (each class's standings, teams',
   manufacturers', the calendar, finishing orders), its next and previous
   page, and taking the board off screen. A board's key puts it on screen; pressed again while it's up, it
   takes it off.
@@ -359,8 +418,8 @@ on stream or put on a monitor (open it, then F11).
 
 ![full-screen standings board](docs/standings-screen.png)
 
-The **Overlays** tab has each overlay's address for OBS, a **Preview ↗**
-button and its settings. Add each one as a *Browser Source* at 1920×1080 (the
+**Widget Settings** has each overlay's address for OBS, a **Preview ↗**
+button, a live preview and its settings; the **Widgets** tab turns them on and off. Add each one as a *Browser Source* at 1920×1080 (the
 background is transparent). Settings changed in the tab show on stream
 straight away and are kept in `data/overlays.json`. Each overlay's (and
 board's) settings are in sections that open and close (What it shows,
@@ -414,10 +473,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     race's clock has run out) the header (tower and full screen) turns
     white, like the white flag; as the leader takes the chequered flag it
     turns into the chequered flag.
-  - **Drivers who leave** (full screen): *Full screen: keep drivers who leave
-    the session in the list* keeps a driver who leaves where they were,
-    greyed out and marked OUT; the others pass them as they carry on (on by
-    default; the tower always drops them).
+  - **Drivers who leave**: *Keep drivers who leave the session in the
+    list* keeps a driver who leaves where they were, on the tower and the
+    full screen, greyed out (marked OUT on the full screen); the others
+    pass them as they carry on (on by default).
   - **Finish flags**: in a race, as each driver crosses the line after the
     chequered flag, a small chequered flag comes out on a tab of its own on
     the tower's right edge, level with their row (sliding out from behind
@@ -547,7 +606,7 @@ when another is on, like the fastest lap flash timer, appear once it's on.
 - **Championship battle** (`/battle.html`): a few drivers fighting for the
   championship, in a small table in a corner (or along an edge). Pick the
   championship (Overall or any class, secondary classes too) and up to six
-  drivers in its card on the Overlays tab, or in one go:
+  drivers in its card on the Widgets tab, or in one go:
   - **The car on camera and the one ahead** (in that championship's running
     order on track; the leader on camera: it and the car behind);
   - **The car on camera and the cars either side**;
@@ -728,9 +787,8 @@ directly.
 ## Size
 
 Every overlay and board has a **Size** slider (50–200%, 100% as designed):
-- **Overlays tab:** standings, lap tracker, driver on camera and sponsors.
-- **Boards tab:** each board.
-- **Grid walk tab:** the grid walk.
+- **Widget Settings:** every overlay and board (the grid walk too, also on
+  the Grid walk tab).
 
 An overlay grows or shrinks from where it sits:
 - **Standings tower:** from its top-left corner.
@@ -751,9 +809,8 @@ The full-screen versions and boards don't move.
 ## Backgrounds
 
 Every overlay and board has a background setting:
-- **Overlays tab:** standings, lap tracker and sponsors.
-- **Boards tab:** each board, under *What each board shows*.
-- **Grid walk tab:** the grid walk.
+- **Widget Settings:** every overlay and board (the grid walk too, also on
+  the Grid walk tab).
 
 The choices:
 - **Default**: the normal dark panels on overlays, and the boards' own
@@ -815,8 +872,7 @@ boards need the league. Activating a league switches back to League.
 
 Every overlay and board can also go straight on your monitor instead of into
 OBS or a browser. In the app window, press **Show on my screen** under its
-link: the Overlays tab for the standings tower, lap tracker (and their full
-screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
+card on the Widgets tab (the boards' by *Hide board*), or on the Grid walk tab.
 
 - It sits over whatever is on that monitor, always on top. Run iRacing in
   **windowed or borderless** mode: a game in exclusive full screen covers it.
@@ -826,12 +882,13 @@ screen versions) and sponsors, the Boards tab for boards, and the Grid walk tab.
   covered at all. Full-screen versions and boards are a whole screen.
 - It never takes the keyboard, and your mouse goes straight through to the
   game or the app underneath.
-- With more than one monitor, pick which one once, at the top of the
-  Overlays tab (for every overlay and the grid walk) or the Boards tab. The
+- With more than one monitor, pick which one once, in the *Everything*
+  card on the Widgets tab (one for the overlays and grid walk, one for the
+  boards). The
   app remembers it (the "everything on my screen" hotkeys use it too);
   changing it moves anything from that tab already up.
 - **Remove** takes it down; *Remove all from my screen* clears everything.
-  They also close with the app. **Show all on my screen** (Overlays tab) puts
+  They also close with the app. **Show all on my screen** (Widgets tab) puts
   every overlay up at once: the standings tower, lap tracker, driver on
   camera, sponsors, championship battle and pit stops (each still shows only
   when it's turned on). Hotkeys can do the same: every overlay, the boards,
@@ -851,10 +908,11 @@ can show the game behind.
 
 ## Boards (full-screen championship, calendar and results)
 
-The **Boards** tab puts a full-screen board on stream with one click. Add
+The boards along the bottom of the **Widgets** tab put a full-screen board on stream with one click. Add
 `/board.html` to OBS as a *Browser Source* at 1920×1080. It's empty
-(transparent) until you put a board on screen, and **Take off screen** clears
-it. **⧉ Pop out** opens the Boards tab in a window of its own. The buttons are
+(transparent) until you put a board on screen, and **Hide board** clears
+it. **⧉ Pop out** opens the Widgets tab in a window of its own. Each board's
+settings are in Widget Settings (⚙ by its name). The buttons are
 built from the active league:
 
 - **Championship standings**: Overall, and one button per class (e.g. PRO,
@@ -900,10 +958,14 @@ built from the active league:
 - **Starting grid**: the grid for a race of the event (the race on now, else
   the next one; or any race you pick), worked out from the session before
   anyone has loaded in, Overall or a class. *The grid from*:
-  **Automatic** (as it starts): for a race meeting, the heats from
-  qualifying, the consolation from the finish of the heat before it and the
-  feature from the consolation's finish (any other race from qualifying), so
-  it's right for each race without changing it; or qualifying, the previous
+  **Automatic** (as it starts): the first race (and every heat) from
+  qualifying, and every race after it from the finishing order of the race
+  before: a heat meeting's consolation from the heat before it and its
+  feature from the consolation, a two-race round's second race from the
+  first. A meeting's race run as an iRacing event of its own takes the
+  race before's finish from the results saved to the league. With no
+  qualifying in the event, the race about to start uses the grid iRacing has
+  lined up. It's right for each race without changing it; or qualifying, the previous
   race's finish, or the grid walk's order (fix it by hand on the Grid walk
   tab) whenever it isn't. Its title is the race's name as the tower's header
   gives it (the round's name, or the names set for heats, the consolation
@@ -913,10 +975,10 @@ built from the active league:
   the rounds), which the board follows for that race. *Layout*: a list, or as the cars line up (two staggered
   columns). It can show the place in class, car numbers, team names and
   logos, car badges, the qualifying lap and gap, and where they finished
-  the previous race. Pick the race on the Boards tab; the grid rule is in
+  the previous race. Pick the race on the Widgets tab; the grid rule is in
   its settings, so change it before the race it's for. *Show the drivers*:
   all at once (each driver comes in in turn), or **row by row**: the front
-  row first, then *Next row* (on the Boards tab, or a hotkey) brings in each
+  row first, then *Next row* (on the Widgets tab, or a hotkey) brings in each
   row after it, sliding into place (*◀ Row* takes one back, *Show all* the
   rest); the board's page follows the rows. Every board comes in and goes
   out with its own animation; the qualifying results wipe in a driver at a
@@ -1014,7 +1076,10 @@ standings update from what's saved.
     other, with a Rookie Cup of drivers who finish 4th, 9th and 12th
     overall, the 4th-placed one wins the Rookie Cup. Their main class and
     overall points don't change.
-  - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
+  - **Points & rules** are saved as you change them (no need for *Save*):
+    the standings, boards and overlays use them straight away.
+  - **Drop rounds**: each driver's (and each team's and manufacturer's)
+    worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
   - **A race meeting drops as a whole**: a meeting's races (heats, a sprint
     and a feature…) count as one for the drop rounds, their points added up,
@@ -1065,7 +1130,7 @@ standings update from what's saved.
     race) and adds the others after it, at the same track, date and time;
     **Make every round a race meeting…** does that for every round at once.
     **Separate rounds** on a meeting turns its races back into rounds.
-    **Reverse grid** on a meeting's race, with *Top* N: that race's grid has
+    **Reverse grid** on a meeting's race, with *Reverse top* N: that race's grid has
     its first N turned round (the starting grid board shows it so; *Reverse
     the first N of each class* in the board's settings does it per class).
     **Import every race from session** fills a meeting's races from the race

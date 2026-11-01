@@ -389,3 +389,71 @@ class ColumnOpacityTests(unittest.TestCase):
             # Back again: no longer marked.
             app._load_session_info(info, app._frame)
             self.assertFalse(app.build_snapshot()["drivers"][0]["left"])
+
+    def test_a_replay_keeps_the_live_race_order(self):
+        from dataclasses import replace
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            app = App(MockSource(seed=4, clock=lambda: clock["t"]), dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(1500):  # a couple of laps in
+                clock["t"] += 0.1
+                app.tick()
+            live = [r["car_idx"] for r in app.build_snapshot()["drivers"] if r["pos"]]
+            frame = app._frame
+            replay = replace(frame, replay_frames_from_end=900)  # watching a replay: its cars in another order
+            rows = [dict(r) for r in reversed(app._live_rows[2])]
+            for i, r in enumerate(rows, start=1):
+                r["pos"] = i
+            out = app._hold_live(replay, rows)
+            self.assertEqual([r["car_idx"] for r in out if r["pos"]], live)
+            # The results coming in live: a car further back completes another lap
+            # first (crossing the line ahead of the rest): it moves up.
+            sessions = app._session_meta["sessions"]
+            num = frame.session_num
+            last = next(r for r in app._live_rows[2] if r["car_idx"] == live[-1])
+            sessions[num] = dict(sessions[num], ResultsPositions=[{"CarIdx": live[-1], "Position": 1,
+                                                                   "LapsComplete": (last["laps_completed"] or 0) + 5,
+                                                                   "LastTime": 88.5}])
+            out = app._hold_live(replay, rows)
+            self.assertEqual(out[0]["car_idx"], live[-1])
+            self.assertEqual((out[0]["pos"], out[0]["last_lap"]), (1, 88.5))
+            # Live again: what's on screen.
+            self.assertIs(app._hold_live(frame, rows), rows)
+
+    def test_crossing_the_line_doesnt_jump_a_lap(self):
+        from apex.core import LineFilter
+
+        f = LineFilter()
+        seen = [f((0, t), 1, raw) for t, raw in ((10.0, 4.97), (10.1, 4.99), (10.2, 4.01),   # distance back to 0, lap not up yet
+                                                   (10.3, 5.02), (10.4, 5.04))]
+        self.assertEqual([round(p, 2) for p in seen], [4.97, 4.99, 5.01, 5.02, 5.04])
+        seen = [f((0, t), 2, raw) for t, raw in ((10.0, 2.98), (10.1, 3.99), (10.2, 3.01))]  # the lap up first
+        self.assertEqual([round(p, 2) for p in seen], [2.98, 2.99, 3.01])
+        # Away from the line a big jump (towed to the pits) is left as it is.
+        self.assertEqual(round(f((0, 10.5), 3, 6.2), 2), 6.2)
+        self.assertEqual(round(f((0, 10.6), 3, 6.95), 2), 6.95)
+        # A replay going back starts afresh: no correction from before.
+        self.assertEqual(round(f((0, 3.0), 1, 2.02), 2), 2.02)
+
+    def test_a_replay_shows_no_made_up_gaps(self):
+        """In a replay the app has no timing for, the gaps are blank, not iRacing's
+        own figure (which isn't the replay's: it showed every gap as 1.0)."""
+        from dataclasses import replace
+
+        from apex.sources import STATE_COOLDOWN
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            app = App(MockSource(seed=4, clock=lambda: clock["t"]), dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(1200):
+                clock["t"] += 0.1
+                app.tick()
+            frame = app._frame
+            with app._lock:  # after the race, replaying a moment from before the app was there
+                app._frame = replace(frame, session_state=STATE_COOLDOWN, replay_frames_from_end=9000,
+                                     replay_session_time=0.0001, f2_time=[1.0] * len(frame.f2_time))
+            app.gaps.reset()
+            gaps = [e["gap"] for e in app.build_snapshot()["drivers"] if e["pos"] and e["pos"] > 1]
+            self.assertTrue(gaps)
+            self.assertNotIn(1.0, gaps)

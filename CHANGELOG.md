@@ -11,6 +11,59 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.5.9
+
+### New features
+
+- **Widgets** tab: every overlay and board on one dashboard, a card each
+  with big Show / Hide buttons and the settings that change most (name
+  style, overall / by class, header…), the boards along the bottom, and
+  All off / back.
+- **Widget Settings** tab: every setting of every overlay and board, picked
+  from a list on the left, laid out label | value in sections, with its OBS
+  links and a live preview. (These two replace the Overlays and Boards tabs.)
+- **Delay**: the race shows 1 s behind iRacing in the app and on every
+  overlay (Timing Screen, next to the battle settings; 0 turns it off).
+
+### Improvements
+
+- Timing tower: drivers who leave the session stay where they were, greyed
+  out (the same setting as the full screen's).
+
+### Fixes
+
+- Starting grid (Automatic): every race after the first (a two-race
+  round's second race, a consolation, a feature) starts from the race
+  before's finish, also when it's an iRacing event of its own (from the
+  saved results); a meeting's reverse grid stays on when the session moves
+  on. With no qualifying in the event, the grid iRacing lines up.
+- Finishing order board: gaps no longer go missing when the winner has no
+  race time (just after the flag, an earlier heat, a replay); an earlier
+  race without iRacing's race times uses the app's own gaps at the finish.
+- Timing tower in a replay: no more made-up gaps (every gap showing 1.0):
+  during the race it keeps the live gaps, after it the replay's own (or
+  none where the app has no timing for that moment).
+- Timing Screen: before the start, drivers are listed in starting grid
+  order (not at random); places gained count from that grid.
+- Driver on camera: no longer flashes the last driver as the camera cuts.
+- Timing Screen: a battle lights just the interval cell, not the whole line.
+- Race log: **Hide…** leaves kinds of event out (incidents, warnings…).
+- An event with two (or more) races, called RACE by iRacing, now takes its
+  rounds' names on the tower, the starting grid and the finishing order
+  board, without changing them by hand, even when the rounds aren't dated
+  that day (it takes the meeting marked Live, else the next one to be run).
+- Drop rounds count straight away: changing the points rules (drop rounds
+  included) in the Championship tab applies them to the standings, boards
+  and overlays at once, without pressing Save.
+- Drop rounds now apply to the teams' and manufacturers' championships too.
+- Race meeting rounds: the box for how many cars are reversed is always
+  there next to *Reverse grid*.
+- In a replay during a race, the standings (tower, Timing Screen, live
+  championship) stay on the live race instead of showing the replay's.
+- Cars crossing the line no longer jump a lap back or forward for a moment.
+- Live championship standings: a car off the track for a while (towed, in
+  the garage) keeps its place instead of counting as out.
+
 ## v0.5.8
 
 ### Improvements

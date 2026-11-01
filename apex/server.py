@@ -188,6 +188,22 @@ class Handler(BaseHTTPRequestHandler):
                 rounds = schedule.rounds_from_text(str(body.get("text") or ""), self.app.tracks.grouped(),
                                                    day_first=body.get("day_first", True) is not False)
                 return self._send_json({"ok": True, "rounds": rounds})
+            if path.startswith("/api/leagues/") and path.endswith("/championship/rules"):
+                # Points & rules (drop rounds and all), and the round the race in
+                # progress counts as: saved as they're changed, the rest of the
+                # championship as it was saved.
+                profile = self.app.leagues.get(path.split("/")[3])
+                if profile is None:
+                    return self._error("League not found", HTTPStatus.NOT_FOUND)
+                champ = championship.normalise(profile.get("championship"))
+                champ["rules"] = championship.normalise_rules(body.get("rules"))
+                if "live_round" in body:
+                    champ["live_round"] = str(body.get("live_round") or "")
+                profile["championship"] = champ
+                league = self.app.leagues.save(profile)
+                self.app.publish()
+                return self._send_json({"ok": True, "championship": league["championship"],
+                                        "standings": championship.standings(league)})
             if path.startswith("/api/leagues/") and path.endswith("/championship/import-meeting"):
                 return self._import_meeting(path.split("/")[3], [str(r) for r in body.get("round_ids") or []])
             if path.startswith("/api/leagues/") and path.endswith("/championship/import"):

@@ -480,3 +480,28 @@ class SessionTests(unittest.TestCase):
             self.assertEqual(again["rules"]["points"], [3, 2, 1])
             self.assertEqual(again["rounds"][0]["name"], "Opener")
             json.dumps(ch.standings(store.get(p["id"])))
+
+
+class TeamAndMakeDropTests(unittest.TestCase):
+    def test_teams_and_manufacturers_drop_their_worst_rounds(self):
+        def res(order):
+            return [{"driver": f"cust:{d}", "name": f"D{d}", "class_id": "gt3", "position": i, "status": "finished",
+                     "make": "Ferrari" if d < 3 else "BMW"} for i, d in enumerate(order, 1)]
+        profile = {
+            "drivers": [{"cust_id": d, "name": f"D{d}", "team": "Red" if d < 3 else "Blue"} for d in (1, 2, 3, 4)],
+            "classes": [{"id": "gt3", "name": "GT3", "color": "#fff"}],
+            "championship": {"rules": {"points": [10, 6, 4, 3], "drop_rounds": 1},
+                             "rounds": [{"id": "a", "name": "R1", "results": res([1, 2, 3, 4])},   # Red 16, Blue 7
+                                        {"id": "b", "name": "R2", "results": res([3, 4, 1, 2])},   # Red 7,  Blue 16
+                                        {"id": "c", "name": "R3", "results": res([1, 3, 2, 4])}]},  # Red 14, Blue 9
+        }
+        teams = {t["team"]: t for t in ch.standings(profile)["teams"]}
+        self.assertEqual((teams["Red"]["points"], teams["Blue"]["points"]), (30, 25))  # 16+14 (7 dropped), 16+9 (7 dropped)
+        self.assertEqual([r["dropped"] for r in teams["Red"]["rounds"]], [False, True, False])
+        # Its drivers' points: from the rounds that count.
+        self.assertEqual(sum(d["points"] for d in teams["Red"]["drivers"]), 30)
+        makes = {m["make"]: m["points"] for m in ch.make_standings(profile, "gt3")}
+        self.assertEqual(makes, {"Ferrari": 30, "BMW": 25})
+        # No drop rounds: everything counts.
+        profile["championship"]["rules"]["drop_rounds"] = 0
+        self.assertEqual({m["make"]: m["points"] for m in ch.make_standings(profile, "gt3")}, {"Ferrari": 37, "BMW": 32})

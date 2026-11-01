@@ -172,7 +172,7 @@ def build(league, board, settings, live_results=None):
         if live:
             rd = {"id": "live", "name": live_results["name"], "track": "", "multiplier": 1.0,
                   "results": live_results["results"], "provisional": True}
-            out["title"] = "Running order" if source == "live" else f"{live_results['name'].title()} result"
+            out["title"] = "Running order" if source == "live" else f"{live_results['name']} result"  # named as the tower names it
         else:
             scored = [r for r in champ["rounds"] if r["results"]]
             rd = next((r for r in scored if r["id"] == source), scored[-1] if scored else None)
@@ -257,6 +257,12 @@ def _gaps(rows, by_lap=False):
     leader = None
     for row in rows:
         row["_gap"] = row.get("gap")  # seconds behind the overall winner, as saved
+    # The winner is what the gaps are measured from: 0 behind themselves,
+    # also when no gap came with them (no race times yet, an earlier heat, a
+    # replay), which used to leave every gap on the board blank.
+    first = next((r for r in rows if not by_lap and r.get("rank") is not None and r["status"] == "finished" and not r.get("short")), None)
+    if first is not None and first["_gap"] is None:
+        first["_gap"] = 0.0
     for row in rows:
         row.update(gap_laps=None, interval=None, interval_laps=None,
                    out="DNF" if row.get("short") else (row["status"].upper() if row["status"] != "finished" else None))

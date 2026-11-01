@@ -30,8 +30,8 @@
     <button class="tab" data-tab="racecontrol">Race control</button>
     <button class="tab" data-tab="timing">Timing Screen</button>
     <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
-    <button class="tab" data-tab="overlays">Overlays</button>
-    <button class="tab" data-tab="boards">Boards</button>
+    <button class="tab" data-tab="widgets">Widgets</button>
+    <button class="tab" data-tab="widget-settings">Widget Settings</button>
   </nav>
 
   <main id="main">
@@ -65,9 +65,9 @@
             <span class="tile-text">Team names, short names, colours and logos, and who drives for whom.</span>
             <span class="tile-status" id="tile-teams"></span>
           </button>
-          <button class="tile" data-goto="overlays">
-            <span class="tile-icon">📺</span><b>Overlays</b>
-            <span class="tile-text">Standings tower and the qualifying lap tracker for OBS, with their settings.</span>
+          <button class="tile" data-goto="widgets">
+            <span class="tile-icon">📺</span><b>Widgets</b>
+            <span class="tile-text">Every overlay and board on screen or off at a click, with the settings that change most.</span>
             <span class="tile-status" id="tile-overlays"></span>
           </button>
           <button class="tile" data-goto="championship">
@@ -76,7 +76,7 @@
             <span class="tile-status" id="tile-championship"></span>
           </button>
         </div>
-        <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>; the other overlays are in the Overlays tab.</p>
+        <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>; the other overlays and boards are in the Widgets tab (their links and every setting in Widget Settings).</p>
         <div class="updates-card">
           <div class="row">
             <h3>Import &amp; export</h3>
@@ -85,7 +85,7 @@
           </div>
           <p class="hint">Exports are saved in <code id="exports-folder">Documents\Apex Commentator\Exports</code>. Export and
             import are where each thing is made: <b>League builder</b> (whole league, driver roster), <b>Teams</b>,
-            <b>Championship</b> (championship, standings, each round's results) and <b>Overlays</b> (all overlay and board
+            <b>Championship</b> (championship, standings, each round's results) and <b>Widget Settings</b> (all overlay and board
             settings). <b>.json</b> files import back into Apex Commentator, on this PC or another; <b>.csv</b> files open in
             Excel or Google Sheets.</p>
         </div>
@@ -133,6 +133,8 @@
           <div class="toolbar">
             <div class="chips" id="class-filter"></div>
             <div class="battle-settings">
+              <label title="How far behind iRacing the app and every overlay show the race (0 = straight away)">Delay
+                <input type="number" id="data-delay" min="0" max="10" step="0.5"> s</label>
               <label title="Highlight drivers this close to the car ahead">Battle ≤
                 <input type="number" id="battle-gap" min="0.05" max="3" step="0.05"> s</label>
               <label title="Colour battles flash in">Colour <input type="color" id="battle-color"></label>
@@ -175,6 +177,10 @@
               <button class="chip" data-filter="penalty">Penalties</button>
               <button class="chip" data-filter="fastest_lap">Laps</button>
             </div>
+            <details class="log-hide" id="log-hide">
+              <summary class="btn subtle" title="Leave kinds of event out of the log">Hide… <span id="log-hide-count" class="count"></span></summary>
+              <div class="log-hide-menu" id="log-hide-menu"></div>
+            </details>
             <button class="btn subtle" data-cmd="clear_events" title="Clear the race log">Clear</button>
           </div>
           <p id="log-status" class="log-status"></p>
@@ -370,7 +376,7 @@
             </div>
             <h3 class="section-title">Sponsors</h3>
             <p class="hint">Each board can show them along an edge (Boards tab), and the Sponsors overlay shows them over the race
-              (Overlays tab). Transparent PNG or SVG logos look best.</p>
+              (Widget Settings). Transparent PNG or SVG logos look best.</p>
             <div id="sponsor-list" class="sponsor-list"></div>
             <div class="row">
               <label class="btn subtle">+ Add sponsor logos<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-sponsor-upload multiple hidden></label>
@@ -400,130 +406,132 @@
       </div>
     </section>
 
-    <section id="tab-overlays" class="panel">
-      <div class="home">
-        <div class="row teams-head"><h2>Overlays</h2><span class="grow"></span>
-          <button class="btn subtle" data-open-hotkeys title="Keys to turn each overlay on and off">⌨ Hotkeys</button></div>
-        <p class="hint">Each has two versions. The <b>overlay</b> goes over the race in OBS (Browser Source at 1920×1080,
-          transparent background); <b>Preview ↗</b> opens one in a window of its own to have a look. The <b>full screen</b> version is a complete screen of its own, with a background and every
-          driver, to cut to on stream or show on a monitor (Open, then F11). Changes here show straight away.</p>
-        <p class="hint desk-help">Or skip OBS: <b>Show on my screen</b> puts it straight over whatever's on that monitor (iRacing in
-          windowed or borderless mode), always on top. Your mouse and keyboard go straight through to the game.</p>
-        <div class="row desk-bar desk-help">
-          <label class="desk-screen" hidden>Show on my screen on <select data-desk-tab="overlays" aria-label="Which screen overlays go on"></select>
-            <span class="hint">for every overlay and the grid walk</span></label>
-          <button class="btn" id="desk-show-all" title="Every overlay (not the full-screen ones or the grid walk) straight on your screen">Show all on my screen</button>
-          <button class="btn subtle" id="desk-hide-all" hidden>Remove all from my screen</button>
+    <section id="tab-widgets" class="panel">
+      <div class="home wide">
+        <div class="row teams-head">
+          <h2>Widgets</h2>
+          <span class="hint">Put each overlay and board on screen or take it off; the details are in Widget Settings.</span>
+          <span class="grow"></span>
+          <button class="btn subtle" data-open-hotkeys title="Keys to put each widget on screen and take it off">⌨ Hotkeys</button>
+          <button class="btn subtle" data-popout="widgets" title="Open the widgets in a window of its own">⧉ Pop out</button>
         </div>
-        <div class="row transfer-row">
-          <span class="hint">Every overlay's and board's settings, with their background images:</span>
-          <button class="btn subtle" data-export="overlays">⤓ Export settings</button>
-          <label class="btn subtle">⤒ Import settings…<input type="file" accept=".json,application/json" data-import="overlays" hidden></label>
-        </div>
-        <div class="overlay-cards">
-          <div class="overlay-card">
-            <h3>Standings</h3>
-            <p class="hint">Race: running order and gap to the leader. Qualifying and practice: fastest clean lap, and the
-              tower stays empty until someone sets one.</p>
-            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-standings"></code> <button class="btn subtle" data-copy="url-standings">Copy</button></p>
-            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="standings"></span></p>
-            <p class="obs-url"><span class="obs-kind">Full screen</span><code id="url-standings-screen"></code> <button class="btn subtle" data-copy="url-standings-screen">Copy</button>
-              <a class="btn" href="/standings.html?screen=1" target="_blank" rel="noopener">Open ↗</a></p>
-            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="standings_screen"></span></p>
-            <p class="preview-link"><a class="btn subtle" href="/standings.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
-            <div id="ov-standings" class="ov-form" data-overlay="standings"></div>
+        <div class="wcards">
+          <div class="wcard" data-widget="standings">
+            <h4>Timing tower</h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="standings">Show</button><button class="wbtn" data-whide="standings">Hide</button></div>
+            <div class="ov-form wq" data-overlay="standings" data-quick="mode,class_keys,name_format,header_info,finish_flag,sponsor_bar"></div>
+            <div class="wfoot"><span class="desk" data-desk="standings"></span><button class="btn subtle" data-wsettings="standings">⚙ Settings</button></div>
           </div>
-          <div class="overlay-card">
-            <h3>Lap tracker <span class="count">qualifying</span></h3>
-            <p class="hint">One big tracker for the car on camera and small ones for the others on a timed lap. Sector bars
-              go purple (fastest), green (within the margin) or yellow; a finished lap stays up for a few seconds.</p>
-            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-laps"></code> <button class="btn subtle" data-copy="url-laps">Copy</button></p>
-            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="laps"></span></p>
-            <p class="obs-url"><span class="obs-kind">Full screen</span><code id="url-laps-screen"></code> <button class="btn subtle" data-copy="url-laps-screen">Copy</button>
-              <a class="btn" href="/laps.html?screen=1" target="_blank" rel="noopener">Open ↗</a></p>
-            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="laps_screen"></span></p>
-            <p class="preview-link"><a class="btn subtle" href="/laps.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
-            <div id="ov-laps" class="ov-form" data-overlay="laps"></div>
+          <div class="wcard" data-widget="fastest">
+            <h4>Fastest lap</h4>
+            <p class="hint">Flashes a new fastest lap at the top middle (with the tower).</p>
+            <div class="ov-form wq" data-overlay="standings" data-quick="fl_flash,fl_flash_classes,show_fastest_icon"></div>
+            <div class="wfoot"><span></span><button class="btn subtle" data-wsettings="standings" data-wsection="Fastest lap">⚙ Settings</button></div>
           </div>
-          <div class="overlay-card">
-            <h3>Driver on camera</h3>
-            <p class="hint">A small board at the bottom centre naming the driver the camera is on: position, number, name,
-              team and car. It slides in each time the camera moves to someone.</p>
-            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-driver"></code> <button class="btn subtle" data-copy="url-driver">Copy</button></p>
-            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="driver"></span></p>
-            <p class="preview-link"><a class="btn subtle" href="/driver.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
-            <div id="ov-driver" class="ov-form" data-overlay="driver"></div>
+          <div class="wcard" data-widget="laps">
+            <h4>Lap tracker <span class="count">qualifying</span></h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="laps">Show</button><button class="wbtn" data-whide="laps">Hide</button></div>
+            <div class="ov-form wq" data-overlay="laps" data-quick="reference,name_format,count"></div>
+            <div class="wfoot"><span class="desk" data-desk="laps"></span><button class="btn subtle" data-wsettings="laps">⚙ Settings</button></div>
           </div>
-          <div class="overlay-card">
-            <h3>Pit stops</h3>
-            <p class="hint">A card for a car in the pit lane (every car there, or just the one on camera): its time since it
-              crossed the pit lane entry line, and its time in its pit box, ticking; after the exit line it shows the final
-              times for a few seconds. Races only, unless you untick it.</p>
-            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-pits"></code> <button class="btn subtle" data-copy="url-pits">Copy</button></p>
-            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="pits"></span></p>
-            <p class="preview-link"><a class="btn subtle" href="/pits.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
-            <div id="ov-pits" class="ov-form" data-overlay="pits"></div>
+          <div class="wcard" data-widget="driver">
+            <h4>Driver on camera</h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="driver">Show</button><button class="wbtn" data-whide="driver">Hide</button></div>
+            <div class="ov-form wq" data-overlay="driver" data-quick="name_format,position_shown"></div>
+            <div class="wfoot"><span class="desk" data-desk="driver"></span><button class="btn subtle" data-wsettings="driver">⚙ Settings</button></div>
           </div>
-          <div class="overlay-card">
-            <h3>Championship battle</h3>
-            <p class="hint">A few drivers fighting for the championship, in a corner: their place and points (during a race,
-              as if it ended now), the points this race gives them, and the points between them. Pick the championship
-              and the drivers here, or in one go from the car on camera.</p>
-            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-battle"></code> <button class="btn subtle" data-copy="url-battle">Copy</button></p>
-            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="battle"></span></p>
-            <p class="preview-link"><a class="btn subtle" href="/battle.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
+          <div class="wcard" data-widget="pits">
+            <h4>Pit stops</h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="pits">Show</button><button class="wbtn" data-whide="pits">Hide</button></div>
+            <div class="ov-form wq" data-overlay="pits" data-quick="who,name_format"></div>
+            <div class="wfoot"><span class="desk" data-desk="pits"></span><button class="btn subtle" data-wsettings="pits">⚙ Settings</button></div>
+          </div>
+          <div class="wcard" data-widget="battle">
+            <h4>Championship battle</h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="battle">Show</button><button class="wbtn" data-whide="battle">Hide</button></div>
             <div id="battle-pick" class="battle-pick"></div>
-            <div id="ov-battle" class="ov-form" data-overlay="battle"></div>
+            <div class="wfoot"><span class="desk" data-desk="battle"></span><button class="btn subtle" data-wsettings="battle">⚙ Settings</button></div>
           </div>
-          <div class="overlay-card">
-            <h3>Sponsors</h3>
-            <p class="hint">The active league's sponsor logos (add them in the League builder), in a corner or along an edge:
-              all together, or one at a time. Tick which sponsors to show.</p>
-            <p class="obs-url"><span class="obs-kind">Overlay</span><code id="url-sponsors"></code> <button class="btn subtle" data-copy="url-sponsors">Copy</button></p>
-            <p class="obs-url desk-line"><span class="obs-kind"></span><span class="desk" data-desk="sponsors"></span></p>
-            <p class="preview-link"><a class="btn subtle" href="/sponsors.html?preview=1" target="_blank" rel="noopener" title="See it on a backdrop, in a window of its own">Preview ↗</a></p>
-            <div id="ov-sponsors" class="ov-form" data-overlay="sponsors"></div>
+          <div class="wcard" data-widget="sponsors">
+            <h4>Sponsors</h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="sponsors">Show</button><button class="wbtn" data-whide="sponsors">Hide</button></div>
+            <div class="ov-form wq" data-overlay="sponsors" data-quick="layout,place"></div>
+            <div class="wfoot"><span class="desk" data-desk="sponsors"></span><button class="btn subtle" data-wsettings="sponsors">⚙ Settings</button></div>
+          </div>
+          <div class="wcard" data-widget="gridwalk">
+            <h4>Grid walk <span id="wgw-state" class="count"></span><button class="btn subtle wlink" data-goto="gridwalk" title="The grid walk's running order and car pictures">Grid walk tab ↗</button></h4>
+            <div class="wbtns"><button class="wbtn" data-wgw="start">Show</button><button class="wbtn" data-wgw="hide">Hide</button></div>
+            <div class="wbtns small"><button class="btn subtle" data-wgw="prev">◀ Prev</button><button class="btn subtle" data-wgw="toggle" id="wgw-toggle">❚❚ Pause</button><button class="btn subtle" data-wgw="next">Next ▶</button></div>
+            <div class="ov-form wq" data-overlay="gridwalk" data-quick="name_format,show_nickname"></div>
+            <div class="wfoot"><span class="desk" data-desk="gridwalk"></span><button class="btn subtle" data-wsettings="gridwalk">⚙ Settings</button></div>
+          </div>
+          <div class="wcard misc">
+            <h4>Everything</h4>
+            <button class="wbtn danger" data-wall="all:toggle" title="Every overlay and board off screen; press again to bring them back">All off / back</button>
+            <div class="wbtns small"><button class="btn subtle" data-wall="all:overlays" title="Every overlay (and the grid walk) off screen, and back again">Overlays off / back</button>
+              <button class="btn subtle" data-wall="all:boards" title="The board off screen, and back again">Board off / back</button></div>
+            <div class="desk-help">
+              <label class="desk-screen" hidden>Overlays on <select data-desk-tab="overlays" aria-label="Which screen overlays go on"></select></label>
+              <label class="desk-screen" hidden>Boards on <select data-desk-tab="boards" aria-label="Which screen boards go on"></select></label>
+              <div class="wbtns small"><button class="btn" id="desk-show-all" title="Every overlay (not the full-screen ones or the grid walk) straight on your screen">Show all on my screen</button>
+                <button class="btn subtle" id="desk-hide-all" hidden>Remove all from my screen</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wboards">
+          <div class="row wboards-head">
+            <h3>Boards</h3>
+            <span id="board-onair" class="hint"></span>
+            <span class="grow"></span>
+            <span id="board-pager" class="row" hidden>
+              <button id="btn-board-prev" class="btn subtle" title="The board's previous page">◀ Prev</button>
+              <span id="board-page" class="hint"></span>
+              <button id="btn-board-next" class="btn" title="The board's next page: the rest of the drivers">Next ▶</button>
+            </span>
+            <span id="board-reveal" class="row" hidden>
+              <button id="btn-row-prev" class="btn subtle" title="Hide the last row shown">◀ Row</button>
+              <span id="board-rows" class="hint"></span>
+              <button id="btn-row-next" class="btn" title="Bring in the next row of the grid">Next row ▶</button>
+              <button id="btn-row-all" class="btn subtle" title="Bring in every row">Show all</button>
+            </span>
+            <span class="desk" data-desk="board"></span>
+            <button id="btn-board-hide" class="wbtn danger slim">Hide board</button>
+          </div>
+          <div class="boards-layout">
+            <div class="board-buttons" id="board-buttons"></div>
+            <div class="board-preview"><div class="preview-frame"><iframe src="/board.html?preview=1" title="Board preview" loading="lazy"></iframe></div>
+              <p class="hint">What's on the board now. Each button puts that board on screen; <b>Hide board</b> takes it off.</p></div>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="tab-boards" class="panel">
-      <div class="home wide">
-        <div class="row teams-head">
-          <h2>Boards</h2>
-          <span id="board-onair" class="hint"></span>
-          <span class="grow"></span>
-          <button class="btn subtle" data-open-hotkeys title="Keys to put each board on screen and take it off">⌨ Hotkeys</button>
-          <button class="btn subtle" data-popout="boards" title="Open the boards in a window of its own">⧉ Pop out</button>
-          <span id="board-pager" class="row" hidden>
-            <button id="btn-board-prev" class="btn subtle" title="The board's previous page">◀ Prev</button>
-            <span id="board-page" class="hint"></span>
-            <button id="btn-board-next" class="btn" title="The board's next page: the rest of the drivers">Next ▶</button>
-          </span>
-          <span id="board-reveal" class="row" hidden>
-            <button id="btn-row-prev" class="btn subtle" title="Hide the last row shown">◀ Row</button>
-            <span id="board-rows" class="hint"></span>
-            <button id="btn-row-next" class="btn" title="Bring in the next row of the grid">Next row ▶</button>
-            <button id="btn-row-all" class="btn subtle" title="Bring in every row">Show all</button>
-          </span>
-          <button id="btn-board-hide" class="btn danger">Take off screen</button>
+    <section id="tab-widget-settings" class="panel">
+      <div class="ws">
+        <aside class="ws-side">
+          <h3>Widgets</h3>
+          <nav id="ws-list" class="ws-list" aria-label="Widgets"></nav>
+          <div class="ws-tools">
+            <p class="hint">Every widget's settings, with their background images:</p>
+            <button class="btn subtle" data-export="overlays">⤓ Export settings</button>
+            <label class="btn subtle">⤒ Import settings…<input type="file" accept=".json,application/json" data-import="overlays" hidden></label>
+          </div>
+        </aside>
+        <div class="ws-main">
+          <div class="ws-head">
+            <div>
+              <h2 id="ws-title"></h2>
+              <p id="ws-about" class="hint"></p>
+              <div id="ws-links" class="ws-links"></div>
+            </div>
+          </div>
+          <div class="ws-body">
+            <div id="ws-form" class="ov-form ws-form" data-overlay="standings"></div>
+            <div class="ws-preview"><div class="preview-frame"><iframe id="ws-frame" title="Preview" loading="lazy"></iframe></div>
+              <p class="hint">Preview: changes show here (and on stream) straight away.</p></div>
+          </div>
         </div>
-        <p class="hint">Full-screen boards for the active league: championship standings, the season calendar and results.
-          Add <code id="url-board"></code> <button class="btn subtle" data-copy="url-board">Copy</button>
-          <a class="btn subtle" href="/board.html?preview=1" target="_blank" rel="noopener">Open ↗</a>
-          to OBS as a Browser Source at 1920×1080: it's empty (transparent) until you put a board on screen here.
-</p>
-        <div class="row desk-bar desk-help">
-          <span class="desk" data-desk="board"></span>
-          <label class="desk-screen" hidden>on <select data-desk-tab="boards" aria-label="Which screen boards go on"></select></label>
-        </div>
-        <div class="boards-layout">
-          <div class="board-buttons" id="board-buttons"></div>
-          <div class="board-preview"><div class="preview-frame"><iframe src="/board.html?preview=1" title="Board preview" loading="lazy"></iframe></div></div>
-        </div>
-        <h3 class="section-title">What each board shows</h3>
-        <div id="board-settings" class="board-settings"></div>
       </div>
     </section>
 

@@ -200,6 +200,23 @@ class ServerTests(unittest.TestCase):
         except urllib.error.HTTPError as e:
             return e.code, json.load(e)
 
+    def test_points_rules_apply_as_soon_as_theyre_changed(self):
+        """Drop rounds (and every other rule) count straight away: the
+        standings, boards and overlays don't wait for the championship's Save."""
+        def res(order):
+            return [{"driver": f"cust:{d}", "name": f"D{d}", "class_id": "gt3", "position": i, "status": "finished"}
+                    for i, d in enumerate(order, 1)]
+        league = self.app.leagues.save({"name": "Drop test", "drivers": [{"cust_id": d, "name": f"D{d}"} for d in (1, 2, 3)],
+                                        "classes": [{"id": "gt3", "name": "GT3", "color": "#fff"}],
+                                        "championship": {"rounds": [{"id": "a", "name": "R1", "results": res([1, 2, 3])},
+                                                                    {"id": "b", "name": "R2", "results": res([3, 2, 1])}]}})
+        status, r = self.request(f"/api/leagues/{league['id']}/championship/rules", {"rules": {"drop_rounds": 1}, "live_round": "b"})
+        self.assertEqual(status, 200)
+        saved = self.app.leagues.get(league["id"])["championship"]
+        self.assertEqual((saved["rules"]["drop_rounds"], saved["live_round"], len(saved["rounds"])), (1, "b", 2))
+        top = r["standings"]["groups"][0]["drivers"][0]
+        self.assertLess(top["points"], top["gross"])  # a round dropped
+
     def test_state_and_index(self):
         status, snap = self.request("/api/state")
         self.assertEqual(status, 200)
@@ -349,3 +366,31 @@ class LogTests(unittest.TestCase):
             self.assertLessEqual(len(text), 200)
             self.assertTrue(text.startswith("line "))  # from a line's start
             trim_log(Path(tmp) / "none.log")  # no log yet: nothing to do
+
+
+class DataDelayTests(unittest.TestCase):
+    def test_the_race_shows_a_second_late_settings_straight_away(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = App(MockSource(seed=3), dict(DEFAULTS), LeagueStore(tmp))
+            now = {"t": 100.0}
+
+            def snap(i):
+                return {"connected": True, "session": {"time": i}, "drivers": [i], "camera": {"car_idx": i},
+                        "overlays": {"standings": [i], "settings": {"n": i}}, "league": {"n": i}}
+
+            with mock.patch("apex.core.time.monotonic", lambda: now["t"]):
+                seen = []
+                for i in range(20):  # 8 a second
+                    seen.append(app._delay(snap(i)))
+                    now["t"] += 0.125
+                last = seen[-1]
+                # Race data from 1 s (8 snapshots) back; settings and the league as they are now.
+                self.assertEqual((last["session"]["time"], last["drivers"], last["overlays"]["standings"]), (11, [11], [11]))
+                self.assertEqual((last["overlays"]["settings"], last["league"]), ({"n": 19}, {"n": 19}))
+                self.assertEqual(seen[0]["session"]["time"], 0)  # just started: the oldest there is
+                app.command("data_delay", {"seconds": 0})
+                self.assertEqual(app._delay(snap(50))["session"]["time"], 50)  # 0: straight away
+                with self.assertRaises(Exception):
+                    app.command("data_delay", {"seconds": "soon"})

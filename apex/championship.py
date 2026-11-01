@@ -601,6 +601,29 @@ def _team_group(result, rules):
     return _group_keys(result, rules)[0]
 
 
+def _dropped(scored, points, rules):
+    """The rounds whose points don't count, by id: the worst ``drop_rounds``
+    (with ``drop_meetings`` a race meeting's races as one, their points added
+    up), never a "can't drop" one, and always at least one round (or meeting)
+    still counting. ``points``: {round id: points} (a round missing scored 0)."""
+    drop = rules["drop_rounds"]
+    if not drop:
+        return set()
+    units = []
+    for rd in scored:
+        p = points.get(rd["id"]) or 0
+        if rules["drop_meetings"] and rd.get("event") and units and units[-1]["event"] == rd["event"]:
+            u = units[-1]
+            u["ids"].append(rd["id"])
+            u["points"] += p
+            u["ok"] = u["ok"] and not rd["no_drop"]
+        else:
+            units.append({"event": rd.get("event") if rules["drop_meetings"] else None, "ids": [rd["id"]],
+                          "points": p, "ok": not rd["no_drop"]})
+    worst = sorted((u for u in units if u["ok"]), key=lambda u: u["points"])
+    return {i for u in worst[:min(drop, len(units) - 1)] for i in u["ids"]}
+
+
 def _team_standings(profile, scored, per_round, rules, penalties):
     """Teams score their drivers' points (with class and overall championships,
     the overall points unless the rules say class).
@@ -611,7 +634,7 @@ def _team_standings(profile, scored, per_round, rules, penalties):
     roster = {_key(d): d for d in profile.get("drivers", []) if d.get("team", "").strip()}
     if not roster:
         return []
-    totals, rounds, wins, members = {}, {}, {}, {}
+    rounds, wins, by_round = {}, {}, {}
     for rd in scored:
         by_team = {}
         for r in rd["results"]:
@@ -623,19 +646,28 @@ def _team_standings(profile, scored, per_round, rules, penalties):
             entries.sort(key=lambda e: -e[0])
             counted = entries[:rules["team_best"]] if rules["team_best"] else entries
             pts = _round(sum(e[0] for e in counted))
-            totals[team] = totals.get(team, 0) + pts
             rounds.setdefault(team, {})[rd["id"]] = pts
             wins[team] = wins.get(team, 0) + sum(1 for e in entries if e[2] == 1)
             for total, driver, _ in counted:
-                m = members.setdefault(team, {})
+                m = by_round.setdefault(team, {}).setdefault(rd["id"], {})
                 m[driver] = m.get(driver, 0) + total
+    # Drop rounds: a team's worst rounds don't count (nor what its drivers scored in them).
+    totals, members, dropped = {}, {}, {}
+    for team, per in rounds.items():
+        dropped[team] = _dropped(scored, per, rules)
+        totals[team] = sum(p for rid, p in per.items() if rid not in dropped[team])
+        for rid, scores in by_round.get(team, {}).items():
+            if rid in dropped[team]:
+                continue
+            for driver, total in scores.items():
+                members.setdefault(team, {})[driver] = members.setdefault(team, {}).get(driver, 0) + total
     pens = {}
     for d, p in penalties.items():
         team = roster[d]["team"].strip() if d in roster else None
         if team in totals:
             totals[team] -= p
             pens[team] = pens.get(team, 0) + p
-            members[team][d] = members[team].get(d, 0) - p
+            members.setdefault(team, {})[d] = members[team].get(d, 0) - p
     ranked = sorted(totals.items(), key=lambda kv: (-kv[1], -wins.get(kv[0], 0), kv[0].lower()))
     lead = ranked[0][1] if ranked else 0
     out = []
@@ -645,7 +677,8 @@ def _team_standings(profile, scored, per_round, rules, penalties):
             "pos": i, "team": team, "points": _round(pts), "behind": _round(lead - pts),
             "ahead": _round(ranked[i - 2][1] - pts) if i > 1 else None,
             "wins": wins.get(team, 0), "penalty_points": _round(pens.get(team, 0)),
-            "rounds": [{"round": rd["id"], "points": rounds.get(team, {}).get(rd["id"])} for rd in scored],
+            "rounds": [{"round": rd["id"], "points": rounds.get(team, {}).get(rd["id"]), "dropped": rd["id"] in dropped.get(team, ())}
+                       for rd in scored],
             "drivers": [{"driver": d, "name": roster[d].get("name", ""), "nickname": roster[d].get("nickname", ""),
                          "points": _round(p)} for d, p in drivers],
         })
@@ -703,19 +736,23 @@ def make_standings(profile, group):
     champ = normalise(profile.get("championship"))
     rules = champ["rules"]
     roster = _roster(profile)
-    totals, wins = {}, {}
-    for rd in champ["rounds"]:
-        if not rd["results"]:
-            continue
+    per, wins = {}, {}
+    scored = [rd for rd in champ["rounds"] if rd["results"]]
+    for rd in scored:
         scores = score_round(rd, rules, secondary_classes(profile)).get(group, {})
         for r in rd["results"]:
             res = scores.get(r["driver"])
             make = r.get("make") or (roster.get(r["driver"]) or {}).get("car_make", "")
             if not res or not make:
                 continue
-            totals[make] = totals.get(make, 0) + res["total"]
+            per.setdefault(make, {})[rd["id"]] = per.setdefault(make, {}).get(rd["id"], 0) + res["total"]
             if res["rank"] == 1:
                 wins[make] = wins.get(make, 0) + 1
+    # Drop rounds: a manufacturer's worst rounds don't count, as for the drivers.
+    totals = {}
+    for make, rounds in per.items():
+        out = _dropped(scored, rounds, rules)
+        totals[make] = sum(p for rid, p in rounds.items() if rid not in out)
     ranked = sorted(totals.items(), key=lambda kv: (-kv[1], -wins.get(kv[0], 0), kv[0].lower()))
     lead = ranked[0][1] if ranked else 0
     return [{"pos": i, "make": m, "points": _round(p), "behind": _round(lead - p), "wins": wins.get(m, 0)}
