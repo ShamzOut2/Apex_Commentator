@@ -111,6 +111,23 @@ class LapTrackerTests(unittest.TestCase):
         self.assertFalse(lt.state(0, t)["valid"])
         self.assertIsNone(lt.best(0))
 
+    def test_an_invalid_lap_is_marked(self):
+        lt = LapTracker()
+        t = drive(lt, 1, sector_s=(25.0, 25.0, 25.0), off_at=0.5)  # off in the second sector
+        st = lt.state(0, t)
+        self.assertEqual(st["state"], "finished")
+        self.assertEqual([s["mark"] for s in st["sectors"]], ["struck"] * 3)  # done: every sector struck through
+        # On the way round: the sector it happened in struck, the rest greyed.
+        lt = LapTracker()
+        drive(lt, 0)
+        t = lt.cars[0].t
+        for i, pct in enumerate((0.15, 0.30, 0.40, 0.50, 0.55, 0.60, 0.70)):
+            surface = [TRK_OFF_TRACK] if pct == 0.50 else [TRK_ON_TRACK]
+            lt.update(F(t + 3 * (i + 1), [pct], surface=surface), lambda i: "A")
+        # (The lap started at the line before 0.40; sector 1 ended at 1/3.)
+        st = lt.state(0, t + 21, hide_s=0)
+        self.assertEqual([s["mark"] for s in st["sectors"]], [None, "struck", "grey"])
+
     def test_out_lap_is_not_timed(self):
         lt = LapTracker()
         lt.update(F(0.0, [0.95], on_pit=[True]), lambda i: "A")
@@ -159,6 +176,49 @@ class LapTrackerTests(unittest.TestCase):
         self.assertEqual(mine["session"], "purple")   # fastest in its class
         self.assertEqual(mine["overall"], "yellow")   # but not overall
         self.assertEqual(tr.state(0, 12.0, "overall")["sectors"][0]["colour"], "yellow")
+
+    def run_two(self, tr, car0, car1, off0_at=None, classes=("A", "A")):
+        times = (0, 1, 5, 6, 7, 10, 11, 13, 14)
+        for t, p0, p1 in zip(times, car0, car1):
+            surface = [TRK_OFF_TRACK if off0_at is not None and t >= off0_at else TRK_ON_TRACK, TRK_ON_TRACK]
+            tr.update(F(t, [p0, p1], surface=surface, on_pit=[False] * 2, last_lap=[-1.0] * 2, lap=[-1] * 2),
+                      lambda i: classes[i])
+
+    def test_a_purple_beaten_by_someone_else_turns_green(self):
+        tr = LapTracker()
+        # Car 0 sets the first sector (~9.8 s); car 1, a lap behind on the road, then does it in ~7.3 s.
+        self.run_two(tr, (.99, .01, .20, .25, .27, .33, .34, .36, .37), (.70, .75, .90, .99, .01, .20, .25, .30, .34))
+        self.assertEqual(tr.cars[0].lap["colours"][0]["session"], "purple")  # purple when it was set
+        for ref in ("session", "overall"):
+            self.assertEqual(tr.state(0, 14, ref)["sectors"][0]["colour"], "green", ref)
+            self.assertEqual(tr.state(1, 14, ref)["sectors"][0]["colour"], "purple", ref)
+        self.assertEqual(tr.state(0, 14, "personal")["sectors"][0]["colour"], "purple")  # still their own best
+        # In another class, car 1 only beats car 0 overall.
+        tr = LapTracker()
+        self.run_two(tr, (.99, .01, .20, .25, .27, .33, .34, .36, .37), (.70, .75, .90, .99, .01, .20, .25, .30, .34),
+                     classes=("A", "B"))
+        self.assertEqual(tr.state(0, 14, "session")["sectors"][0]["colour"], "purple")
+        self.assertEqual(tr.state(0, 14, "overall")["sectors"][0]["colour"], "green")
+
+    def test_an_invalidated_lap_s_sector_is_not_the_fastest(self):
+        slow1 = (.98, .02, .10, .15, .18, .25, .27, .32, .34)  # car 1: the first sector in ~13.2 s
+        fast0 = (.99, .01, .20, .25, .27, .33, .34, .36, .37)  # car 0: ~9.8 s, then off track at t = 13
+        tr = LapTracker()
+        self.run_two(tr, fast0, slow1)
+        self.assertEqual(tr.state(1, 14, "session")["sectors"][0]["colour"], "yellow")  # slower than car 0's
+        tr = LapTracker()
+        self.run_two(tr, fast0, slow1, off0_at=13)
+        self.assertFalse(tr.cars[0].lap["valid"])
+        self.assertAlmostEqual(tr.sector_best(0, "A"), tr.cars[1].lap["splits"][0], places=3)
+        for ref in ("session", "overall"):
+            self.assertEqual(tr.state(1, 14, ref)["sectors"][0]["colour"], "purple", ref)
+        # Car 1's sector was yellow when it was set (car 0's lap still clean); car 0
+        # goes off later: car 1's is the fastest now, purple.
+        tr = LapTracker()
+        late = (.98, .02, .10, .15, .18, .25, .27, .34, .35)  # car 1 through the sector by t = 13
+        self.run_two(tr, fast0, late, off0_at=14)
+        self.assertEqual(tr.cars[1].lap["colours"][0]["session"], "yellow")
+        self.assertEqual(tr.state(1, 14, "session")["sectors"][0]["colour"], "purple")
 
     def test_new_session_resets(self):
         lt = LapTracker()

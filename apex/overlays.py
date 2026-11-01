@@ -282,6 +282,9 @@ DEFAULTS = {
         "visible": True,
         "count": 4,               # small trackers along the bottom
         "name_format": "initial_last",
+        # An invalidated lap: the INVALID that takes the lap time's place, the
+        # sectors struck through / greyed out, and the line through them.
+        "invalid_text_color": "#ff4d4d", "invalid_sector_color": "#5b616b", "invalid_line_color": "#ff4d4d",
         "reference": "personal",  # sector colours against "personal" bests, the "session" (class) best or the "overall" best
         "sectors": 3,             # sectors shown: the track's split points merged into this many (0 = all of them)
         "green_s": 0.2,
@@ -325,7 +328,7 @@ def _value(key, value, default):
             lo, hi = LIMITS.get(key, (value, value))
             return min(max(value, lo), hi)
         value = str(value)[:600 if key == "drivers" else 200]
-        if key.endswith("bg_color") or key.startswith("accent_"):
+        if key.endswith("bg_color") or key.startswith("accent_") or key.startswith("invalid_"):
             return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
         if key == "bg_image":
             return value if re.fullmatch(r"(bg-[0-9a-f]{12}\.(png|jpg|webp|svg))?", value) else default

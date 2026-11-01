@@ -11,6 +11,24 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.5.3
+
+### New features
+
+- Lap tracker: an **invalidated lap** shows: a line through the sector it
+  happened in, the rest of the lap greyed out, and at the line every sector
+  struck through and INVALID in place of the lap time, in colours you pick.
+
+### Improvements
+
+- Lap tracker: against the class or overall best, a purple sector turns
+  green once someone else goes faster through it.
+
+### Fixes
+
+- Lap tracker: a sector on a lap that's then invalidated no longer counts as
+  the fastest; whoever's fastest on a clean lap is purple instead.
+
 ## v0.5.2
 
 ### New features
