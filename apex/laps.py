@@ -233,6 +233,9 @@ class LapTracker:
         ref_s = self.sector_best(n, car.cls)
         ref_o = self.sector_best(n)
         lap["splits"].append(sector)
+        # What it was against, and when (the tracker shows the difference first).
+        lap.setdefault("refs", []).append({"personal": ref_p, "session": ref_s, "overall": ref_o})
+        lap.setdefault("ended", []).append(when)
         lap["colours"].append({
             "personal": colour(sector, ref_p, self.green_s),
             "session": colour(sector, ref_s, self.green_s),
@@ -250,6 +253,7 @@ class LapTracker:
             "lap_time": lap_time, "sectors": list(lap["splits"]), "colours": lap["colours"],
             "valid": lap["valid"], "ref_lap": lap["ref_lap"], "finished": when, "number": car.laps,
             "invalid_at": lap.get("invalid_at"),
+            "refs": lap.get("refs", []), "ended": lap.get("ended", []),
             "iracing_before": iracing_before,
         }
         if lap["valid"]:
@@ -278,6 +282,16 @@ class LapTracker:
             if mine is not None and (best is None or mine < best):
                 best = mine
         return best
+
+    @staticmethod
+    def _delta(lap, n, time, reference, now):
+        """A finished sector against what it was compared with when it was set
+        (the driver's best, the class's, anyone's): ``delta`` seconds (minus:
+        faster; None: nothing to compare with) and ``age``: seconds since."""
+        refs, ended = lap.get("refs", []), lap.get("ended", [])
+        ref = refs[n].get(reference, refs[n]["personal"]) if n < len(refs) else None
+        return {"delta": round(time - ref, 3) if ref is not None else None,
+                "age": round(now - ended[n], 2) if n < len(ended) else None}
 
     def _now_colour(self, car, n, time, colours, reference, valid):
         """A finished sector's colour now, against the class or overall best as
@@ -352,8 +366,9 @@ class LapTracker:
             return {
                 "state": "finished",
                 # An invalid lap, done: every sector struck through.
-                "sectors": [{"time": s, "colour": self._now_colour(car, n, s, c, reference, last["valid"]), "done": 1.0,
-                             "mark": None if last["valid"] else "struck"}
+                "sectors": [dict(self._delta(last, n, s, reference, now),
+                                 time=s, colour=self._now_colour(car, n, s, c, reference, last["valid"]), done=1.0,
+                                 mark=None if last["valid"] else "struck")
                             for n, (s, c) in enumerate(zip(last["sectors"], last["colours"]))],
                 "lap_time": last["lap_time"],
                 "elapsed": last["lap_time"],
@@ -366,7 +381,8 @@ class LapTracker:
         lap = car.lap
         if lap is None:
             return None
-        sectors = [{"time": s, "colour": self._now_colour(car, n, s, c, reference, lap["valid"]), "done": 1.0}
+        sectors = [dict(self._delta(lap, n, s, reference, now),
+                        time=s, colour=self._now_colour(car, n, s, c, reference, lap["valid"]), done=1.0)
                    for n, (s, c) in enumerate(zip(lap["splits"], lap["colours"]))]
         n = len(sectors)
         if n < nsec:

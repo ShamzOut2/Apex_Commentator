@@ -1409,7 +1409,7 @@ class App:
             self.desktop.hide(page)
         return {"on_screen": self.desktop.on_screen() if self.desktop else {}}
 
-    POPOUT_PAGES = {"timing": "Timing", "boards": "Boards"}
+    POPOUT_PAGES = {"timing": "Timing Screen", "boards": "Boards"}
 
     def cmd_popout(self, page):
         """Open a control panel page in its own window. ``opened`` False: the
@@ -1706,9 +1706,19 @@ class App:
                 return self.cmd_board_hide()
             return self.cmd_board_show(board_kind, group, "latest")
         if kind == "battle":
+            if rest == "toggle":  # the drivers picked in its settings, on screen or off
+                cfg = self.overlays.get()["battle"]
+                if not cfg["visible"] and not cfg["drivers"]:
+                    raise CommandError("Pick the championship battle's drivers first (Overlays tab)")
+                return self.cmd_overlay_settings("battle", {"visible": not cfg["visible"]})
             return self.cmd_battle_pick(rest)
         if kind == "desk":
+            if rest == "boards_toggle":  # the boards on the user's screen, or off it
+                on = self.desktop.on_screen() if self.desktop is not None else {}
+                return self.cmd_desktop_hide("board") if "board" in on else self.cmd_desktop_show_all("boards")
             return self.cmd_desktop_hide() if rest == "off" else self.cmd_desktop_show_all(rest)
+        if kind == "grid":
+            return self._grid_hotkey(rest)
         if kind == "tower":
             tower = self.overlays.get()["standings"]
             if rest == "sponsor":
@@ -1719,6 +1729,10 @@ class App:
                 now = tower["header_info"] if tower["header_info"] in ("laps", "time") else self._header_mode
                 return self.cmd_overlay_settings("standings", {"header_info": "time" if now == "laps" else "laps"})
         if kind == "all":
+            if rest == "overlays":
+                return self.cmd_toggle_overlays()
+            if rest == "boards":
+                return self.cmd_toggle_boards()
             return self.cmd_toggle_all()
         raise CommandError(f"Unknown hotkey '{action}'")
 
@@ -1748,6 +1762,39 @@ class App:
         if away["gridwalk"] is not None and self._grid_count():
             self.gridwalk.start(away["gridwalk"])
         return {"shown": True}
+
+    def cmd_toggle_overlays(self):
+        """Every overlay and the grid walk off screen; again, and they come
+        back (nothing was up: every overlay comes on). Boards stay as they are."""
+        ov = self.overlays.get()
+        up = [k for k in self.TOGGLE_ALL if ov.get(k, {}).get("visible")]
+        if up or self.gridwalk.visible:
+            self._overlays_away = {"overlays": up, "gridwalk": self.gridwalk.index if self.gridwalk.visible else None}
+            for k in up:
+                self.cmd_overlay_settings(k, {"visible": False})
+            self.gridwalk.hide()
+            return {"shown": False}
+        away, self._overlays_away = getattr(self, "_overlays_away", None), None
+        away = away or {"overlays": list(self.TOGGLE_ALL), "gridwalk": None}
+        for k in away["overlays"]:
+            self.cmd_overlay_settings(k, {"visible": True})
+        if away["gridwalk"] is not None and self._grid_count():
+            self.gridwalk.start(away["gridwalk"])
+        return {"shown": True}
+
+    def cmd_toggle_boards(self):
+        """The board on screen off; again, and the same board comes back as it
+        was (its page, the starting grid's rows shown): any board, the
+        qualifying results and the starting grid too. Overlays stay as they are."""
+        if self.board.get("kind"):
+            self._board_away = {"kind": self.board["kind"], "params": dict(self.board["params"])}
+            self.cmd_board_hide()
+            return {"shown": False}
+        away, self._board_away = getattr(self, "_board_away", None), None
+        if not away:
+            raise CommandError("No board to bring back: put one on screen first")
+        self.board = away
+        return {"shown": True, "board": away["kind"]}
 
     def cmd_hotkeys(self, keys=None, cameras=None, actions=None):
         """The Hotkeys window's keys ({key: action}): those with Ctrl or Alt work
@@ -1848,6 +1895,26 @@ class App:
         page = (shown * 2 - 1) // per if step != "all" else int(params.get("page") or 0)
         self.board = {"kind": "grid", "params": dict(params, reveal=shown, page=page)}
         return {"reveal": shown, "rows": total}
+
+    def _grid_hotkey(self, what):
+        """The starting grid's hotkeys: grid:toggle (the Overall grid for the
+        race on now / next, on or off), grid:full / grid:rows / grid:mode
+        (every driver at once, row by row, or the one then the other),
+        grid:next / grid:prev / grid:all (rows, row by row)."""
+        if what == "toggle":
+            if self.board.get("kind") == "grid":
+                return self.cmd_board_hide()
+            return self.cmd_board_show("grid", "", "next")
+        if what in ("full", "rows", "mode"):
+            now = self.overlays.get()["board_grid"]["grid_reveal"]
+            want = {"full": "all", "rows": "rows"}.get(what) or ("rows" if now == "all" else "all")
+            self.cmd_overlay_settings("board_grid", {"grid_reveal": want})
+            if self.board.get("kind") == "grid":  # row by row starts again from the front row
+                self.board = {"kind": "grid", "params": dict(self.board["params"], reveal=1, page=0)}
+            return {"grid_reveal": want}
+        if what in ("next", "prev", "all"):
+            return self.cmd_board_reveal(what)
+        raise CommandError(f"Unknown hotkey 'grid:{what}'")
 
     def _boards(self, active_league, session_board):
         active_league = active_league or self._officials_league()

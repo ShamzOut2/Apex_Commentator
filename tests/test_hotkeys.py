@@ -106,6 +106,10 @@ class HotkeyActionTests(unittest.TestCase):
             self.assertEqual(desk.up["gridwalk"], 1)
             self.press("desk:off")
             self.assertEqual(desk.up, {})
+            self.press("desk:boards_toggle")  # boards on the screen picked for them, then off again
+            self.assertEqual(desk.up, {"board": 2})
+            self.press("desk:boards_toggle")
+            self.assertEqual(desk.up, {})
         finally:
             self.app.desktop = None
 
@@ -125,6 +129,36 @@ class HotkeyActionTests(unittest.TestCase):
         self.press("all:toggle")  # nothing up: every overlay comes on
         self.assertTrue(all(ov(k) for k in app.TOGGLE_ALL))
         self.press("all:toggle")
+
+    def test_overlays_and_boards_apart(self):
+        app = self.app
+        ov = lambda k: app.overlays.get()[k]["visible"]  # noqa: E731
+        app.cmd_overlay_settings("laps", {"visible": True})
+        app.command("board_show", {"kind": "grid", "group": "", "round": "next"})
+        app.command("board_reveal", {"step": "next"})
+        params = dict(app.board["params"])
+        self.press("all:boards")  # just the board
+        self.assertEqual((app.board["kind"], ov("laps")), (None, True))
+        self.press("all:overlays")  # just the overlays
+        self.assertFalse(ov("laps"))
+        self.press("all:boards")  # the same board back, as it was
+        self.assertEqual((app.board["kind"], app.board["params"]), ("grid", params))
+        self.press("all:overlays")
+        self.assertTrue(ov("laps"))
+        self.press("board:off")
+
+    def test_championship_battle_key(self):
+        app = self.app
+        app.cmd_overlay_settings("battle", {"visible": False, "drivers": ""})
+        from apex.core import CommandError
+        with self.assertRaises(CommandError):
+            self.press("battle:toggle")  # nobody picked yet
+        app.cmd_overlay_settings("battle", {"drivers": "cust:1,cust:2"})
+        self.press("battle:toggle")
+        self.assertTrue(app.overlays.get()["battle"]["visible"])
+        self.press("battle:toggle")
+        self.assertFalse(app.overlays.get()["battle"]["visible"])
+        self.assertEqual(app.overlays.get()["battle"]["drivers"], "cust:1,cust:2")  # the picks stay
 
     def test_tower_header_key(self):
         app = self.app

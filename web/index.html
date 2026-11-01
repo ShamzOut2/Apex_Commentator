@@ -23,14 +23,15 @@
 
   <nav class="tabs" role="tablist">
     <button class="tab" data-tab="home">Home</button>
+    <button class="tab" data-tab="hotkeys">Hotkeys</button>
     <button class="tab" data-tab="league">League builder</button>
     <button class="tab" data-tab="teams">Teams</button>
     <button class="tab" data-tab="championship">Championship</button>
-    <button class="tab" data-tab="timing">Timing</button>
+    <button class="tab" data-tab="racecontrol">Race control</button>
+    <button class="tab" data-tab="timing">Timing Screen</button>
     <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
     <button class="tab" data-tab="overlays">Overlays</button>
     <button class="tab" data-tab="boards">Boards</button>
-    <button class="tab" data-tab="racecontrol">Race control</button>
   </nav>
 
   <main id="main">
@@ -39,8 +40,13 @@
         <h1 class="home-title">Apex Commentator <span id="home-version" class="count"></span></h1>
         <p id="home-session" class="hint"></p>
         <div class="tiles">
+          <button class="tile" data-goto="hotkeys">
+            <span class="tile-icon">⌨</span><b>Hotkeys</b>
+            <span class="tile-text">Keys for cameras, overlays, boards, the grid walk and the starting grid, from any program.</span>
+            <span class="tile-status" id="tile-hotkeys"></span>
+          </button>
           <button class="tile" data-goto="timing">
-            <span class="tile-icon">⏱</span><b>Timing</b>
+            <span class="tile-icon">⏱</span><b>Timing Screen</b>
             <span class="tile-text">Live standings, battles, race log, replays and cameras.</span>
             <span class="tile-status" id="tile-timing"></span>
           </button>
@@ -254,6 +260,21 @@
           </table>
           <p id="gw-empty" class="empty">The grid appears once drivers are in the session.</p>
         </div>
+      </div>
+    </section>
+
+    <section id="tab-hotkeys" class="panel">
+      <div class="home">
+        <div class="row teams-head"><h2>Hotkeys</h2><span class="grow"></span>
+          <button class="btn subtle" id="hotkey-reset">Cameras back to 1–9</button>
+          <button class="btn" id="hotkeys-back" hidden>◀ Back</button></div>
+        <p class="hint">Click something, then press the key you want for it. <kbd>Backspace</kbd> clears it. A key does one
+        thing: giving it to something else takes it off the first. L, R and the arrow keys are taken (live, rewind, car
+        ahead/behind). Plain keys work when an Apex Commentator window is in front; keys pressed with <b>Ctrl</b> or
+        <b>Alt</b> (and Shift if you like), e.g. <kbd>Ctrl+Alt+1</kbd>, work whichever program is in front, iRacing and
+        OBS included (🌐).</p>
+      <div id="hotkey-list" class="hotkey-sections"></div>
+      <p id="hotkey-prompt" class="hint"></p>
       </div>
     </section>
 
@@ -629,23 +650,6 @@
       <div class="modal-actions">
         <button class="btn subtle" id="csv-cancel">Cancel</button>
         <button class="btn primary" id="csv-go">Import</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="hotkey-modal" class="modal-backdrop" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="hotkey-title">
-      <h2 id="hotkey-title">Hotkeys</h2>
-      <p class="hint">Click something, then press the key you want for it. <kbd>Backspace</kbd> clears it. A key does one
-        thing: giving it to something else takes it off the first. L, R and the arrow keys are taken (live, rewind, car
-        ahead/behind). Plain keys work when an Apex Commentator window is in front; keys pressed with <b>Ctrl</b> or
-        <b>Alt</b> (and Shift if you like), e.g. <kbd>Ctrl+Alt+1</kbd>, work whichever program is in front, iRacing and
-        OBS included (🌐).</p>
-      <div id="hotkey-list" class="hotkey-sections"></div>
-      <p id="hotkey-prompt" class="hint"></p>
-      <div class="modal-actions">
-        <button class="btn subtle" id="hotkey-reset">Cameras back to 1–9</button>
-        <button class="btn primary" id="hotkey-done">Done</button>
       </div>
     </div>
   </div>

@@ -25,6 +25,16 @@ function fmtSector(t) {
   return t == null ? "" : t >= 60 ? fmtLap(t) : t.toFixed(3);
 }
 
+// A sector against what it was compared with: −0.324 (faster), +0.512 (slower).
+const fmtGain = (d) => `${d < 0 ? "−" : d > 0 ? "+" : "±"}${Math.abs(d).toFixed(3)}`;
+
+// A sector just done shows its difference first (sector_delta_s seconds, fading
+// in and out), then its time.
+const deltaFor = (s, cfg) => {
+  const hold = cfg.sector_delta_s ?? 3;
+  return hold > 0 && s.time != null && s.delta != null && s.age != null && s.age < hold ? hold : 0;
+};
+
 // An invalidated lap's colours (the lap tracker's settings).
 function setInvalidColours(cfg) {
   const st = document.body.style;
@@ -90,7 +100,26 @@ function update(entry, item, cfg, classes, nsec) {
     node.classList.toggle("struck", s.mark === "struck");
     node.classList.toggle("grey", s.mark === "grey");
     const st = node.querySelector(".st");
-    st.textContent = fmtSector(s.time);
+    const hold = deltaFor(s, cfg);
+    if (hold) {
+      const key = `${i}:${s.time}`;
+      if (node.dataset.dk !== key) {  // a new sector time: its difference fades in and out
+        node.dataset.dk = key;
+        node.style.setProperty("--dd", `${hold}s`);
+        node.style.setProperty("--dage", `-${s.age}s`);
+        node.classList.remove("delta", "time-in");
+        void node.offsetWidth;  // restart the animation
+      }
+      node.classList.add("delta");
+      st.textContent = fmtGain(s.delta);
+    } else {
+      if (node.classList.contains("delta")) {  // then the time comes in
+        node.classList.remove("delta");
+        node.classList.add("time-in");
+        setTimeout(() => node.classList.remove("time-in"), 500);
+      }
+      st.textContent = fmtSector(s.time);
+    }
     node.classList.toggle("tight", !!s.time && st.scrollWidth > node.clientWidth - 6);
   });
   const lt = el.querySelector(".lt");
@@ -182,7 +211,7 @@ function screenRowHtml(item, cfg, cls, nsec, camIdx) {
     <td class="c"><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(item.number)}</span></td>
     <td>${esc(formatName(item, cfg.name_format))}</td>
     <td class="team">${team}</td>
-    ${sectors.map((sc) => `<td class="sec ${sc.mark || ""}"><div class="${sc.colour || ""}">${sc.colour ? "" : `<i style="width:${Math.round(sc.done * 100)}%"></i>`}<span>${sc.time != null ? fmtSector(sc.time) : ""}</span></div></td>`).join("")}
+    ${sectors.map((sc) => `<td class="sec ${sc.mark || ""}"><div class="${sc.colour || ""}">${sc.colour ? "" : `<i style="width:${Math.round(sc.done * 100)}%"></i>`}<span>${sc.time == null ? "" : deltaFor(sc, cfg) ? fmtGain(sc.delta) : fmtSector(sc.time)}</span></div></td>`).join("")}
     <td class="r">${lapCell}</td>
     <td class="r lead">${fmtLap(item.best)}</td>
     <td class="r">${item.pos > 1 && item.gap != null ? `+${item.gap.toFixed(3)}` : ""}</td>

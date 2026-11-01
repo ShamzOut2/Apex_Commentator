@@ -36,31 +36,44 @@ OBS dock.
   stop & hold, clear), the grid timer, starting the race and messages to
   every driver, sent to iRacing as its admin commands.
 
-The tabs, in order: Home, League builder, Teams, Championship, Timing, Grid
-walk, Overlays, Boards and Race control.
+The tabs, in order: Home, Hotkeys, League builder, Teams, Championship, Race
+control, Timing Screen, Grid walk, Overlays and Boards.
 
 ![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.png)
 
 ## What's new
 
 <!-- whats-new:start -->
-**v0.5.3**
+**v0.5.4**
 
 ### New features
 
-- Lap tracker: an **invalidated lap** shows: a line through the sector it
-  happened in, the rest of the lap greyed out, and at the line every sector
-  struck through and INVALID in place of the lap time, in colours you pick.
+- Lap tracker: a sector just done shows its **difference** first (−0.324 /
+  +0.512, against the driver's best, the class's or anyone's, as the
+  reference is set), fading in and out on its colour for 3 seconds (you can
+  set how long), then its time. A purple one gets a white light sweeping
+  across it, a green one a soft pulsing lighter-green glow.
+
+- The "everything off screen and back" hotkey has two more alongside it:
+  one for the **overlays** (and the grid walk) only, one for the **board**
+  only, which brings back the same board as it was (the qualifying results
+  and the starting grid included, the grid's rows shown and all).
+- A hotkey for the **championship battle** with the drivers picked in its
+  settings: on screen, and off again.
+- Starting grid **hotkeys**: the grid on and off, full grid / row by row (or
+  a key to switch), next row, back a row, every row, and the boards on your
+  screen and off it.
 
 ### Improvements
 
-- Lap tracker: against the class or overall best, a purple sector turns
-  green once someone else goes faster through it.
+- **Hotkeys** is a tab of its own (and a box on the Home page), next to Home;
+  Race control moves between Championship and the Timing Screen (the Timing
+  tab's new name).
 
 ### Fixes
 
-- Lap tracker: a sector on a lap that's then invalidated no longer counts as
-  the fastest; whoever's fastest on a clean lap is purple instead.
+- Race control: the commands are sent in iRacing's chat by themselves; they
+  used to sit in the chat box until you pressed Enter.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -161,18 +174,26 @@ shows something else. Camera hotkeys work in whichever window has focus.
 | `R` | Rewind the car on camera (by the rewind setting) |
 | `↑` / `↓` | Watch the car ahead / behind |
 
-**Hotkeys for overlays and boards.** *⌨ Hotkeys* (on the Timing, Overlays and
+**Hotkeys for overlays and boards.** The **Hotkeys** tab (also on the Home page,
+and the *⌨ Hotkeys* buttons on the Timing Screen, Overlays and
 Boards tabs) also sets keys for:
 - each overlay: the standings tower, lap tracker, driver on camera,
   sponsors, championship battle and pit stops, on and off;
 - everything at once: every overlay, the board and the grid walk off
   screen; pressed again, whatever it took off comes back (with nothing up,
-  every overlay comes on);
+  every overlay comes on). Or apart: the **overlays** (and the grid walk)
+  only, or the **board** only, which brings the same board back as it was
+  (any board: the qualifying results and the starting grid too, its page
+  and the grid's rows shown);
 - the timing tower: its sponsor bar under the header on and off, overall /
   by class, and its header between laps left and time left;
-- the championship battle's quick picks (the car on camera and the one
-  ahead, the cars either side, the top 3), which also put it on screen;
+- the championship battle: on / off with the drivers picked in its
+  settings, and its quick picks (the car on camera and the one ahead, the
+  cars either side, the top 3), which also put it on screen;
 - the grid walk: on / off (starting from P1), and the next and previous pair;
+- the starting grid: on / off (Overall, for the race on now or next), full
+  grid or row by row (a key for each, or one to switch), next row, back a
+  row and every row, and the boards on your screen or off it;
 - on your own screen (app window): every overlay, the boards, the grid
   walk, or taking everything off (see "Overlays on your own screen");
 - every board in the Boards tab (each class's standings, teams',
@@ -198,9 +219,9 @@ combinations avoid that.)
 ## Race control
 
 The **Race control** tab runs the session from the app. Everything goes to
-iRacing as its admin chat commands, typed into the sim's chat for you, so
-you need to be an admin of the session in iRacing (the host, or promoted by
-the host). iRacing must be open on this PC.
+iRacing as its admin chat commands, typed into the sim's chat and sent for
+you (no need to press Enter), so you need to be an admin of the session in
+iRacing (the host, or promoted by the host). iRacing must be open on this PC.
 
 Along the top:
 - **Clear all penalties** (`!clearall`), after a check that you mean it.
@@ -597,6 +618,14 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     while its lap is clean: a lap that's invalidated (off track) loses its
     sectors from the bests, and whoever's now fastest (on a clean lap)
     turns purple.
+  - **A sector just done** shows first how it compares (−0.324 faster,
+    +0.512 slower) with the time it's measured against: the driver's best,
+    the class's fastest or anyone's, as the reference above says. It fades
+    in and out on the sector's colour for 3 seconds (a purple one with a
+    white light sweeping across it, a green one with a soft pulsing
+    lighter-green glow, a yellow one as it is), then the sector's time
+    comes in (*A sector just done: its difference first, for*: the seconds,
+    or 0 for just the time). The full-screen timing does the same.
   - **An invalidated lap** (off track): the sector it happened in gets a
     line through it, and the rest of the lap greys out as the driver carries
     on; at the line every sector is struck through and **INVALID** takes the

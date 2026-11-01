@@ -11,6 +11,37 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.5.4
+
+### New features
+
+- Lap tracker: a sector just done shows its **difference** first (−0.324 /
+  +0.512, against the driver's best, the class's or anyone's, as the
+  reference is set), fading in and out on its colour for 3 seconds (you can
+  set how long), then its time. A purple one gets a white light sweeping
+  across it, a green one a soft pulsing lighter-green glow.
+
+- The "everything off screen and back" hotkey has two more alongside it:
+  one for the **overlays** (and the grid walk) only, one for the **board**
+  only, which brings back the same board as it was (the qualifying results
+  and the starting grid included, the grid's rows shown and all).
+- A hotkey for the **championship battle** with the drivers picked in its
+  settings: on screen, and off again.
+- Starting grid **hotkeys**: the grid on and off, full grid / row by row (or
+  a key to switch), next row, back a row, every row, and the boards on your
+  screen and off it.
+
+### Improvements
+
+- **Hotkeys** is a tab of its own (and a box on the Home page), next to Home;
+  Race control moves between Championship and the Timing Screen (the Timing
+  tab's new name).
+
+### Fixes
+
+- Race control: the commands are sent in iRacing's chat by themselves; they
+  used to sit in the chat box until you pressed Enter.
+
 ## v0.5.3
 
 ### New features

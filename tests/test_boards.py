@@ -255,7 +255,7 @@ class BoardTests(unittest.TestCase):
             opened = []
             app.popout = lambda page, name: opened.append((page, name)) or True
             self.assertEqual(app.command("popout", {"page": "timing"}), {"opened": True})
-            self.assertEqual(opened, [("timing", "Timing")])
+            self.assertEqual(opened, [("timing", "Timing Screen")])
             with self.assertRaises(CommandError):
                 app.command("popout", {"page": "league"})
 
@@ -428,6 +428,25 @@ class GridBoardTests(unittest.TestCase):
         self.app.command("board_reveal", {"step": "all"})
         b = self.app.build_snapshot()["board"]
         self.assertEqual(b["reveal"], b["reveal_total"])
+
+    def test_grid_hotkeys(self):
+        press = lambda a: self.app.command("hotkey", {"action": a})  # noqa: E731
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"grid_reveal": "all", "rows": 12}})
+        press("grid:toggle")
+        self.assertEqual(self.app.board["kind"], "grid")
+        self.assertNotIn("reveal", self.app.build_snapshot()["board"])  # every driver at once
+        press("grid:mode")  # to row by row: the front row
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual((b["reveal"], [r["hidden"] for r in b["rows"]][:3]), (1, [False, False, True]))
+        press("grid:next")
+        self.assertEqual(self.app.build_snapshot()["board"]["reveal"], 2)
+        press("grid:all")
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual(b["reveal"], b["reveal_total"])
+        press("grid:full")
+        self.assertNotIn("reveal", self.app.build_snapshot()["board"])
+        press("grid:toggle")
+        self.assertIsNone(self.app.board["kind"])
 
     def test_grid_from_the_grid_walk_order(self):
         keys = self.app.gridwalk.apply_order(self.app._grid_keys)

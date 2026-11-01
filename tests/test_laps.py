@@ -104,6 +104,10 @@ class LapTrackerTests(unittest.TestCase):
         last = lt.state(0, t)
         self.assertLess(abs(last["delta"]), 0.2)
         self.assertEqual([s["colour"] for s in last["sectors"]], ["purple", "green", "yellow"])
+        # Each sector against what it was compared with (their best before), and how long ago it was done.
+        self.assertEqual([round(s["delta"]) for s in last["sectors"]], [-1, 0, 1])
+        self.assertLess(last["sectors"][2]["age"], 1.0)  # the last one: just now
+        self.assertGreater(last["sectors"][0]["age"], 50)
 
     def test_off_track_lap_is_invalid_and_not_a_best(self):
         lt = LapTracker()
