@@ -21,6 +21,10 @@ How each version's entry is written:
   set how long), then its time. A purple one gets a white light sweeping
   across it, a green one a soft pulsing lighter-green glow.
 
+- Starting grid **hotkeys**: the grid on and off, full grid / row by row (or
+  a key to switch), next row, back a row, every row, and the boards on your
+  screen and off it.
+
 ### Fixes
 
 - Race control: the commands are sent in iRacing's chat by themselves; they

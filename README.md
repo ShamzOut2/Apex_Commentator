@@ -54,6 +54,10 @@ walk, Overlays, Boards and Race control.
   set how long), then its time. A purple one gets a white light sweeping
   across it, a green one a soft pulsing lighter-green glow.
 
+- Starting grid **hotkeys**: the grid on and off, full grid / row by row (or
+  a key to switch), next row, back a row, every row, and the boards on your
+  screen and off it.
+
 ### Fixes
 
 - Race control: the commands are sent in iRacing's chat by themselves; they
@@ -170,6 +174,9 @@ Boards tabs) also sets keys for:
 - the championship battle's quick picks (the car on camera and the one
   ahead, the cars either side, the top 3), which also put it on screen;
 - the grid walk: on / off (starting from P1), and the next and previous pair;
+- the starting grid: on / off (Overall, for the race on now or next), full
+  grid or row by row (a key for each, or one to switch), next row, back a
+  row and every row, and the boards on your screen or off it;
 - on your own screen (app window): every overlay, the boards, the grid
   walk, or taking everything off (see "Overlays on your own screen");
 - every board in the Boards tab (each class's standings, teams',

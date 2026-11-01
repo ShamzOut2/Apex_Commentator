@@ -1708,7 +1708,12 @@ class App:
         if kind == "battle":
             return self.cmd_battle_pick(rest)
         if kind == "desk":
+            if rest == "boards_toggle":  # the boards on the user's screen, or off it
+                on = self.desktop.on_screen() if self.desktop is not None else {}
+                return self.cmd_desktop_hide("board") if "board" in on else self.cmd_desktop_show_all("boards")
             return self.cmd_desktop_hide() if rest == "off" else self.cmd_desktop_show_all(rest)
+        if kind == "grid":
+            return self._grid_hotkey(rest)
         if kind == "tower":
             tower = self.overlays.get()["standings"]
             if rest == "sponsor":
@@ -1848,6 +1853,26 @@ class App:
         page = (shown * 2 - 1) // per if step != "all" else int(params.get("page") or 0)
         self.board = {"kind": "grid", "params": dict(params, reveal=shown, page=page)}
         return {"reveal": shown, "rows": total}
+
+    def _grid_hotkey(self, what):
+        """The starting grid's hotkeys: grid:toggle (the Overall grid for the
+        race on now / next, on or off), grid:full / grid:rows / grid:mode
+        (every driver at once, row by row, or the one then the other),
+        grid:next / grid:prev / grid:all (rows, row by row)."""
+        if what == "toggle":
+            if self.board.get("kind") == "grid":
+                return self.cmd_board_hide()
+            return self.cmd_board_show("grid", "", "next")
+        if what in ("full", "rows", "mode"):
+            now = self.overlays.get()["board_grid"]["grid_reveal"]
+            want = {"full": "all", "rows": "rows"}.get(what) or ("rows" if now == "all" else "all")
+            self.cmd_overlay_settings("board_grid", {"grid_reveal": want})
+            if self.board.get("kind") == "grid":  # row by row starts again from the front row
+                self.board = {"kind": "grid", "params": dict(self.board["params"], reveal=1, page=0)}
+            return {"grid_reveal": want}
+        if what in ("next", "prev", "all"):
+            return self.cmd_board_reveal(what)
+        raise CommandError(f"Unknown hotkey 'grid:{what}'")
 
     def _boards(self, active_league, session_board):
         active_league = active_league or self._officials_league()

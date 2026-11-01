@@ -106,6 +106,10 @@ class HotkeyActionTests(unittest.TestCase):
             self.assertEqual(desk.up["gridwalk"], 1)
             self.press("desk:off")
             self.assertEqual(desk.up, {})
+            self.press("desk:boards_toggle")  # boards on the screen picked for them, then off again
+            self.assertEqual(desk.up, {"board": 2})
+            self.press("desk:boards_toggle")
+            self.assertEqual(desk.up, {})
         finally:
             self.app.desktop = None
 
