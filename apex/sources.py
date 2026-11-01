@@ -230,7 +230,8 @@ class IRacingSource:
     # -- chat (race control) -------------------------------------------------
 
     CHAT_WINDOW = "iRacing.com Simulator"
-    WM_CHAR = 0x0102
+    WM_KEYDOWN, WM_KEYUP, WM_CHAR = 0x0100, 0x0101, 0x0102
+    VK_RETURN, SCAN_RETURN = 0x0D, 0x1C
 
     def send_chat(self, text):
         """Type ``text`` into iRacing's chat and send it: the SDK opens the chat
@@ -259,10 +260,19 @@ class IRacingSource:
                 with self._lock:
                     self.ir.chat_command(CHAT_BEGIN)
                 time.sleep(0.15)  # the chat box opening
-                for ch in text + "\r":
+                for ch in text:
                     post(hwnd, self.WM_CHAR, ord(ch), 0)
                     time.sleep(0.004)
-                time.sleep(0.25)  # before the next line opens the box again
+                time.sleep(0.05)
+                # Enter, as a key press (key down, its character, key up): a
+                # typed carriage return alone left the line sitting in the chat
+                # box until Enter was pressed by hand.
+                down = 1 | (self.SCAN_RETURN << 16)
+                up = down | (1 << 30) | (1 << 31)
+                post(hwnd, self.WM_KEYDOWN, self.VK_RETURN, down)
+                post(hwnd, self.WM_CHAR, 0x0D, down)
+                post(hwnd, self.WM_KEYUP, self.VK_RETURN, up)
+                time.sleep(0.3)  # before the next line opens the box again
             except Exception as e:  # the sim closing mid-line, say
                 print(f"[apex] couldn't send to iRacing's chat: {e}")
 

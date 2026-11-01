@@ -11,6 +11,13 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- Race control: the commands are sent in iRacing's chat by themselves; they
+  used to sit in the chat box until you pressed Enter.
+
 ## v0.5.3
 
 ### New features

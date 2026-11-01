@@ -44,23 +44,12 @@ walk, Overlays, Boards and Race control.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.5.3**
-
-### New features
-
-- Lap tracker: an **invalidated lap** shows: a line through the sector it
-  happened in, the rest of the lap greyed out, and at the line every sector
-  struck through and INVALID in place of the lap time, in colours you pick.
-
-### Improvements
-
-- Lap tracker: against the class or overall best, a purple sector turns
-  green once someone else goes faster through it.
+**Coming in the next update**
 
 ### Fixes
 
-- Lap tracker: a sector on a lap that's then invalidated no longer counts as
-  the fastest; whoever's fastest on a clean lap is purple instead.
+- Race control: the commands are sent in iRacing's chat by themselves; they
+  used to sit in the chat box until you pressed Enter.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -198,9 +187,9 @@ combinations avoid that.)
 ## Race control
 
 The **Race control** tab runs the session from the app. Everything goes to
-iRacing as its admin chat commands, typed into the sim's chat for you, so
-you need to be an admin of the session in iRacing (the host, or promoted by
-the host). iRacing must be open on this PC.
+iRacing as its admin chat commands, typed into the sim's chat and sent for
+you (no need to press Enter), so you need to be an admin of the session in
+iRacing (the host, or promoted by the host). iRacing must be open on this PC.
 
 Along the top:
 - **Clear all penalties** (`!clearall`), after a check that you mean it.
