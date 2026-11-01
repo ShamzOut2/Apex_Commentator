@@ -1724,6 +1724,10 @@ class App:
                 now = tower["header_info"] if tower["header_info"] in ("laps", "time") else self._header_mode
                 return self.cmd_overlay_settings("standings", {"header_info": "time" if now == "laps" else "laps"})
         if kind == "all":
+            if rest == "overlays":
+                return self.cmd_toggle_overlays()
+            if rest == "boards":
+                return self.cmd_toggle_boards()
             return self.cmd_toggle_all()
         raise CommandError(f"Unknown hotkey '{action}'")
 
@@ -1753,6 +1757,39 @@ class App:
         if away["gridwalk"] is not None and self._grid_count():
             self.gridwalk.start(away["gridwalk"])
         return {"shown": True}
+
+    def cmd_toggle_overlays(self):
+        """Every overlay and the grid walk off screen; again, and they come
+        back (nothing was up: every overlay comes on). Boards stay as they are."""
+        ov = self.overlays.get()
+        up = [k for k in self.TOGGLE_ALL if ov.get(k, {}).get("visible")]
+        if up or self.gridwalk.visible:
+            self._overlays_away = {"overlays": up, "gridwalk": self.gridwalk.index if self.gridwalk.visible else None}
+            for k in up:
+                self.cmd_overlay_settings(k, {"visible": False})
+            self.gridwalk.hide()
+            return {"shown": False}
+        away, self._overlays_away = getattr(self, "_overlays_away", None), None
+        away = away or {"overlays": list(self.TOGGLE_ALL), "gridwalk": None}
+        for k in away["overlays"]:
+            self.cmd_overlay_settings(k, {"visible": True})
+        if away["gridwalk"] is not None and self._grid_count():
+            self.gridwalk.start(away["gridwalk"])
+        return {"shown": True}
+
+    def cmd_toggle_boards(self):
+        """The board on screen off; again, and the same board comes back as it
+        was (its page, the starting grid's rows shown): any board, the
+        qualifying results and the starting grid too. Overlays stay as they are."""
+        if self.board.get("kind"):
+            self._board_away = {"kind": self.board["kind"], "params": dict(self.board["params"])}
+            self.cmd_board_hide()
+            return {"shown": False}
+        away, self._board_away = getattr(self, "_board_away", None), None
+        if not away:
+            raise CommandError("No board to bring back: put one on screen first")
+        self.board = away
+        return {"shown": True, "board": away["kind"]}
 
     def cmd_hotkeys(self, keys=None, cameras=None, actions=None):
         """The Hotkeys window's keys ({key: action}): those with Ctrl or Alt work

@@ -21,6 +21,10 @@ How each version's entry is written:
   set how long), then its time. A purple one gets a white light sweeping
   across it, a green one a soft pulsing lighter-green glow.
 
+- The "everything off screen and back" hotkey has two more alongside it:
+  one for the **overlays** (and the grid walk) only, one for the **board**
+  only, which brings back the same board as it was (the qualifying results
+  and the starting grid included, the grid's rows shown and all).
 - Starting grid **hotkeys**: the grid on and off, full grid / row by row (or
   a key to switch), next row, back a row, every row, and the boards on your
   screen and off it.

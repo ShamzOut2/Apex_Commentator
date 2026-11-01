@@ -130,6 +130,23 @@ class HotkeyActionTests(unittest.TestCase):
         self.assertTrue(all(ov(k) for k in app.TOGGLE_ALL))
         self.press("all:toggle")
 
+    def test_overlays_and_boards_apart(self):
+        app = self.app
+        ov = lambda k: app.overlays.get()[k]["visible"]  # noqa: E731
+        app.cmd_overlay_settings("laps", {"visible": True})
+        app.command("board_show", {"kind": "grid", "group": "", "round": "next"})
+        app.command("board_reveal", {"step": "next"})
+        params = dict(app.board["params"])
+        self.press("all:boards")  # just the board
+        self.assertEqual((app.board["kind"], ov("laps")), (None, True))
+        self.press("all:overlays")  # just the overlays
+        self.assertFalse(ov("laps"))
+        self.press("all:boards")  # the same board back, as it was
+        self.assertEqual((app.board["kind"], app.board["params"]), ("grid", params))
+        self.press("all:overlays")
+        self.assertTrue(ov("laps"))
+        self.press("board:off")
+
     def test_tower_header_key(self):
         app = self.app
         app.cmd_overlay_settings("standings", {"header_info": "laps"})

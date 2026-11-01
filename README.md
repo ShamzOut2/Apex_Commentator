@@ -54,6 +54,10 @@ walk, Overlays, Boards and Race control.
   set how long), then its time. A purple one gets a white light sweeping
   across it, a green one a soft pulsing lighter-green glow.
 
+- The "everything off screen and back" hotkey has two more alongside it:
+  one for the **overlays** (and the grid walk) only, one for the **board**
+  only, which brings back the same board as it was (the qualifying results
+  and the starting grid included, the grid's rows shown and all).
 - Starting grid **hotkeys**: the grid on and off, full grid / row by row (or
   a key to switch), next row, back a row, every row, and the boards on your
   screen and off it.
@@ -168,7 +172,10 @@ Boards tabs) also sets keys for:
   sponsors, championship battle and pit stops, on and off;
 - everything at once: every overlay, the board and the grid walk off
   screen; pressed again, whatever it took off comes back (with nothing up,
-  every overlay comes on);
+  every overlay comes on). Or apart: the **overlays** (and the grid walk)
+  only, or the **board** only, which brings the same board back as it was
+  (any board: the qualifying results and the starting grid too, its page
+  and the grid's rows shown);
 - the timing tower: its sponsor bar under the header on and off, overall /
   by class, and its header between laps left and time left;
 - the championship battle's quick picks (the car on camera and the one

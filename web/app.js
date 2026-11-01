@@ -808,7 +808,12 @@ function hotkeyActions(s = ui.snap || {}) {
   resultGroups(opts).forEach((g) => add("grid", g.key, `Starting grid · ${g.name}`));
   const on = (k) => !!(ov[k] && ov[k].visible);
   return [
-    ["Everything", [["all:toggle", "Every overlay and board off screen, and back again", () => cmd("hotkey", { action: "all:toggle" },
+    ["Everything", [
+      ["all:overlays", "Every overlay (and the grid walk) off screen, and back again", () => cmd("hotkey", { action: "all:overlays" },
+        (r) => (r && r.shown ? "Overlays back on screen" : "Overlays off screen"))],
+      ["all:boards", "The board off screen, and back again (any board: qualifying results, starting grid…)", () => cmd("hotkey", { action: "all:boards" },
+        (r) => (r && r.shown ? "Board back on screen" : "Board off screen"))],
+      ["all:toggle", "Every overlay and board off screen, and back again", () => cmd("hotkey", { action: "all:toggle" },
       (r) => (r && r.shown ? "Overlays back on screen" : "Everything off screen"))]]],
     ["Overlays (on / off)", OVERLAY_TOGGLES.map(([k, label]) => [`ov:${k}`, label,
       () => cmd("overlay_settings", { overlay: k, values: { visible: !on(k) } }, `${label} ${on(k) ? "off" : "on"}`)])],
