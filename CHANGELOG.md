@@ -18,7 +18,8 @@ How each version's entry is written:
 - Lap tracker: a sector just done shows its **difference** first (−0.324 /
   +0.512, against the driver's best, the class's or anyone's, as the
   reference is set), fading in and out on its colour for 3 seconds (you can
-  set how long), then its time.
+  set how long), then its time. A purple one gets a white light sweeping
+  across it, a green one a soft pulsing lighter-green glow.
 
 ### Fixes
 

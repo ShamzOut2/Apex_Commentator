@@ -51,7 +51,8 @@ walk, Overlays, Boards and Race control.
 - Lap tracker: a sector just done shows its **difference** first (−0.324 /
   +0.512, against the driver's best, the class's or anyone's, as the
   reference is set), fading in and out on its colour for 3 seconds (you can
-  set how long), then its time.
+  set how long), then its time. A purple one gets a white light sweeping
+  across it, a green one a soft pulsing lighter-green glow.
 
 ### Fixes
 
@@ -596,7 +597,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   - **A sector just done** shows first how it compares (−0.324 faster,
     +0.512 slower) with the time it's measured against: the driver's best,
     the class's fastest or anyone's, as the reference above says. It fades
-    in and out on the sector's colour for 3 seconds, then the sector's time
+    in and out on the sector's colour for 3 seconds (a purple one with a
+    white light sweeping across it, a green one with a soft pulsing
+    lighter-green glow, a yellow one as it is), then the sector's time
     comes in (*A sector just done: its difference first, for*: the seconds,
     or 0 for just the time). The full-screen timing does the same.
   - **An invalidated lap** (off track): the sector it happened in gets a
