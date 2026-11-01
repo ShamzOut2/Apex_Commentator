@@ -677,9 +677,26 @@ function liveStream(onSnap, onDown = () => {}) {
       return;
     } catch (e) { /* not allowed here: a stream of its own */ }
   }
-  const stream = new EventSource("/api/stream");
-  stream.onmessage = (m) => onSnap(JSON.parse(m.data));
-  stream.onerror = onDown;
+  // As stream-worker.js: opened afresh if nothing comes for a while.
+  let stream = null;
+  let heard = 0;
+  const open = () => {
+    if (stream) stream.close();
+    heard = Date.now();
+    stream = new EventSource("/api/stream");
+    stream.onmessage = (m) => {
+      heard = Date.now();
+      onSnap(JSON.parse(m.data));
+    };
+    stream.onerror = onDown;
+  };
+  open();
+  setInterval(() => {
+    if (Date.now() - heard > 8000) {
+      onDown();
+      open();
+    }
+  }, 2000);
 }
 
 // Follow the app's live snapshot; reload after an app update so OBS picks up

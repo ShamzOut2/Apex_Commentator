@@ -280,16 +280,20 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Connection", "keep-alive")
         self.end_headers()
         version = -1
+        # A page that's gone without closing its connection (a PC that went to
+        # sleep, a browser that hung) doesn't keep this thread waiting on it
+        # for ever: a write that can't go out in 30 s ends it.
+        self.connection.settimeout(30)
         try:
             while not self.app._stop.is_set():
-                new_version, snap = self.app.wait_snapshot(version)
-                if new_version == version:
+                new_version, data = self.app.wait_payload(version)
+                if data is None:
                     self.wfile.write(b": keep-alive\n\n")
                 else:
                     version = new_version
-                    self.wfile.write(b"data: " + json.dumps(snap).encode("utf-8") + b"\n\n")
+                    self.wfile.write(b"data: " + data + b"\n\n")
                 self.wfile.flush()
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+        except OSError:  # gone: broken pipe, reset, aborted, timed out
             pass
 
     def _update_action(self, action, body):
