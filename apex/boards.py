@@ -257,6 +257,12 @@ def _gaps(rows, by_lap=False):
     leader = None
     for row in rows:
         row["_gap"] = row.get("gap")  # seconds behind the overall winner, as saved
+    # The winner is what the gaps are measured from: 0 behind themselves,
+    # also when no gap came with them (no race times yet, an earlier heat, a
+    # replay), which used to leave every gap on the board blank.
+    first = next((r for r in rows if not by_lap and r.get("rank") is not None and r["status"] == "finished" and not r.get("short")), None)
+    if first is not None and first["_gap"] is None:
+        first["_gap"] = 0.0
     for row in rows:
         row.update(gap_laps=None, interval=None, interval_laps=None,
                    out="DNF" if row.get("short") else (row["status"].upper() if row["status"] != "finished" else None))

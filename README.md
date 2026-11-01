@@ -82,6 +82,9 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
   before's finish, also when it's an iRacing event of its own (from the
   saved results); a meeting's reverse grid stays on when the session moves
   on. With no qualifying in the event, the grid iRacing lines up.
+- Finishing order board: gaps no longer go missing when the winner has no
+  race time (just after the flag, an earlier heat, a replay); an earlier
+  race without iRacing's race times uses the app's own gaps at the finish.
 - Timing tower in a replay: no more made-up gaps (every gap showing 1.0):
   during the race it keeps the live gaps, after it the replay's own (or
   none where the app has no timing for that moment).

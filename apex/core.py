@@ -259,6 +259,7 @@ class App:
         self._qual_order = []      # car_idx in qualifying order (then the rest by car number)
         self._qual_source = "car number"
         self._grid_cache = (None, [])   # (what it depends on, the race on screen's grid): _race_grid
+        self._finish_gaps = {}           # race session -> car_idx -> its gap to the winner as it finished
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
         self._green = {}           # race session number -> session time it went green (the header flash)
@@ -432,6 +433,7 @@ class App:
         """Forget the timing of the last iRacing event (see _load_session_info)."""
         self._green, self._chequered, self._last_state, self._logged_until, self._seen_in = {}, {}, {}, {}, {}
         self._drivers, self._gone = {}, {}  # the last event's drivers aren't this one's leavers
+        self._finish_gaps = {}
         self._race = RaceProgress()
         self._fl_session, self._fl_records, self._fl_flash = None, {}, None
         self._laps_t = self._laps_num = None
@@ -683,6 +685,13 @@ class App:
             if racing or (is_race and not frame.is_live):
                 # Our own gaps while racing, and in a replay of the race (also after the flag).
                 self._live_gaps(rows, frame)
+            # Each car's gap to the winner as it took the flag (the app's own
+            # timing): the finishing order's gaps where iRacing has no race times.
+            if is_race and self._race.checkered and frame.is_live:
+                got = self._finish_gaps.setdefault(frame.session_num, {})
+                for r in rows:
+                    if r["car_idx"] in self._race.finished and r["car_idx"] not in got and r.get("gap") is not None:
+                        got[r["car_idx"]] = r["gap"]
             in_class = {}
             for r in rows:
                 del r["progress"]
@@ -766,7 +775,8 @@ class App:
                          "team": d["team"], "car_class": d["car_class"], "make": d["make"],
                          "pos": res.get("Position") or None, "start_pos": None,
                          "lap": laps + 1 if isinstance(laps, int) and laps >= 0 else None,
-                         "best_lap": None, "in_world": True, "incidents": res.get("Incidents") or 0})
+                         "best_lap": None, "in_world": True, "incidents": res.get("Incidents") or 0,
+                         "gap": self._finish_gaps.get(session.get("SessionNum"), {}).get(d["car_idx"])})
         return rows
 
     @staticmethod

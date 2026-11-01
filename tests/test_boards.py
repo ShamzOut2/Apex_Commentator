@@ -381,6 +381,32 @@ class SessionResultsBoardTests(unittest.TestCase):
             self.assertIsNotNone(board["rows"][0]["points"])
 
 
+class FinishingGapTests(unittest.TestCase):
+    def test_gaps_when_the_winner_has_none(self):
+        """No gap with the winner (no race times yet, an earlier heat, a replay):
+        the others' gaps still show, measured from them."""
+        rows = [{"rank": 1, "status": "finished", "laps": 10, "gap": None},
+                {"rank": 2, "status": "finished", "laps": 10, "gap": 1.5},
+                {"rank": 3, "status": "finished", "laps": 10, "gap": 4.0},
+                {"rank": 4, "status": "finished", "laps": 9, "gap": None}]
+        boards._gaps(rows)
+        self.assertEqual([(r["gap"], r["interval"], r["gap_laps"]) for r in rows],
+                         [(None, None, None), (1.5, 1.5, None), (4.0, 2.5, None), (None, None, 1)])
+        self.assertTrue(rows[0]["winner"])
+
+    def test_an_earlier_race_without_race_times_uses_the_apps_own(self):
+        import tempfile
+
+        from tests.test_app import make_app
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=0.2)
+            cars = list(app._drivers)[:3]
+            app._finish_gaps[7] = {cars[0]: 0.0, cars[1]: 2.25, cars[2]: 9.5}
+            rows = app._finished_rows({"SessionNum": 7, "ResultsPositions": [
+                {"Position": i, "CarIdx": c, "LapsComplete": 12} for i, c in enumerate(cars, start=1)]})
+            self.assertEqual([r["gap"] for r in rows], [0.0, 2.25, 9.5])
+
+
 class GridBoardTests(unittest.TestCase):
     """The starting grid board, from the iRacing event (a mock race with qualifying results)."""
 
