@@ -44,14 +44,17 @@ control, Timing Screen, Grid walk, Overlays and Boards.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.5.5**
+**Coming in the next update**
 
-### Improvements
+### New features
 
-- Lap tracker: trackers open out from the middle with a light sweep and
-  close the same way, a finished lap's time pops in with a purple (fastest)
-  or green (personal best) glow, and the small trackers slide when they
-  change places.
+- Timing tower: the coloured bar can show the driver's team colour
+  (*Coloured bar's colour from*).
+
+### Fixes
+
+- Timing tower: by class, the coloured bar shows the class colour picked for
+  it again, not the team's colour.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -427,15 +430,17 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   - **The leader's interval shows**: nothing (as before), "Leader", or the
     lap they're on ("Lap 12"); everyone else shows the gap to the car ahead.
     The full-screen version follows it too.
-  - **Colours**: *Coloured bar by each driver* (the class or team colour)
+  - **Colours**: *Coloured bar by each driver*
     and *Car number background* can each be turned off. The background is in
     the driver's class colour; with it off, just the number shows. Both the
     tower and the full-screen version follow these.
   - **Class colours from**: the driver's **main** class or their
     **secondary** class (League builder), for the car number's background;
     **Coloured bar's colour from** sets the bar's on its own (the same class
-    as the car number, the main or the secondary class), so the number can
-    show one class and the bar the other. A driver without one (no main
+    as the car number, the main or the secondary class, or the driver's
+    **team colour**), so the number can show one class and the bar the
+    other. The bar keeps that colour overall and by class alike; with the
+    team colour, a driver whose team has no colour gets their class's. A driver without one (no main
     class in the league, say, only a secondary one) shows no colour: just
     the number, with no background, and no bar. With no league active, the
     iRacing class colours are used.

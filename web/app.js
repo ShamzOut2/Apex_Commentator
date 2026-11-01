@@ -2318,7 +2318,7 @@ const OVERLAY_FIELDS = {
         ["secondary", "The driver's secondary class"]]],
       ["show_stripe", "Coloured bar by each driver", "bool"],
       iff((v) => v.show_stripe, ["stripe_colors", "Coloured bar's colour from", "select", [["same", "The same class as the car number"],
-        ["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]]),
+        ["main", "The driver's main class"], ["secondary", "The driver's secondary class"], ["team", "The driver's team colour"]]]),
       ["show_team", "Team names (a column of their own)", "bool"],
       iff((v) => v.show_team, ["team_name_place", "Team name on the tower", "select", [["under", "Under the driver's name"],
         ["column", "In its own column, after the driver's name"]]]),
