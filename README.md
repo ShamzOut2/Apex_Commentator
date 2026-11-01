@@ -56,7 +56,7 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**Coming in the next update**
+**v0.5.9**
 
 ### New features
 
