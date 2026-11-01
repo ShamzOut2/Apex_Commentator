@@ -13,7 +13,10 @@
     <div id="session-line" class="session-line">Waiting for iRacing…</div>
     <div class="topbar-right">
       <button id="update-badge" class="badge update" hidden title="A new version is available">Update available</button>
-      <span id="league-badge" class="badge muted" title="Active league">No league</span>
+      <div class="mode-switch" role="group" aria-label="What's on screen uses">
+        <button id="league-badge" class="badge" data-mode="league" title="On screen: the active league's names, classes and settings">No league</button>
+        <button id="officials-badge" class="badge" data-mode="officials" title="On screen: iRacing's own data, for an official or AI race (no league names, classes or rules; the league stays picked)">Officials</button>
+      </div>
       <span id="replay-badge" class="badge">—</span>
     </div>
   </header>

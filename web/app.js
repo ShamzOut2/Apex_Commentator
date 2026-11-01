@@ -105,9 +105,12 @@ function render() {
   }
   $("#status-dot").classList.toggle("on", !!s.connected);
   const league = s.league;
+  const off = s.officials || { on: false, league: null };
   const lb = $("#league-badge");
-  lb.textContent = league ? league.name : "No league";
-  lb.classList.toggle("muted", !league);
+  lb.textContent = off.on ? (off.league || "No league") : league ? league.name : "No league";
+  lb.classList.toggle("active", !off.on && !!league);
+  lb.classList.toggle("muted", off.on || !league);
+  $("#officials-badge").classList.toggle("active", !!off.on);
   renderGridwalk(s);
   renderHome(s);
   renderUpdates(s.update);
@@ -2871,12 +2874,14 @@ function renderBoards(s) {
     $("#btn-board-prev").disabled = s.board.page === 0;
     $("#btn-board-next").disabled = s.board.page >= pages - 1;
   }
-  const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, qualRound, gridRound, !!s.board, settings.actionKeys]);
+  if (s.officials && s.officials.on && boardRound === "latest") boardRound = "live";  // no championship rounds without a league
+  const key = JSON.stringify([opts, s.league && s.league.id, s.officials && s.officials.on, ui.boardOn, boardRound, qualRound, gridRound, !!s.board, settings.actionKeys]);
   if (key !== boardButtonsKey) {
     boardButtonsKey = key;
     const groups = opts.groups;
     const scored = opts.rounds.filter((r) => r.scored);
-    $("#board-buttons").innerHTML = !s.league ? '<p class="hint">Activate a league (League builder) to use boards.</p>' : `
+    const officials = s.officials && s.officials.on;
+    $("#board-buttons").innerHTML = officials ? officialBoardsHtml(opts) : !s.league ? '<p class="hint">Activate a league (League builder) to use boards.</p>' : `
       <div class="board-group"><h4>Championship standings</h4>${groups.length ? groups.map((g) => boardButton(g.name, "championship", g.key, g.color)).join("")
         : '<span class="hint">No results yet.</span>'}</div>
       <div class="board-group"><h4>Teams</h4>${opts.teams ? boardButton("Teams' championship", "teams")
@@ -2913,6 +2918,30 @@ function renderBoards(s) {
     boardSettingsKey = skey;
     renderBoardSettings(s);
   }
+}
+
+// Officials mode: the boards that come from the iRacing event (no league).
+function officialBoardsHtml(opts) {
+  const sessions = opts.sessions || [];
+  return `<p class="hint">Officials mode: the boards from the iRacing event (championship boards need a league).</p>
+    <div class="board-group"><h4>Finishing order</h4>
+      <label class="field">From <select id="board-round">
+        <option value="live" ${boardRound === "live" ? "selected" : ""}>This session (live)</option>
+        ${sessions.map((x) => `<option value="${esc(x.source)}" ${boardRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}
+      </select></label>
+      <div>${resultGroups(opts).map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>
+    <div class="board-group"><h4>Qualifying results</h4>
+      <label class="field">From <select id="board-qual">
+        <option value="latest" ${qualRound === "latest" ? "selected" : ""}>The latest qualifying</option>
+        ${sessions.filter((x) => x.kind === "qualify").map((x) => `<option value="${esc(x.source)}" ${qualRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}</option>`).join("")}
+      </select></label>
+      <div>${resultGroups(opts).map((g) => boardButton(g.name, "qualifying", g.key, g.color)).join("")}</div></div>
+    <div class="board-group"><h4>Starting grid</h4>
+      <label class="field">For <select id="board-grid">
+        <option value="next" ${gridRound === "next" ? "selected" : ""}>The race on now, else the next one</option>
+        ${sessions.filter((x) => x.kind === "race").map((x) => `<option value="${esc(x.source)}" ${gridRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}</option>`).join("")}
+      </select></label>
+      <div>${resultGroups(opts).map((g) => boardButton(g.name, "grid", g.key, g.color)).join("")}</div></div>`;
 }
 
 function renderBoardSettings(s) {
@@ -3189,6 +3218,17 @@ new MutationObserver((list) => {
     for (const n of m.addedNodes) if (n.nodeType === 1) addDroppers(n.matches && n.matches('input[type="color"]') ? n.parentNode : n);
   }
 }).observe(document.body, { childList: true, subtree: true });
+
+// League or Officials: what the overlays and boards use (the top bar's switch).
+document.querySelector(".mode-switch").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-mode]");
+  if (!b) return;
+  const want = b.dataset.mode === "officials";
+  const off = (ui.snap && ui.snap.officials) || {};
+  if (!!off.on === want) return;
+  if (!want && !off.league) return toast("Pick a league to use in the League builder (Activate)", true);
+  cmd("officials", { on: want }, want ? "Officials: iRacing's own data on screen" : `League: ${off.league}`);
+});
 
 // Scrolling the page with the mouse over a number box you'd clicked in
 // changed its value (e.g. a round's points multiplier, or a position):

@@ -451,3 +451,37 @@ class QualifyingBoardTests(unittest.TestCase):
             self.assertEqual(b["rows"][0]["rank"], 1)
             self.assertIsNone(b["rows"][0]["gap"])
             self.assertAlmostEqual(b["rows"][1]["gap"], laps[1] - laps[0], places=3)
+
+
+
+class OfficialsModeTests(unittest.TestCase):
+    """Officials mode: the league stays picked but nothing of it is used."""
+
+    def test_league_rules_off_and_event_boards_on(self):
+        import tempfile
+
+        from apex.league import profile_from_session
+        from tests.test_app import make_app
+        with tempfile.TemporaryDirectory() as tmp:
+            app, source = make_app(tmp, minutes=0.2)
+            app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": False}})  # everyone from the start
+            prof = profile_from_session(app.build_snapshot()["drivers"], "Strict league")
+            prof["classes"] = [{"id": "pro", "name": "Pro", "match": ["nothing matches"]}]
+            league = app.leagues.save(prof)
+            app.leagues.set_active(league["id"])
+            # The league hides its drivers without a class: everyone, here.
+            self.assertEqual(app.build_snapshot()["overlays"]["standings"], [])
+            r = app.command("officials", {"on": True})
+            self.assertEqual(r, {"on": True, "league": "Strict league"})
+            snap = app.build_snapshot()
+            self.assertIsNone(snap["league"])
+            self.assertTrue(snap["overlays"]["standings"])  # everyone, iRacing's data
+            # The event's boards work without a league; championship boards don't.
+            app.command("board_show", {"kind": "grid", "group": "", "round": "next"})
+            self.assertTrue(app.build_snapshot()["board"]["rows"])
+            from apex.core import CommandError
+            with self.assertRaises(CommandError):
+                app.command("board_show", {"kind": "championship", "group": ""})
+            # Picking a league again: back to its data.
+            app.command("officials", {"on": False})
+            self.assertEqual(app.build_snapshot()["league"]["name"], "Strict league")

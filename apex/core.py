@@ -463,7 +463,7 @@ class App:
             frame = self._frame
             if frame is None:
                 return {
-                    "connected": False, "source": self.source.name, "league": self._league_summary(),
+                    "connected": False, "source": self.source.name, "league": self._league_summary(), "officials": self._officials_state(),
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
@@ -579,10 +579,11 @@ class App:
                 "classes": self._ordered_classes(classes),
                 "events": events[-200:],
                 "desktop": self._desktop_snapshot(),
-                "league": self._league_summary(),
+                "league": self._league_summary(), "officials": self._officials_state(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
-                **self._boards(active_league, lambda source, kind="results": self._board_data(active_league, kind, source, rows)),
+                **self._boards(active_league, lambda source, kind="results": self._board_data(
+                    active_league or self._officials_league(), kind, source, rows)),
             }
             self._battle_basis = (rows, snap["championship"], frame.cam_car_idx)
             snap["overlays"]["battle"] = self._battle_snapshot(snap["championship"], active_league)
@@ -1312,7 +1313,7 @@ class App:
             # click on screen: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -1763,12 +1764,45 @@ class App:
             self.settings.set("hotkey_map", {"v": version, "cameras": clean(cameras), "actions": clean(actions)})
         return {"system_wide": len(wanted), "v": version}
 
+    # -- Officials mode -------------------------------------------------------------
+    # An official or AI race: iRacing's own names, classes and colours on
+    # screen, none of the active league's (no hiding drivers without a class,
+    # no league names...). The league stays picked, for switching back.
+
+    def _officials_state(self):
+        picked = self.leagues.picked()
+        return {"on": self.leagues.officials, "league": picked["name"] if picked else None}
+
+    def cmd_officials(self, on=True):
+        self.leagues.set_officials(bool(on))
+        self._board_cache = (None, None)
+        return self._officials_state()
+
+    # Boards from the iRacing event that work without a league (in Officials mode).
+    EVENT_BOARDS = ("qualifying", "grid", "results")
+
+    def _officials_league(self):
+        """A stand-in league for the event's boards in Officials mode: no
+        drivers or championship, iRacing's classes (and their colours)."""
+        if not self.leagues.officials:
+            return None
+        seen = {}
+        for d in self._drivers.values():
+            key = f"iracing:{d['car_class'] or 'Field'}"
+            seen.setdefault(key, {"id": key, "name": d["car_class"] or "Field", "color": d.get("class_color"), "match": []})
+        return {"id": "", "name": "Official session", "classes": list(seen.values()) if len(seen) > 1 else [], "drivers": [],
+                "teams": [], "championship": {}, "sponsors": [], "banners": []}
+
     def cmd_board_show(self, kind, group="", round=""):
         """Put a full-screen board on screen (board.html)."""
         if kind not in boards.KINDS:
             raise CommandError(f"Unknown board '{kind}'")
         if not self.leagues.active():
-            raise CommandError("Activate a league first: boards show its championship")
+            if not self.leagues.officials:
+                raise CommandError("Activate a league first: boards show its championship")
+            if kind not in self.EVENT_BOARDS or (kind == "results" and not (round == "live" or str(round).startswith("session:"))):
+                raise CommandError("In Officials mode, boards come from the iRacing event: qualifying, the starting grid, "
+                                   "or a session's finishing order")
         self.board = {"kind": kind, "params": {"group": str(group or ""), "round": str(round or "")}}
         return {"board": kind}
 
@@ -1796,6 +1830,7 @@ class App:
         return {"page": page + 1, "pages": pages}
 
     def _boards(self, active_league, session_board):
+        active_league = active_league or self._officials_league()
         board, opts = self._board_snapshot(active_league, session_board)
         # The sessions of the event in iRacing, for a finishing order from any of them.
         frame = self._frame

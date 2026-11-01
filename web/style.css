@@ -688,3 +688,8 @@ p.hint .desk { margin-left: 6px; }
 .btn.dropper { padding: 4px; min-width: 0; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; flex: none; }
 .btn.dropper svg { width: 16px; height: 16px; }
 body.dropping, body.dropping * { cursor: crosshair !important; }
+
+/* League / Officials: what the overlays and boards use (top bar). */
+.mode-switch { display: inline-flex; border-radius: 999px; overflow: hidden; border: 1px solid var(--line, rgba(255,255,255,.15)); }
+.mode-switch .badge { border: none; border-radius: 0; cursor: pointer; background: transparent; }
+.mode-switch .badge.active { background: var(--accent); color: var(--accent-ink, #111); }
