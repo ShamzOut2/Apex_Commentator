@@ -12,6 +12,12 @@ fitStage(stage);
 const DEFAULT_CLASS = { key: "", name: "", color: "#8b93a3" };
 const OUT_MS = 680;  // the leaving animation (driver.css .card.out)
 let current = null;  // {key, el, at, html, hidden, timer, hideMs}
+// A new driver on camera takes over the card once they've been on camera
+// this long: as the camera cuts, iRacing can name the car it's leaving again
+// for a moment, which used to slide the last driver's card back in between.
+const SETTLE_MS = 400;
+let pending = null;  // {key, since, timer}: the driver the camera has just moved to
+let lastSnap = null;
 
 // The position box: overall (P3), in class (P1 and the class under it), or
 // both (P3, and P1 GT3 under it).
@@ -49,6 +55,7 @@ function cardHtml(d, cfg, cls, multiclass) {
 }
 
 function render(snap) {
+  lastSnap = snap;
   const ov = snap.overlays;
   if (!ov || !ov.settings.driver) return;
   const cfg = ov.settings.driver;
@@ -57,10 +64,14 @@ function render(snap) {
   const d = snap.connected && cfg.visible ? ov.driver : null;
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const multiclass = (snap.classes || []).length > 1;
+  // Taken off (or the overlay off): straight away. Nobody on camera for a
+  // moment (the camera cutting): as for a new driver, once it's held.
+  if (!snap.connected || !cfg.visible) return leave();
+  const key = d ? `${d.car_idx}:${d.pick || 0}` : "";
+  if (!settled(key)) return;
   if (!d) return leave();
   const cls = classes.get(d.class_key) || DEFAULT_CLASS;
   const html = cardHtml(d, cfg, cls, multiclass);
-  const key = `${d.car_idx}:${d.pick || 0}`;
   if (!current || current.key !== key) {
     // The camera moved to someone: they slide in, whoever was there slides away.
     leave();
@@ -82,6 +93,24 @@ function render(snap) {
   }
   current.el.style.setProperty("--cls", paintFor(d, cls, cfg.class_colors) || "transparent");
   schedule(cfg);  // the time may have been changed while it's up
+}
+
+// Whether the card should follow ``key`` (the driver on camera, "" for nobody)
+// now: straight away when it's the one up already, or once it's held for
+// SETTLE_MS (re-checked then by itself, whatever the snapshots do).
+function settled(key) {
+  if (current ? key === current.key : !key) {
+    if (pending) clearTimeout(pending.timer);
+    pending = null;
+    return true;
+  }
+  const now = performance.now();
+  if (!pending || pending.key !== key) {
+    if (pending) clearTimeout(pending.timer);
+    pending = { key, since: now, timer: setTimeout(() => lastSnap && render(lastSnap), SETTLE_MS + 20) };
+    return !current;  // nothing up yet: the first driver comes in straight away
+  }
+  return now - pending.since >= SETTLE_MS;
 }
 
 // Its own timer, so it goes on time even when nothing else changes (iRacing

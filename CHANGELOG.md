@@ -32,6 +32,16 @@ How each version's entry is written:
 
 ### Fixes
 
+- Starting grid (Automatic): every race after the first (a two-race
+  round's second race, a consolation, a feature) starts from the race
+  before's finish, also when it's an iRacing event of its own (from the
+  saved results); a meeting's reverse grid stays on when the session moves
+  on. With no qualifying in the event, the grid iRacing lines up.
+- Timing Screen: before the start, drivers are listed in starting grid
+  order (not at random); places gained count from that grid.
+- Driver on camera: no longer flashes the last driver as the camera cuts.
+- Timing Screen: a battle lights just the interval cell, not the whole line.
+- Race log: **Hide…** leaves kinds of event out (incidents, warnings…).
 - An event with two (or more) races, called RACE by iRacing, now takes its
   rounds' names on the tower, the starting grid and the finishing order
   board, without changing them by hand, even when the rounds aren't dated

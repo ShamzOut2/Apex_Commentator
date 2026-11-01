@@ -53,7 +53,7 @@ const ui = {
 const SETTINGS_KEY = "apex.timing";
 const settings = Object.assign(
   { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null, actionKeys: {},
-    nameFormat: "full", showNick: true, keepLeft: true },
+    nameFormat: "full", showNick: true, keepLeft: true, logHidden: [] },
   (() => {
     try {
       return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
@@ -433,7 +433,8 @@ function renderStandings(s) {
         `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}${r.hidden ? ' <span class="tag out" title="No class in the league: left off the overlays and out of the results">NO CLASS</span>' : ""}`, "driver-cell"],
       [String(r.lap ?? "")],
       [gap, "c-time"],
-      [int, "c-time"],
+      // Within the battle gap of the car ahead: just this cell lit up.
+      [int, `c-time ${battles.has(r.car_idx) ? "battle-cell" : ""}`],
       [fmtLap(r.last_lap), "c-time col-wide"],
       [fmtLap(r.best_lap), `c-time col-wide ${v.fastestLap ? "best" : ""}`],
       [r.pit_stops ? String(r.pit_stops) : "", "col-wide"],
@@ -468,6 +469,37 @@ const LOG_GROUPS = {
   incident: ["contact", "offtrack", "slowdown", "spin", "incident"], pit: ["pit_in", "pit_out"],
 };
 const PREROLL_CHOICES = [5, 10, 15, 20, 25, 30];
+// Kinds of event that can be left out of the log (Hide…), kept for this PC.
+const LOG_KINDS = [["overtake", "Overtakes"], ["contact", "Contact"], ["offtrack", "Off track"], ["slowdown", "Slowdowns"],
+  ["spin", "Spins"], ["incident", "Incident points"], ["pit", "Pit stops"], ["position", "Places lost"],
+  ["warning", "Warnings"], ["penalty", "Other penalties"], ["fastest_lap", "Fastest laps"]];
+function logKind(ev) {
+  if (ev.spin) return "spin";
+  if (ev.type === "pit_in" || ev.type === "pit_out") return "pit";
+  if (ev.type === "penalty") return /warn/i.test(ev.penalty || "") ? "warning" : "penalty";
+  return ev.type;
+}
+function renderLogHide() {
+  const hidden = new Set(settings.logHidden || []);
+  $("#log-hide-menu").innerHTML = LOG_KINDS.map(([k, label]) => `<label class="check"><input type="checkbox" data-log-kind="${k}" ${hidden.has(k) ? "" : "checked"}> ${label}</label>`).join("");
+  $("#log-hide-count").textContent = hidden.size ? `${hidden.size} hidden` : "";
+}
+renderLogHide();
+$("#log-hide-menu").addEventListener("change", (e) => {
+  const box = e.target.closest("[data-log-kind]");
+  if (!box) return;
+  const hidden = new Set(settings.logHidden || []);
+  if (box.checked) hidden.delete(box.dataset.logKind);
+  else hidden.add(box.dataset.logKind);
+  settings.logHidden = [...hidden];
+  saveSettings();
+  renderLogHide();
+  if (ui.snap && ui.snap.connected) renderLog(ui.snap);
+});
+document.addEventListener("click", (e) => {
+  const open = $("#log-hide");
+  if (open.open && !e.target.closest("#log-hide")) open.open = false;
+});
 
 function car(num, name) {
   return `<span class="num">${esc(num)}</span> ${esc(name)}`;
@@ -522,10 +554,11 @@ function renderLog(s) {
   $("#log-status").textContent = logStatus(s);
   $("#log-status").className = `log-status ${s.detection || ""}`;
   const types = LOG_GROUPS[ui.logFilter] || (ui.logFilter === "all" ? null : [ui.logFilter]);
-  const shown = all.filter((e) => !types || types.includes(e.type))
+  const hidden = new Set(settings.logHidden || []);
+  const shown = all.filter((e) => (!types || types.includes(e.type)) && !hidden.has(logKind(e)))
     .sort((a, b) => b.session_num - a.session_num || b.session_time - a.session_time || b.id - a.id);
   $("#log-empty").hidden = shown.length > 0;
-  const key = JSON.stringify([shown, ui.selectedEvent, settings.logPreroll]);
+  const key = JSON.stringify([shown, ui.selectedEvent, settings.logPreroll, settings.logHidden]);
   if (key === logKey) return;
   logKey = key;
   $("#race-log").innerHTML = shown.map((ev) => {

@@ -301,9 +301,8 @@ kbd {
 .standings tr.watching td { background: var(--watch); }
 .standings tr.watching td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .standings tr.gone td { opacity: .45; }
-/* Within the battle gap of the car ahead: lit up, steady, in the colour picked. */
-.standings tr.battle td { background: color-mix(in srgb, var(--battle) 32%, transparent); }
-.standings tr.battle td:first-child { box-shadow: inset 4px 0 0 var(--battle); }
+/* Within the battle gap of the car ahead: the interval lit up, steady, in the colour picked (just that cell). */
+.standings td.battle-cell { background: var(--battle); color: #fff; font-weight: 700; border-radius: 4px; }
 .c-chg { width: 46px; }
 .c-flag { width: 86px; }
 .chg { font-size: 12px; font-weight: 700; }
@@ -795,3 +794,13 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .wboards .board-btn { max-width: 100%; white-space: normal; text-align: left; }
 .wcard input[type="checkbox"] { flex: none; width: 15px; height: 15px; }
 .wcard h4 .wlink { margin-left: auto; padding: 2px 8px; font-size: 11px; text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+/* Race log: Hide… (kinds left out of the log). */
+.log-hide { position: relative; }
+.log-hide > summary { list-style: none; cursor: pointer; }
+.log-hide > summary::-webkit-details-marker { display: none; }
+.log-hide-menu {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 190px; display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+}
+.log-hide-menu .check { display: flex; align-items: center; gap: 8px; font-size: 13px; white-space: nowrap; }

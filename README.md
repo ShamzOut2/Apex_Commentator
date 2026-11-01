@@ -77,6 +77,16 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 
 ### Fixes
 
+- Starting grid (Automatic): every race after the first (a two-race
+  round's second race, a consolation, a feature) starts from the race
+  before's finish, also when it's an iRacing event of its own (from the
+  saved results); a meeting's reverse grid stays on when the session moves
+  on. With no qualifying in the event, the grid iRacing lines up.
+- Timing Screen: before the start, drivers are listed in starting grid
+  order (not at random); places gained count from that grid.
+- Driver on camera: no longer flashes the last driver as the camera cuts.
+- Timing Screen: a battle lights just the interval cell, not the whole line.
+- Race log: **Hide…** leaves kinds of event out (incidents, warnings…).
 - An event with two (or more) races, called RACE by iRacing, now takes its
   rounds' names on the tower, the starting grid and the finishing order
   board, without changing them by hand, even when the rounds aren't dated
@@ -164,8 +174,8 @@ shows something else. Camera hotkeys work in whichever window has focus.
   them. The class chips show one class at a time, with gaps and places within
   it.
 - **Battles**: a driver within the battle gap of the car ahead (0.15 s by
-  default) is lit up, steadily, in the colour you pick: just that driver,
-  not the car they're closing on. Both settings sit above the standings.
+  default) has their interval cell lit up, steadily, in the colour you pick
+  (just that cell, not the whole line), not the car they're closing on. Both settings sit above the standings.
 - **Names**: the name style in the list (full name, D. Price, Price D., last
   name), and **Nicknames** by the names on or off. Next to the battle
   settings, kept for this PC.
@@ -184,7 +194,10 @@ shows something else. Camera hotkeys work in whichever window has focus.
   comes and goes as it's waved).
 - **Race log**: everything that happens, newest first, filterable: overtakes,
   off tracks, spins, incident points, places lost after an off, pit in/out
-  (with stop time and places lost), penalties and class fastest laps. **Click
+  (with stop time and places lost), penalties and class fastest laps.
+  **Hide…** leaves kinds out (overtakes, contact, off tracks, slowdowns,
+  spins, incident points, pit stops, places lost, warnings, other
+  penalties, fastest laps), kept for this PC. **Click
   a line**, then pick how far back to start the replay: −5 s, −10 s and so
   on up to −30 s. The camera follows that driver. The line above the log shows
   whether logging is running: it logs live races and saved replays you play,
@@ -939,10 +952,14 @@ built from the active league:
 - **Starting grid**: the grid for a race of the event (the race on now, else
   the next one; or any race you pick), worked out from the session before
   anyone has loaded in, Overall or a class. *The grid from*:
-  **Automatic** (as it starts): for a race meeting, the heats from
-  qualifying, the consolation from the finish of the heat before it and the
-  feature from the consolation's finish (any other race from qualifying), so
-  it's right for each race without changing it; or qualifying, the previous
+  **Automatic** (as it starts): the first race (and every heat) from
+  qualifying, and every race after it from the finishing order of the race
+  before: a heat meeting's consolation from the heat before it and its
+  feature from the consolation, a two-race round's second race from the
+  first. A meeting's race run as an iRacing event of its own takes the
+  race before's finish from the results saved to the league. With no
+  qualifying in the event, the race about to start uses the grid iRacing has
+  lined up. It's right for each race without changing it; or qualifying, the previous
   race's finish, or the grid walk's order (fix it by hand on the Grid walk
   tab) whenever it isn't. Its title is the race's name as the tower's header
   gives it (the round's name, or the names set for heats, the consolation

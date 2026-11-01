@@ -500,6 +500,65 @@ class GridBoardTests(unittest.TestCase):
         self.assertEqual([r["number"] for r in b["rows"]][:5], [number(i) for i in consi[3::-1] + consi[4:5]])
         self.assertEqual(b["title"], "Feature · starting grid")
 
+    def test_two_race_event_second_race_from_the_first(self):
+        cars = list(self.app._drivers)
+        first = cars[3:] + cars[:3]
+        self.app._session_meta["sessions"] = {
+            0: {"SessionNum": 0, "SessionType": "Lone Qualify", "SessionName": "QUALIFY"},
+            1: {"SessionNum": 1, "SessionType": "Race", "SessionName": "RACE",
+                "ResultsPositions": [{"Position": i, "CarIdx": c} for i, c in enumerate(first, start=1)]},
+            2: {"SessionNum": 2, "SessionType": "Race", "SessionName": "RACE"},
+        }
+        number = lambda idx: self.app._drivers[idx]["number"]  # noqa: E731
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 0}})
+        self.app.command("board_show", {"kind": "grid", "group": "", "round": "session:1"})
+        self.assertEqual(self.app.build_snapshot()["board"]["grid_from"], "qualifying")
+        self.app.command("board_show", {"kind": "grid", "group": "", "round": "session:2"})
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual((b["grid_from"], [r["number"] for r in b["rows"]]), ("previous race", [number(i) for i in first]))
+
+    def test_a_meetings_race_run_as_an_event_of_its_own(self):
+        """Race 2 of a meeting in a new iRacing event (one race in it): its
+        round still counts, its grid is race 1's finish (as saved), reversed
+        as its round says, and stays so."""
+        from apex.league import driver_key
+
+        cars = list(self.app._drivers)
+        league = self.app.leagues.active()
+        keys = {idx: driver_key({"cust_id": d["cust_id"], "name": d["name"]}) for idx, d in self.app._drivers.items()}
+        finish = cars[::-1]  # how race 1 (an earlier iRacing event) finished
+        cls = league["classes"][0]["id"]
+        results = [{"driver": keys[c], "name": "x", "class_id": cls, "position": i, "status": "finished"} for i, c in enumerate(finish, 1)]
+        rounds = [{"id": "r1", "name": "Race 1", "event": "Night", "results": results, "session": "999:2"},
+                  {"id": "r2", "name": "Race 2", "event": "Night", "reverse_grid": True, "reverse_top": 3}]
+        self.app.leagues.save(dict(league, championship={"rounds": rounds}))
+        sessions = self.app._session_meta["sessions"]
+        race = next(n for n, x in sessions.items() if "race" in str(x.get("SessionType", "")).lower())
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 0}})
+        self.app.command("board_show", {"kind": "grid", "group": "", "round": f"session:{race}"})
+        number = lambda idx: self.app._drivers[idx]["number"]  # noqa: E731
+        want = [number(i) for i in finish[2::-1] + finish[3:]]
+        for _ in range(3):  # and again as the session goes on
+            b = self.app.build_snapshot()["board"]
+            self.assertEqual((b["title"], b["grid_from"]), ("Race 2 · starting grid", "previous race"))
+            self.assertEqual([r["number"] for r in b["rows"]], want)
+            self.app.tick()
+
+    def test_timing_list_before_the_start_is_the_starting_grid(self):
+        from dataclasses import replace
+
+        STATE_PARADE = 3  # iRacing: parade laps
+
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 3}})
+        with self.app._lock:
+            self.app._frame = replace(self.app._frame, session_state=STATE_PARADE)  # lining up, before the green
+        snap = self.app.build_snapshot()
+        self.app.command("board_show", {"kind": "grid", "group": "", "round": f"session:{self.app._frame.session_num}"})
+        grid = [r["number"] for r in self.app.build_snapshot()["board"]["rows"]]
+        listed = [r["number"] for r in sorted(snap["drivers"], key=lambda r: r["pos"]) if not r["hidden"]]
+        self.assertEqual(listed[:len(grid)], grid)
+        self.assertEqual([r["start_pos"] for r in sorted(snap["drivers"], key=lambda r: r["pos"])][:5], [1, 2, 3, 4, 5])
+
     def test_qualifying_board_has_no_session_without_qualifying(self):
         self.app.command("board_show", {"kind": "qualifying", "group": "", "round": "latest"})
         b = self.app.build_snapshot()["board"]

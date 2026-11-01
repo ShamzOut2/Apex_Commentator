@@ -257,6 +257,8 @@ class App:
         self.thumbnails = Thumbnails()  # the grid walk's car pictures (a folder the user picks)
         self._grid_order = []      # car_idx in starting order
         self._qual_order = []      # car_idx in qualifying order (then the rest by car number)
+        self._qual_source = "car number"
+        self._grid_cache = (None, [])   # (what it depends on, the race on screen's grid): _race_grid
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
         self._green = {}           # race session number -> session time it went green (the header flash)
@@ -500,7 +502,7 @@ class App:
         self._drivers = drivers
         official = {i: p for i, p in enumerate(frame.position) if i in drivers} if frame else None
         self._grid_order, self._grid_source = grid_order(drivers, info, official)
-        self._qual_order = grid_order(drivers, info, None)[0]  # qualifying, else car number (the grid board)
+        self._qual_order, self._qual_source = grid_order(drivers, info, None)  # qualifying, else car number (the grid board)
         self._qual_times = qualifying_times(info)
         self._track_sectors = sector_starts(info)
         self._apply_sectors()
@@ -527,8 +529,39 @@ class App:
         races = [{"num": r["num"], "kind": r["kind"]} for r in self.race_sessions()]
         champ = championship.normalise(league.get("championship"))
         rounds = champ["rounds"]
-        matched = heats.match_rounds(races, rounds, self._today(), champ["live_round"], self._session_meta.get("subsession"))
+        key = self._session_meta.get("subsession")
+        matched = heats.match_rounds(races, rounds, self._today(), champ["live_round"], key)
+        if not matched and len(races) == 1:
+            # One race in this iRacing event, but a race of a meeting (the
+            # meeting's races run as events of their own): the round it counts as.
+            rd = championship.live_round_for(champ, self.session_key(races[0]["num"]))
+            rd = rd or next((r for r in rounds if r["session"] == self.session_key(races[0]["num"])), None)
+            if rd is not None and rd.get("event"):
+                matched = {races[0]["num"]: rounds.index(rd)}
         return {num: (i + 1, rounds[i]) for num, i in matched.items()}
+
+    def _meeting_before(self, league, matched):
+        """The finishing order ({car_idx: place}) of the race before ``matched``
+        (round number, round) in its race meeting, from the results saved to the
+        league (a race run in an earlier iRacing event), with this event's cars."""
+        if not league or not matched or not matched[1].get("event"):
+            return {}
+        rounds = championship.normalise(league.get("championship"))["rounds"]
+        i = matched[0] - 1
+        if i <= 0 or rounds[i - 1].get("event") != matched[1]["event"] or not rounds[i - 1]["results"]:
+            return {}
+        by_key = {driver_key({"cust_id": d["cust_id"], "name": d["name"]}): idx for idx, d in self._drivers.items()}
+        for idx, d in self._drivers.items():  # a roster entry's key (a name-only driver, say)
+            entry = self.leagues.lookup(d["cust_id"], d["number"], league)
+            if entry:
+                by_key.setdefault(driver_key(entry), idx)
+        done = sorted((r for r in rounds[i - 1]["results"] if r["status"] != "dns"), key=lambda r: r["position"] or 10_000)
+        out = {}
+        for r in done:
+            idx = by_key.get(r["driver"])
+            if idx is not None and idx not in out:
+                out[idx] = len(out) + 1
+        return out
 
     def _round_title(self, league, session_num):
         on = self.overlays.get()["standings"]["round_titles"] != "off"
@@ -634,7 +667,17 @@ class App:
                     "progress": self._line(frame.timeline(), idx, (lap + pct) if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1),
                 })
                 rows.append(row)
-            self._assign_positions(rows, racing)
+            # A race's starting grid, as the starting grid board has it
+            # (qualifying, the race before's finish, reversed…): the order
+            # before the green, and where each car started from.
+            grid = self._race_grid(active_league, frame) if is_race else []
+            if grid and frame.session_state < STATE_RACING:
+                place = {idx: i for i, idx in enumerate(grid)}
+                rows.sort(key=lambda r: (place.get(r["car_idx"], len(place)), r["official_pos"] or 999))
+                for pos, r in enumerate(rows, start=1):
+                    r["pos"] = pos
+            else:
+                self._assign_positions(rows, racing)
             if racing or (is_race and not frame.is_live):
                 # Our own gaps while racing, and in a replay of the race (also after the flag).
                 self._live_gaps(rows, frame)
@@ -644,7 +687,7 @@ class App:
                 if r["pos"] is not None:
                     in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
                     r["class_pos"] = in_class[r["class_key"]]
-            self._add_start_positions(rows, is_race)
+            self._add_start_positions(rows, is_race, grid or self._grid_order)
             rows = self._hold_live(live_frame, rows)
             self._class_of = {r["car_idx"]: r["class_key"] for r in rows}
             session = self._session(frame)
@@ -1258,11 +1301,25 @@ class App:
         stops.sort(key=lambda x: not x["camera"])
         return {"stops": stops[:max(1, cfg["count"])], "speed": speed}
 
-    def _add_start_positions(self, rows, is_race):
+    def _race_grid(self, league, frame):
+        """The race on screen's starting grid (car_idx in order), as the
+        starting grid board works it out; kept until anything it depends on changes."""
+        num = frame.session_num
+        live = self._frame
+        pre = bool(live) and num == live.session_num and live.session_state < STATE_RACING
+        key = (num, self._info_update, self._session_meta.get("subsession"),
+               league and (league["id"], league.get("updated_at")), repr(self.overlays.get()["board_grid"]),
+               self._qual_source, tuple(live.position) if pre and self._qual_source == "car number" else None)
+        if self._grid_cache[0] != key:
+            data = self._grid_board(league, f"session:{num}")
+            self._grid_cache = (key, [e["car_idx"] for e in data["rows"]])
+        return self._grid_cache[1]
+
+    def _add_start_positions(self, rows, is_race, grid=None):
         """Grid position (overall and in class) and places gained since, in races."""
         by_idx = {r["car_idx"]: r for r in rows}
         in_class = {}
-        for start, idx in enumerate(self._grid_order, start=1):
+        for start, idx in enumerate(grid if grid is not None else self._grid_order, start=1):
             r = by_idx.get(idx)
             if r is None:
                 continue
@@ -2218,21 +2275,35 @@ class App:
                         or (n == cur and frame.session_state < STATE_CHECKERED)), races[-1])
         drivers = self._drivers
         qual = [i for i in self._qual_order if i in drivers]
+        note_qual = "qualifying"
+        if self._qual_source == "car number" and frame and num == frame.session_num and frame.session_state < STATE_RACING:
+            # No qualifying in this event: the grid iRacing has lined up for
+            # the race about to start (its places before the green).
+            live = sorted((p, idx) for idx, p in enumerate(frame.position) if idx in drivers and p)
+            if live:
+                qual = [idx for _, idx in live] + [i for i in qual if i not in {idx for _, idx in live}]
+                note_qual = "iRacing's grid"
         session = sessions.get(num, {}) if num is not None else {}
         kind = heats.race_kind(session)
-        how = cfg["grid_source"]
-        if how == "auto":
-            # A race meeting: the heats from qualifying, the consolation from
-            # the heat before it, the feature from the consolation (the race
-            # before each); any other race from qualifying.
-            how = "previous" if kind in ("consolation", "feature") else "qualifying"
-        order, note = qual, "qualifying"
+        matched = self._meeting(league).get(num) if num is not None else None
+        # The finishing order of the race before: in this event, else (a race
+        # meeting whose races are events of their own) its race before, as saved.
         prev = max((n for n in races if num is not None and n < num), default=None)
         finish = {}
         if prev is not None:
             res = sorted((r for r in sessions[prev].get("ResultsPositions") or [] if isinstance(r, dict)),
                          key=lambda r: r.get("Position") or 10_000)
             finish = {r.get("CarIdx"): i for i, r in enumerate(res, start=1) if r.get("CarIdx") in drivers}
+        if not finish and prev is None:
+            finish = self._meeting_before(league, matched)
+        how = cfg["grid_source"]
+        if how == "auto":
+            # The heats, and the first race (of the event and its meeting),
+            # from qualifying; every race after it (a second race, the
+            # consolation, the feature) from the finishing order of the race before.
+            first = prev is None and not finish
+            how = "qualifying" if kind == "heat" or first else "previous"
+        order, note = qual, note_qual
         if how == "previous" and finish:
             order = sorted(finish, key=finish.get) + [i for i in qual if i not in finish]
             note = "previous race"
@@ -2262,7 +2333,6 @@ class App:
         # Reverse grid: the top N turned round, overall or in each class. A
         # race meeting's round can say so itself (its Reverse grid box).
         n = cfg["reverse_top"]
-        matched = self._meeting(league).get(num) if num is not None else None
         if matched and matched[1].get("reverse_grid"):
             n = matched[1].get("reverse_top") or 0
         if n > 0:
