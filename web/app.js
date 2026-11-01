@@ -173,6 +173,7 @@ function sameButClassTag(name, nickname) {
 }
 
 function showPage(name) {
+  name = { overlays: "widgets", boards: "widgets" }[name] || name;  // the tabs they became
   if (!document.getElementById(`tab-${name}`)) name = "home";
   const was = document.querySelector(".panel.active");
   if (was && was.id === "tab-hotkeys" && name !== "hotkeys") {
@@ -2495,8 +2496,7 @@ async function loadBackgrounds() {
   } catch (e) {
     bgLibrary = [];
   }
-  overlayFormKey = "";
-  boardSettingsKey = "";
+  resetForms();
   if (ui.snap) render();
 }
 
@@ -2541,8 +2541,7 @@ document.addEventListener("change", async (e) => {
     if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
     bgLibrary = data.backgrounds;
     await cmd("overlay_settings", { overlay: input.dataset.bgUpload, values: { bg: "image", bg_image: data.name } });
-    overlayFormKey = "";
-    boardSettingsKey = "";
+    resetForms();
     toast("Background added");
   } catch (err) {
     toast(err.message, true);
@@ -2693,8 +2692,7 @@ document.addEventListener("click", (e) => {
   if (!sw) return;
   const form = sw.closest(".ov-form");
   const key = sw.closest("[data-swatch-key]").dataset.swatchKey;
-  overlayFormKey = "";
-  boardSettingsKey = "";
+  resetForms();
   cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [key]: sw.dataset.swatch, accent: "color" } }, `Accent colour ${sw.dataset.swatch}`);
 });
 
@@ -2725,8 +2723,7 @@ function orderField(key, label, value, cols, values) {
 
 function saveOrder(field, keys) {
   const form = field.closest(".ov-form");
-  overlayFormKey = "";
-  boardSettingsKey = "";
+  resetForms();
   const values = field.dataset.orderKind === "classes" ? classOrderValue(field, keys)
     : { [field.dataset.orderKey]: keys.join(",") };
   cmd("overlay_settings", { overlay: form.dataset.overlay, values });
@@ -2819,12 +2816,12 @@ document.addEventListener("dragend", () => {
 
 // An overlay's or board's settings: its On screen switch, then its sections
 // (the first one open until you choose otherwise).
-function settingsHtml(section, values, groups, s) {
+function settingsHtml(section, values, groups, s, allOpen = false) {
   const top = "visible" in values
     ? `<label class="ov-field check ov-visible"><input type="checkbox" data-key="visible" data-kind="bool" ${values.visible ? "checked" : ""}> Showing <span class="hint">(untick to hide it everywhere)</span></label>` : "";
   return top + groups.map(([title, fields], i) => {
     const id = `${section}/${title}`;
-    const open = sectionsOpen[id] ?? i === 0;
+    const open = sectionsOpen[id] ?? (allOpen || i === 0);
     const body = fields.filter((f) => !f.when || f.when(values)).map((f) => fieldHtml(section, values, f, s)).join("");
     return `<details class="ov-group" data-group="${esc(id)}" ${open ? "open" : ""}><summary>${esc(title)}</summary>
       <div class="ov-grid">${body}</div></details>`;
@@ -2835,23 +2832,26 @@ function renderOverlaySettings(s) {
   const ov = s.overlays;
   if (!ov) return;
   $("#tile-overlays").textContent = ov.laps.active ? "Lap tracker live (qualifying)" : `${ov.standings.length} in the standings`;
-  // Don't redraw under the cursor; redraw when settings or classes change.
-  const key = JSON.stringify([ov.settings, (s.classes || []).map((c) => [c.key, c.name]), (s.league && s.league.sponsors) || []]);
-  if (key === overlayFormKey || document.activeElement.closest(".ov-form")) return;
+  renderWidgets(s);
+  renderWidgetSettings(s);
+  // The Grid walk tab has the grid walk's settings too. Not redrawn under the cursor.
+  const key = JSON.stringify([ov.settings.gridwalk]);
+  if (key === overlayFormKey || document.activeElement.closest("#ov-gridwalk")) return;
   overlayFormKey = key;
-  for (const [overlay, groups] of Object.entries(OVERLAY_FIELDS)) {
-    $(`#ov-${overlay}`).innerHTML = settingsHtml(overlay, ov.settings[overlay], groups, s);
-  }
+  $("#ov-gridwalk").innerHTML = settingsHtml("gridwalk", ov.settings.gridwalk, OVERLAY_FIELDS.gridwalk, s);
 }
 
-document.querySelectorAll(".ov-form").forEach((form) => form.addEventListener("change", (e) => {
+// Any settings form (Widget Settings, a widget's card, the Grid walk tab): a
+// change is saved straight away.
+document.addEventListener("change", (e) => {
   const el = e.target;
-  if (!el.dataset.key) return;
+  const form = el.closest && el.closest(".ov-form");
+  if (!form || !el.dataset.key) return;
   const value = fieldValue(el);
-  overlayFormKey = "";
+  resetForms();
   el.blur();
   cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
-}));
+});
 
 // ---------------------------------------------------------------------------
 // boards: the full-screen championship, calendar and results screens
@@ -2997,13 +2997,13 @@ function renderBoards(s) {
     const scored = opts.rounds.filter((r) => r.scored);
     const officials = s.officials && s.officials.on;
     $("#board-buttons").innerHTML = officials ? officialBoardsHtml(opts) : !s.league ? '<p class="hint">Activate a league (League builder) to use boards.</p>' : `
-      <div class="board-group"><h4>Championship standings</h4>${groups.length ? groups.map((g) => boardButton(g.name, "championship", g.key, g.color)).join("")
+      <div class="board-group"><h4>Championship standings<button class="btn subtle icon" data-wsettings="board_championship" title="Its settings">⚙</button></h4>${groups.length ? groups.map((g) => boardButton(g.name, "championship", g.key, g.color)).join("")
         : '<span class="hint">No results yet.</span>'}</div>
-      <div class="board-group"><h4>Teams</h4>${opts.teams ? boardButton("Teams' championship", "teams")
+      <div class="board-group"><h4>Teams<button class="btn subtle icon" data-wsettings="board_teams" title="Its settings">⚙</button></h4>${opts.teams ? boardButton("Teams' championship", "teams")
         : `<span class="hint">${opts.has_teams ? "No team points yet." : "Give drivers a team in the League builder (Teams tab) for a teams' championship."}</span>`}</div>
-      <div class="board-group"><h4>Manufacturers</h4>${groups.map((g) => boardButton(g.name, "makes", g.key, g.color)).join("") || '<span class="hint">No results yet.</span>'}</div>
-      <div class="board-group"><h4>Season</h4>${boardButton("Season calendar", "calendar")}</div>
-      <div class="board-group"><h4>Finishing order</h4>
+      <div class="board-group"><h4>Manufacturers<button class="btn subtle icon" data-wsettings="board_makes" title="Its settings">⚙</button></h4>${groups.map((g) => boardButton(g.name, "makes", g.key, g.color)).join("") || '<span class="hint">No results yet.</span>'}</div>
+      <div class="board-group"><h4>Season<button class="btn subtle icon" data-wsettings="board_calendar" title="Its settings">⚙</button></h4>${boardButton("Season calendar", "calendar")}</div>
+      <div class="board-group"><h4>Finishing order<button class="btn subtle icon" data-wsettings="board_results" title="Its settings">⚙</button></h4>
         <label class="field">From <select id="board-round">
           <option value="latest" ${boardRound === "latest" ? "selected" : ""}>Latest round</option>
           <option value="live" ${boardRound === "live" ? "selected" : ""}>This session (live)</option>
@@ -3012,26 +3012,20 @@ function renderBoards(s) {
           ${scored.length ? `<optgroup label="Championship rounds">${scored.map((r) => `<option value="${esc(r.id)}" ${boardRound === r.id ? "selected" : ""}>${esc(r.name)}${r.track ? ` · ${esc(r.track)}` : ""}</option>`).join("")}</optgroup>` : ""}
         </select></label>
         <div>${resultGroups(opts).map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>
-      <div class="board-group"><h4>Qualifying results</h4>
+      <div class="board-group"><h4>Qualifying results<button class="btn subtle icon" data-wsettings="board_qualifying" title="Its settings">⚙</button></h4>
         <label class="field">From <select id="board-qual">
           <option value="latest" ${qualRound === "latest" ? "selected" : ""}>The latest qualifying</option>
           ${(opts.sessions || []).filter((x) => x.kind === "qualify").map((x) => `<option value="${esc(x.source)}"
             ${qualRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}
         </select></label>
         <div>${resultGroups(opts).map((g) => boardButton(g.name, "qualifying", g.key, g.color)).join("")}</div></div>
-      <div class="board-group"><h4>Starting grid</h4>
+      <div class="board-group"><h4>Starting grid<button class="btn subtle icon" data-wsettings="board_grid" title="Its settings">⚙</button></h4>
         <label class="field">For <select id="board-grid">
           <option value="next" ${gridRound === "next" ? "selected" : ""}>The race on now, else the next one</option>
           ${(opts.sessions || []).filter((x) => x.kind === "race").map((x) => `<option value="${esc(x.source)}"
             ${gridRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : ""}</option>`).join("")}
         </select></label>
-        <span class="hint">Where the grid comes from (qualifying, the previous race, a reverse grid…) is in its settings below.</span>
         <div>${resultGroups(opts).map((g) => boardButton(g.name, "grid", g.key, g.color)).join("")}</div></div>`;
-  }
-  const skey = JSON.stringify([s.overlays && s.overlays.settings, (s.league && s.league.banners) || [], (s.league && s.league.sponsors) || []]);
-  if (skey !== boardSettingsKey && !document.activeElement.closest("#board-settings")) {
-    boardSettingsKey = skey;
-    renderBoardSettings(s);
   }
 }
 
@@ -3039,32 +3033,24 @@ function renderBoards(s) {
 function officialBoardsHtml(opts) {
   const sessions = opts.sessions || [];
   return `<p class="hint">Officials mode: the boards from the iRacing event (championship boards need a league).</p>
-    <div class="board-group"><h4>Finishing order</h4>
+    <div class="board-group"><h4>Finishing order<button class="btn subtle icon" data-wsettings="board_results" title="Its settings">⚙</button></h4>
       <label class="field">From <select id="board-round">
         <option value="live" ${boardRound === "live" ? "selected" : ""}>This session (live)</option>
         ${sessions.map((x) => `<option value="${esc(x.source)}" ${boardRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}
       </select></label>
       <div>${resultGroups(opts).map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>
-    <div class="board-group"><h4>Qualifying results</h4>
+    <div class="board-group"><h4>Qualifying results<button class="btn subtle icon" data-wsettings="board_qualifying" title="Its settings">⚙</button></h4>
       <label class="field">From <select id="board-qual">
         <option value="latest" ${qualRound === "latest" ? "selected" : ""}>The latest qualifying</option>
         ${sessions.filter((x) => x.kind === "qualify").map((x) => `<option value="${esc(x.source)}" ${qualRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}</option>`).join("")}
       </select></label>
       <div>${resultGroups(opts).map((g) => boardButton(g.name, "qualifying", g.key, g.color)).join("")}</div></div>
-    <div class="board-group"><h4>Starting grid</h4>
+    <div class="board-group"><h4>Starting grid<button class="btn subtle icon" data-wsettings="board_grid" title="Its settings">⚙</button></h4>
       <label class="field">For <select id="board-grid">
         <option value="next" ${gridRound === "next" ? "selected" : ""}>The race on now, else the next one</option>
         ${sessions.filter((x) => x.kind === "race").map((x) => `<option value="${esc(x.source)}" ${gridRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}</option>`).join("")}
       </select></label>
       <div>${resultGroups(opts).map((g) => boardButton(g.name, "grid", g.key, g.color)).join("")}</div></div>`;
-}
-
-function renderBoardSettings(s) {
-  const settings = s.overlays && s.overlays.settings;
-  if (!settings) return;
-  $("#board-settings").innerHTML = Object.entries(BOARD_FIELDS).map(([section, fields]) => `
-    <div class="overlay-card"><h3>${BOARD_SECTION_NAMES[section]}</h3><div class="ov-form" data-overlay="${section}">
-    ${settingsHtml(section, settings[section], [["What it shows", fields], ["Logo, banner & sponsors", BOARD_BRAND], LOOK], s)}</div></div>`).join("");
 }
 
 $("#board-buttons").addEventListener("click", async (e) => {
@@ -3099,25 +3085,6 @@ $("#btn-board-hide").addEventListener("click", async () => {
   ui.boardOn = null;
   boardButtonsKey = "";
 });
-$("#board-settings").addEventListener("change", (e) => {
-  const el = e.target;
-  const form = el.closest(".ov-form");
-  if (!el.dataset.key || !form) return;
-  const value = fieldValue(el);
-  boardSettingsKey = "";
-  el.blur();
-  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
-});
-$("#url-board").textContent = `${location.origin}/board.html`;
-$("#url-sponsors").textContent = `${location.origin}/sponsors.html`;
-$("#url-driver").textContent = `${location.origin}/driver.html`;
-$("#url-battle").textContent = `${location.origin}/battle.html`;
-$("#url-pits").textContent = `${location.origin}/pits.html`;
-
-for (const page of ["standings", "laps"]) {
-  $(`#url-${page}`).textContent = `${location.origin}/${page}.html`;
-  $(`#url-${page}-screen`).textContent = `${location.origin}/${page}.html?screen=1`;
-}
 document.addEventListener("click", (e) => {
   const copy = e.target.closest("[data-copy]");
   if (!copy) return;
@@ -3127,6 +3094,172 @@ document.addEventListener("click", (e) => {
 
 $("#home-obs-url").textContent = `${location.origin}/gridwalk.html`;
 loadBackgrounds();
+
+// ---------------------------------------------------------------------------
+// widgets: the Widgets tab (each overlay and board on or off, with the
+// settings that change most) and Widget Settings (every setting of one)
+// ---------------------------------------------------------------------------
+
+// Every widget, in the order they're listed. ``page``: its OBS page;
+// ``screen``: it has a full-screen version too.
+const WIDGETS = [
+  { key: "standings", name: "Timing tower", page: "standings", screen: true,
+    about: "Race: running order and gap to the leader. Qualifying and practice: fastest clean lap. The full-screen version is a timing screen of its own, with every driver." },
+  { key: "laps", name: "Lap tracker", page: "laps", screen: true,
+    about: "Qualifying: one big tracker for the car on camera and small ones for the others on a timed lap, with sector colours and the lap time as it lands." },
+  { key: "driver", name: "Driver on camera", page: "driver",
+    about: "A board at the bottom centre naming the driver the camera is on: position, number, name, team and car. It slides in each time the camera moves to someone." },
+  { key: "pits", name: "Pit stops", page: "pits",
+    about: "A card for a car in the pit lane: its time since the pit lane entry and its time in its pit box, ticking; after the exit line, its final times for a few seconds." },
+  { key: "battle", name: "Championship battle", page: "battle",
+    about: "A few drivers fighting for the championship: their place and points (as if the race ended now), what this race gives them and the points between them. Pick them on the Widgets tab." },
+  { key: "sponsors", name: "Sponsors", page: "sponsors",
+    about: "The active league's sponsor logos, in a corner or along an edge: all together, or one at a time." },
+  { key: "gridwalk", name: "Grid walk", page: "gridwalk",
+    about: "The starting grid on stream, two drivers at a time. Its running order and car pictures are on the Grid walk tab." },
+  ...Object.entries(BOARD_SECTION_NAMES).map(([key, name]) => ({ key, name, page: "board", board: true,
+    about: "A full-screen board. Put it on screen from the Widgets tab; the preview shows whichever board is on screen." })),
+];
+const WIDGET = Object.fromEntries(WIDGETS.map((w) => [w.key, w]));
+
+// A widget's settings, in sections.
+function widgetGroups(key) {
+  return OVERLAY_FIELDS[key] || [["What it shows", BOARD_FIELDS[key]], ["Logo, banner & sponsors", BOARD_BRAND], LOOK];
+}
+
+const WS_KEY = "apex.widgetSettings";
+let wsWidget = "standings";
+try {
+  wsWidget = WIDGET[localStorage.getItem(WS_KEY)] ? localStorage.getItem(WS_KEY) : "standings";
+} catch (e) { /* storage unavailable */ }
+let wsKey = "";
+let wqKey = "";
+let wsOpenSection = null;  // a section to open (from a widget's ⚙ Settings)
+
+// Every settings form redraws next time (after a change, so it shows what was saved).
+function resetForms() {
+  overlayFormKey = wsKey = wqKey = "";
+}
+
+// The quick settings on a widget's card: its fields by key, as in Widget Settings.
+function quickFields(section, keys, values, s) {
+  const all = widgetGroups(section).flatMap(([, fields]) => fields);
+  return keys.map((k) => all.find((f) => f[0] === k)).filter((f) => f && (!f.when || f.when(values)))
+    .map((f) => fieldHtml(section, values, f, s)).join("");
+}
+
+function renderWidgets(s) {
+  const st = s.overlays.settings;
+  const gw = s.gridwalk || {};
+  // On or off: the Show button lit while it's on.
+  for (const card of document.querySelectorAll("#tab-widgets [data-widget]")) {
+    const key = card.dataset.widget;
+    const on = key === "gridwalk" ? !!gw.visible : key === "fastest" ? !!st.standings.fl_flash : !!(st[key] && st[key].visible);
+    card.classList.toggle("on", on);
+  }
+  $("#wgw-state").textContent = gw.visible ? (gw.running ? "on air" : "paused") : "";
+  $("#wgw-toggle").textContent = gw.running ? "❚❚ Pause" : "▶ Resume";
+  const key = JSON.stringify([st, (s.classes || []).map((c) => [c.key, c.name, c.color])]);
+  if (key === wqKey || document.activeElement.closest(".wq")) return;
+  wqKey = key;
+  for (const form of document.querySelectorAll(".wq")) {
+    const section = form.dataset.overlay;
+    form.innerHTML = quickFields(section, form.dataset.quick.split(","), st[section], s);
+  }
+}
+
+function renderWidgetSettings(s) {
+  const w = WIDGET[wsWidget];
+  const values = s.overlays.settings[w.key];
+  const key = JSON.stringify([w.key, values, (s.classes || []).map((c) => [c.key, c.name, c.color]),
+    (s.league && s.league.sponsors) || [], (s.league && s.league.banners) || [], ((s.board_options || {}).groups || []).length]);
+  if (key === wsKey || document.activeElement.closest("#ws-form")) return;
+  const changed = !wsKey.startsWith(`["${w.key}"`);
+  wsKey = key;
+  if (changed) {
+    $("#ws-list").innerHTML = [["Overlays", WIDGETS.filter((x) => !x.board)], ["Boards", WIDGETS.filter((x) => x.board)]]
+      .map(([title, list]) => `<h5>${title}</h5>${list.map((x) => `<button class="ws-item ${x.key === w.key ? "active" : ""}" data-ws="${x.key}">${esc(x.name)}</button>`).join("")}`).join("");
+    $("#ws-title").textContent = w.name;
+    $("#ws-about").textContent = w.about;
+    const base = `${location.origin}/${w.page}.html`;
+    const links = [["Overlay", base, `/${w.page}.html?preview=1`, "Preview ↗"]];
+    if (w.screen) links.push(["Full screen", `${base}?screen=1`, `/${w.page}.html?screen=1`, "Open ↗"]);
+    if (w.board) links[0] = ["Board", base, `/${w.page}.html?preview=1`, "Open ↗"];
+    $("#ws-links").innerHTML = links.map(([kind, url, open, label], i) => `<p class="obs-url"><span class="obs-kind">${kind}</span><code id="ws-url-${i}">${esc(url)}</code>
+      <button class="btn subtle" data-copy="ws-url-${i}">Copy</button> <a class="btn subtle" href="${open}" target="_blank" rel="noopener">${label}</a></p>`).join("")
+      + '<p class="hint">In OBS: a Browser Source at 1920×1080 (the overlays have a see-through background).</p>';
+    const frame = $("#ws-frame");
+    const src = `/${w.page}.html?preview=1`;
+    if (frame.getAttribute("src") !== src) frame.setAttribute("src", src);
+  }
+  const form = $("#ws-form");
+  form.dataset.overlay = w.key;
+  form.innerHTML = settingsHtml(w.key, values, widgetGroups(w.key), s, true);
+  if (wsOpenSection) {
+    const group = [...form.querySelectorAll(".ov-group")].find((g) => g.dataset.group === `${w.key}/${wsOpenSection}`);
+    if (group) {
+      group.open = true;
+      group.scrollIntoView({ block: "start" });
+    }
+    wsOpenSection = null;
+  }
+}
+
+function openWidgetSettings(key, section = null) {
+  if (!WIDGET[key]) return;
+  wsWidget = key;
+  wsOpenSection = section;
+  wsKey = "";
+  try {
+    localStorage.setItem(WS_KEY, key);
+  } catch (e) { /* storage unavailable */ }
+  if (ui.snap && ui.snap.overlays) renderWidgetSettings(ui.snap);
+  showPage("widget-settings");
+}
+
+$("#ws-list").addEventListener("click", (e) => {
+  const item = e.target.closest("[data-ws]");
+  if (item) openWidgetSettings(item.dataset.ws);
+});
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("#tab-widgets button");
+  if (!btn) return;
+  const d = btn.dataset;
+  if (d.wsettings) return openWidgetSettings(d.wsettings, d.wsection || null);
+  if (d.wshow || d.whide) {
+    const key = d.wshow || d.whide;
+    resetForms();
+    return cmd("overlay_settings", { overlay: key, values: { visible: !!d.wshow } });
+  }
+  if (d.wgw) {
+    const g = ui.snap && ui.snap.gridwalk;
+    const action = { start: "gridwalk_start", prev: "gridwalk_prev", next: "gridwalk_next", hide: "gridwalk_hide",
+      toggle: g && g.running ? "gridwalk_pause" : "gridwalk_resume" }[d.wgw];
+    return cmd(action, {});
+  }
+  if (d.wall) return cmd("hotkey", { action: d.wall });
+});
+// The fastest lap card's Show / Hide: the flash on or off.
+for (const [attr, on] of [["wshow", true], ["whide", false]]) {
+  const card = $('#tab-widgets [data-widget="fastest"]');
+  const btn = document.createElement("button");
+  btn.className = "wbtn";
+  btn.textContent = on ? "Show" : "Hide";
+  btn.addEventListener("click", () => {
+    resetForms();
+    cmd("overlay_settings", { overlay: "standings", values: { fl_flash: on } });
+  });
+  btn.dataset.flash = attr;
+  let row = card.querySelector(".wbtns");
+  if (!row) {
+    row = document.createElement("div");
+    row.className = "wbtns";
+    card.querySelector("h4").after(row);
+  }
+  row.appendChild(btn);
+}
+
 
 // -- overlays straight on the user's screen (app window only) -------------------
 
@@ -3419,8 +3552,7 @@ async function importFile(what, file, round) {
       overlays: `Imported the settings of ${info.sections} overlays and boards`,
     }[what] || "Imported");
     if (what === "overlays") {
-      overlayFormKey = "";
-      boardSettingsKey = "";
+      resetForms();
       loadBackgrounds();
     }
   } catch (err) {

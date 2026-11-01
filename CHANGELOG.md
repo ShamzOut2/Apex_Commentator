@@ -15,6 +15,13 @@ How each version's entry is written:
 
 ### New features
 
+- **Widgets** tab: every overlay and board on one dashboard, a card each
+  with big Show / Hide buttons and the settings that change most (name
+  style, overall / by class, header…), the boards along the bottom, and
+  All off / back.
+- **Widget Settings** tab: every setting of every overlay and board, picked
+  from a list on the left, laid out label | value in sections, with its OBS
+  links and a live preview. (These two replace the Overlays and Boards tabs.)
 - **Delay**: the race shows 1 s behind iRacing in the app and on every
   overlay (Timing Screen, next to the battle settings; 0 turns it off).
 
