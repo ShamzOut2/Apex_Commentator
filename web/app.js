@@ -2322,6 +2322,7 @@ const OVERLAY_FIELDS = {
       ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
       ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"],
         ["overall", "Fastest overall this session (any class)"]]],
+      ["sector_delta_s", "A sector just done: its difference to what it's compared with first, for (s; 0 = just its time)", "number", { min: 0, max: 10, step: 0.5 }],
       ["invalid_text_color", "INVALID (in the lap time's place)", "color"],
       ["invalid_sector_color", "Invalidated sectors", "color"],
       ["invalid_line_color", "The line through an invalidated sector", "color"],

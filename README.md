@@ -46,6 +46,13 @@ walk, Overlays, Boards and Race control.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- Lap tracker: a sector just done shows its **difference** first (−0.324 /
+  +0.512, against the driver's best, the class's or anyone's, as the
+  reference is set), fading in and out on its colour for 3 seconds (you can
+  set how long), then its time.
+
 ### Fixes
 
 - Race control: the commands are sent in iRacing's chat by themselves; they
@@ -586,6 +593,12 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     while its lap is clean: a lap that's invalidated (off track) loses its
     sectors from the bests, and whoever's now fastest (on a clean lap)
     turns purple.
+  - **A sector just done** shows first how it compares (−0.324 faster,
+    +0.512 slower) with the time it's measured against: the driver's best,
+    the class's fastest or anyone's, as the reference above says. It fades
+    in and out on the sector's colour for 3 seconds, then the sector's time
+    comes in (*A sector just done: its difference first, for*: the seconds,
+    or 0 for just the time). The full-screen timing does the same.
   - **An invalidated lap** (off track): the sector it happened in gets a
     line through it, and the rest of the lap greys out as the driver carries
     on; at the line every sector is struck through and **INVALID** takes the

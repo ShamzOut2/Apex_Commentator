@@ -47,6 +47,13 @@
 .sector[data-c=green] .st { color: #06210f; }
 .sector[data-c=yellow] .st { color: #2a2100; }
 .sector.tight .st { visibility: hidden; }  /* too narrow for its time: colour only */
+/* A sector just done: its difference to what it's compared with fades in
+   and out on its colour, then its time comes in (sector_delta_s). */
+.sector.delta .st { animation: sector-delta var(--dd, 3s) ease-in-out both; animation-delay: var(--dage, 0s); font-weight: 900; }
+@keyframes sector-delta { 0% { opacity: 0; } 18%, 82% { opacity: 1; } 100% { opacity: 0; } }
+.sector.time-in .st { animation: sector-time .45s ease-out both; }
+@keyframes sector-time { from { opacity: 0; } }
+.sector.tight.delta .st { visibility: visible; font-size: 12px; }
 .timebox { text-align: right; min-width: 104px; flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; line-height: 1.15; }
 .timebox .lt { font-size: 20px; font-weight: 800; }
 .timebox .lt.done { color: #fff; }
