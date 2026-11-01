@@ -44,22 +44,27 @@ control, Timing Screen, Grid walk, Overlays and Boards.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.5.8**
+**Coming in the next update**
+
+### New features
+
+- **Delay**: the race shows 1 s behind iRacing in the app and on every
+  overlay (Timing Screen, next to the battle settings; 0 turns it off).
 
 ### Improvements
 
-- Lighter on the PC with several overlays open: each update is prepared
-  once for every page (the app, pop-outs, each overlay in OBS) instead of
-  once per page, and is smaller.
+- Timing tower: drivers who leave the session stay where they were, greyed
+  out (the same setting as the full screen's).
 
 ### Fixes
 
-- An error while preparing an update no longer freezes every overlay and
-  the app until it's restarted: the app carries on and logs it.
-- Overlays and the app reconnect by themselves if their connection to the
-  app stalls (after the PC sleeps, say), instead of needing a reopen.
-- The log file (apex.log) no longer grows without end: past 5 MB it's
-  trimmed to its latest part.
+- Race meeting rounds: the box for how many cars are reversed is always
+  there next to *Reverse grid*.
+- In a replay during a race, the standings (tower, Timing Screen, live
+  championship) stay on the live race instead of showing the replay's.
+- Cars crossing the line no longer jump a lap back or forward for a moment.
+- Live championship standings: a car off the track for a while (towed, in
+  the garage) keeps its place instead of counting as out.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -137,6 +142,14 @@ shows something else. Camera hotkeys work in whichever window has focus.
 - **Names**: the name style in the list (full name, D. Price, Price D., last
   name), and **Nicknames** by the names on or off. Next to the battle
   settings, kept for this PC.
+- **Delay**: how far behind iRacing the race shows, in the app and on every
+  overlay (1 s to start with; 0 = straight away; up to 10 s). Settings you
+  change still apply straight away.
+- **Replays**: while a replay is on screen during a race, the standings (the
+  tower, the full screen, this list and the live championship standings)
+  stay on the live race: iRacing's car data is the replay's then, so the
+  live order as it last stood is kept and brought up to date as each car
+  crosses the line.
 - **Drivers who left**: a driver who leaves the session (gone from
   iRacing's list) stays in the standings for the rest of the event, marked
   LEFT; untick it to drop them. The flag column's chequered flag is steady
@@ -414,10 +427,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     race's clock has run out) the header (tower and full screen) turns
     white, like the white flag; as the leader takes the chequered flag it
     turns into the chequered flag.
-  - **Drivers who leave** (full screen): *Full screen: keep drivers who leave
-    the session in the list* keeps a driver who leaves where they were,
-    greyed out and marked OUT; the others pass them as they carry on (on by
-    default; the tower always drops them).
+  - **Drivers who leave**: *Keep drivers who leave the session in the
+    list* keeps a driver who leaves where they were, on the tower and the
+    full screen, greyed out (marked OUT on the full screen); the others
+    pass them as they carry on (on by default).
   - **Finish flags**: in a race, as each driver crosses the line after the
     chequered flag, a small chequered flag comes out on a tab of its own on
     the tower's right edge, level with their row (sliding out from behind
@@ -1065,7 +1078,7 @@ standings update from what's saved.
     race) and adds the others after it, at the same track, date and time;
     **Make every round a race meeting…** does that for every round at once.
     **Separate rounds** on a meeting turns its races back into rounds.
-    **Reverse grid** on a meeting's race, with *Top* N: that race's grid has
+    **Reverse grid** on a meeting's race, with *Reverse top* N: that race's grid has
     its first N turned round (the starting grid board shows it so; *Reverse
     the first N of each class* in the board's settings does it per class).
     **Import every race from session** fills a meeting's races from the race

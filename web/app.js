@@ -104,6 +104,7 @@ function render() {
     if (!savedKeys) sendHotkeys();  // this window's keys, once the cameras are known
   }
   $("#status-dot").classList.toggle("on", !!s.connected);
+  if (s.data_delay_s != null && document.activeElement !== $("#data-delay")) $("#data-delay").value = s.data_delay_s;
   const league = s.league;
   const off = s.officials || { on: false, league: null };
   const lb = $("#league-badge");
@@ -772,6 +773,12 @@ $("#battle-gap").addEventListener("change", (e) => {
 $("#timing-names").value = settings.nameFormat;
 $("#timing-nick").checked = settings.showNick;
 $("#timing-left").checked = settings.keepLeft;
+$("#data-delay").addEventListener("change", (e) => {
+  const v = Math.min(10, Math.max(0, parseFloat(e.target.value) || 0));
+  e.target.value = v;
+  e.target.blur();
+  cmd("data_delay", { seconds: v });
+});
 $("#timing-left").addEventListener("change", (e) => {
   settings.keepLeft = e.target.checked;
   saveSettings();
@@ -1479,7 +1486,7 @@ function renderChampRounds() {
         <label class="field" title="Points multiplier: 1 for normal points, 2 for double points, and so on">Points ×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
         <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
         ${rd.event ? `<label class="field" title="This race's grid has its first N turned round (the starting grid board shows it so)"><input type="checkbox" data-round="${i}" data-rkey="reverse_grid" ${rd.reverse_grid ? "checked" : ""}> Reverse grid</label>
-        ${rd.reverse_grid ? `<label class="field" title="How many from the front are turned round">Top<input type="number" class="narrow" min="0" max="60" step="1" data-round="${i}" data-rkey="reverse_top" value="${rd.reverse_top || 0}"></label>` : ""}` : ""}
+        <label class="field" title="How many from the front are turned round (with Reverse grid ticked)">Reverse top<input type="number" class="narrow" min="0" max="60" step="1" data-round="${i}" data-rkey="reverse_top" value="${rd.reverse_top || 0}" aria-label="How many cars are reversed"></label>` : ""}
         ${c.rules.custom_schemes && (c.rules.schemes || []).length ? `<label class="field" title="The points system this round is scored with">Points
           <select data-round="${i}" data-rkey="scheme"><option value="">Usual points</option>${c.rules.schemes.map((sc) =>
             `<option value="${esc(sc.id)}" ${rd.scheme === sc.id ? "selected" : ""}>${esc(sc.name || "Unnamed")}</option>`).join("")}</select></label>` : ""}
@@ -2318,7 +2325,7 @@ const OVERLAY_FIELDS = {
         ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"]]],
       ["screen_column_order", "Column order on the full screen", "order", [["laps", "Laps"], ["gap", "Gap"], ["interval", "Interval"],
         ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"]]],
-      ["screen_keep_left", "Full screen: keep drivers who leave the session in the list (where they were, marked OUT)", "bool"],
+      ["screen_keep_left", "Keep drivers who leave the session in the list, where they were (tower and full screen; greyed out)", "bool"],
       ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["logo", "Team logo"], ["name", "Driver"], ["team", "Team name"],
         ["pos_change", "+/−"], ["laps", "Laps"], ["pits", "Pit stops"], ["last_lap", "Last lap"], ["best_lap", "Best lap"], ["gap", "Gap"],
         ["interval", "Interval"]]),

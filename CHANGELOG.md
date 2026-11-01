@@ -11,6 +11,28 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- **Delay**: the race shows 1 s behind iRacing in the app and on every
+  overlay (Timing Screen, next to the battle settings; 0 turns it off).
+
+### Improvements
+
+- Timing tower: drivers who leave the session stay where they were, greyed
+  out (the same setting as the full screen's).
+
+### Fixes
+
+- Race meeting rounds: the box for how many cars are reversed is always
+  there next to *Reverse grid*.
+- In a replay during a race, the standings (tower, Timing Screen, live
+  championship) stay on the live race instead of showing the replay's.
+- Cars crossing the line no longer jump a lap back or forward for a moment.
+- Live championship standings: a car off the track for a while (towed, in
+  the garage) keeps its place instead of counting as out.
+
 ## v0.5.8
 
 ### Improvements

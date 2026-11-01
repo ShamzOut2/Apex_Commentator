@@ -234,4 +234,4 @@ body.screen .fl-flash { top: 14px; }
 .tower-head.chequered .t2, .screen-head.chequered .t2 { color: #e3e6ea; }
 
 /* Full screen: a driver who's left the session, kept where they were (screen_keep_left). */
-.screen-table tr.left { opacity: .55; }
+.screen-table tr.left, .tower .srow.left { opacity: .55; }

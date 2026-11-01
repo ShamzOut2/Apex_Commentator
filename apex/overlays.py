@@ -90,7 +90,7 @@ DEFAULTS = {
         "show_pit_status": True,  # "PIT" while on pit road
         "column_order": ",".join(TOWER_COLUMNS),
         "screen_column_order": "",
-        "screen_keep_left": True,  # the full-screen timing keeps drivers who leave the session, where they were
+        "screen_keep_left": True,  # the tower and full-screen timing keep drivers who leave the session, where they were
         **COLUMN_OPACITY,
         # Start of a session: only the header (session, laps / time left), and
         # each driver appears once they've completed a lap.

@@ -4,6 +4,7 @@ snapshot the overlay renders, and runs spectate / replay commands.
 
 import json
 import re
+from collections import deque
 import threading
 import traceback
 from dataclasses import replace
@@ -138,6 +139,40 @@ def _progress(frame, idx):
     return lap + pct if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1
 
 
+class LineFilter:
+    """Each car's laps + lap distance, without iRacing's hiccup at the line.
+
+    As a car crosses the line, its lap count and its lap distance don't
+    always change on the same tick: for a moment it's a lap behind (the
+    distance back to 0, the lap not yet up) or a lap ahead (the lap up, the
+    distance still 0.99), and the order jumps about. Right at the line, a
+    whole lap's jump from where the car just was is taken back. The time
+    going back (a replay) or jumping on starts it afresh.
+    """
+
+    def __init__(self):
+        self._key, self._last, self._now = None, {}, {}
+
+    def __call__(self, timeline, idx, raw):
+        if raw is None or raw < 0:
+            return raw
+        if timeline != self._key:
+            num, t = timeline
+            fresh = (self._key is None or num != self._key[0] or t < self._key[1] or t - self._key[1] > 2.0)
+            self._last = {} if fresh else {**self._last, **self._now}
+            self._key, self._now = timeline, {}
+        if idx in self._now:
+            return self._now[idx]
+        p, prev = raw, self._last.get(idx)
+        if prev is not None and (prev % 1 > 0.85 or prev % 1 < 0.15):  # it was at the line
+            if raw % 1 > 0.9 and raw - prev > 0.5:
+                p = raw - 1  # the lap's up before the distance is back to 0
+            elif raw % 1 < 0.1 and prev - raw > 0.5:
+                p = raw + 1  # the distance is back to 0 before the lap's up
+        self._now[idx] = p
+        return p
+
+
 def _lap_time(value):
     return round(value, 3) if value and value > 0 else None
 
@@ -207,6 +242,7 @@ class App:
         self._payload = (None, b"")         # (version, the snapshot as JSON): encoded once for every page listening
         self._encode_lock = threading.Lock()
         self._errors = {}                   # poller errors logged: (where, error) -> (when, times since)
+        self._delay_history = deque()       # (when, snapshot) for the data delay (_delay)
         self._version = 0
         self._changed = threading.Condition()
         self._info_update = None
@@ -232,6 +268,7 @@ class App:
         self._logged_until = {}    # session num -> race time logged so far
         self._seen_in = {}         # session num -> car_idx -> (place, standings entry): the full-screen timing's leavers
         self._gone = {}            # car_idx -> driver: drivers who've left the event (gone from iRacing's list)
+        self._live_rows = None     # (subsession, session, rows): the standings as last seen live (_hold_live)
         self.detection = "waiting" # live | replay | paused | waiting
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
         self._header_mode = "laps" # what the tower's header last showed: "laps", "time" or "none"
@@ -260,6 +297,7 @@ class App:
         self._class_of = {}        # car_idx -> class key, from the last snapshot
         self._track_sectors = self.laps.starts  # the track's own split points
         self._race = RaceProgress()
+        self._line = LineFilter()  # laps + lap distance, steady at the line
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -367,7 +405,7 @@ class App:
             self._race.update(timeline_frame)
             # Gap timing: race time not timed yet (live, or a replay of a part
             # the app didn't see); a replay of time already timed reads it back.
-            self.gaps.update(num, t, {idx: _progress(frame, idx) for idx in self._drivers})
+            self.gaps.update(num, t, {idx: self._line((num, t), idx, _progress(frame, idx)) for idx in self._drivers})
         # Pit stops (the pit stop overlay): on pit road, in the pit box.
         self.pits.update(num, t, [(idx, bool(_at(frame.on_pit, idx, False)),
                                    _at(frame.surface, idx, TRK_NOT_IN_WORLD) == TRK_IN_PIT_STALL,
@@ -522,6 +560,7 @@ class App:
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
+                "data_delay_s": self.settings.get("data_delay_s", 1.0),
                 "race_control": {"log": self.rc_log[-50:]},
                 "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
                             "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else [],
@@ -534,6 +573,7 @@ class App:
                 }
             # The session on screen: in a replay, the one being replayed (a race
             # watched once the server has moved on to the next session, say).
+            live_frame = frame
             screen_num = frame.timeline()[0]
             if screen_num != frame.session_num and screen_num in self._session_meta.get("sessions", {}):
                 frame = replace(frame, session_num=screen_num)
@@ -589,7 +629,7 @@ class App:
                                 | (FLAG_CHECKERED if self._race.checkered and idx in self._race.finished else 0)),
                     "left": idx in self._gone and idx not in self._drivers,
                     "last_event_id": last_event.get(idx),
-                    "progress": (lap + pct) if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1,
+                    "progress": self._line(frame.timeline(), idx, (lap + pct) if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1),
                 })
                 rows.append(row)
             self._assign_positions(rows, racing)
@@ -603,6 +643,7 @@ class App:
                     in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
                     r["class_pos"] = in_class[r["class_key"]]
             self._add_start_positions(rows, is_race)
+            rows = self._hold_live(live_frame, rows)
             self._class_of = {r["car_idx"]: r["class_key"] for r in rows}
             session = self._session(frame)
             snap = {
@@ -634,6 +675,7 @@ class App:
                 "detection": self.detection,
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
+                "data_delay_s": self.settings.get("data_delay_s", 1.0),
                 "race_control": {"log": self.rc_log[-50:]},
                 "hotkeys": {"system_wide": bool(self.global_hotkeys and self.global_hotkeys.available),
                             "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else [],
@@ -737,9 +779,11 @@ class App:
             reason = str(off.get("ReasonOutStr") or "Running").strip().lower()
             status = self._race.status(r["car_idx"], session_num, laps, r["in_world"], reason)
             if status is None:
-                # Not watched to the flag: iRacing's reason the car is out,
-                # and mid-race a car that has left the world is out.
-                status = "finished" if reason == "running" and (r["in_world"] or checkered) else "dnf"
+                # Not watched to the flag: iRacing's reason the car is out. Mid-race
+                # (the live standings) a car off the track for a while (towed, in
+                # the garage for repairs) is still in it, where it is; only one
+                # iRacing says is out, or whose driver has left, is out.
+                status = "finished" if reason == "running" and not r.get("left") else "dnf"
             incidents = off.get("Incidents") if isinstance(off.get("Incidents"), int) else r["incidents"]
             results.append(championship.normalise_result({
                 "driver": key, "name": r["name"],
@@ -1097,6 +1141,55 @@ class App:
                      "all": sorted(everyone, key=lambda x: (x["pos"] or 10_000, x["name"].lower()))},
         }
 
+    def _hold_live(self, live, rows):
+        """The standings while a replay is on screen during a race: the live
+        race's, not the replay's. iRacing's car data (where each car is) is
+        the replay's then, so the live order as it last stood is kept, and
+        brought up to date from iRacing's results, which go on coming in live
+        as each car crosses the line (laps, places, lap times). Live: noted
+        for then."""
+        num = live.session_num
+        if live.is_live:
+            self._live_rows = (self._session_meta.get("subsession"), num, rows)
+            return rows
+        session = self._session_meta.get("sessions", {}).get(num, {})
+        held = self._live_rows
+        if (not heats.race_kind(session) or live.session_state not in (STATE_RACING, STATE_CHECKERED)
+                or not held or held[:2] != (self._session_meta.get("subsession"), num)):
+            return rows  # not a race going on, or not seen live: what's on screen
+        now = {r["car_idx"]: r for r in rows}
+        out = []
+        results = {p.get("CarIdx"): p for p in session.get("ResultsPositions") or [] if isinstance(p, dict)}
+        for r in held[2]:
+            r = dict(r)
+            res = results.get(r["car_idx"])
+            if res:
+                done = res.get("LapsComplete")
+                if isinstance(done, int) and done >= 0 and done > (r["laps_completed"] or -1):
+                    r["laps_completed"], r["lap"] = done, done + 1
+                for key, src in (("last_lap", "LastTime"), ("best_lap", "FastestTime")):
+                    t = _lap_time(res.get(src))
+                    if t:
+                        r[key] = t
+            # Who they are and their flags/penalties: as they are now.
+            cur = now.get(r["car_idx"])
+            if cur:
+                for key in ("flag", "penalties", "left", "event_count", "last_event_id", "incidents"):
+                    r[key] = cur.get(key, r.get(key))
+            out.append(r)
+        # The order: laps done (as each crosses the line), then where they were.
+        placed = sorted((r for r in out if r["pos"] is not None), key=lambda r: (-(r["laps_completed"] or 0), r["pos"]))
+        in_class = {}
+        for pos, r in enumerate(placed, start=1):
+            r["pos"] = pos
+            in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
+            r["class_pos"] = in_class[r["class_key"]]
+            if r.get("start_pos"):
+                r["pos_change"] = r["start_pos"] - pos
+            if r.get("class_start_pos"):
+                r["class_pos_change"] = r["class_start_pos"] - r["class_pos"]
+        return placed + [r for r in out if r["pos"] is None]
+
     def _keep_left(self, num, standings, rows, is_race):
         """The standings (unranked, copies) with the drivers seen in them this
         session who've since left (gone from iRacing's list, or no longer
@@ -1363,8 +1456,40 @@ class App:
                 "banners": [{k: b[k] for k in ("id", "name", "orientation")} for b in active.get("banners", [])],
                 "sponsors": boards.sponsors(active, "")}
 
+    # The race as it was data_delay_s ago, rather than as it is (the rest of a
+    # snapshot, settings and so on, is as it is now, so a box just ticked
+    # doesn't flick back for a moment).
+    DELAYED = ("session", "camera", "replay", "drivers", "detection", "events", "classes", "championship")
+    DELAY_MAX_S = 10.0
+
+    def _delay(self, snap):
+        """``snap`` with its race data from data_delay_s ago (default 1 s)."""
+        try:
+            delay = min(self.DELAY_MAX_S, max(0.0, float(self.settings.get("data_delay_s", 1.0))))
+        except (TypeError, ValueError):
+            delay = 1.0
+        hist = self._delay_history
+        if delay <= 0 or not snap.get("connected"):
+            hist.clear()
+            return snap
+        now = time.monotonic()
+        hist.append((now, snap))
+        # The newest snapshot at least ``delay`` old (or the oldest there is, just started).
+        while len(hist) > 1 and hist[1][0] <= now - delay:
+            hist.popleft()
+        old = hist[0][1]
+        if old is snap or not old.get("connected"):
+            return snap
+        out = dict(snap)
+        for key in self.DELAYED:
+            if key in old:
+                out[key] = old[key]
+        if "overlays" in old and "overlays" in snap:
+            out["overlays"] = {**old["overlays"], "settings": snap["overlays"]["settings"]}
+        return out
+
     def publish(self):
-        snap = self.build_snapshot()
+        snap = self._delay(self.build_snapshot())
         updater = getattr(self, "updater", None)
         if updater is not None:
             # So the pop-up appears whenever a check finds a new version.
@@ -1430,7 +1555,7 @@ class App:
             # click on screen: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -2227,6 +2352,15 @@ class App:
 
     RESULTS_EVERY_S = 3.0   # how often the standing results are worked out during a race
     RESULTS_GRACE_S = 5.0   # after the last car is in, for iRacing's official results
+
+    def cmd_data_delay(self, seconds=1.0):
+        """How far behind iRacing everything shows (s; 0 = straight away)."""
+        try:
+            seconds = round(min(self.DELAY_MAX_S, max(0.0, float(seconds))), 1)
+        except (TypeError, ValueError):
+            raise CommandError("The delay is a number of seconds")
+        self.settings.set("data_delay_s", seconds)
+        return {"data_delay_s": seconds}
 
     def cmd_auto_results(self, enabled=True):
         self.settings.set("auto_results", bool(enabled))

@@ -381,7 +381,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
     name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
     team: () => `<span class="tmc" data-opcol="team">${esc(e.team || "")}</span>`,
   };
-  return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
+  return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${e.left ? "left" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
     ${rowSpec(cfg, []).map(([k]) => cell[k]()).join("")}
     ${cols.map((c) => `<span class="c tnum" data-opcol="${c[0].replace(/^show_/, "")}">${c[3](e, race, classMode, cfg, green)}</span>`).join("")}
   </div>`;
@@ -489,7 +489,8 @@ function render() {
     setSize(ov.settings.standings, true);
     return renderScreen(snap, ov);
   }
-  const entries = ov.standings;
+  // With those who've left the session, where they were (screen_keep_left).
+  const entries = ov.screen_standings || ov.standings;
   // No logo column when no team has a logo.
   const cfg = { ...ov.settings.standings };
   if (cfg.mode === "class") {
