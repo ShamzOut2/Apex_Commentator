@@ -192,6 +192,7 @@ DEFAULTS = {
                  # row's own size (% of car_scale) and nudge on screen (px; plus right / down).
                  "car_scale_top": 100, "car_scale_bottom": 100,
                  "car_top_x": 0, "car_top_y": 0, "car_bottom_x": 0, "car_bottom_y": 0,
+                 "car_top_rotate": 0.0, "car_bottom_rotate": 0.0,  # degrees, to line a picture up with its box (plus: clockwise)
                  "card_scale": 100,     # the drivers' cards' size, %
                  "show_status": True,   # the NOT ON TRACK / NOT IN SESSION tag on a card
                  # The drivers' cards, as the driver-on-camera card's settings:
@@ -294,7 +295,7 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"reverse_top": (0, 64), "logo_scale": (40, 250), "car_scale": (40, 250), "car_scale_top": (40, 250), "car_scale_bottom": (40, 250),
+LIMITS = {"reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 250), "car_scale_top": (40, 250), "car_scale_bottom": (40, 250),
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
           "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")

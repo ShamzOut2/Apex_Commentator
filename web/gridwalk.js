@@ -321,6 +321,7 @@ function placeScene(root, x) {
     st.zIndex = String(1000 - Math.round(p.z));  // the near ones stand in front
     // A row moved off its boxes: its shadow comes with it (under the car), not left on the road.
     const row = +el.dataset.slot % 2 ? "top" : "bottom";
+    st.setProperty("--rot", `${look[`car_${row}_rotate`] || 0}deg`);  // turned to line up with its box
     const moved = !!(look[`car_${row}_x`] || look[`car_${row}_y`]);
     el.classList.toggle("own-shadow", moved);
     const road = root.querySelector(`[data-shadow="${el.dataset.slot}"]`);
@@ -390,7 +391,7 @@ function render() {
     pair.map((e) => classes.get(e.class_key) || null), cfg.flip_cars, cfg.name_format, cfg.show_nickname, cfg.neighbours,
     ["car_scale", "show_position", "position_shown", "pos_class_name", "show_number", "show_team", "show_logo", "show_make",
       "show_class", "class_colors", "qual_shown", "track_qual", "logo_scale", "car_scale_top", "car_scale_bottom",
-      "car_top_x", "car_top_y", "car_bottom_x", "car_bottom_y", "card_scale", "show_status"].map((k) => cfg[k]),
+      "car_top_x", "car_top_y", "car_bottom_x", "car_bottom_y", "card_scale", "show_status", "car_top_rotate", "car_bottom_rotate"].map((k) => cfg[k]),
     snap.league && snap.league.name, snap.session && snap.session.track]);
   if (key === shownKey) return;
   const samePair = shownKey && JSON.parse(shownKey)[1] === g.index && JSON.parse(shownKey)[0] === show;
