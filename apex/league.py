@@ -418,8 +418,13 @@ class LeagueStore:
         self.active_id = None
         self._active = None
         self._active_file = self.dir / "_active.txt"
+        # Officials mode: the overlays and boards use iRacing's own data, as if
+        # no league were active (no league names, classes, hiding...), for an
+        # official or AI race. The league stays picked, for switching back.
+        self._officials_file = self.dir / "_officials.txt"
+        self.officials = self._officials_file.exists()
         if self._active_file.exists():
-            self.set_active(self._active_file.read_text(encoding="utf-8").strip() or None)
+            self.set_active(self._active_file.read_text(encoding="utf-8").strip() or None, keep_mode=True)
 
     def _path(self, profile_id):
         safe = _slug(profile_id)
@@ -710,7 +715,24 @@ class LeagueStore:
         if profile_id == self.active_id:
             self.set_active(None)
 
-    def set_active(self, profile_id):
+    def set_officials(self, on):
+        """Officials mode on (iRacing's data only) or off (the active league's)."""
+        self.officials = bool(on)
+        try:
+            if self.officials:
+                self._officials_file.write_text("1", encoding="utf-8")
+            elif self._officials_file.exists():
+                self._officials_file.unlink()
+        except OSError:
+            pass
+
+    def picked(self):
+        """The league picked as active, even in Officials mode."""
+        return self._active
+
+    def set_active(self, profile_id, keep_mode=False):
+        if profile_id and not keep_mode:
+            self.set_officials(False)  # picking a league: its data on screen again
         with self._lock:
             profile = self.get(profile_id) if profile_id else None
             self.active_id = profile["id"] if profile else None
@@ -722,11 +744,11 @@ class LeagueStore:
         return profile
 
     def active(self):
-        return self._active
+        return None if self.officials else self._active
 
     def lookup(self, cust_id, car_number, profile=None):
         """Find a league's entry (the active league by default) for a session driver."""
-        profile = profile or self._active
+        profile = profile or self.active()
         if not profile:
             return None
         by_number = None
@@ -744,7 +766,7 @@ class LeagueStore:
         Uses the active league unless ``profile`` is given. ``name`` is the
         driver's name in the session, whose tag can change as they move class.
         """
-        profile = profile or self._active
+        profile = profile or self.active()
         if not profile:
             return None
         classes = main_classes(profile.get("classes", []))
@@ -770,7 +792,7 @@ class LeagueStore:
 
     def team(self, team_name, profile=None):
         """A team in a league (the active one by default), or None."""
-        profile = profile or self._active
+        profile = profile or self.active()
         if not profile or not team_name:
             return None
         for t in profile.get("teams", []):

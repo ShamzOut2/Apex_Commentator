@@ -379,3 +379,125 @@ class SessionResultsBoardTests(unittest.TestCase):
             board = app.build_snapshot()["board"]
             self.assertEqual((board["title"], len(board["rows"]) > 3), ("Race result", True))
             self.assertIsNotNone(board["rows"][0]["points"])
+
+
+class GridBoardTests(unittest.TestCase):
+    """The starting grid board, from the iRacing event (a mock race with qualifying results)."""
+
+    def setUp(self):
+        import tempfile
+
+        from apex.league import profile_from_session
+        from tests.test_app import make_app
+        self.tmp = tempfile.TemporaryDirectory()
+        self.app, self.source = make_app(self.tmp.name, minutes=0.2)
+        league = self.app.leagues.save(profile_from_session(self.app.build_snapshot()["drivers"], "Grid league"))
+        self.app.leagues.set_active(league["id"])
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def grid(self, **settings):
+        if settings:
+            self.app.command("overlay_settings", {"overlay": "board_grid", "values": settings})
+        self.app.command("board_show", {"kind": "grid", "group": "", "round": "next"})
+        return self.app.build_snapshot()["board"]
+
+    def test_grid_from_qualifying_and_reversed(self):
+        qual = [self.source.drivers[i + 1]["CarNumber"] for i in self.source.qual_order]
+        b = self.grid(rows=64)
+        self.assertEqual([r["number"] for r in b["rows"]][:len(qual)], [str(n) for n in qual])
+        self.assertEqual(b["rows"][0]["pos"], 1)
+        self.assertIn("starting grid", b["title"])
+        b = self.grid(reverse_top=3)
+        self.assertEqual([r["number"] for r in b["rows"]][:4], [str(n) for n in [qual[2], qual[1], qual[0], qual[3]]])
+        self.assertEqual(b["rows"][0]["pos"], 1)  # the places are the new grid's
+
+    def test_row_by_row(self):
+        b = self.grid(grid_reveal="rows", rows=6, reverse_top=0)
+        self.assertEqual([r["hidden"] for r in b["rows"]][:4], [False, False, True, True])  # the front row
+        self.app.command("board_reveal", {"step": "next"})
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual([r["hidden"] for r in b["rows"]][:6], [False] * 4 + [True] * 2)
+        self.app.command("hotkey", {"action": "board:row_next"})
+        self.app.command("hotkey", {"action": "board:row_next"})  # the 7th and 8th cars: page 2
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual((b["page"], b["rows"][0]["pos"]), (1, 7))
+        self.app.command("board_reveal", {"step": "prev"})
+        self.assertEqual(self.app.build_snapshot()["board"]["page"], 0)
+        self.app.command("board_reveal", {"step": "all"})
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual(b["reveal"], b["reveal_total"])
+
+    def test_grid_from_the_grid_walk_order(self):
+        keys = self.app.gridwalk.apply_order(self.app._grid_keys)
+        self.app.command("gridwalk_move", {"key": keys[1], "direction": -1})  # second up to pole by hand
+        b = self.grid(grid_from="gridwalk", reverse_top=0)
+        first = self.app._drivers[int(keys[1][4:])]["number"]
+        self.assertEqual(b["rows"][0]["number"], first)
+
+    def test_qualifying_board_has_no_session_without_qualifying(self):
+        self.app.command("board_show", {"kind": "qualifying", "group": "", "round": "latest"})
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual(b["rows"], [])
+
+
+class QualifyingBoardTests(unittest.TestCase):
+    def test_qualifying_board_by_best_lap(self):
+        import tempfile
+
+        from apex.config import DEFAULTS
+        from apex.core import App
+        from apex.league import LeagueStore, profile_from_session
+        from apex.sources import MockSource
+        from tests.test_app import FakeClock
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = FakeClock()
+            app = App(MockSource(seed=4, clock=clock, session="qualify"), dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(3000):  # five minutes of qualifying
+                clock.t += 0.1
+                app.tick()
+            league = app.leagues.save(profile_from_session(app.build_snapshot()["drivers"], "Q"))
+            app.leagues.set_active(league["id"])
+            app.command("board_show", {"kind": "qualifying", "group": "", "round": "latest"})
+            b = app.build_snapshot()["board"]
+            laps = [r["fastest_lap"] for r in b["rows"]]
+            self.assertTrue(laps)
+            self.assertEqual(laps, sorted(laps))  # pole first
+            self.assertEqual(b["rows"][0]["rank"], 1)
+            self.assertIsNone(b["rows"][0]["gap"])
+            self.assertAlmostEqual(b["rows"][1]["gap"], laps[1] - laps[0], places=3)
+
+
+
+class OfficialsModeTests(unittest.TestCase):
+    """Officials mode: the league stays picked but nothing of it is used."""
+
+    def test_league_rules_off_and_event_boards_on(self):
+        import tempfile
+
+        from apex.league import profile_from_session
+        from tests.test_app import make_app
+        with tempfile.TemporaryDirectory() as tmp:
+            app, source = make_app(tmp, minutes=0.2)
+            app.command("overlay_settings", {"overlay": "standings", "values": {"reveal": False}})  # everyone from the start
+            prof = profile_from_session(app.build_snapshot()["drivers"], "Strict league")
+            prof["classes"] = [{"id": "pro", "name": "Pro", "match": ["nothing matches"]}]
+            league = app.leagues.save(prof)
+            app.leagues.set_active(league["id"])
+            # The league hides its drivers without a class: everyone, here.
+            self.assertEqual(app.build_snapshot()["overlays"]["standings"], [])
+            r = app.command("officials", {"on": True})
+            self.assertEqual(r, {"on": True, "league": "Strict league"})
+            snap = app.build_snapshot()
+            self.assertIsNone(snap["league"])
+            self.assertTrue(snap["overlays"]["standings"])  # everyone, iRacing's data
+            # The event's boards work without a league; championship boards don't.
+            app.command("board_show", {"kind": "grid", "group": "", "round": "next"})
+            self.assertTrue(app.build_snapshot()["board"]["rows"])
+            from apex.core import CommandError
+            with self.assertRaises(CommandError):
+                app.command("board_show", {"kind": "championship", "group": ""})
+            # Picking a league again: back to its data.
+            app.command("officials", {"on": False})
+            self.assertEqual(app.build_snapshot()["league"]["name"], "Strict league")

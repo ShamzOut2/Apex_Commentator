@@ -188,6 +188,13 @@ DEFAULTS = {
                  "name_format": "full", "show_nickname": True,
                  "neighbours": "show",  # the cars either side on the grid: "show", or "hide" (just the pair)
                  "car_scale": 100,      # the car pictures' size, % of a car's length in its box
+                 # The top row of cars (the far lane: P1, P3...) and the bottom row (P2, P4...): each
+                 # row's own size (% of car_scale) and nudge on screen (px; plus right / down).
+                 "car_scale_top": 100, "car_scale_bottom": 100,
+                 "car_top_x": 0, "car_top_y": 0, "car_bottom_x": 0, "car_bottom_y": 0,
+                 "car_top_rotate": 0.0, "car_bottom_rotate": 0.0,  # degrees, to line a picture up with its box (plus: clockwise)
+                 "card_scale": 100,     # the drivers' cards' size, %
+                 "show_status": True,   # the NOT ON TRACK / NOT IN SESSION tag on a card
                  # The drivers' cards, as the driver-on-camera card's settings:
                  "show_position": True, "position_shown": "overall", "pos_class_name": True,
                  "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "show_class": True,
@@ -245,11 +252,37 @@ DEFAULTS = {
         "show_gap": True, "show_interval": True,
         "winner_gap": "laps",  # the winner's Gap cell: "laps" (13 laps), "time" (their race time, else laps) or "none"
     },
+    # Qualifying results (board.html): a qualifying session of the iRacing event,
+    # by best lap, overall or a class.
+    "board_qualifying": {**LOGO, **COLUMN_OPACITY, **PAGING,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+        "name_format": "full",
+        "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
+        "show_best": True, "show_gap": True, "show_interval": True, "show_laps": False,
+    },
+    # The starting grid of a race of the event, before anyone loads in.
+    # grid_from: "qualifying" (its order), "previous" (the previous race's
+    # finish) or "gridwalk" (the grid walk's order, as set by hand there);
+    # reverse_top: the first N turned round (0 = none), overall or in each
+    # class (reverse_in_class). grid_layout: "list" or "grid" (two staggered
+    # columns, as cars line up).
+    "board_grid": {**LOGO, **COLUMN_OPACITY, **PAGING, "keep_leader": False,  # a grid's pages follow on (no pole at the top of each)
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+        "name_format": "full",
+        "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
+        "grid_from": "qualifying", "reverse_top": 0, "reverse_in_class": False,
+        "grid_layout": "list",
+        "grid_reveal": "all",     # "all": every driver at once; "rows": the front row, then a row a press (Next row)
+        "show_class_pos": True,   # the grid place in class too (in an overall grid)
+        "show_qual": True,        # their qualifying lap
+        "show_gap": False,        # the gap to the class's fastest qualifier
+        "show_from": True,        # where they finished the previous race (a grid from it)
+    },
     "laps": {**LOGO, 
         "visible": True,
         "count": 4,               # small trackers along the bottom
         "name_format": "initial_last",
-        "reference": "personal",  # sector colours against "personal" bests or the "session" (class) best
+        "reference": "personal",  # sector colours against "personal" bests, the "session" (class) best or the "overall" best
         "sectors": 3,             # sectors shown: the track's split points merged into this many (0 = all of them)
         "green_s": 0.2,
         "hide_s": 5.0,
@@ -263,13 +296,15 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"logo_scale": (40, 250), "car_scale": (40, 250), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
+LIMITS = {"reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
+          "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
+          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "qual_shown": ("gap", "interval", "time", "none"),
-           "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session"), "name_format": NAME_FORMATS}
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_from": ("qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
+           "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS}
 
 
 def normalise(settings):

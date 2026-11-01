@@ -9,10 +9,10 @@ from . import championship
 from .league import logo_url, strip_class_prefix
 from .makes import logo_for as make_logo
 
-KINDS = ("championship", "teams", "makes", "calendar", "results")
+KINDS = ("championship", "teams", "makes", "calendar", "results", "qualifying", "grid")
 TITLES = {
     "championship": "Championship standings", "teams": "Teams' championship", "makes": "Manufacturers' championship",
-    "calendar": "Season calendar", "results": "Finishing order",
+    "calendar": "Season calendar", "results": "Finishing order", "qualifying": "Qualifying", "grid": "Starting grid",
 }
 
 
@@ -45,9 +45,11 @@ def options(league):
 
 
 def _person(league, name, nickname):
-    """A driver's name as the stream shows it (see App._stream_name)."""
+    """A driver's full name as the stream shows it (see App._stream_name):
+    without its "(P)" class tag when the league says so. The nickname is
+    separate (the boards' "Nickname" name style)."""
     if league.get("strip_class_prefix"):
-        return nickname or strip_class_prefix(name)
+        return strip_class_prefix(name)
     return name
 
 
@@ -90,11 +92,11 @@ def build(league, board, settings, live_results=None):
     kind = board["kind"]
     params = board.get("params") or {}
     cfg = settings[f"board_{kind}"]
-    out = {"kind": kind, "group": params.get("group") or "", "round": params.get("round") or "", "league": league["name"], "title": TITLES[kind], "subtitle": "",
+    out = {"kind": kind, "group": params.get("group") or "", "overall": (params.get("group") or championship.OVERALL) == championship.OVERALL, "round": params.get("round") or "", "league": league["name"], "title": TITLES[kind], "subtitle": "",
            "banner": _banner(league, cfg), "sponsors": _sponsor_strip(league, cfg), "settings": cfg, "accent": None, "group_logo": None,
            "league_logo": logo_url(league["id"], league.get("logo")) if cfg["league_logo"] and league.get("logo") else None}
     group = params.get("group") or championship.OVERALL
-    if kind in ("championship", "makes", "results"):
+    if kind in ("championship", "makes", "results", "qualifying", "grid"):
         name, color, logo = _group_info(league, group)
         out["subtitle"], out["accent"], out["group_logo"] = name, color, logo
     if cfg.get("accent") == "color":
@@ -192,7 +194,58 @@ def build(league, board, settings, live_results=None):
                 out["title"] = f"{name} result" if name else f"Round {n} result"
                 out["subtitle"] = " · ".join(filter(None, [out["subtitle"], rd["track"]]))
         out["rows"] = rows
+    elif kind == "qualifying":
+        rows = []
+        if live_results:
+            rd = {"id": "live", "name": live_results["name"], "track": "", "multiplier": 1.0,
+                  "results": live_results["results"], "provisional": True}
+            for r in championship.round_results(league, rd, group):
+                if r["status"] == "dns":
+                    continue  # no lap set
+                rows.append(dict(r, name=_person(league, r["name"], r["nickname"]), class_color=_class_color(league, r["class_id"]),
+                                 number=r["car_number"], team_logo=team_logos.get((r["team"] or "").lower()),
+                                 make_logo=make_logo(r["make"])))
+            _gaps(rows, by_lap=True)
+            out["title"] = live_results["name"].title()  # Qualifying, Lone Qualifying, Heat 1 Qualifying...
+        out["rows"] = rows
+    elif kind == "grid":
+        rows = []
+        data = live_results or {"rows": [], "name": "Race", "from": "qualifying"}
+        mine = [e for e in data["rows"] if group == championship.OVERALL or e["class_id"] == group or e.get("class2_id") == group]
+        roster = {championship._key(d): d for d in league.get("drivers", [])}
+        best = {}
+        for e in mine:
+            if e["qual_time"]:
+                best[e["class_id"]] = min(best.get(e["class_id"], e["qual_time"]), e["qual_time"])
+        in_class = {}
+        for i, e in enumerate(mine, start=1):
+            in_class[e["class_id"]] = in_class.get(e["class_id"], 0) + 1
+            info = roster.get(e["driver"]) or {}
+            pole = best.get(e["class_id"])
+            rows.append(dict(e, pos=i, class_pos=in_class[e["class_id"]], number=e["car_number"] or info.get("car_number", ""),
+                             class_color=_class_color(league, e["class_id"]), team_logo=team_logos.get((e["team"] or "").lower()),
+                             make_logo=make_logo(e["make"]),
+                             qual_gap=round(e["qual_time"] - pole, 3) if e["qual_time"] and pole and e["qual_time"] > pole else None))
+        # Row by row: the rows (two cars each) shown so far; the rest wait, hidden.
+        total = -(-len(rows) // 2)
+        if cfg.get("grid_reveal") == "rows" and rows:
+            try:
+                shown = int(params.get("reveal") or 1)
+            except (TypeError, ValueError):
+                shown = 1
+            shown = min(max(shown, 1), total)
+            for i, row in enumerate(rows):
+                row["hidden"] = i >= shown * 2
+            out["reveal"] = shown
+        out["reveal_total"] = total
+        out["title"] = f"{data['name'].title()} · starting grid" if data["name"] else "Starting grid"
+        out["grid_from"] = data["from"]
+        out["rows"] = rows
     return _page(out, cfg, params)
+
+
+def _class_color(league, class_id):
+    return next((c["color"] for c in league.get("classes", []) if c["id"] == class_id), None)
 
 
 def _gaps(rows, by_lap=False):

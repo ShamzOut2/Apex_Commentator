@@ -204,8 +204,10 @@ function carArt(e, cfg) {
 function carPlace(cam, n) {
   const x = slotX(n) - BOX.len / 2, y = slotY(n);
   const [sx, sy, z] = project(cam, [x, y, 0]);
-  const scale = (CAM.f / z) * ((look.car_scale || 100) / 100);  // pixels a metre there, at the size set
-  return { sx, sy, z, w: 4.9 * scale, h: 2.2 * scale };
+  // Pixels a metre there, at the size set (all the cars, then the row's own).
+  const row = n % 2 ? "top" : "bottom";  // the far lane (P1, P3...) is the top row on screen
+  const scale = (CAM.f / z) * ((look.car_scale || 100) / 100) * ((look[`car_scale_${row}`] || 100) / 100);
+  return { sx: sx + (look[`car_${row}_x`] || 0), sy: sy + (look[`car_${row}_y`] || 0), z, w: 4.9 * scale, h: 2.2 * scale };
 }
 
 let look = {};  // the grid walk's settings, as last drawn
@@ -234,7 +236,7 @@ function placeHtml(e, cfg, cls) {
 // the grid place on the class colour, the car number, the name with the
 // nickname under it, the team with its logo, the qualifying time, the car badge.
 function infoHtml(e, i, cls, cfg, multiclass) {
-  const status = !e.in_session ? "NOT IN SESSION" : !e.in_world ? "NOT ON TRACK" : "";
+  const status = cfg.show_status === false ? "" : !e.in_session ? "NOT IN SESSION" : !e.in_world ? "NOT ON TRACK" : "";
   const qual = qualText(e, cfg.qual_shown);
   // Their class colour (main or secondary, as set), or none.
   const color = paintFor(e, cls, cfg.class_colors) || "";
@@ -273,13 +275,19 @@ function sceneHtml(x0, x1, first, entries, cfg) {
   // The pair, and the cars either side unless they're hidden (then, gliding
   // from one pair to the next, the last pair fades as the camera moves).
   const pairOf = (n) => n === first || n === first + 1;
+  // Moving on to another pair: the new pair's cars slide in along the road
+  // into their boxes, the last pair's slide on out of the picture.
+  const moving = x0 !== x1;
+  const before = 1 - Math.round(x0 / SLOT_GAP);  // the last pair's first slot
+  const departs = (n) => moving && !pairOf(n) && (n === before || n === before + 1);
   const going = (n) => !pairOf(n) && (n === lo || n === lo + 1 || n === hi || n === hi + 1) && x0 !== x1;
   const cars = slots.filter((n) => n >= lo - 8 && n <= Math.min(entries.length, hi + 9))
     .filter((n) => cfg.neighbours !== "hide" || pairOf(n) || going(n));
-  const art = cars.map((n) => `<div class="gw-car ${pairOf(n) ? "focus" : "other"} ${cfg.neighbours === "hide" && !pairOf(n) ? "going" : ""}" data-slot="${n}">${carArt(entries[n - 1], cfg)}</div>`).join("");
+  const motion = (n) => (pairOf(n) && moving ? "arrive" : departs(n) ? "depart" : cfg.neighbours === "hide" && !pairOf(n) ? "going" : "");
+  const art = cars.map((n) => `<div class="gw-car ${pairOf(n) ? "focus" : "other"} ${motion(n)} ${n % 2 ? "top" : "bottom"}" data-slot="${n}">${carArt(entries[n - 1], cfg)}</div>`).join("");
   const shadows = cars.map((n) => {
     const l = Math.round((slotX(n) - BOX.len + 0.2 - a) * PX), t = Math.round((ROAD_W - slotY(n) - 1.15) * PX);
-    return `<i class="shadow ${cfg.neighbours === "hide" && !pairOf(n) ? "going" : ""}" style="left:${l}px;top:${t}px;width:${(BOX.len - 0.4) * PX}px;height:${2.3 * PX}px"></i>`;
+    return `<i class="shadow ${pairOf(n) && moving ? "arrive" : departs(n) || (cfg.neighbours === "hide" && !pairOf(n)) ? "going" : ""}" data-shadow="${n}" style="left:${l}px;top:${t}px;width:${(BOX.len - 0.4) * PX}px;height:${2.3 * PX}px"></i>`;
   }).join("");
   return `<div class="scene">
     <div class="sky"></div>
@@ -305,6 +313,12 @@ function sceneHtml(x0, x1, first, entries, cfg) {
 // Put the scene in perspective for the camera at x (a box front).
 function placeScene(root, x) {
   const cam = camera(x);
+  // Which way the road runs on screen (the cars slide along it).
+  const [ax, ay] = project(cam, [x - 6, 6, 0]);
+  const [bx, by] = project(cam, [x + 6, 6, 0]);
+  const len = Math.hypot(bx - ax, by - ay) || 1;
+  root.style.setProperty("--road-x", ((bx - ax) / len).toFixed(3));
+  root.style.setProperty("--road-y", ((by - ay) / len).toFixed(3));
   root.querySelectorAll("[data-plane]").forEach((el) => { el.style.transform = planeTransform(cam, el.dataset.plane); });
   const cars = [...root.querySelectorAll(".gw-car")].map((el) => ({ el, p: carPlace(cam, +el.dataset.slot) }));
   for (const { el, p } of cars) {
@@ -317,6 +331,13 @@ function placeScene(root, x) {
     st.height = `${p.h.toFixed(1)}px`;
     st.setProperty("--haze", Math.min(0.55, Math.max(0, (p.z - CAM.dist - 6) / 120)).toFixed(2));
     st.zIndex = String(1000 - Math.round(p.z));  // the near ones stand in front
+    // A row moved off its boxes: its shadow comes with it (under the car), not left on the road.
+    const row = +el.dataset.slot % 2 ? "top" : "bottom";
+    st.setProperty("--rot", `${look[`car_${row}_rotate`] || 0}deg`);  // turned to line up with its box
+    const moved = !!(look[`car_${row}_x`] || look[`car_${row}_y`]);
+    el.classList.toggle("own-shadow", moved);
+    const road = root.querySelector(`[data-shadow="${el.dataset.slot}"]`);
+    if (road) road.hidden = moved;
   }
 }
 
@@ -369,6 +390,7 @@ function render() {
   if (!g) return;
   const cfg = (snap.overlays && snap.overlays.settings.gridwalk) || {};
   look = cfg;
+  document.body.style.setProperty("--card-k", String((cfg.card_scale || 100) / 100));
   const entries = g.entries || [];
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const pair = entries.slice(g.index, g.index + 2);
@@ -380,7 +402,8 @@ function render() {
   const key = JSON.stringify([show, g.index, pair, entries.slice(Math.max(0, g.index - 8), g.index).map((e) => [e.key, e.car_image, e.car_design]),
     pair.map((e) => classes.get(e.class_key) || null), cfg.flip_cars, cfg.name_format, cfg.show_nickname, cfg.neighbours,
     ["car_scale", "show_position", "position_shown", "pos_class_name", "show_number", "show_team", "show_logo", "show_make",
-      "show_class", "class_colors", "qual_shown", "track_qual", "logo_scale"].map((k) => cfg[k]),
+      "show_class", "class_colors", "qual_shown", "track_qual", "logo_scale", "car_scale_top", "car_scale_bottom",
+      "car_top_x", "car_top_y", "car_bottom_x", "car_bottom_y", "card_scale", "show_status", "car_top_rotate", "car_bottom_rotate"].map((k) => cfg[k]),
     snap.league && snap.league.name, snap.session && snap.session.track]);
   if (key === shownKey) return;
   const samePair = shownKey && JSON.parse(shownKey)[1] === g.index && JSON.parse(shownKey)[0] === show;

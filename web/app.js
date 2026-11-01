@@ -105,9 +105,12 @@ function render() {
   }
   $("#status-dot").classList.toggle("on", !!s.connected);
   const league = s.league;
+  const off = s.officials || { on: false, league: null };
   const lb = $("#league-badge");
-  lb.textContent = league ? league.name : "No league";
-  lb.classList.toggle("muted", !league);
+  lb.textContent = off.on ? (off.league || "No league") : league ? league.name : "No league";
+  lb.classList.toggle("active", !off.on && !!league);
+  lb.classList.toggle("muted", off.on || !league);
+  $("#officials-badge").classList.toggle("active", !!off.on);
   renderGridwalk(s);
   renderHome(s);
   renderUpdates(s.update);
@@ -552,7 +555,12 @@ function renderGridwalk(s) {
   $("#gw-reset-order").hidden = !g.manual_order;
   $("#gw-empty").hidden = entries.length > 0;
   // Rebuild rows only when they change, so buttons aren't replaced mid-click.
-  const key = JSON.stringify([g.index, g.visible, entries.map((e) => [e.key, e.number, e.name, e.nickname, e.team,
+  const gwCfg = (s.overlays && s.overlays.settings && s.overlays.settings.gridwalk) || {};
+  for (const [id, value, prop] of [["#gw-names", gwCfg.name_format || "full", "value"], ["#gw-nick", gwCfg.show_nickname !== false, "checked"]]) {
+    const el = $(id);
+    if (document.activeElement !== el) el[prop] = value;
+  }
+  const key = JSON.stringify([g.index, g.visible, gwCfg.name_format, gwCfg.show_nickname, entries.map((e) => [e.key, e.number, e.name, e.nickname, e.team,
     e.in_session, e.in_world, e.has_thumb, e.car_name, (classes.get(e.class_key) || {}).color])]);
   if (key === gwRowsKey) return;
   gwRowsKey = key;
@@ -568,7 +576,7 @@ function renderGridwalk(s) {
     return `<tr class="${onScreen ? "on-screen" : ""}">
       <td class="pos">P${e.grid_pos}</td>
       <td><span class="num" style="border-left-color:${esc(color)}">${esc(e.number)}</span></td>
-      <td><span class="name">${esc(e.name)}</span>${e.nickname ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
+      <td><span class="name">${esc(formatName(e, gwCfg.name_format))}</span>${gwCfg.show_nickname !== false && e.nickname && gwCfg.name_format !== "nickname" ? `<span class="nick">“${esc(e.nickname)}”</span>` : ""}</td>
       <td class="sub">${esc(e.team)}</td>
       <td>${pic} ${status}</td>
       <td><div class="actions">
@@ -599,9 +607,24 @@ $("#tab-gridwalk").addEventListener("click", (e) => {
   }
 });
 
-$("#gw-interval").addEventListener("change", (e) => cmd("gridwalk_settings", { interval: +e.target.value }));
+// The seconds per pair: used as soon as it's typed (a whole number, 2 to 120), and kept.
+let gwIntervalTimer = null;
+const sendInterval = (el) => {
+  const v = Math.round(+el.value);
+  if (v >= 2 && v <= 120) cmd("gridwalk_settings", { interval: v });
+};
+$("#gw-interval").addEventListener("input", (e) => {
+  clearTimeout(gwIntervalTimer);
+  gwIntervalTimer = setTimeout(() => sendInterval(e.target), 600);
+});
+$("#gw-interval").addEventListener("change", (e) => {
+  clearTimeout(gwIntervalTimer);
+  sendInterval(e.target);
+});
 $("#gw-loop").addEventListener("change", (e) => cmd("gridwalk_settings", { loop: e.target.checked }));
 $("#gw-autoplay").addEventListener("change", (e) => cmd("gridwalk_settings", { autoplay: e.target.checked }));
+$("#gw-names").addEventListener("change", (e) => cmd("overlay_settings", { overlay: "gridwalk", values: { name_format: e.target.value } }));
+$("#gw-nick").addEventListener("change", (e) => cmd("overlay_settings", { overlay: "gridwalk", values: { show_nickname: e.target.checked } }));
 $("#gw-absent").addEventListener("change", (e) => cmd("gridwalk_settings", { include_absent: e.target.checked }));
 $("#gw-url").textContent = `${location.origin}/gridwalk.html`;
 
@@ -733,12 +756,18 @@ $("#timing-nick").checked = settings.showNick;
 $("#timing-names").addEventListener("change", (e) => {
   settings.nameFormat = e.target.value;
   saveSettings();
-  if (ui.snap) renderStandings(ui.snap);
+  if (ui.snap) {
+    renderStandings(ui.snap);
+    renderGridwalk(ui.snap);
+  }
 });
 $("#timing-nick").addEventListener("change", (e) => {
   settings.showNick = e.target.checked;
   saveSettings();
-  if (ui.snap) renderStandings(ui.snap);
+  if (ui.snap) {
+    renderStandings(ui.snap);
+    renderGridwalk(ui.snap);
+  }
 });
 $("#battle-color").addEventListener("input", (e) => {
   settings.battleColor = e.target.value;
@@ -765,13 +794,18 @@ function hotkeyActions(s = ui.snap || {}) {
   const groups = opts.groups || [];
   const boards = [["board:off", "Take the board off screen", () => cmd("board_hide", {}, "Board off screen")],
     ["board:next", "Next page of the board", () => cmd("board_page", { step: "next" })],
-    ["board:prev", "Previous page of the board", () => cmd("board_page", { step: "prev" })]];
+    ["board:prev", "Previous page of the board", () => cmd("board_page", { step: "prev" })],
+    ["board:row_next", "Starting grid: the next row", () => cmd("board_reveal", { step: "next" })],
+    ["board:row_prev", "Starting grid: back a row", () => cmd("board_reveal", { step: "prev" })],
+    ["board:row_all", "Starting grid: every row", () => cmd("board_reveal", { step: "all" })]];
   const add = (kind, group, label) => boards.push([`board:${kind}:${group}`, label, () => toggleBoard(kind, group)]);
   groups.forEach((g) => add("championship", g.key, `Standings · ${g.name}`));
   if (opts.teams) add("teams", "", "Teams' championship");
   groups.forEach((g) => add("makes", g.key, `Manufacturers · ${g.name}`));
   add("calendar", "", "Season calendar");
   resultGroups(opts).forEach((g) => add("results", g.key, `Finishing order · ${g.name}`));
+  resultGroups(opts).forEach((g) => add("qualifying", g.key, `Qualifying results · ${g.name}`));
+  resultGroups(opts).forEach((g) => add("grid", g.key, `Starting grid · ${g.name}`));
   const on = (k) => !!(ov[k] && ov[k].visible);
   return [
     ["Everything", [["all:toggle", "Every overlay and board off screen, and back again", () => cmd("hotkey", { action: "all:toggle" },
@@ -998,7 +1032,7 @@ function resultGroups(opts) {
 async function toggleBoard(kind, group) {
   if (ui.boardOn && ui.boardOn.kind === kind && ui.boardOn.group === group) return cmd("board_hide", {}, "Board off screen");
   const params = { kind, group };
-  if (kind === "results") params.round = boardRound;
+  if (boardSource(kind)) params.round = boardSource(kind);
   const r = await cmd("board_show", params);
   if (r) ui.boardOn = { kind, group };
   boardButtonsKey = "";
@@ -1228,7 +1262,7 @@ function renderChampStandings() {
   const anyPen = st.groups.some((g) => g.drivers.some((d) => d.penalty_points));
   // Class and overall championships: each table says which points it adds up.
   const rules = (ui.editing && champData().rules) || {};
-  const both = rules.scoring === "both" || rules.scoring === "sum";
+  const both = ["both", "sum", "overall_class"].includes(rules.scoring);
   const teamPen = st.teams.some((t) => t.penalty_points);
   const teamBasis = both ? ` <span class="hint">${(rules.team_points || "overall") === "class" ? "Drivers' class points" : "Drivers' overall points"}</span>` : "";
   const help = rules.scoring === "both"
@@ -1519,6 +1553,7 @@ const SCORING_HELP = {
   overall: "One championship for everyone, scored on overall finishing positions with the overall points.",
   both: "Every race scores twice, each with its own points: a driver's class position in their class's championship (class points) and their overall position in the overall championship (overall points). Each has its own table and board.",
   sum: "Each driver scores once a race: the class points for their class position plus the overall points for their overall position, added up. Each class's table and the overall table rank those totals.",
+  overall_class: "Each driver scores the overall points for their overall position, and those same points count in their class's championship: each class's table ranks its drivers on their overall points.",
 };
 
 // A points table for any class that scores differently (empty = the class points above).
@@ -1573,7 +1608,8 @@ function renderChampRules() {
           <input data-rule="overall_points" value="${esc(overallPts.join(", "))}"></label>` : ""}
       </div>
       ${hasClass && hasOverall ? `<label class="ov-field">Class and overall points count
-        <select data-rule="scoring">${[["both", "As two separate championships"], ["sum", "Added together into one total"]].map(([v, l]) =>
+        <select data-rule="scoring">${[["both", "As two separate championships"], ["sum", "Added together into one total"],
+          ["overall_class", "Overall points count as class points"]].map(([v, l]) =>
           `<option value="${v}" ${scoring === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
       <p class="hint">${esc(SCORING_HELP[scoring])}</p>
     </div>
@@ -1628,7 +1664,7 @@ function champChange(e, final) {
     }
     // A new overall championship starts from the class points, as its own copy.
     if (want.overall && !(r.overall_points || []).length) r.overall_points = [...(r.points || [])];
-    r.scoring = want.class && want.overall ? (scoring === "sum" ? "sum" : "both") : want.class ? "class" : "overall";
+    r.scoring = want.class && want.overall ? (["sum", "overall_class"].includes(scoring) ? scoring : "both") : want.class ? "class" : "overall";
     rerender = true;
   } else if (d.rule) {
     const r = c.rules;
@@ -2284,7 +2320,8 @@ const OVERLAY_FIELDS = {
     ]],
     ["Sectors", [
       ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
-      ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"]]],
+      ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"],
+        ["overall", "Fastest overall this session (any class)"]]],
       ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
     ]],
     ["Drivers", [
@@ -2324,8 +2361,18 @@ const OVERLAY_FIELDS = {
       ["show_make", "Car badge", "bool"],
       ["qual_shown", "Qualifying", "select", [["gap", "Gap to the class pole"], ["interval", "Interval to the car ahead in class"],
         ["time", "Lap time"], ["none", "Nothing"]]],
-      iff((v) => v.qual_shown !== "none", ["track_qual", "Also painted on the track, under each box's number", "bool"])]],
-    ["Car pictures", [["car_scale", "Car picture size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }],
+      iff((v) => v.qual_shown !== "none", ["track_qual", "Also painted on the track, under each box's number", "bool"]),
+      ["show_status", "NOT ON TRACK / NOT IN SESSION tag", "bool"],
+      ["card_scale", "Card size (%; 100 = usual)", "number", { min: 40, max: 200, step: 5 }]]],
+    ["Car pictures", [["car_scale", "Car picture size (%; 100 = usual, up to 600)", "number", { min: 40, max: 600, step: 5 }],
+      ["car_scale_top", "Top row of cars (P1, P3…): size (% of the above, up to 400)", "number", { min: 40, max: 400, step: 5 }],
+      ["car_top_x", "Top row: move right (px; minus moves left)", "number", { min: -1920, max: 1920, step: 5 }],
+      ["car_top_y", "Top row: move down (px; minus moves up)", "number", { min: -1080, max: 1080, step: 5 }],
+      ["car_top_rotate", "Top row: turn the pictures (degrees; plus is clockwise) to line up with the boxes", "number", { min: -45, max: 45, step: 0.5 }],
+      ["car_scale_bottom", "Bottom row of cars (P2, P4…): size (% of the above, up to 400)", "number", { min: 40, max: 400, step: 5 }],
+      ["car_bottom_x", "Bottom row: move right (px; minus moves left)", "number", { min: -1920, max: 1920, step: 5 }],
+      ["car_bottom_y", "Bottom row: move down (px; minus moves up)", "number", { min: -1080, max: 1080, step: 5 }],
+      ["car_bottom_rotate", "Bottom row: turn the pictures (degrees; plus is clockwise)", "number", { min: -45, max: 45, step: 0.5 }],
       ["neighbours", "Cars either side on the grid", "select", [["show", "Show them in their boxes"],
       ["hide", "Hide them: just the pair"]]],
       ["flip_cars", "Flip the car pictures (for pictures of cars pointing left)", "bool"]]], OVERLAY_LOOK],
@@ -2771,15 +2818,42 @@ const BOARD_FIELDS = {
     ["show_points", "Points scored", "bool"],
     ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
       ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["gap", "Gap"], ["interval", "Interval"], ["points", "Points"]])],
+  board_qualifying: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["name_format", "Names", "select", NAME_FORMATS],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names (a column)", "bool"], ["show_logo", "Team logos (a column)", "bool"],
+    iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
+    ["show_make", "Car badges", "bool"], ["show_best", "Best lap", "bool"], ["show_gap", "Gap to pole (the class's pole in a class)", "bool"],
+    ["show_interval", "Interval to the car ahead", "bool"], ["show_laps", "Laps", "bool"],
+    ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
+      ["car", "Car badge"], ["laps", "Laps"], ["best", "Best lap"], ["gap", "Gap"], ["interval", "Interval"]])],
+  board_grid: [["grid_from", "The grid from", "select", [["qualifying", "Qualifying (its order)"], ["previous", "The previous race's finish"],
+      ["gridwalk", "The grid walk's order (as set by hand on the Grid walk tab)"]]],
+    ["reverse_top", "Reverse grid: the first N turned round (0 = none)", "number", { min: 0, max: 64 }],
+    iff((v) => v.reverse_top > 0, ["reverse_in_class", "Reverse the first N of each class (not overall)", "bool"]),
+    ["grid_layout", "Layout", "select", [["list", "A list"], ["grid", "As the cars line up (two staggered columns)"]]],
+    ["grid_reveal", "Show the drivers", "select", [["all", "All at once (each comes in in turn)"],
+      ["rows", "Row by row: the front row first, then Next row (button or hotkey) for each one after"]]],
+    ["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["name_format", "Names", "select", NAME_FORMATS],
+    ["show_class_pos", "Place in class too (on the overall grid)", "bool"],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
+    iff((v) => v.show_logo && v.grid_layout !== "grid", ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
+    ["show_make", "Car badges", "bool"], ["show_qual", "Qualifying lap", "bool"], ["show_gap", "Gap to the class's fastest qualifier", "bool"],
+    ["show_from", "Where they finished the previous race (a grid from it)", "bool"],
+    ...columnOpacity([["pos", "Grid place"], ["class_pos", "Place in class"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"],
+      ["logo", "Team logo"], ["car", "Car badge"], ["qual", "Qualifying"], ["gap", "Gap"], ["from", "Finished"]])],
 };
 const BOARD_SECTION_NAMES = {
   board_championship: "Championship standings", board_teams: "Teams' championship",
   board_makes: "Manufacturers' championship", board_calendar: "Season calendar", board_results: "Finishing order",
+  board_qualifying: "Qualifying results", board_grid: "Starting grid",
 };
 
 let boardButtonsKey = "";
 let boardSettingsKey = "";
 let boardRound = "latest";
+let qualRound = "latest";  // the qualifying board's session ("latest": the latest qualifying)
+let gridRound = "next";    // the starting grid board's race ("next": the race on now, else the next one)
+// A board's source, by kind: the session or round picked for it.
+const boardSource = (kind) => ({ results: boardRound, qualifying: qualRound, grid: gridRound })[kind];
 
 function boardButton(label, kind, group = "", color = null, extra = {}) {
   const b = ui.snap && ui.snap.board;
@@ -2799,18 +2873,28 @@ function renderBoards(s) {
   $("#btn-board-hide").disabled = !s.board;
   // A board that runs to more than one page: the rest of it, a page at a time.
   const pages = (s.board && s.board.pages) || 1;
+  // The starting grid row by row: the next row (or back one, or all of them).
+  const rowsOn = !!(s.board && s.board.kind === "grid" && s.board.reveal != null);
+  $("#board-reveal").hidden = !rowsOn;
+  if (rowsOn) {
+    $("#board-rows").textContent = `Row ${s.board.reveal} of ${s.board.reveal_total}`;
+    $("#btn-row-prev").disabled = s.board.reveal <= 1;
+    $("#btn-row-next").disabled = $("#btn-row-all").disabled = s.board.reveal >= s.board.reveal_total;
+  }
   $("#board-pager").hidden = pages < 2;
   if (pages > 1) {
     $("#board-page").textContent = `Page ${s.board.page + 1} of ${pages}`;
     $("#btn-board-prev").disabled = s.board.page === 0;
     $("#btn-board-next").disabled = s.board.page >= pages - 1;
   }
-  const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, !!s.board, settings.actionKeys]);
+  if (s.officials && s.officials.on && boardRound === "latest") boardRound = "live";  // no championship rounds without a league
+  const key = JSON.stringify([opts, s.league && s.league.id, s.officials && s.officials.on, ui.boardOn, boardRound, qualRound, gridRound, !!s.board, settings.actionKeys]);
   if (key !== boardButtonsKey) {
     boardButtonsKey = key;
     const groups = opts.groups;
     const scored = opts.rounds.filter((r) => r.scored);
-    $("#board-buttons").innerHTML = !s.league ? '<p class="hint">Activate a league (League builder) to use boards.</p>' : `
+    const officials = s.officials && s.officials.on;
+    $("#board-buttons").innerHTML = officials ? officialBoardsHtml(opts) : !s.league ? '<p class="hint">Activate a league (League builder) to use boards.</p>' : `
       <div class="board-group"><h4>Championship standings</h4>${groups.length ? groups.map((g) => boardButton(g.name, "championship", g.key, g.color)).join("")
         : '<span class="hint">No results yet.</span>'}</div>
       <div class="board-group"><h4>Teams</h4>${opts.teams ? boardButton("Teams' championship", "teams")
@@ -2825,13 +2909,52 @@ function renderBoards(s) {
             ${boardRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}</optgroup>` : ""}
           ${scored.length ? `<optgroup label="Championship rounds">${scored.map((r) => `<option value="${esc(r.id)}" ${boardRound === r.id ? "selected" : ""}>${esc(r.name)}${r.track ? ` · ${esc(r.track)}` : ""}</option>`).join("")}</optgroup>` : ""}
         </select></label>
-        <div>${resultGroups(opts).map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>`;
+        <div>${resultGroups(opts).map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>
+      <div class="board-group"><h4>Qualifying results</h4>
+        <label class="field">From <select id="board-qual">
+          <option value="latest" ${qualRound === "latest" ? "selected" : ""}>The latest qualifying</option>
+          ${(opts.sessions || []).filter((x) => x.kind === "qualify").map((x) => `<option value="${esc(x.source)}"
+            ${qualRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}
+        </select></label>
+        <div>${resultGroups(opts).map((g) => boardButton(g.name, "qualifying", g.key, g.color)).join("")}</div></div>
+      <div class="board-group"><h4>Starting grid</h4>
+        <label class="field">For <select id="board-grid">
+          <option value="next" ${gridRound === "next" ? "selected" : ""}>The race on now, else the next one</option>
+          ${(opts.sessions || []).filter((x) => x.kind === "race").map((x) => `<option value="${esc(x.source)}"
+            ${gridRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : ""}</option>`).join("")}
+        </select></label>
+        <span class="hint">Where the grid comes from (qualifying, the previous race, a reverse grid…) is in its settings below.</span>
+        <div>${resultGroups(opts).map((g) => boardButton(g.name, "grid", g.key, g.color)).join("")}</div></div>`;
   }
   const skey = JSON.stringify([s.overlays && s.overlays.settings, (s.league && s.league.banners) || [], (s.league && s.league.sponsors) || []]);
   if (skey !== boardSettingsKey && !document.activeElement.closest("#board-settings")) {
     boardSettingsKey = skey;
     renderBoardSettings(s);
   }
+}
+
+// Officials mode: the boards that come from the iRacing event (no league).
+function officialBoardsHtml(opts) {
+  const sessions = opts.sessions || [];
+  return `<p class="hint">Officials mode: the boards from the iRacing event (championship boards need a league).</p>
+    <div class="board-group"><h4>Finishing order</h4>
+      <label class="field">From <select id="board-round">
+        <option value="live" ${boardRound === "live" ? "selected" : ""}>This session (live)</option>
+        ${sessions.map((x) => `<option value="${esc(x.source)}" ${boardRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}
+      </select></label>
+      <div>${resultGroups(opts).map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>
+    <div class="board-group"><h4>Qualifying results</h4>
+      <label class="field">From <select id="board-qual">
+        <option value="latest" ${qualRound === "latest" ? "selected" : ""}>The latest qualifying</option>
+        ${sessions.filter((x) => x.kind === "qualify").map((x) => `<option value="${esc(x.source)}" ${qualRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}</option>`).join("")}
+      </select></label>
+      <div>${resultGroups(opts).map((g) => boardButton(g.name, "qualifying", g.key, g.color)).join("")}</div></div>
+    <div class="board-group"><h4>Starting grid</h4>
+      <label class="field">For <select id="board-grid">
+        <option value="next" ${gridRound === "next" ? "selected" : ""}>The race on now, else the next one</option>
+        ${sessions.filter((x) => x.kind === "race").map((x) => `<option value="${esc(x.source)}" ${gridRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}</option>`).join("")}
+      </select></label>
+      <div>${resultGroups(opts).map((g) => boardButton(g.name, "grid", g.key, g.color)).join("")}</div></div>`;
 }
 
 function renderBoardSettings(s) {
@@ -2846,12 +2969,18 @@ $("#board-buttons").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-board]");
   if (!b) return;
   const params = { kind: b.dataset.board, group: b.dataset.group || "" };
-  if (params.kind === "results") params.round = boardRound;
+  if (boardSource(params.kind)) params.round = boardSource(params.kind);
   const r = await cmd("board_show", params);
   if (r) ui.boardOn = { kind: params.kind, group: params.group };
   boardButtonsKey = "";
 });
 $("#board-buttons").addEventListener("change", (e) => {
+  for (const [id, kind] of [["board-qual", "qualifying"], ["board-grid", "grid"]]) {
+    if (e.target.id !== id) continue;
+    if (kind === "qualifying") qualRound = e.target.value;
+    else gridRound = e.target.value;
+    if (ui.boardOn && ui.boardOn.kind === kind) cmd("board_show", { kind, group: ui.boardOn.group, round: e.target.value });
+  }
   if (e.target.id === "board-round") {
     boardRound = e.target.value;
     // Results already on screen switch to the new source straight away.
@@ -2859,6 +2988,9 @@ $("#board-buttons").addEventListener("change", (e) => {
   }
 });
 $("#btn-board-prev").addEventListener("click", () => cmd("board_page", { step: "prev" }));
+$("#btn-row-next").addEventListener("click", () => cmd("board_reveal", { step: "next" }));
+$("#btn-row-prev").addEventListener("click", () => cmd("board_reveal", { step: "prev" }));
+$("#btn-row-all").addEventListener("click", () => cmd("board_reveal", { step: "all" }));
 $("#btn-board-next").addEventListener("click", () => cmd("board_page", { step: "next" }));
 $("#btn-board-hide").addEventListener("click", async () => {
   await cmd("board_hide");
@@ -3102,6 +3234,17 @@ new MutationObserver((list) => {
     for (const n of m.addedNodes) if (n.nodeType === 1) addDroppers(n.matches && n.matches('input[type="color"]') ? n.parentNode : n);
   }
 }).observe(document.body, { childList: true, subtree: true });
+
+// League or Officials: what the overlays and boards use (the top bar's switch).
+document.querySelector(".mode-switch").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-mode]");
+  if (!b) return;
+  const want = b.dataset.mode === "officials";
+  const off = (ui.snap && ui.snap.officials) || {};
+  if (!!off.on === want) return;
+  if (!want && !off.league) return toast("Pick a league to use in the League builder (Activate)", true);
+  cmd("officials", { on: want }, want ? "Officials: iRacing's own data on screen" : `League: ${off.league}`);
+});
 
 // Scrolling the page with the mouse over a number box you'd clicked in
 // changed its value (e.g. a round's points multiplier, or a position):

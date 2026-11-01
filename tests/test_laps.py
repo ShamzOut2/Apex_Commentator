@@ -20,6 +20,7 @@ class F:
     surface: list = field(default_factory=lambda: [TRK_ON_TRACK])
     on_pit: list = field(default_factory=lambda: [False])
     last_lap: list = field(default_factory=lambda: [-1.0])
+    lap: list = field(default_factory=lambda: [-1])
 
 
 def drive(tracker, laps, start_t=0.0, start_pct=0.9, dt=0.1, sector_s=(30.0, 30.0, 30.0), off_at=None, last_lap=None):
@@ -122,6 +123,42 @@ class LapTrackerTests(unittest.TestCase):
         self.assertEqual(lt.cars[0].last["lap_time"], 90.123)
         self.assertEqual(lt.best(0), 90.123)
         self.assertEqual(lt.cars[0].lap["ref_lap"], 90.123)  # the next lap's target too
+
+    def test_a_hiccup_of_a_second_or_two_keeps_the_lap(self):
+        tr = LapTracker()
+        drive(tr, 1, sector_s=(30.0, 30.0, 30.0))
+        t = tr.cars[0].t
+        tr.update(F(t + 1.5, [0.05]), lambda i: "A")  # the app was busy for 1.5 s
+        st = tr.state(0, t + 20, hide_s=0)
+        self.assertEqual(st["state"], "running")
+
+    def test_lap_counter_starts_a_lap_when_the_line_was_missed(self):
+        tr = LapTracker()
+        tr.update(F(0.0, [0.5], lap=[3]), lambda i: "A")
+        tr.update(F(0.1, [0.501], lap=[3]), lambda i: "A")
+        self.assertIsNone(tr.state(0, 0.1))  # joined mid-lap: nothing timed
+        tr.update(F(0.2, [0.502], lap=[4]), lambda i: "A")  # iRacing says a new lap began
+        self.assertEqual(tr.state(0, 0.3)["state"], "running")
+
+    def test_a_replay_rewound_times_again(self):
+        tr = LapTracker()
+        t = drive(tr, 2)
+        tr.update(F(5.0, [0.95]), lambda i: "A")  # back to the start of the session
+        self.assertIsNone(tr.state(0, 5.0))
+        t = drive(tr, 1, start_t=5.1, start_pct=0.96)
+        self.assertIsNotNone(tr.state(0, tr.cars[0].t))
+
+    def test_overall_reference_is_anyones_best(self):
+        tr = LapTracker()
+        classes = {0: "A", 1: "B"}
+        # Car 1 (class B) sets a quick first sector; car 0 (class A) then a slower one.
+        for t, p0, p1 in ((0.0, 0.95, 0.95), (1.0, 0.01, 0.01), (5.0, 0.15, 0.2), (9.0, 0.3, 0.36), (12.0, 0.36, 0.45)):
+            tr.update(F(t, [p0, p1], surface=[TRK_ON_TRACK] * 2, on_pit=[False] * 2, last_lap=[-1.0] * 2, lap=[-1] * 2),
+                      lambda i: classes[i])
+        mine = tr.cars[0].lap["colours"][0]
+        self.assertEqual(mine["session"], "purple")   # fastest in its class
+        self.assertEqual(mine["overall"], "yellow")   # but not overall
+        self.assertEqual(tr.state(0, 12.0, "overall")["sectors"][0]["colour"], "yellow")
 
     def test_new_session_resets(self):
         lt = LapTracker()

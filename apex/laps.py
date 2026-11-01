@@ -14,6 +14,7 @@ references, so the commentator can switch between them live:
 
 * ``personal``: the driver's own best before this lap.
 * ``session``: the fastest in the driver's class this session.
+* ``overall``: the fastest of anyone this session, whatever their class.
 
 Faster than (or equal to) the reference is purple, within ``green_s`` is green,
 anything slower is yellow. With no reference yet, it's purple.
@@ -26,7 +27,13 @@ MAX_STEP_PCT = 0.25    # more than this between samples: the data skipped
 # a little now and then; a step back up to this much is that, not a skip.
 JITTER_PCT = 0.02
 LOG_DROPS = 10  # dropped laps written to the log, a session
-TIME_JUMP_S = 2.0
+# A car's own gap between samples longer than this: the timing can't be
+# trusted (the app missed that much). Short hiccups (the app busy for a
+# second or two) are fine: crossings in between are interpolated.
+TIME_JUMP_S = 10.0
+# The whole timeline jumping back this much (a replay rewound) or forward
+# (skipped ahead): laps being timed are dropped and timing starts again.
+REWIND_S = 0.5
 LAST_LAP_ADOPT_S = 3.0  # how long to wait for iRacing's own lap time
 DEFAULT_SECTORS = (0.0, 1 / 3, 2 / 3)
 
@@ -85,6 +92,7 @@ class _Car:
         self.best_sectors = []   # personal best per sector (valid only)
         self.laps = 0            # completed timed laps
         self.iracing_last = None
+        self.lap_no = None       # iRacing's lap number for the car (CarIdxLap), last seen
 
 
 class LapTracker:
@@ -94,13 +102,17 @@ class LapTracker:
         self.session = None
         self.cars = {}
         self.class_best = {}     # class key -> {"lap": t, "sectors": [..]}
+        self.overall_best = {"lap": None, "sectors": []}  # anyone's, whatever the class
         self._logged = 0         # dropped laps logged this session
+        self._t = None           # the timeline's time last fed
 
     def reset(self, session=None):
         self.session = session
         self._logged = 0
+        self._t = None
         self.cars = {}
         self.class_best = {}
+        self.overall_best = {"lap": None, "sectors": []}
 
     def set_sectors(self, starts):
         starts = tuple(starts)
@@ -112,6 +124,7 @@ class LapTracker:
                 c.last = None
             for b in self.class_best.values():
                 b["sectors"] = []
+            self.overall_best["sectors"] = []
 
     # -- updates ------------------------------------------------------------
 
@@ -120,6 +133,13 @@ class LapTracker:
         if frame.session_num != self.session:
             self.reset(frame.session_num)
         t = frame.session_time
+        if self._t is not None and (t < self._t - REWIND_S or t > self._t + TIME_JUMP_S):
+            # A replay rewound or skipped: what was being timed no longer
+            # follows on. Bests are kept; laps start again from the next line.
+            for c in self.cars.values():
+                c.pct = c.t = c.lap = c.lap_no = None
+                c.last = None
+        self._t = t
         for idx in range(len(frame.pct)):
             pct = frame.pct[idx]
             surface = frame.surface[idx] if idx < len(frame.surface) else TRK_NOT_IN_WORLD
@@ -145,7 +165,19 @@ class LapTracker:
             return
         car.pct, car.t = pct, t
         iracing_before, car.iracing_last = car.iracing_last, _value(frame.last_lap, idx)
+        had_lap = car.lap
         self._time_lap(idx, car, t, pct, prev_pct, prev_t, on_pit, surface, iracing_before, class_of)
+        # iRacing's own lap counter ticking over is a crossing of the line
+        # too: a car whose lap isn't being timed (the crossing was missed:
+        # the app joined, a hiccup, a skip) starts one there, out on track.
+        lap_seq = getattr(frame, "lap", None) or []
+        lap_no = lap_seq[idx] if idx < len(lap_seq) else None
+        if lap_no is not None and lap_no >= 0:
+            if (car.lap is None and had_lap is None and car.lap_no is not None and lap_no > car.lap_no
+                    and not on_pit and surface != TRK_OFF_TRACK):
+                car.lap = {"start": t, "splits": [], "valid": True, "colours": [],
+                           "ref_lap": car.best_lap, "ref_sectors": list(car.best_sectors)}
+            car.lap_no = lap_no
         self._adopt_iracing_time(idx, car, t, class_of)
 
     def _time_lap(self, idx, car, t, pct, prev_pct, prev_t, on_pit, surface, iracing_before, class_of):
@@ -194,13 +226,17 @@ class LapTracker:
         best = self.class_best.setdefault(class_of(idx), {"lap": None, "sectors": []})
         ref_p = lap["ref_sectors"][n] if n < len(lap["ref_sectors"]) else None
         ref_s = best["sectors"][n] if n < len(best["sectors"]) else None
+        top = self.overall_best["sectors"]
+        ref_o = top[n] if n < len(top) else None
         lap["colours"].append({
             "personal": colour(sector, ref_p, self.green_s),
             "session": colour(sector, ref_s, self.green_s),
+            "overall": colour(sector, ref_o, self.green_s),
         })
         if lap["valid"]:
             _keep_best(car.best_sectors, n, sector)
             _keep_best(best["sectors"], n, sector)
+            _keep_best(top, n, sector)
 
     def _finish_lap(self, idx, car, when, iracing_before, class_of):
         lap = car.lap
@@ -223,6 +259,8 @@ class LapTracker:
         best = self.class_best.setdefault(class_of(idx), {"lap": None, "sectors": []})
         if best["lap"] is None or lap_time < best["lap"]:
             best["lap"] = lap_time
+        if self.overall_best["lap"] is None or lap_time < self.overall_best["lap"]:
+            self.overall_best["lap"] = lap_time
 
     def _adopt_iracing_time(self, idx, car, t, class_of):
         """iRacing's own lap time is exact: use it when it arrives soon after the line."""
@@ -268,7 +306,7 @@ class LapTracker:
             prev = last["ref_lap"]
             return {
                 "state": "finished",
-                "sectors": [{"time": s, "colour": c[reference], "done": 1.0}
+                "sectors": [{"time": s, "colour": c.get(reference, c["personal"]), "done": 1.0}
                             for s, c in zip(last["sectors"], last["colours"])],
                 "lap_time": last["lap_time"],
                 "elapsed": last["lap_time"],
@@ -281,7 +319,7 @@ class LapTracker:
         lap = car.lap
         if lap is None:
             return None
-        sectors = [{"time": s, "colour": c[reference], "done": 1.0} for s, c in zip(lap["splits"], lap["colours"])]
+        sectors = [{"time": s, "colour": c.get(reference, c["personal"]), "done": 1.0} for s, c in zip(lap["splits"], lap["colours"])]
         n = len(sectors)
         if n < nsec:
             lo = self.starts[n]

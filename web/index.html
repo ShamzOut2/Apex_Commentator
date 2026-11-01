@@ -13,7 +13,10 @@
     <div id="session-line" class="session-line">Waiting for iRacing…</div>
     <div class="topbar-right">
       <button id="update-badge" class="badge update" hidden title="A new version is available">Update available</button>
-      <span id="league-badge" class="badge muted" title="Active league">No league</span>
+      <div class="mode-switch" role="group" aria-label="What's on screen uses">
+        <button id="league-badge" class="badge" data-mode="league" title="On screen: the active league's names, classes and settings">No league</button>
+        <button id="officials-badge" class="badge" data-mode="officials" title="On screen: iRacing's own data, for an official or AI race (no league names, classes or rules; the league stays picked)">Officials</button>
+      </div>
       <span id="replay-badge" class="badge">—</span>
     </div>
   </header>
@@ -210,6 +213,14 @@
             <label class="toggle"><input type="checkbox" id="gw-loop"> Loop</label>
             <label class="toggle" title="Add drivers from the active league who are not in this session, at the back">
               <input type="checkbox" id="gw-absent"> League drivers not in session</label>
+            <label title="How names show on the grid walk (on stream) and in the list here">Names
+              <select id="gw-names">
+                <option value="full">Full name</option><option value="initial_last">D. Price</option>
+                <option value="last_initial">Price D.</option><option value="last">Last name</option>
+                <option value="first">First name</option><option value="abbrev">DRI (3 letters)</option>
+                <option value="nickname">Nickname</option>
+              </select></label>
+            <label class="toggle" title="The nickname under the name on the grid walk"><input type="checkbox" id="gw-nick"> Nicknames</label>
           </div>
           <p class="hint">On stream: add a <b>Browser Source</b> in OBS (1920×1080) with
             <code id="gw-url"></code> <button class="btn subtle icon" id="gw-copy" title="Copy URL">Copy</button>.
@@ -467,6 +478,12 @@
             <button id="btn-board-prev" class="btn subtle" title="The board's previous page">◀ Prev</button>
             <span id="board-page" class="hint"></span>
             <button id="btn-board-next" class="btn" title="The board's next page: the rest of the drivers">Next ▶</button>
+          </span>
+          <span id="board-reveal" class="row" hidden>
+            <button id="btn-row-prev" class="btn subtle" title="Hide the last row shown">◀ Row</button>
+            <span id="board-rows" class="hint"></span>
+            <button id="btn-row-next" class="btn" title="Bring in the next row of the grid">Next row ▶</button>
+            <button id="btn-row-all" class="btn subtle" title="Bring in every row">Show all</button>
           </span>
           <button id="btn-board-hide" class="btn danger">Take off screen</button>
         </div>
