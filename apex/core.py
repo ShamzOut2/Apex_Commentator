@@ -229,6 +229,7 @@ class App:
         self._grid_keys = []       # entry keys in automatic order, from the last snapshot
         self._header_mode = "laps" # what the tower's header last showed: "laps", "time" or "none"
         self._laps_t = self._laps_num = None  # the timeline last fed to the lap tracker
+        self._grid_rows_total = 1  # the starting grid board's rows (two cars each), for showing them row by row
         self._put_away = None      # what the all:toggle hotkey took off screen, to bring back
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
         self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
@@ -1669,7 +1670,8 @@ class App:
     def cmd_hotkey(self, action):
         """What a hotkey does, by name (the same as the app's own key handling):
         cam:<camera>, ov:<overlay> (on / off), gw:toggle, gw:next, gw:prev, board:off,
-        board:next, board:prev (its pages), board:<kind>:<group> (on screen,
+        board:next, board:prev (its pages), board:row_next / row_prev / row_all
+        (the starting grid shown row by row), board:<kind>:<group> (on screen,
         or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick),
         desk:overlays / desk:boards / desk:gridwalk (on the user's screen), desk:off,
         tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class),
@@ -1697,6 +1699,8 @@ class App:
                 return self.cmd_board_hide()
             if rest in ("next", "prev"):
                 return self.cmd_board_page(rest)
+            if rest in ("row_next", "row_prev", "row_all"):
+                return self.cmd_board_reveal(rest[4:])
             board_kind, _, group = rest.partition(":")
             if self.board.get("kind") == board_kind and self.board.get("params", {}).get("group", "") == group:
                 return self.cmd_board_hide()
@@ -1828,6 +1832,22 @@ class App:
         page = min(max(page, 0), pages - 1)
         self.board = {"kind": self.board["kind"], "params": dict(self.board["params"], page=page)}
         return {"page": page + 1, "pages": pages}
+
+    def cmd_board_reveal(self, step="next"):
+        """The starting grid board shown row by row: the next row (``step``
+        "next"), the one before ("prev"), or every row ("all"). The page
+        follows the last row shown."""
+        if self.board.get("kind") != "grid":
+            raise CommandError("No starting grid on screen")
+        params = self.board["params"]
+        total = max(1, self._grid_rows_total)
+        shown = int(params.get("reveal") or 1)
+        shown = total if step == "all" else shown + 1 if step == "next" else shown - 1 if step == "prev" else shown
+        shown = min(max(shown, 1), total)
+        per = max(1, int(self.overlays.get()["board_grid"]["rows"]))
+        page = (shown * 2 - 1) // per if step != "all" else int(params.get("page") or 0)
+        self.board = {"kind": "grid", "params": dict(params, reveal=shown, page=page)}
+        return {"reveal": shown, "rows": total}
 
     def _boards(self, active_league, session_board):
         active_league = active_league or self._officials_league()
@@ -1974,6 +1994,7 @@ class App:
                  boards.options(active_league))
         self._board_cache = (key, value)
         self._board_pages = value[0]["pages"] if value[0] else 1
+        self._grid_rows_total = (value[0] or {}).get("reveal_total") or 1
         return value
 
     def cmd_overlay_settings(self, overlay, values):

@@ -27,9 +27,21 @@ How each version's entry is written:
   own; the cards' size; the NOT ON TRACK tag can be turned off.
 - Grid walk tab: **Names** and **Nicknames** (the grid walk on stream and the
   list on the tab).
+- **Officials mode**: a League | Officials switch in the top bar, for an
+  official or AI race: iRacing's own data on screen, none of the league's
+  names, classes or rules (the league stays picked for switching back).
+- Starting grid board: **row by row**, the front row first and the next row
+  on a button or hotkey (or all at once); every driver and row comes in with
+  its own animation, and the qualifying results wipe in from pole.
+- Lap tracker: purple sectors can be the **fastest overall this session**
+  (any class).
+- Grid walk: each row's car pictures can be **turned** to line up with the
+  boxes.
 
 ### Fixes
 
+- Grid walk: the seconds per pair you set are kept (they went back to 8
+  seconds) and used as soon as you type them.
 - Lap tracker: times a replay of a session the app has already seen (it
   froze on OUT LAP), keeps timing through a second or two of the app being
   busy, and picks a lap up when iRacing's lap counter ticks over if the line

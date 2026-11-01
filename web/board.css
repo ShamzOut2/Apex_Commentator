@@ -115,9 +115,14 @@
 /* The starting grid, as cars line up (board_grid layout "grid"): two
    staggered columns, the odd places a little ahead on the left. */
 .grid-layout { display: grid; grid-template-columns: 1fr 1fr; column-gap: 48px; row-gap: 10px; grid-auto-rows: 74px; }
-.gslot { display: flex; align-items: stretch; gap: 10px; animation: row-in .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.2s + var(--i, 0) * 35ms); }
-.gslot.even { transform: translateY(42px); }
-.board.leaving .gslot { animation: row-out .3s cubic-bezier(.55, 0, .75, .2) both; animation-delay: calc(min(var(--i, 0), 12) * 15ms); }
+/* Every driver at once: the cars roll up into their slots one after another
+   (the even side a beat later); leaving, they roll back out, last first. */
+.gslot { display: flex; align-items: stretch; gap: 10px; }
+.board:not(.steady) .gslot { animation: slot-in .55s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.25s + var(--i, 0) * 60ms); }
+.gslot.even { translate: 0 42px; }
+@keyframes slot-in { from { opacity: 0; transform: translateY(46px) scale(.96); } 60% { opacity: 1; } }
+.board.leaving .gslot { animation: slot-out .35s cubic-bezier(.55, 0, .75, .2) both; animation-delay: calc(min(var(--i, 0), 16) * 18ms); }
+@keyframes slot-out { to { opacity: 0; transform: translateY(30px) scale(.97); } }
 .gslot .gp { width: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 34px; font-weight: 900; }
 .gslot .gp small { font-size: 14px; font-weight: 700; color: var(--muted); }
 .gslot .gbox {
@@ -134,3 +139,30 @@
 .gslot.top3.p1 .gp { color: #f2c94c; }
 .gslot.top3.p2 .gp { color: #c9d1db; }
 .gslot.top3.p3 .gp { color: #d9894a; }
+
+/* Row by row (grid_reveal "rows"): rows to come keep their place, unseen; the
+   row just shown slides in, its two cars side by side (the second a beat
+   later), with a light sweep across them. */
+.gslot.unrevealed, .btable tr.unrevealed { visibility: hidden; }
+.board .gslot.reveal-in { animation: row-reveal .7s cubic-bezier(.2, .9, .25, 1) both; position: relative; overflow: hidden; }
+.board .gslot.reveal-in.even { animation-delay: .12s; }
+.board .gslot.reveal-in .gbox::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%);
+  transform: translateX(-110%); animation: reveal-sweep .9s .35s ease-out both;
+}
+.gslot .gbox { position: relative; overflow: hidden; }
+.board .btable tr.reveal-in td { animation: row-reveal .6s cubic-bezier(.2, .9, .25, 1) both; }
+.board .btable tr.reveal-in + tr.reveal-in td { animation-delay: .12s; }
+@keyframes row-reveal { from { opacity: 0; transform: translateY(36px); clip-path: inset(0 0 100% 0); } 50% { opacity: 1; } to { clip-path: inset(0 0 0 0); } }
+@keyframes reveal-sweep { to { transform: translateX(110%); } }
+
+/* Qualifying results: each driver's line wipes in from the left, a light
+   catching their lap time, one after another from pole; leaving, the same
+   wipe back out, the last first. */
+.board.qualifying:not(.steady):not(.leaving) .btable tbody tr { animation: qual-in .55s cubic-bezier(.2, .9, .25, 1) both; animation-delay: calc(.25s + var(--i, 0) * 55ms); }
+@keyframes qual-in { from { opacity: 0; transform: translateX(-30px); clip-path: inset(0 100% 0 0); } 40% { opacity: 1; } to { clip-path: inset(0 0 0 0); } }
+.board.qualifying:not(.steady):not(.leaving) .btable tbody td:last-child { animation: qual-flash .9s ease-out both; animation-delay: calc(.6s + var(--i, 0) * 55ms); }
+@keyframes qual-flash { 0% { color: inherit; } 30% { color: #fff; text-shadow: 0 0 12px rgba(255, 255, 255, .7); } 100% { text-shadow: none; } }
+.board.qualifying.leaving .btable tbody tr { animation: qual-out .35s cubic-bezier(.55, 0, .75, .2) both; animation-delay: calc((12 - min(var(--i, 0), 12)) * 15ms); }
+@keyframes qual-out { to { opacity: 0; transform: translateX(-30px); clip-path: inset(0 100% 0 0); } }

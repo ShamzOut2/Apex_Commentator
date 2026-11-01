@@ -60,9 +60,21 @@ walk, Overlays, Boards and Race control.
   own; the cards' size; the NOT ON TRACK tag can be turned off.
 - Grid walk tab: **Names** and **Nicknames** (the grid walk on stream and the
   list on the tab).
+- **Officials mode**: a League | Officials switch in the top bar, for an
+  official or AI race: iRacing's own data on screen, none of the league's
+  names, classes or rules (the league stays picked for switching back).
+- Starting grid board: **row by row**, the front row first and the next row
+  on a button or hotkey (or all at once); every driver and row comes in with
+  its own animation, and the qualifying results wipe in from pole.
+- Lap tracker: purple sectors can be the **fastest overall this session**
+  (any class).
+- Grid walk: each row's car pictures can be **turned** to line up with the
+  boxes.
 
 ### Fixes
 
+- Grid walk: the seconds per pair you set are kept (they went back to 8
+  seconds) and used as soon as you type them.
 - Lap tracker: times a replay of a session the app has already seen (it
   froze on OUT LAP), keeps timing through a second or two of the app being
   busy, and picks a lap up when iRacing's lap counter ticks over if the line
@@ -328,7 +340,8 @@ and *Nickname under the name* can be turned off.
   the back.
 - **Controls**: *Start from P1*, *Pause/Resume*, *Prev/Next* pair, *Show*
   on any driver to jump to their pair, and *Hide* to take it off screen.
-  *Seconds per pair* sets the timer, and *Loop* restarts from the front.
+  *Seconds per pair* sets the timer (used as soon as you type it, and kept
+  for next time with Loop, Auto-play and the rest), and *Loop* restarts from the front.
   Without Loop, the graphic leaves the screen after the last pair.
   **Auto-play** (on by default) moves on to the next pair when its time is
   up; with it off, a pair stays until you press *Next* or *Prev* (or their
@@ -594,8 +607,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     like TV. The *Sectors* setting offers 2, 3, 4, or every split point the
     track has. The time sits inside each finished sector; with many sectors
     the small trackers show just the colours.
-  - The reference is the driver's own best ("personal") or the fastest in
-    their class this session ("session").
+  - The reference is the driver's own best ("personal"), the fastest in
+    their class this session ("session"), or the fastest of anyone this
+    session, whatever their class ("overall").
   - The driver's best lap is always shown. When a lap is done, its time
     stays up with the gap to that best (green if faster, red if slower), then
     the tracker goes after 5 s (adjustable).
@@ -746,6 +760,18 @@ that colour; Esc cancels. In a browser it uses the browser's own eyedropper.
 team logos bigger or smaller, 40–250% (the tower's logo column grows with
 them).
 
+## Officials mode (official and AI races)
+
+The top bar's switch, **League | Officials**, says what the overlays and
+boards use. *League*: the active league (its names, classes, colours, teams
+and rules, like leaving drivers without a class off). *Officials*: iRacing's
+own data only, as if no league were active, for spectating an official or
+AI race, so a league's settings don't get in the way. The league stays
+picked: switch back and it's all there. In Officials mode the boards that
+come from the iRacing event still work (a session's finishing order,
+qualifying results, the starting grid, by iRacing's classes); championship
+boards need the league. Activating a league switches back to League.
+
 ## Overlays on your own screen (no OBS)
 
 Every overlay and board can also go straight on your monitor instead of into
@@ -842,7 +868,13 @@ built from the active league:
   columns). It can show the place in class, car numbers, team names and
   logos, car badges, the qualifying lap and gap, and where they finished
   the previous race. Pick the race on the Boards tab; the grid rule is in
-  its settings, so change it before the race it's for.
+  its settings, so change it before the race it's for. *Show the drivers*:
+  all at once (each driver comes in in turn), or **row by row**: the front
+  row first, then *Next row* (on the Boards tab, or a hotkey) brings in each
+  row after it, sliding into place (*◀ Row* takes one back, *Show all* the
+  rest); the board's page follows the rows. Every board comes in and goes
+  out with its own animation; the qualifying results wipe in a driver at a
+  time from pole, each lap time catching the light.
 
 Under *What each board shows*, every board can be set up separately:
 - the league logo in its header;

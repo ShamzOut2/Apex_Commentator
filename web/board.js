@@ -123,11 +123,28 @@ function columns(b) {
   return cols;
 }
 
+// The starting grid row by row: rows not shown yet keep their place, unseen
+// (so nothing moves as they come); the row (or rows) just shown comes in.
+let lastReveal = { base: "", n: 0 };
+function markReveal(b) {
+  if (b.kind !== "grid" || b.reveal == null) {
+    lastReveal = { base: "", n: 0 };
+    return;
+  }
+  const base = [b.kind, b.title, b.subtitle].join("|");
+  const before = lastReveal.base === base ? lastReveal.n : 0;
+  for (const r of b.rows) {
+    const row = Math.ceil(r.pos / 2);  // the grid row (two cars)
+    r._cls = r.hidden ? "unrevealed" : before && row > before && row <= b.reveal ? "reveal-in" : "";
+  }
+  lastReveal = { base, n: b.reveal };
+}
+
 // The starting grid as cars line up: two staggered columns, the odd places
 // on the left a little ahead of the even ones on the right.
 function gridLayoutHtml(b) {
   const s = b.settings;
-  const slot = (r, i) => `<div class="gslot ${i % 2 ? "even" : "odd"} ${podiumClass(r)}" style="--i:${i}">
+  const slot = (r, i) => `<div class="gslot ${(r.pos || i + 1) % 2 ? "odd" : "even"} ${podiumClass(r)} ${r._cls || ""}" style="--i:${i}">
       <div class="gp">${r.pos}${s.show_class_pos && b.overall ? `<small>P${r.class_pos}</small>` : ""}</div>
       <div class="gbox" style="--cls:${esc(r.class_color || "#8b93a3")}">
         ${s.show_number ? numberChip(r) : ""}
@@ -142,7 +159,7 @@ function gridLayoutHtml(b) {
 function tableHtml(cols, rows) {
   return `<table class="btable"><colgroup>${cols.map((c) => `<col style="width:${c[1]}">`).join("")}</colgroup>
     <thead><tr>${cols.map((c) => `<th class="${c[2].replace(/\b(pts|p|muted|down)\b/g, "")}">${c[0]}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map((r, i) => `<tr class="${podiumClass(r)} ${r.kept ? "kept" : ""}" style="--i:${i}">${cols.map((c) => `<td class="${c[2]}" data-opcol="${c[4]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    <tbody>${rows.map((r, i) => `<tr class="${podiumClass(r)} ${r.kept ? "kept" : ""} ${r._cls || ""}" style="--i:${i}">${cols.map((c) => `<td class="${c[2]}" data-opcol="${c[4]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -229,6 +246,7 @@ function render(snap) {
     boardKey = "";
     return;
   }
+  markReveal(b);
   let body;
   if (b.kind === "calendar" && b.image) body = `<div class="cal-image"><img src="${esc(b.image)}" alt="Season calendar"></div>`;
   else if (b.kind === "calendar") body = calendarHtml(b);

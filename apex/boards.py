@@ -226,6 +226,18 @@ def build(league, board, settings, live_results=None):
                              class_color=_class_color(league, e["class_id"]), team_logo=team_logos.get((e["team"] or "").lower()),
                              make_logo=make_logo(e["make"]),
                              qual_gap=round(e["qual_time"] - pole, 3) if e["qual_time"] and pole and e["qual_time"] > pole else None))
+        # Row by row: the rows (two cars each) shown so far; the rest wait, hidden.
+        total = -(-len(rows) // 2)
+        if cfg.get("grid_reveal") == "rows" and rows:
+            try:
+                shown = int(params.get("reveal") or 1)
+            except (TypeError, ValueError):
+                shown = 1
+            shown = min(max(shown, 1), total)
+            for i, row in enumerate(rows):
+                row["hidden"] = i >= shown * 2
+            out["reveal"] = shown
+        out["reveal_total"] = total
         out["title"] = f"{data['name'].title()} · starting grid" if data["name"] else "Starting grid"
         out["grid_from"] = data["from"]
         out["rows"] = rows

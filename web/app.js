@@ -794,7 +794,10 @@ function hotkeyActions(s = ui.snap || {}) {
   const groups = opts.groups || [];
   const boards = [["board:off", "Take the board off screen", () => cmd("board_hide", {}, "Board off screen")],
     ["board:next", "Next page of the board", () => cmd("board_page", { step: "next" })],
-    ["board:prev", "Previous page of the board", () => cmd("board_page", { step: "prev" })]];
+    ["board:prev", "Previous page of the board", () => cmd("board_page", { step: "prev" })],
+    ["board:row_next", "Starting grid: the next row", () => cmd("board_reveal", { step: "next" })],
+    ["board:row_prev", "Starting grid: back a row", () => cmd("board_reveal", { step: "prev" })],
+    ["board:row_all", "Starting grid: every row", () => cmd("board_reveal", { step: "all" })]];
   const add = (kind, group, label) => boards.push([`board:${kind}:${group}`, label, () => toggleBoard(kind, group)]);
   groups.forEach((g) => add("championship", g.key, `Standings · ${g.name}`));
   if (opts.teams) add("teams", "", "Teams' championship");
@@ -2827,6 +2830,8 @@ const BOARD_FIELDS = {
     ["reverse_top", "Reverse grid: the first N turned round (0 = none)", "number", { min: 0, max: 64 }],
     iff((v) => v.reverse_top > 0, ["reverse_in_class", "Reverse the first N of each class (not overall)", "bool"]),
     ["grid_layout", "Layout", "select", [["list", "A list"], ["grid", "As the cars line up (two staggered columns)"]]],
+    ["grid_reveal", "Show the drivers", "select", [["all", "All at once (each comes in in turn)"],
+      ["rows", "Row by row: the front row first, then Next row (button or hotkey) for each one after"]]],
     ["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["name_format", "Names", "select", NAME_FORMATS],
     ["show_class_pos", "Place in class too (on the overall grid)", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
@@ -2868,6 +2873,14 @@ function renderBoards(s) {
   $("#btn-board-hide").disabled = !s.board;
   // A board that runs to more than one page: the rest of it, a page at a time.
   const pages = (s.board && s.board.pages) || 1;
+  // The starting grid row by row: the next row (or back one, or all of them).
+  const rowsOn = !!(s.board && s.board.kind === "grid" && s.board.reveal != null);
+  $("#board-reveal").hidden = !rowsOn;
+  if (rowsOn) {
+    $("#board-rows").textContent = `Row ${s.board.reveal} of ${s.board.reveal_total}`;
+    $("#btn-row-prev").disabled = s.board.reveal <= 1;
+    $("#btn-row-next").disabled = $("#btn-row-all").disabled = s.board.reveal >= s.board.reveal_total;
+  }
   $("#board-pager").hidden = pages < 2;
   if (pages > 1) {
     $("#board-page").textContent = `Page ${s.board.page + 1} of ${pages}`;
@@ -2975,6 +2988,9 @@ $("#board-buttons").addEventListener("change", (e) => {
   }
 });
 $("#btn-board-prev").addEventListener("click", () => cmd("board_page", { step: "prev" }));
+$("#btn-row-next").addEventListener("click", () => cmd("board_reveal", { step: "next" }));
+$("#btn-row-prev").addEventListener("click", () => cmd("board_reveal", { step: "prev" }));
+$("#btn-row-all").addEventListener("click", () => cmd("board_reveal", { step: "all" }));
 $("#btn-board-next").addEventListener("click", () => cmd("board_page", { step: "next" }));
 $("#btn-board-hide").addEventListener("click", async () => {
   await cmd("board_hide");

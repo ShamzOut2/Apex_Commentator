@@ -266,12 +266,13 @@ DEFAULTS = {
     # reverse_top: the first N turned round (0 = none), overall or in each
     # class (reverse_in_class). grid_layout: "list" or "grid" (two staggered
     # columns, as cars line up).
-    "board_grid": {**LOGO, **COLUMN_OPACITY, **PAGING,
+    "board_grid": {**LOGO, **COLUMN_OPACITY, **PAGING, "keep_leader": False,  # a grid's pages follow on (no pole at the top of each)
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "name_format": "full",
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         "grid_from": "qualifying", "reverse_top": 0, "reverse_in_class": False,
         "grid_layout": "list",
+        "grid_reveal": "all",     # "all": every driver at once; "rows": the front row, then a row a press (Next row)
         "show_class_pos": True,   # the grid place in class too (in an overall grid)
         "show_qual": True,        # their qualifying lap
         "show_gap": False,        # the gap to the class's fastest qualifier
@@ -302,7 +303,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_from": ("qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "qual_shown": ("gap", "interval", "time", "none"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_from": ("qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS}
 
 
