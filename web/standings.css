@@ -173,6 +173,23 @@ body.screen .fl-flash { top: 14px; }
 .tower-head.go .t3 { animation: go-text .55s ease-in-out 5 both; animation-delay: var(--go-delay, 0s); }
 @keyframes go-text { 35%, 65% { color: #fff; } }
 
+/* The last lap: a white header (white flag), dark text on it; the chequered
+   flag takes its place as the leader crosses the line. */
+.tower-head.final-lap, .screen-head.final-lap { background: #f4f5f7; color: #111317; text-shadow: none; }
+.tower-head.final-lap .t2, .screen-head.final-lap .t2 { color: #3c414a; }
+.tower-head.final-lap .t3, .screen-head.final-lap .t3 { color: #111317; }
+.screen-head.final-lap { padding: 10px 16px 14px; border-radius: 8px 8px 0 0; }
+
+/* Watching a replay: REPLAY on the accent colour, the rest of the header's
+   text in black or white, whichever reads on it (--replay-ink, standings.js). */
+.tower-head.replay { background: var(--head-accent, var(--accent)); color: var(--replay-ink, #111317); text-shadow: none; }
+.tower-head.replay .t2, .tower-head.replay .t3 { color: var(--replay-ink, #111317); }
+.tower-head.replay .t2 { opacity: .85; }
+/* Just REPLAY, in the middle, the header keeping its usual height. */
+.tower-head.replay .head-text { min-height: var(--head-h, 44px); justify-content: center; }
+.tower-head.replay .h1 { justify-content: center; }
+.tower-head.replay .t1 { text-align: center; }
+
 /* The chequered flag: from the moment it's out, the header is a
    black-and-white chequered flag. It flashes in a few times with a light
    sweep, then keeps waving until the session changes or the overlay is taken
@@ -215,3 +232,6 @@ body.screen .fl-flash { top: 14px; }
 /* Full screen without column headings. */
 .screen-table.no-labels thead { display: none; }
 .tower-head.chequered .t2, .screen-head.chequered .t2 { color: #e3e6ea; }
+
+/* Full screen: a driver who's left the session, kept where they were (screen_keep_left). */
+.screen-table tr.left { opacity: .55; }

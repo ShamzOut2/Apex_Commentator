@@ -44,19 +44,37 @@ control, Timing Screen, Grid walk, Overlays and Boards.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.5.6**
+**v0.5.7**
 
 ### New features
 
-- Timing tower: the coloured bar can show the driver's team colour
-  (*Coloured bar's colour from*).
-- Timing tower by class: tick which classes show (one, some or all) and
-  put them in the order you want.
+- Starting grid: **Automatic** grid for race meetings: the heats from
+  qualifying, the consolation from the heat before it, the feature from the
+  consolation (the others stay there for when it's needed).
+- Race meeting rounds: a **Reverse grid** box with how many from the front
+  are turned round; the starting grid board follows it.
+- Timing tower: the header turns white on the final lap (or LAST LAP), then
+  into the chequered flag at the finish.
+- Timing tower: watching a replay, the header is just REPLAY, in the
+  middle, on the accent colour.
+- Drivers who leave the session can stay listed: on the Timing Screen
+  (marked LEFT) and on the full-screen standings (where they were).
+
+### Improvements
+
+- Starting grid board: its title is the race's name as the tower gives it
+  (the round's name, or your names for heats, consolation and feature).
+- Timing tower: the finish flag tick box is in the tower's Drivers settings
+  (it was under Fastest lap).
 
 ### Fixes
 
-- Timing tower: by class, the coloured bar shows the class colour picked for
-  it again, not the team's colour.
+- Timing tower: the chequered flag no longer comes out mid-race in the next
+  iRacing event after one the app already saw finish.
+- Timing tower: the chequered flags by finished drivers no longer flash in
+  again every time the tower updates.
+- Timing Screen: the flag column's chequered flag stays put instead of
+  flashing on and off.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -134,6 +152,11 @@ shows something else. Camera hotkeys work in whichever window has focus.
 - **Names**: the name style in the list (full name, D. Price, Price D., last
   name), and **Nicknames** by the names on or off. Next to the battle
   settings, kept for this PC.
+- **Drivers who left**: a driver who leaves the session (gone from
+  iRacing's list) stays in the standings for the rest of the event, marked
+  LEFT; untick it to drop them. The flag column's chequered flag is steady
+  from the moment a car crosses the line after the flag (iRacing's own
+  comes and goes as it's waved).
 - **Race log**: everything that happens, newest first, filterable: overtakes,
   off tracks, spins, incident points, places lost after an off, pit in/out
   (with stop time and places lost), penalties and class fastest laps. **Click
@@ -395,14 +418,29 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     session changes (e.g. to the next race) or the overlay is taken off
     screen. The header's text stays readable: the flag carries a dark tint
     over the whole header, the same size as the flag, and the text a shadow.
-    Races only, and only if the app saw the finish.
+    Races only, and only if the app saw the finish. A new iRacing event
+    (the next race of the night, say) starts afresh: the last one's flag
+    never carries over into it.
+  - **Replay**: while you're watching a replay (not live), the tower's
+    header is just REPLAY, in the middle, on the accent colour, in black or
+    white, whichever reads on that colour (*Watching a replay* in the
+    Header settings turns it off).
+  - **Last lap**: on the final lap (FINAL LAP, or LAST LAP once a timed
+    race's clock has run out) the header (tower and full screen) turns
+    white, like the white flag; as the leader takes the chequered flag it
+    turns into the chequered flag.
+  - **Drivers who leave** (full screen): *Full screen: keep drivers who leave
+    the session in the list* keeps a driver who leaves where they were,
+    greyed out and marked OUT; the others pass them as they carry on (on by
+    default; the tower always drops them).
   - **Finish flags**: in a race, as each driver crosses the line after the
     chequered flag, a small chequered flag comes out on a tab of its own on
     the tower's right edge, level with their row (sliding out from behind
     the tower), and keeps waving, every flag in time. On the full screen it's
     by their name. Rewinding a replay to
     before the finish takes them away again. *Chequered flag by each driver
-    as they finish the race* turns them off.
+    as they finish the race* (in the tower's Drivers settings) turns them
+    off.
   - **Columns** (each on or off):
     - gap to the leader (or to pole);
     - interval to the car ahead;
@@ -876,11 +914,18 @@ built from the active league:
   ahead, and laps if you like.
 - **Starting grid**: the grid for a race of the event (the race on now, else
   the next one; or any race you pick), worked out from the session before
-  anyone has loaded in, Overall or a class. *The grid from*: qualifying, the
-  previous race's finish, or the grid walk's order (fix it by hand on the
-  Grid walk tab). **Reverse grid**: the first N turned round (0 = none),
+  anyone has loaded in, Overall or a class. *The grid from*:
+  **Automatic** (as it starts): for a race meeting, the heats from
+  qualifying, the consolation from the finish of the heat before it and the
+  feature from the consolation's finish (any other race from qualifying), so
+  it's right for each race without changing it; or qualifying, the previous
+  race's finish, or the grid walk's order (fix it by hand on the Grid walk
+  tab) whenever it isn't. Its title is the race's name as the tower's header
+  gives it (the round's name, or the names set for heats, the consolation
+  and the feature). **Reverse grid**: the first N turned round (0 = none),
   overall or the first N of each class: e.g. a final race with the top 8
-  reversed. *Layout*: a list, or as the cars line up (two staggered
+  reversed. A race meeting's race can set its own (its *Reverse grid* box in
+  the rounds), which the board follows for that race. *Layout*: a list, or as the cars line up (two staggered
   columns). It can show the place in class, car numbers, team names and
   logos, car badges, the qualifying lap and gap, and where they finished
   the previous race. Pick the race on the Boards tab; the grid rule is in
@@ -1035,6 +1080,9 @@ standings update from what's saved.
     race) and adds the others after it, at the same track, date and time;
     **Make every round a race meeting…** does that for every round at once.
     **Separate rounds** on a meeting turns its races back into rounds.
+    **Reverse grid** on a meeting's race, with *Top* N: that race's grid has
+    its first N turned round (the starting grid board shows it so; *Reverse
+    the first N of each class* in the board's settings does it per class).
     **Import every race from session** fills a meeting's races from the race
     sessions of the event you're in, in order (heat 1 into the first race,
     and so on), including races that already finished: those come from

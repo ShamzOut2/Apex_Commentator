@@ -90,6 +90,7 @@ DEFAULTS = {
         "show_pit_status": True,  # "PIT" while on pit road
         "column_order": ",".join(TOWER_COLUMNS),
         "screen_column_order": "",
+        "screen_keep_left": True,  # the full-screen timing keeps drivers who leave the session, where they were
         **COLUMN_OPACITY,
         # Start of a session: only the header (session, laps / time left), and
         # each driver appears once they've completed a lap.
@@ -122,6 +123,7 @@ DEFAULTS = {
         "show_fastest_icon": True,
         "name_width": 0,          # the driver name column's width in px (0 = automatic)
         "finish_flag": True,      # race: a waving chequered flag by each driver once they've taken the flag
+        "replay_header": True,    # watching a replay: REPLAY in the header, on the accent colour
         "fl_flash": True,
         "fl_flash_s": 6.0,
         "fl_flash_classes": False,  # also a new fastest lap in each class, not just overall
@@ -273,7 +275,11 @@ DEFAULTS = {
         "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
         "name_format": "full",
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
-        "grid_from": "qualifying", "reverse_top": 0, "reverse_in_class": False,
+        # Where the grid comes from: "auto" (a heat: qualifying; a consolation
+        # or feature: the race before's finish; any other race: qualifying),
+        # "qualifying", "previous" (the race before's finish) or "gridwalk".
+        # (A new key, so it starts on "auto" for everyone; grid_from was the old one.)
+        "grid_source": "auto", "reverse_top": 0, "reverse_in_class": False,
         "grid_layout": "list",
         "grid_reveal": "all",     # "all": every driver at once; "rows": the front row, then a row a press (Next row)
         "show_class_pos": True,   # the grid place in class too (in an overall grid)
@@ -310,7 +316,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_from": ("qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS}
 
 

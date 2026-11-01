@@ -186,6 +186,9 @@ def normalise(champ):
             "length": str(rd.get("length") or "").strip()[:40],     # "60 min", "30 laps", ...
             "multiplier": _num(rd.get("multiplier"), 1.0, lo=0, hi=10),
             "no_drop": bool(rd.get("no_drop")),
+            # A race meeting's race: its grid's first N turned round (the starting grid board).
+            "reverse_grid": bool(rd.get("reverse_grid")),
+            "reverse_top": int(_num(rd.get("reverse_top"), 0, lo=0, hi=60)),
             "scheme": str(rd.get("scheme") or "")[:40],  # a custom points system's id ("" = the usual points)
             # The iRacing session the results were imported from.
             "session": str(rd.get("session") or "")[:40],
