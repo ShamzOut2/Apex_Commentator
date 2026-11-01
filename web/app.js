@@ -848,8 +848,11 @@ function hotkeyActions(s = ui.snap || {}) {
       ["desk:boards_toggle", "Boards on my screen / off it (the app window)", () => cmd("hotkey", { action: "desk:boards_toggle" })],
     ]],
     ["Boards (press again: off screen)", boards],
-    ["Championship battle (picks the drivers and shows it)", BATTLE_PICKS.map(([mode, label]) => [`battle:${mode}`, label,
-      () => cmd("battle_pick", { mode }, "Championship battle on")])],
+    ["Championship battle", [
+      ["battle:toggle", "The drivers picked in its settings, on / off", () => cmd("hotkey", { action: "battle:toggle" },
+        ov.battle && ov.battle.visible ? "Championship battle off" : "Championship battle on")],
+      ...BATTLE_PICKS.map(([mode, label]) => [`battle:${mode}`, `${label} (picks them and shows it)`,
+        () => cmd("battle_pick", { mode }, "Championship battle on")])]],
   ];
 }
 

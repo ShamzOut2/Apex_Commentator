@@ -147,6 +147,19 @@ class HotkeyActionTests(unittest.TestCase):
         self.assertTrue(ov("laps"))
         self.press("board:off")
 
+    def test_championship_battle_key(self):
+        app = self.app
+        app.cmd_overlay_settings("battle", {"visible": False, "drivers": ""})
+        from apex.core import CommandError
+        with self.assertRaises(CommandError):
+            self.press("battle:toggle")  # nobody picked yet
+        app.cmd_overlay_settings("battle", {"drivers": "cust:1,cust:2"})
+        self.press("battle:toggle")
+        self.assertTrue(app.overlays.get()["battle"]["visible"])
+        self.press("battle:toggle")
+        self.assertFalse(app.overlays.get()["battle"]["visible"])
+        self.assertEqual(app.overlays.get()["battle"]["drivers"], "cust:1,cust:2")  # the picks stay
+
     def test_tower_header_key(self):
         app = self.app
         app.cmd_overlay_settings("standings", {"header_info": "laps"})

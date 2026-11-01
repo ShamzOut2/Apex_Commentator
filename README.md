@@ -58,6 +58,8 @@ walk, Overlays, Boards and Race control.
   one for the **overlays** (and the grid walk) only, one for the **board**
   only, which brings back the same board as it was (the qualifying results
   and the starting grid included, the grid's rows shown and all).
+- A hotkey for the **championship battle** with the drivers picked in its
+  settings: on screen, and off again.
 - Starting grid **hotkeys**: the grid on and off, full grid / row by row (or
   a key to switch), next row, back a row, every row, and the boards on your
   screen and off it.
@@ -178,8 +180,9 @@ Boards tabs) also sets keys for:
   and the grid's rows shown);
 - the timing tower: its sponsor bar under the header on and off, overall /
   by class, and its header between laps left and time left;
-- the championship battle's quick picks (the car on camera and the one
-  ahead, the cars either side, the top 3), which also put it on screen;
+- the championship battle: on / off with the drivers picked in its
+  settings, and its quick picks (the car on camera and the one ahead, the
+  cars either side, the top 3), which also put it on screen;
 - the grid walk: on / off (starting from P1), and the next and previous pair;
 - the starting grid: on / off (Overall, for the race on now or next), full
   grid or row by row (a key for each, or one to switch), next row, back a

@@ -1706,6 +1706,11 @@ class App:
                 return self.cmd_board_hide()
             return self.cmd_board_show(board_kind, group, "latest")
         if kind == "battle":
+            if rest == "toggle":  # the drivers picked in its settings, on screen or off
+                cfg = self.overlays.get()["battle"]
+                if not cfg["visible"] and not cfg["drivers"]:
+                    raise CommandError("Pick the championship battle's drivers first (Overlays tab)")
+                return self.cmd_overlay_settings("battle", {"visible": not cfg["visible"]})
             return self.cmd_battle_pick(rest)
         if kind == "desk":
             if rest == "boards_toggle":  # the boards on the user's screen, or off it

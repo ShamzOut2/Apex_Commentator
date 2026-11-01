@@ -25,6 +25,8 @@ How each version's entry is written:
   one for the **overlays** (and the grid walk) only, one for the **board**
   only, which brings back the same board as it was (the qualifying results
   and the starting grid included, the grid's rows shown and all).
+- A hotkey for the **championship battle** with the drivers picked in its
+  settings: on screen, and off again.
 - Starting grid **hotkeys**: the grid on and off, full grid / row by row (or
   a key to switch), next row, back a row, every row, and the boards on your
   screen and off it.
