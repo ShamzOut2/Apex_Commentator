@@ -81,6 +81,10 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
   rounds' names on the tower, the starting grid and the finishing order
   board, without changing them by hand, even when the rounds aren't dated
   that day (it takes the meeting marked Live, else the next one to be run).
+- Drop rounds count straight away: changing the points rules (drop rounds
+  included) in the Championship tab applies them to the standings, boards
+  and overlays at once, without pressing Save.
+- Drop rounds now apply to the teams' and manufacturers' championships too.
 - Race meeting rounds: the box for how many cars are reversed is always
   there next to *Reverse grid*.
 - In a replay during a race, the standings (tower, Timing Screen, live
@@ -1049,7 +1053,10 @@ standings update from what's saved.
     other, with a Rookie Cup of drivers who finish 4th, 9th and 12th
     overall, the 4th-placed one wins the Rookie Cup. Their main class and
     overall points don't change.
-  - **Drop rounds**: each driver's worst N rounds don't count. Missed rounds
+  - **Points & rules** are saved as you change them (no need for *Save*):
+    the standings, boards and overlays use them straight away.
+  - **Drop rounds**: each driver's (and each team's and manufacturer's)
+    worst N rounds don't count. Missed rounds
     are dropped first. Drops only start once a driver has more rounds than N.
   - **A race meeting drops as a whole**: a meeting's races (heats, a sprint
     and a feature…) count as one for the drop rounds, their points added up,

@@ -36,6 +36,10 @@ How each version's entry is written:
   rounds' names on the tower, the starting grid and the finishing order
   board, without changing them by hand, even when the rounds aren't dated
   that day (it takes the meeting marked Live, else the next one to be run).
+- Drop rounds count straight away: changing the points rules (drop rounds
+  included) in the Championship tab applies them to the standings, boards
+  and overlays at once, without pressing Save.
+- Drop rounds now apply to the teams' and manufacturers' championships too.
 - Race meeting rounds: the box for how many cars are reversed is always
   there next to *Reverse grid*.
 - In a replay during a race, the standings (tower, Timing Screen, live

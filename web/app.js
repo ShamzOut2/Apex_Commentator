@@ -1340,7 +1340,7 @@ function renderChampStandings() {
       <div class="table-scroll"><table class="grid champ-table"><thead><tr><th class="c-num">Pos</th><th>Team</th><th>Drivers</th>${head}<th class="c-num">Wins</th>${teamPen ? '<th class="c-num" title="Penalty points taken off">Pen</th>' : ""}<th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
       <tbody>${st.teams.map((t) => `<tr><td class="c-num"><b>${t.pos}</b></td><td>${esc(t.team)}</td>
         <td class="sub">${t.drivers.map((d) => `${esc(d.name)} (${fmtPts(d.points)})`).join(", ")}</td>
-        ${rounds.map((r) => { const x = t.rounds.find((y) => y.round === r.id); return `<td class="c-rd">${x && x.points != null ? fmtPts(x.points) : "–"}</td>`; }).join("")}
+        ${rounds.map((r) => { const x = t.rounds.find((y) => y.round === r.id); return `<td class="c-rd ${x && x.dropped ? "dropped" : ""}" title="${x && x.dropped ? "Dropped" : ""}">${x && x.points != null ? fmtPts(x.points) : "–"}</td>`; }).join("")}
         <td class="c-num sub">${t.wins || ""}</td>
         ${teamPen ? `<td class="c-num bad">${t.penalty_points ? `−${fmtPts(t.penalty_points)}` : ""}</td>` : ""}
         <td class="c-num"><b>${fmtPts(t.points)}</b></td><td class="c-num sub">${t.behind ? `−${fmtPts(t.behind)}` : ""}</td></tr>`).join("")}</tbody></table></div>
@@ -1699,6 +1699,10 @@ function champChange(e, final) {
   const c = champData();
   const d = el.dataset;
   let rerender = false;
+  // Points & rules (and which round is Live) are saved as they're changed:
+  // the standings, boards and overlays use them straight away.
+  const isRule = !!(d.champKind || d.rule || d.secondaryScoring || d.classPoints || d.bonus || d.liveRound
+    || (d.scheme != null && d.skey));
   if (d.champKind) {
     // Class and / or overall championships (at least one).
     if (!final) return;
@@ -1789,8 +1793,30 @@ function champChange(e, final) {
       if (final) rerender = true;
     }
   } else return;
-  markChampDirty();
+  if (isRule) {
+    if (final) saveRulesSoon();
+  } else markChampDirty();
   if (rerender) renderChampionship();
+}
+
+let rulesTimer = null;
+function saveRulesSoon() {
+  clearTimeout(rulesTimer);
+  const id = ui.editing && ui.editing.id;
+  if (!id) return;
+  rulesTimer = setTimeout(async () => {
+    if (!ui.editing || ui.editing.id !== id) return;
+    const c = champData();
+    try {
+      const r = await api(`/api/leagues/${encodeURIComponent(id)}/championship/rules`, { method: "POST", body: { rules: c.rules, live_round: c.live_round } });
+      if (ui.editing && ui.editing.id === id) {
+        champ.standings = r.standings;  // shown next time the standings are (not redrawn under the rules being typed in)
+        if (champ.view === "standings") renderChampionship();
+      }
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }, 300);
 }
 
 $("#tab-championship").addEventListener("input", (e) => champChange(e, false));

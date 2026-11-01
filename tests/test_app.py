@@ -200,6 +200,23 @@ class ServerTests(unittest.TestCase):
         except urllib.error.HTTPError as e:
             return e.code, json.load(e)
 
+    def test_points_rules_apply_as_soon_as_theyre_changed(self):
+        """Drop rounds (and every other rule) count straight away: the
+        standings, boards and overlays don't wait for the championship's Save."""
+        def res(order):
+            return [{"driver": f"cust:{d}", "name": f"D{d}", "class_id": "gt3", "position": i, "status": "finished"}
+                    for i, d in enumerate(order, 1)]
+        league = self.app.leagues.save({"name": "Drop test", "drivers": [{"cust_id": d, "name": f"D{d}"} for d in (1, 2, 3)],
+                                        "classes": [{"id": "gt3", "name": "GT3", "color": "#fff"}],
+                                        "championship": {"rounds": [{"id": "a", "name": "R1", "results": res([1, 2, 3])},
+                                                                    {"id": "b", "name": "R2", "results": res([3, 2, 1])}]}})
+        status, r = self.request(f"/api/leagues/{league['id']}/championship/rules", {"rules": {"drop_rounds": 1}, "live_round": "b"})
+        self.assertEqual(status, 200)
+        saved = self.app.leagues.get(league["id"])["championship"]
+        self.assertEqual((saved["rules"]["drop_rounds"], saved["live_round"], len(saved["rounds"])), (1, "b", 2))
+        top = r["standings"]["groups"][0]["drivers"][0]
+        self.assertLess(top["points"], top["gross"])  # a round dropped
+
     def test_state_and_index(self):
         status, snap = self.request("/api/state")
         self.assertEqual(status, 200)
