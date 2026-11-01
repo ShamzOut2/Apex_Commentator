@@ -785,6 +785,8 @@ function hotkeyActions(s = ui.snap || {}) {
   groups.forEach((g) => add("makes", g.key, `Manufacturers · ${g.name}`));
   add("calendar", "", "Season calendar");
   resultGroups(opts).forEach((g) => add("results", g.key, `Finishing order · ${g.name}`));
+  resultGroups(opts).forEach((g) => add("qualifying", g.key, `Qualifying results · ${g.name}`));
+  resultGroups(opts).forEach((g) => add("grid", g.key, `Starting grid · ${g.name}`));
   const on = (k) => !!(ov[k] && ov[k].visible);
   return [
     ["Everything", [["all:toggle", "Every overlay and board off screen, and back again", () => cmd("hotkey", { action: "all:toggle" },
@@ -1011,7 +1013,7 @@ function resultGroups(opts) {
 async function toggleBoard(kind, group) {
   if (ui.boardOn && ui.boardOn.kind === kind && ui.boardOn.group === group) return cmd("board_hide", {}, "Board off screen");
   const params = { kind, group };
-  if (kind === "results") params.round = boardRound;
+  if (boardSource(kind)) params.round = boardSource(kind);
   const r = await cmd("board_show", params);
   if (r) ui.boardOn = { kind, group };
   boardButtonsKey = "";
@@ -2794,15 +2796,40 @@ const BOARD_FIELDS = {
     ["show_points", "Points scored", "bool"],
     ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
       ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["gap", "Gap"], ["interval", "Interval"], ["points", "Points"]])],
+  board_qualifying: [["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["name_format", "Names", "select", NAME_FORMATS],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names (a column)", "bool"], ["show_logo", "Team logos (a column)", "bool"],
+    iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
+    ["show_make", "Car badges", "bool"], ["show_best", "Best lap", "bool"], ["show_gap", "Gap to pole (the class's pole in a class)", "bool"],
+    ["show_interval", "Interval to the car ahead", "bool"], ["show_laps", "Laps", "bool"],
+    ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
+      ["car", "Car badge"], ["laps", "Laps"], ["best", "Best lap"], ["gap", "Gap"], ["interval", "Interval"]])],
+  board_grid: [["grid_from", "The grid from", "select", [["qualifying", "Qualifying (its order)"], ["previous", "The previous race's finish"],
+      ["gridwalk", "The grid walk's order (as set by hand on the Grid walk tab)"]]],
+    ["reverse_top", "Reverse grid: the first N turned round (0 = none)", "number", { min: 0, max: 64 }],
+    iff((v) => v.reverse_top > 0, ["reverse_in_class", "Reverse the first N of each class (not overall)", "bool"]),
+    ["grid_layout", "Layout", "select", [["list", "A list"], ["grid", "As the cars line up (two staggered columns)"]]],
+    ["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["name_format", "Names", "select", NAME_FORMATS],
+    ["show_class_pos", "Place in class too (on the overall grid)", "bool"],
+    ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
+    iff((v) => v.show_logo && v.grid_layout !== "grid", ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
+    ["show_make", "Car badges", "bool"], ["show_qual", "Qualifying lap", "bool"], ["show_gap", "Gap to the class's fastest qualifier", "bool"],
+    ["show_from", "Where they finished the previous race (a grid from it)", "bool"],
+    ...columnOpacity([["pos", "Grid place"], ["class_pos", "Place in class"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"],
+      ["logo", "Team logo"], ["car", "Car badge"], ["qual", "Qualifying"], ["gap", "Gap"], ["from", "Finished"]])],
 };
 const BOARD_SECTION_NAMES = {
   board_championship: "Championship standings", board_teams: "Teams' championship",
   board_makes: "Manufacturers' championship", board_calendar: "Season calendar", board_results: "Finishing order",
+  board_qualifying: "Qualifying results", board_grid: "Starting grid",
 };
 
 let boardButtonsKey = "";
 let boardSettingsKey = "";
 let boardRound = "latest";
+let qualRound = "latest";  // the qualifying board's session ("latest": the latest qualifying)
+let gridRound = "next";    // the starting grid board's race ("next": the race on now, else the next one)
+// A board's source, by kind: the session or round picked for it.
+const boardSource = (kind) => ({ results: boardRound, qualifying: qualRound, grid: gridRound })[kind];
 
 function boardButton(label, kind, group = "", color = null, extra = {}) {
   const b = ui.snap && ui.snap.board;
@@ -2828,7 +2855,7 @@ function renderBoards(s) {
     $("#btn-board-prev").disabled = s.board.page === 0;
     $("#btn-board-next").disabled = s.board.page >= pages - 1;
   }
-  const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, !!s.board, settings.actionKeys]);
+  const key = JSON.stringify([opts, s.league && s.league.id, ui.boardOn, boardRound, qualRound, gridRound, !!s.board, settings.actionKeys]);
   if (key !== boardButtonsKey) {
     boardButtonsKey = key;
     const groups = opts.groups;
@@ -2848,7 +2875,22 @@ function renderBoards(s) {
             ${boardRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}</optgroup>` : ""}
           ${scored.length ? `<optgroup label="Championship rounds">${scored.map((r) => `<option value="${esc(r.id)}" ${boardRound === r.id ? "selected" : ""}>${esc(r.name)}${r.track ? ` · ${esc(r.track)}` : ""}</option>`).join("")}</optgroup>` : ""}
         </select></label>
-        <div>${resultGroups(opts).map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>`;
+        <div>${resultGroups(opts).map((g) => boardButton(g.name, "results", g.key, g.color)).join("")}</div></div>
+      <div class="board-group"><h4>Qualifying results</h4>
+        <label class="field">From <select id="board-qual">
+          <option value="latest" ${qualRound === "latest" ? "selected" : ""}>The latest qualifying</option>
+          ${(opts.sessions || []).filter((x) => x.kind === "qualify").map((x) => `<option value="${esc(x.source)}"
+            ${qualRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : x.results ? "" : " (no results yet)"}</option>`).join("")}
+        </select></label>
+        <div>${resultGroups(opts).map((g) => boardButton(g.name, "qualifying", g.key, g.color)).join("")}</div></div>
+      <div class="board-group"><h4>Starting grid</h4>
+        <label class="field">For <select id="board-grid">
+          <option value="next" ${gridRound === "next" ? "selected" : ""}>The race on now, else the next one</option>
+          ${(opts.sessions || []).filter((x) => x.kind === "race").map((x) => `<option value="${esc(x.source)}"
+            ${gridRound === x.source ? "selected" : ""}>${esc(sessionLabel(x.name))}${x.current ? " (on now)" : ""}</option>`).join("")}
+        </select></label>
+        <span class="hint">Where the grid comes from (qualifying, the previous race, a reverse grid…) is in its settings below.</span>
+        <div>${resultGroups(opts).map((g) => boardButton(g.name, "grid", g.key, g.color)).join("")}</div></div>`;
   }
   const skey = JSON.stringify([s.overlays && s.overlays.settings, (s.league && s.league.banners) || [], (s.league && s.league.sponsors) || []]);
   if (skey !== boardSettingsKey && !document.activeElement.closest("#board-settings")) {
@@ -2869,12 +2911,18 @@ $("#board-buttons").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-board]");
   if (!b) return;
   const params = { kind: b.dataset.board, group: b.dataset.group || "" };
-  if (params.kind === "results") params.round = boardRound;
+  if (boardSource(params.kind)) params.round = boardSource(params.kind);
   const r = await cmd("board_show", params);
   if (r) ui.boardOn = { kind: params.kind, group: params.group };
   boardButtonsKey = "";
 });
 $("#board-buttons").addEventListener("change", (e) => {
+  for (const [id, kind] of [["board-qual", "qualifying"], ["board-grid", "grid"]]) {
+    if (e.target.id !== id) continue;
+    if (kind === "qualifying") qualRound = e.target.value;
+    else gridRound = e.target.value;
+    if (ui.boardOn && ui.boardOn.kind === kind) cmd("board_show", { kind, group: ui.boardOn.group, round: e.target.value });
+  }
   if (e.target.id === "board-round") {
     boardRound = e.target.value;
     // Results already on screen switch to the new source straight away.

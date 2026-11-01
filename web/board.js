@@ -99,8 +99,44 @@ function columns(b) {
     add(s.show_gap, "gap", "Gap", "150px", "r muted", (r) => (r.winner && !r.out ? `<span class="lead">${winnerCell(r)}</span>` : gapCell(r, r.gap, r.gap_laps)));
     add(s.show_interval, "interval", "Int", "150px", "r muted", (r) => gapCell(r, r.interval, r.interval_laps));
     add(s.show_points, "points", "Pts", "90px", "r pts", (r) => (r.points == null ? "" : `+${fmtPts(r.points)}`));
+  } else if (b.kind === "qualifying") {
+    add(true, "pos", "Pos", "70px", "p r", (r) => r.rank ?? "");
+    add(s.show_number, "number", "#", "80px", "c", numberChip);
+    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
+    teamCols(s.show_team);
+    add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
+    add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
+    add(s.show_best, "best", "Best lap", "150px", "r", (r) => (r.fastest_lap ? `<span class="${r.rank === 1 ? "fl" : ""}">${fmtLap(r.fastest_lap)}</span>` : ""));
+    add(s.show_gap, "gap", "Gap", "130px", "r muted", (r) => (r.gap != null ? `+${r.gap.toFixed(3)}` : ""));
+    add(s.show_interval, "interval", "Int", "130px", "r muted", (r) => (r.interval != null ? `+${r.interval.toFixed(3)}` : ""));
+  } else if (b.kind === "grid") {
+    add(true, "pos", "Grid", "80px", "p r", (r) => r.pos);
+    add(s.show_class_pos && b.overall, "class_pos", "Cls", "70px", "c muted", (r) => r.class_pos);
+    add(s.show_number, "number", "#", "80px", "c", numberChip);
+    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
+    teamCols(s.show_team);
+    add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
+    add(s.show_qual, "qual", "Qualifying", "150px", "r", (r) => (r.qual_time ? fmtLap(r.qual_time) : ""));
+    add(s.show_gap, "gap", "Gap", "130px", "r muted", (r) => (r.qual_gap != null ? `+${r.qual_gap.toFixed(3)}` : ""));
+    add(s.show_from && b.grid_from === "previous race", "from", "Finished", "120px", "c muted", (r) => (r.from ? `P${r.from}` : ""));
   }
   return cols;
+}
+
+// The starting grid as cars line up: two staggered columns, the odd places
+// on the left a little ahead of the even ones on the right.
+function gridLayoutHtml(b) {
+  const s = b.settings;
+  const slot = (r, i) => `<div class="gslot ${i % 2 ? "even" : "odd"} ${podiumClass(r)}" style="--i:${i}">
+      <div class="gp">${r.pos}${s.show_class_pos && b.overall ? `<small>P${r.class_pos}</small>` : ""}</div>
+      <div class="gbox" style="--cls:${esc(r.class_color || "#8b93a3")}">
+        ${s.show_number ? numberChip(r) : ""}
+        <div class="gname"><b>${esc(formatName(r, s.name_format))}</b>${s.show_team && r.team ? `<span>${esc(r.team)}</span>` : ""}</div>
+        ${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}
+        ${s.show_make && r.make_logo ? makeChip({ name: r.make, logo: r.make_logo }) : ""}
+        <div class="gq">${s.show_qual && r.qual_time ? `<span>${fmtLap(r.qual_time)}</span>` : ""}${s.show_gap && r.qual_gap != null ? `<span class="muted">+${r.qual_gap.toFixed(3)}</span>` : ""}${s.show_from && b.grid_from === "previous race" && r.from ? `<span class="muted">Finished P${r.from}</span>` : ""}</div>
+      </div></div>`;
+  return `<div class="grid-layout">${b.rows.map(slot).join("")}</div>`;
 }
 
 function tableHtml(cols, rows) {
@@ -196,7 +232,10 @@ function render(snap) {
   let body;
   if (b.kind === "calendar" && b.image) body = `<div class="cal-image"><img src="${esc(b.image)}" alt="Season calendar"></div>`;
   else if (b.kind === "calendar") body = calendarHtml(b);
-  else if (!b.rows.length) body = '<div class="empty-board">Nothing to show yet: no results in this championship.</div>';
+  else if (!b.rows.length) {
+    body = `<div class="empty-board">${b.kind === "grid" ? "No grid yet: drivers appear once they're in the session (qualifying, or the event's entry list)."
+      : b.kind === "qualifying" ? "No qualifying times yet." : "Nothing to show yet: no results in this championship."}</div>`;
+  } else if (b.kind === "grid" && b.settings.grid_layout === "grid") body = gridLayoutHtml(b);
   else {
     // Long lists go into two columns rather than shrinking past readable.
     const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)

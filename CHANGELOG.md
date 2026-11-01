@@ -11,6 +11,33 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- Boards: **Qualifying results** (a qualifying session of the event, by best
+  lap, with gaps and intervals) and **Starting grid** (any race of the event,
+  before anyone loads in: from qualifying, the previous race's finish or the
+  grid walk's order, with a **reverse grid** of the top N, overall or in each
+  class; as a list or as the cars line up). Every board setting the others
+  have, and hotkeys.
+- Championship: **overall points count as class points** (each class's table
+  ranks its drivers on their overall points).
+- Grid walk: the top and bottom rows of cars can be sized and moved on their
+  own; the cards' size; the NOT ON TRACK tag can be turned off.
+- Grid walk tab: **Names** and **Nicknames** (the grid walk on stream and the
+  list on the tab).
+
+### Fixes
+
+- Lap tracker: times a replay of a session the app has already seen (it
+  froze on OUT LAP), keeps timing through a second or two of the app being
+  busy, and picks a lap up when iRacing's lap counter ticks over if the line
+  crossing was missed.
+- "Full name" now shows the full name everywhere (boards and overlays) with
+  the league's "Remove driver class in name" on: the class tag comes off,
+  but the name isn't swapped for the nickname (that's the Nickname style).
+
 ## v0.5.1
 
 ### New features

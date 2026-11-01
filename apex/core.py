@@ -215,6 +215,7 @@ class App:
         self.gridwalk = GridWalk(cfg.get("gridwalk_interval_s", 8))
         self.thumbnails = Thumbnails()  # the grid walk's car pictures (a folder the user picks)
         self._grid_order = []      # car_idx in starting order
+        self._qual_order = []      # car_idx in qualifying order (then the rest by car number)
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
         self._green = {}           # race session number -> session time it went green (the header flash)
@@ -406,6 +407,7 @@ class App:
         self._drivers = drivers
         official = {i: p for i, p in enumerate(frame.position) if i in drivers} if frame else None
         self._grid_order, self._grid_source = grid_order(drivers, info, official)
+        self._qual_order = grid_order(drivers, info, None)[0]  # qualifying, else car number (the grid board)
         self._qual_times = qualifying_times(info)
         self._track_sectors = sector_starts(info)
         self._apply_sectors()
@@ -580,7 +582,7 @@ class App:
                 "league": self._league_summary(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
-                **self._boards(active_league, lambda source: self._session_board(active_league, source, rows)),
+                **self._boards(active_league, lambda source, kind="results": self._board_data(active_league, kind, source, rows)),
             }
             self._battle_basis = (rows, snap["championship"], frame.cam_car_idx)
             snap["overlays"]["battle"] = self._battle_snapshot(snap["championship"], active_league)
@@ -1785,10 +1787,107 @@ class App:
         # The sessions of the event in iRacing, for a finishing order from any of them.
         frame = self._frame
         sessions = [{"source": f"session:{num}", "name": str(s.get("SessionName") or s.get("SessionType") or f"Session {num + 1}"),
-                     "current": bool(frame) and num == frame.session_num, "results": bool(s.get("ResultsPositions"))}
+                     "current": bool(frame) and num == frame.session_num, "results": bool(s.get("ResultsPositions")),
+                     "kind": self._kind_of(s)}
                     for num, s in sorted(self._session_meta.get("sessions", {}).items(), key=lambda kv: kv[0] if kv[0] is not None else -1)
                     if num is not None]
         return {"board": board, "board_options": dict(opts, sessions=sessions)}
+
+    @staticmethod
+    def _kind_of(session):
+        """"race", "qualify" or "practice" for a session of the event."""
+        if heats.race_kind(session):
+            return "race"
+        return "qualify" if "qual" in str(session.get("SessionType", "")).lower() else "practice"
+
+    def _board_data(self, league, kind, source, rows):
+        """What a board built from the iRacing event shows: a finishing order
+        (results), qualifying results (qualifying) or a starting grid (grid)."""
+        if kind == "grid":
+            return self._grid_board(league, source)
+        if kind == "qualifying" and not source.startswith("session:"):
+            # The latest qualifying session: the one on now, else the last with results.
+            sessions = self._session_meta.get("sessions", {})
+            frame = self._frame
+            quals = [n for n, s in sessions.items() if n is not None and self._kind_of(s) == "qualify"]
+            on_now = frame and frame.session_num in quals
+            done = [n for n in quals if sessions[n].get("ResultsPositions")]
+            num = frame.session_num if on_now else (max(done) if done else (max(quals) if quals else None))
+            if num is None:
+                return None
+            source = f"session:{num}"
+        return self._session_board(league, source, rows)
+
+    def _grid_board(self, league, source):
+        """The starting grid of a race of the event ("session:<number>", or
+        "next": the race on now if it hasn't finished, else the next one),
+        before anyone has loaded in: by qualifying, the previous race's finish
+        or the grid walk's order (as set by hand), the top N reversed if the
+        board says so (board_grid settings)."""
+        cfg = self.overlays.get()["board_grid"]
+        sessions = self._session_meta.get("sessions", {})
+        frame = self._frame
+        races = sorted(n for n, s in sessions.items() if n is not None and self._kind_of(s) == "race")
+        num = None
+        if source.startswith("session:"):
+            try:
+                num = int(source.split(":", 1)[1])
+            except ValueError:
+                num = None
+        if num is None and races:
+            cur = frame.session_num if frame else None
+            num = next((n for n in races if cur is None or n > cur
+                        or (n == cur and frame.session_state < STATE_CHECKERED)), races[-1])
+        drivers = self._drivers
+        qual = [i for i in self._qual_order if i in drivers]
+        how = cfg["grid_from"]
+        order, note = qual, "qualifying"
+        prev = max((n for n in races if num is not None and n < num), default=None)
+        finish = {}
+        if prev is not None:
+            res = sorted((r for r in sessions[prev].get("ResultsPositions") or [] if isinstance(r, dict)),
+                         key=lambda r: r.get("Position") or 10_000)
+            finish = {r.get("CarIdx"): i for i, r in enumerate(res, start=1) if r.get("CarIdx") in drivers}
+        if how == "previous" and finish:
+            order = sorted(finish, key=finish.get) + [i for i in qual if i not in finish]
+            note = "previous race"
+        elif how == "gridwalk":
+            keys = self.gridwalk.apply_order(self._grid_keys)
+            walk = [int(k[4:]) for k in keys if k.startswith("car:") and int(k[4:]) in drivers]
+            order = walk + [i for i in qual if i not in walk]
+            note = "grid walk"
+        # Who's on the grid: league drivers with a class (as everywhere else).
+        entries = []
+        for idx in order:
+            d = drivers[idx]
+            entry = self.leagues.lookup(d["cust_id"], d["number"], league)
+            cls = self.leagues.class_for(entry, d["car_class"], league, d["name"]) if league else None
+            if self._unclassed(league, entry, cls is not None):
+                continue
+            name, nickname = self._stream_name(d["name"], (entry or {}).get("nickname", ""), league)
+            entries.append({
+                "car_idx": idx, "driver": driver_key(entry) if entry else driver_key({"cust_id": d["cust_id"], "name": d["name"]}),
+                "name": name, "nickname": nickname, "car_number": d["number"],
+                "team": (entry or {}).get("team") or d.get("team") or "",
+                "class_id": cls["id"] if cls else f"iracing:{d['car_class'] or 'Field'}",
+                "class2_id": (entry or {}).get("class2_id", ""),
+                "make": (entry or {}).get("car_make") or d.get("make", ""),
+                "qual_time": self._qual_times.get(idx), "from": finish.get(idx),
+            })
+        # Reverse grid: the top N turned round, overall or in each class.
+        n = cfg["reverse_top"]
+        if n > 0:
+            if cfg["reverse_in_class"]:
+                for key in dict.fromkeys(e["class_id"] for e in entries):
+                    slots = [i for i, e in enumerate(entries) if e["class_id"] == key][:n]
+                    picked = [entries[i] for i in slots][::-1]
+                    for i, e in zip(slots, picked):
+                        entries[i] = e
+            else:
+                entries[:n] = entries[:n][::-1]
+        session = sessions.get(num, {}) if num is not None else {}
+        return {"name": str(session.get("SessionName") or session.get("SessionType") or "Race"), "rows": entries,
+                "from": note, "session": num}
 
     def _session_board(self, league, source, rows):
         """A session of the event as a finishing order (boards.build): the one
@@ -1817,11 +1916,13 @@ class App:
         settings = self.overlays.get()
         key = (active_league and (active_league["id"], active_league.get("updated_at")), repr(self.board),
                repr({k: v for k, v in settings.items() if k.startswith("board")}))
-        source = self.board["params"].get("round", "") if self.board.get("kind") == "results" else ""
-        live = source == "live" or source.startswith("session:")
+        kind = self.board.get("kind")
+        source = self.board["params"].get("round", "") if kind in ("results", "qualifying", "grid") else ""
+        # From the iRacing event: worked out afresh (it changes as the session goes on).
+        live = kind in ("qualifying", "grid") or source == "live" or source.startswith("session:")
         if key == self._board_cache[0] and not live:
             return self._board_cache[1]
-        value = (boards.build(active_league, self.board, settings, session_board(source) if live else None),
+        value = (boards.build(active_league, self.board, settings, session_board(source, kind) if live else None),
                  boards.options(active_league))
         self._board_cache = (key, value)
         self._board_pages = value[0]["pages"] if value[0] else 1
