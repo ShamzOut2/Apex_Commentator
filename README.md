@@ -44,36 +44,14 @@ control, Timing Screen, Grid walk, Overlays and Boards.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.5.4**
-
-### New features
-
-- Lap tracker: a sector just done shows its **difference** first (−0.324 /
-  +0.512, against the driver's best, the class's or anyone's, as the
-  reference is set), fading in and out on its colour for 3 seconds (you can
-  set how long), then its time. A purple one gets a white light sweeping
-  across it, a green one a soft pulsing lighter-green glow.
-
-- The "everything off screen and back" hotkey has two more alongside it:
-  one for the **overlays** (and the grid walk) only, one for the **board**
-  only, which brings back the same board as it was (the qualifying results
-  and the starting grid included, the grid's rows shown and all).
-- A hotkey for the **championship battle** with the drivers picked in its
-  settings: on screen, and off again.
-- Starting grid **hotkeys**: the grid on and off, full grid / row by row (or
-  a key to switch), next row, back a row, every row, and the boards on your
-  screen and off it.
+**Coming in the next update**
 
 ### Improvements
 
-- **Hotkeys** is a tab of its own (and a box on the Home page), next to Home;
-  Race control moves between Championship and the Timing Screen (the Timing
-  tab's new name).
-
-### Fixes
-
-- Race control: the commands are sent in iRacing's chat by themselves; they
-  used to sit in the chat box until you pressed Enter.
+- Lap tracker: trackers open out from the middle with a light sweep and
+  close the same way, a finished lap's time pops in with a purple (fastest)
+  or green (personal best) glow, and the small trackers slide when they
+  change places.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -634,7 +612,12 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     in the lap tracker's settings.
   - The driver's best lap is always shown. When a lap is done, its time
     stays up with the gap to that best (green if faster, red if slower), then
-    the tracker goes after 5 s (adjustable).
+    the tracker goes after 5 s (adjustable). As the time comes in it pops
+    up: a purple glow with a light sweeping across for the fastest lap (by
+    the same reference as the sectors), a green glow for the driver's
+    personal best.
+  - Trackers open out from the middle with a light sweep and close the same
+    way; the small ones slide to their new places as the order changes.
   - Laps aren't timed out of the pits. A lap is marked invalid if the car goes
     off track or into the pits, and invalid laps never count as bests.
   - Sector splits come from iRacing's sector points for the track. Lap times

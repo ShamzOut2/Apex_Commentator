@@ -283,6 +283,21 @@ class LapTracker:
                 best = mine
         return best
 
+    def _lap_colour(self, car, last, reference):
+        """How a finished lap lands on the tracker: "purple" (the fastest: their
+        best yet, or the class's / anyone's this session, as the reference
+        says), "green" (a personal best, not the fastest) or None."""
+        if not last["valid"]:
+            return None
+        t, before = last["lap_time"], last["ref_lap"]
+        pb = before is None or t < before - 1e-4
+        if reference == "personal":
+            return "purple" if pb else None
+        best = (self.class_best.get(car.cls) or {}).get("lap") if reference == "session" else self.overall_best.get("lap")
+        if best is not None and t <= best + 1e-4:
+            return "purple"
+        return "green" if pb else None
+
     @staticmethod
     def _delta(lap, n, time, reference, now):
         """A finished sector against what it was compared with when it was set
@@ -377,6 +392,7 @@ class LapTracker:
                 "delta": round(last["lap_time"] - prev, 3) if prev is not None else None,
                 "best": car.best_lap,
                 "shown_for": round(now - last["finished"], 2),
+                "lap_colour": self._lap_colour(car, last, reference),
             }
         lap = car.lap
         if lap is None:
