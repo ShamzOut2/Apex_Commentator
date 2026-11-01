@@ -275,13 +275,19 @@ function sceneHtml(x0, x1, first, entries, cfg) {
   // The pair, and the cars either side unless they're hidden (then, gliding
   // from one pair to the next, the last pair fades as the camera moves).
   const pairOf = (n) => n === first || n === first + 1;
+  // Moving on to another pair: the new pair's cars slide in along the road
+  // into their boxes, the last pair's slide on out of the picture.
+  const moving = x0 !== x1;
+  const before = 1 - Math.round(x0 / SLOT_GAP);  // the last pair's first slot
+  const departs = (n) => moving && !pairOf(n) && (n === before || n === before + 1);
   const going = (n) => !pairOf(n) && (n === lo || n === lo + 1 || n === hi || n === hi + 1) && x0 !== x1;
   const cars = slots.filter((n) => n >= lo - 8 && n <= Math.min(entries.length, hi + 9))
     .filter((n) => cfg.neighbours !== "hide" || pairOf(n) || going(n));
-  const art = cars.map((n) => `<div class="gw-car ${pairOf(n) ? "focus" : "other"} ${cfg.neighbours === "hide" && !pairOf(n) ? "going" : ""}" data-slot="${n}">${carArt(entries[n - 1], cfg)}</div>`).join("");
+  const motion = (n) => (pairOf(n) && moving ? "arrive" : departs(n) ? "depart" : cfg.neighbours === "hide" && !pairOf(n) ? "going" : "");
+  const art = cars.map((n) => `<div class="gw-car ${pairOf(n) ? "focus" : "other"} ${motion(n)} ${n % 2 ? "top" : "bottom"}" data-slot="${n}">${carArt(entries[n - 1], cfg)}</div>`).join("");
   const shadows = cars.map((n) => {
     const l = Math.round((slotX(n) - BOX.len + 0.2 - a) * PX), t = Math.round((ROAD_W - slotY(n) - 1.15) * PX);
-    return `<i class="shadow ${cfg.neighbours === "hide" && !pairOf(n) ? "going" : ""}" data-shadow="${n}" style="left:${l}px;top:${t}px;width:${(BOX.len - 0.4) * PX}px;height:${2.3 * PX}px"></i>`;
+    return `<i class="shadow ${pairOf(n) && moving ? "arrive" : departs(n) || (cfg.neighbours === "hide" && !pairOf(n)) ? "going" : ""}" data-shadow="${n}" style="left:${l}px;top:${t}px;width:${(BOX.len - 0.4) * PX}px;height:${2.3 * PX}px"></i>`;
   }).join("");
   return `<div class="scene">
     <div class="sky"></div>
@@ -307,6 +313,12 @@ function sceneHtml(x0, x1, first, entries, cfg) {
 // Put the scene in perspective for the camera at x (a box front).
 function placeScene(root, x) {
   const cam = camera(x);
+  // Which way the road runs on screen (the cars slide along it).
+  const [ax, ay] = project(cam, [x - 6, 6, 0]);
+  const [bx, by] = project(cam, [x + 6, 6, 0]);
+  const len = Math.hypot(bx - ax, by - ay) || 1;
+  root.style.setProperty("--road-x", ((bx - ax) / len).toFixed(3));
+  root.style.setProperty("--road-y", ((by - ay) / len).toFixed(3));
   root.querySelectorAll("[data-plane]").forEach((el) => { el.style.transform = planeTransform(cam, el.dataset.plane); });
   const cars = [...root.querySelectorAll(".gw-car")].map((el) => ({ el, p: carPlace(cam, +el.dataset.slot) }));
   for (const { el, p } of cars) {

@@ -127,14 +127,28 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 @keyframes car-going { to { opacity: 0; } }
 .gw-car.focus > * { animation: car-in .9s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes car-in { from { opacity: 0; transform: translateY(-14px); } }
+/* Another pair: its cars glide in along the road from behind, easing into
+   their boxes; the last pair's carry on up the road and out of the picture. */
+.gw-car.arrive > * { animation: car-arrive 1.35s .1s cubic-bezier(.16, .84, .3, 1) both; }
+.gw-car.arrive.bottom > * { animation-delay: .25s; }  /* the second car a beat behind */
+@keyframes car-arrive {
+  from { opacity: 0; transform: translate(calc(var(--road-x, 1) * -1500px), calc(var(--road-y, 0) * -1500px)); }
+  20% { opacity: 1; }
+  to { opacity: 1; transform: none; }
+}
+.gw-car.depart > * { animation: car-depart .85s cubic-bezier(.5, 0, .75, .25) both; }
+@keyframes car-depart { to { opacity: 0; transform: translate(calc(var(--road-x, 1) * 1500px), calc(var(--road-y, 0) * 1500px)); } }
+.road .shadow.arrive { animation: shadow-in .8s .7s ease-out both; }
+@keyframes shadow-in { from { opacity: 0; } }
 
 /* --- the drivers' cards: the driver-on-camera card's look (driver.css) ------ */
 .gw-info {
   position: absolute; z-index: 2000; display: flex; align-items: center; gap: 22px; min-width: 620px; max-width: 900px;
   min-height: 112px; padding: 0 26px 0 0; border-radius: 14px; overflow: hidden;
   background: var(--panel); box-shadow: 0 14px 40px rgba(0, 0, 0, .45); border-bottom: 5px solid var(--cls, var(--accent));
-  animation: gw-card-in .6s .35s cubic-bezier(.2, .9, .25, 1) both;
+  animation: gw-card-in-front .65s .35s cubic-bezier(.2, .9, .25, 1) both;
 }
+.gw-info.rear { animation-name: gw-card-in-rear; }
 .gw-info.rear { animation-delay: .5s; }
 .gw-info.front { right: 60px; top: 176px; }
 .gw-info.rear { left: 60px; bottom: 60px; }
@@ -156,6 +170,27 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
   60% { opacity: 1; }
   to { clip-path: inset(0 0 0 0 round 14px); }
 }
+/* Each card comes in from its own side of the screen (the front car's from
+   the right, the second's from the left), opening as it slides, and goes
+   back out the same way. */
+@keyframes gw-card-in-front {
+  from { opacity: 0; transform: translateX(90px); clip-path: inset(0 0 0 100% round 14px); }
+  55% { opacity: 1; }
+  to { transform: none; clip-path: inset(0 0 0 0 round 14px); }
+}
+@keyframes gw-card-in-rear {
+  from { opacity: 0; transform: translateX(-90px); clip-path: inset(0 100% 0 0 round 14px); }
+  55% { opacity: 1; }
+  to { transform: none; clip-path: inset(0 0 0 0 round 14px); }
+}
+@keyframes gw-card-out-front {
+  0%, 25% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 14px); }
+  100% { opacity: 0; transform: translateX(90px); clip-path: inset(0 0 0 100% round 14px); }
+}
+@keyframes gw-card-out-rear {
+  0%, 25% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 14px); }
+  100% { opacity: 0; transform: translateX(-90px); clip-path: inset(0 100% 0 0 round 14px); }
+}
 @keyframes gw-card-out {
   0%, 30% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 14px); }
   100% { opacity: 0; transform: translateY(40px); clip-path: inset(0 45% 0 45% round 14px); }
@@ -163,7 +198,8 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 @keyframes gw-content-in { from { opacity: 0; transform: translateY(8px); } }
 @keyframes gw-content-out { to { opacity: 0; transform: translateY(8px); } }
 @keyframes gw-sweep { to { transform: translateX(110%); } }
-.gw-info.leaving, .stage.hidden .gw-info { animation: gw-card-out .6s cubic-bezier(.55, 0, .75, .1) both; }
+.gw-info.leaving, .stage.hidden .gw-info { animation: gw-card-out-front .6s cubic-bezier(.55, 0, .75, .1) both; }
+.gw-info.rear.leaving, .stage.hidden .gw-info.rear { animation-name: gw-card-out-rear; }
 .gw-info.leaving > *, .stage.hidden .gw-info > * { animation: gw-content-out .25s ease-in both; }
 .gw-info.leaving::after, .stage.hidden .gw-info::after { animation: none; opacity: 0; }
 

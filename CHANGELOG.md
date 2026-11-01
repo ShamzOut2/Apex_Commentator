@@ -37,6 +37,14 @@ How each version's entry is written:
   (any class).
 - Grid walk: each row's car pictures can be **turned** to line up with the
   boxes.
+- Grid walk: moving on to the next pair, the new cars **slide in along the
+  road** into their boxes as the last pair's slide on out, and each driver's
+  card slides in from (and back out to) its own side of the screen.
+
+### Improvements
+
+- Grid walk: the car pictures go much bigger (up to 600%, and each row up to
+  400% of that).
 
 ### Fixes
 

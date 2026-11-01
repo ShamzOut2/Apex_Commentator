@@ -70,6 +70,14 @@ walk, Overlays, Boards and Race control.
   (any class).
 - Grid walk: each row's car pictures can be **turned** to line up with the
   boxes.
+- Grid walk: moving on to the next pair, the new cars **slide in along the
+  road** into their boxes as the last pair's slide on out, and each driver's
+  card slides in from (and back out to) its own side of the screen.
+
+### Improvements
+
+- Grid walk: the car pictures go much bigger (up to 600%, and each row up to
+  400% of that).
 
 ### Fixes
 
@@ -297,7 +305,10 @@ qualifying gap under it (pole: its lap time); pole has the start line ahead.
 The cars either side on the grid stand in their boxes too (*Cars either side
 on the grid*: show them, or hide them for just the pair, the last pair fading
 as the camera moves on), and moving on to the next pair the camera glides
-down the grid to it. Each driver has a card
+down the grid to it: the new pair's cars slide in along the road into their
+boxes as the last pair's slide on out of the picture, and each card slides
+in from its own side of the screen (the front car's from the right, the
+second's from the left) and back out the same way. Each driver has a card
 in the driver-on-camera card's style (top right for the front car, bottom
 left for the second): the card opens from the middle with a light sweep,
 and closes the same way as it goes. Its settings are the driver-on-camera
