@@ -16,8 +16,9 @@ How each version's entry is written:
 ### New features
 
 - **Team changes mid-season**: change a driver's team after they've raced
-  and choose whether the points they scored so far stay with their old team
-  (only new races count for the new one) or all go to the new team. Each
+  and pick their first race for the new team (the races before it stay
+  with the old team), or move all their points to the new team. **⇄** by
+  their team on the roster sets the team for each race one by one. Each
   race result now keeps the team it was raced for.
 
 ## v0.6.0

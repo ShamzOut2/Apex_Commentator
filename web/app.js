@@ -3871,8 +3871,11 @@ function renderRoster() {
     th.dataset.dir = on ? rosterSort.dir : "";
     th.title = th.title.replace(/ \(click to sort.*$/, "") + " (click to sort)";
   });
+  const raced = new Set(allResults().map((r) => r.driver));
   $("#roster-rows").innerHTML = rosterOrder(drivers, classes).map(([d, i]) => `<tr>${ROSTER_FIELDS.map(([f]) =>
-    `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"></td>`).join("")}
+    f === "team" && raced.has(driverKey(d))
+      ? `<td><div class="team-cell"><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"><button class="btn subtle icon" data-team-history="${i}" title="Teams by race: which team each of their races counts for">⇄</button></div></td>`
+      : `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"></td>`).join("")}
     <td><select data-row="${i}" data-field="class_id" aria-label="Class"><option value="">Auto (by car)</option><option value="-" ${d.class_id === "-" ? "selected" : ""} title="No main class: just the secondary class, if any">—</option>${options(main, d.class_id || "")}</select></td>
     <td class="c-class2"><select data-row="${i}" data-field="class2_id" aria-label="Secondary class"><option value="">—</option>${options(second, d.class2_id || "")}</select></td>
     <td class="make-cell">${makeBadge(d.car_make)}<select data-row="${i}" data-field="car_make" aria-label="Car">${makeOptions(d.car_make || "")}</select></td>
@@ -4373,18 +4376,20 @@ function allResults() {
   return c ? (c.rounds || []).flatMap((rd) => rd.results || []) : [];
 }
 
-// Pick one of ``options`` ([value, label, primary]) in a dialog: the value, or null.
-function choose(title, text, options) {
+// Pick one of ``options`` ([value, label, primary]) in a dialog, with ``html``
+// (fields) above them: {value, form}, or null (closed).
+function choose(title, text, options, html = "") {
   return new Promise((resolve) => {
     const modal = $("#choice-modal");
     $("#choice-title").textContent = title;
     $("#choice-text").textContent = text;
+    $("#choice-form").innerHTML = html;
     const box = $("#choice-options");
     box.innerHTML = options.map(([v, label, primary]) => `<button class="btn ${primary ? "primary" : ""}" data-choice="${esc(v)}">${esc(label)}</button>`).join("");
     const done = (v) => {
       modal.hidden = true;
       box.onclick = modal.onclick = null;
-      resolve(v);
+      resolve(v === null ? null : { value: v, form: $("#choice-form") });
     };
     box.onclick = (e) => {
       const b = e.target.closest("[data-choice]");
@@ -4408,19 +4413,52 @@ async function teamSwitch(d, from, to) {
   const results = allResults().filter((r) => r.driver === key);
   if (!results.length) return;
   const name = d.name || "This driver";
-  const n = results.length;
+  const races = racesOf(key);
+  // The race they first drove for the new team: the ones before it stay with the old team.
+  const pickHtml = `<label class="ov-field">First race for ${esc(to || "no team")}
+    <select id="switch-from"><option value="">The next race (every race so far stays with ${esc(from)})</option>
+    ${races.map(({ rd, n }) => `<option value="${esc(rd.id)}">${esc(roundLabel(rd, n))}</option>`).join("")}</select></label>`;
   const pick = await choose(`${name}: ${from} → ${to || "no team"}`,
-    `${name} has ${n} race${n > 1 ? "s" : ""} this season. In the teams' championship, the points from ${n > 1 ? "them" : "it"}:`, [
-      ["keep", `Stay with ${from} (only races from now on count for ${to || "a team"})`, true],
-      ["move", to ? `All go to ${to}` : "Go with them (no team for now)"],
-    ]);
-  if (pick === "move") {
-    for (const r of results) r.team = "";  // the team they're in now, whatever it is
-  } else {
-    for (const r of results) if (!r.team) r.team = from;  // races already stamped keep their team
-  }
-  toast(pick === "move" ? `${name}'s points go with them to ${to || "no team"}: save to keep it`
-    : `${name}'s points so far stay with ${from}: save to keep it`);
+    `${name} has ${races.length} race${races.length > 1 ? "s" : ""} this season. In the teams' championship, the races before their first one for ${to || "no team"} count for ${from}; that one and every race after it for ${to || "no team"}.`, [
+      ["apply", "Apply", true],
+      ["move", to ? `All their points go to ${to}` : "All their points go with them (no team for now)"],
+    ], pickHtml);
+  if (pick === null) return;
+  const first = pick.value === "apply" ? pick.form.querySelector("#switch-from").value : races[0] && races[0].rd.id;
+  const at = first ? races.findIndex(({ rd }) => rd.id === first) : races.length;
+  races.forEach(({ result }, i) => {
+    if (i >= at) result.team = "";  // the team they're in now
+    else if (!result.team || sameTeam(result.team, to)) result.team = from;  // earlier races raced for another team keep it
+  });
+  toast(at === 0 ? `${name}'s points all go to ${to || "no team"}: save to keep it`
+    : at >= races.length ? `${name}'s points so far stay with ${from}: save to keep it`
+      : `${name}: ${at} race${at > 1 ? "s" : ""} for ${from}, the rest for ${to || "no team"}: save to keep it`);
+}
+
+// A driver's races this season, in round order: [{rd, n (round number), result}].
+function racesOf(key) {
+  const c = ui.editing && ui.editing.championship;
+  if (!c) return [];
+  return (c.rounds || []).map((rd, i) => ({ rd, n: i + 1, result: (rd.results || []).find((r) => r.driver === key) }))
+    .filter((x) => x.result);
+}
+const roundLabel = (rd, n) => `R${n} · ${[rd.event, rd.name].filter(Boolean).join(" · ")}${rd.date ? ` (${rd.date})` : ""}`;
+
+// Teams by race: which team each of a driver's races counts for in the teams' championship.
+async function teamHistory(d) {
+  const key = driverKey(d);
+  const races = racesOf(key);
+  if (!races.length) return;
+  const teams = editorTeams().map((t) => t.name);
+  const html = `<div class="team-history">${races.map(({ rd, n, result }, i) => `<label class="ov-field">${esc(roundLabel(rd, n))}
+    <select data-race="${i}"><option value="">Their team now${d.team ? ` (${esc(d.team)})` : ""}</option>
+    ${[...new Set([...teams, result.team].filter(Boolean))].map((t) => `<option value="${esc(t)}" ${result.team && sameTeam(result.team, t) ? "selected" : ""}>${esc(t)}</option>`).join("")}
+    </select></label>`).join("")}</div>`;
+  const pick = await choose(`${d.name || "Driver"}: teams by race`, "Which team each race counts for in the teams' championship.",
+    [["apply", "Apply", true], ["cancel", "Cancel"]], html);
+  if (!pick || pick.value !== "apply") return;
+  pick.form.querySelectorAll("[data-race]").forEach((sel) => { races[+sel.dataset.race].result.team = sel.value; });
+  toast("Teams by race changed: save to keep it");
 }
 
 // -- classes ------------------------------------------------------------------
@@ -4678,6 +4716,8 @@ $("#roster-rows").addEventListener("change", async (e) => {
   }
 });
 $("#roster-rows").addEventListener("click", (e) => {
+  const history = e.target.closest("[data-team-history]");
+  if (history) return teamHistory(ui.editing.drivers[+history.dataset.teamHistory]);
   const clearPhoto = e.target.closest("[data-clear-photo]");
   if (clearPhoto) {
     ui.editing.drivers[+clearPhoto.dataset.row][`${clearPhoto.dataset.clearPhoto}_image`] = "";

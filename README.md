@@ -61,8 +61,9 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 ### New features
 
 - **Team changes mid-season**: change a driver's team after they've raced
-  and choose whether the points they scored so far stay with their old team
-  (only new races count for the new one) or all go to the new team. Each
+  and pick their first race for the new team (the races before it stay
+  with the old team), or move all their points to the new team. **⇄** by
+  their team on the roster sets the team for each race one by one. Each
   race result now keeps the team it was raced for.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
@@ -1091,10 +1092,14 @@ standings update from what's saved.
   - **A driver changing team mid-season**: each race result keeps the team
     the driver raced for (saved with the results, from the roster at the
     time). Change their team (League builder or Teams) after they've raced
-    and the app asks what happens to the points from those races: **stay
-    with the old team** (only races from now on count for the new one), or
-    **all go to the new team**. Finishing order boards show the team they
-    raced for in each round. Renaming a team takes its races with it.
+    and the app asks for their **first race for the new team**: the races
+    before it count for the old team, that one and every race after it for
+    the new one (*The next race* keeps every race so far with the old team;
+    **All their points go to** the new team moves the lot). The **⇄** by a
+    driver's team on the roster opens **Teams by race**: each race they've
+    done and the team it counts for, to set or correct one by one.
+    Finishing order boards show the team they raced for in each round.
+    Renaming a team takes its races with it.
   - **Bonus points**: pole, fastest lap, led a lap, each lap led, most laps
     led, most places gained, clean race (no incidents), finished, started, and
     race win. Use 0 for bonuses you don't award; negative values take points
