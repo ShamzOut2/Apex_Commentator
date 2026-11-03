@@ -248,6 +248,7 @@ class App:
         self.share = None          # remote.CameraShare
         self.follow = None         # remote.CameraFollow
         self._followed = None      # (when, the host's camera) last followed
+        self._follow_free = False  # the co-commentator's Free mode: connected, not following
         self._version = 0
         self._changed = threading.Condition()
         self._info_update = None
@@ -2007,6 +2008,10 @@ class App:
         tower:header (its header: laps left / time left), all:toggle (every
         overlay and board off screen, and back again; see cmd_toggle_all)."""
         kind, _, rest = str(action).partition(":")
+        if kind == "follow" and rest in ("free", "sync", "toggle"):
+            # Dual commentary (following a host's camera): Free mode / Sync.
+            on = {"free": True, "sync": False}.get(rest, not self._follow_free)
+            return self.cmd_follow_free(on)
         if kind == "cam":
             group = next((g["num"] for g in self._camera_groups if g["name"] == rest), None)
             if group is None:
@@ -2479,6 +2484,8 @@ class App:
         whatever changed since the last time (in between, the co-commentator's
         own camera is theirs)."""
         now = time.monotonic()
+        if self._follow_free:
+            return  # Free mode: their own camera until they Sync
         with self._lock:
             frame = self._frame
             groups = list(self._camera_groups)
@@ -2540,6 +2547,7 @@ class App:
             self.follow.stop()
             self.follow = None
         self._followed = None
+        self._follow_free = False
         if address is not None:
             self.settings.set("follow_address", str(address).strip())
         if code is not None:
@@ -2555,6 +2563,19 @@ class App:
             raise CommandError(str(e))
         return {"following": True}
 
+    def cmd_follow_free(self, on=True):
+        """The co-commentator's Free mode (on: their own camera, to replay or
+        watch someone else) or Sync (off: straight back to what the host is
+        showing now, and following again)."""
+        if not self.follow:
+            raise CommandError("Not following anyone")
+        self._follow_free = bool(on)
+        if not on:
+            self._followed = None  # all of it, as on first connecting
+            if self.follow.last:
+                self._follow_camera(self.follow.last)
+        return {"free": self._follow_free}
+
     def _remote_snapshot(self):
         sh, fo = self.share, self.follow
         host = (fo.last or {}) if fo else {}
@@ -2564,7 +2585,7 @@ class App:
                       "addresses": sh.addresses if sh else [], "followers": sh.followers if sh else 0},
             "follow": {"on": bool(fo), "address": self.settings.get("follow_address") or "",
                        "code": self.settings.get("follow_code") or "", "status": fo.status if fo else "off",
-                       "error": fo.error if fo else "",
+                       "error": fo.error if fo else "", "free": bool(fo) and self._follow_free,
                        "host": {k: host.get(k) for k in ("car", "driver", "group", "live")} if host else None},
         }
 

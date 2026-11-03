@@ -814,3 +814,6 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .dual-code { font-size: 18px; letter-spacing: .2em; }
 #follow-status.bad { color: var(--bad); }
 .badge.live { background: var(--good); color: #04140c; }
+.dual-follow { display: inline-flex; gap: 4px; align-items: center; }
+.dual-follow .btn.slim { padding: 3px 10px; font-size: 12px; }
+.badge.free { background: #f0b429; color: #1d1600; }

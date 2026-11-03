@@ -116,9 +116,14 @@ function renderDual(r) {
   $("#dual-state").textContent = sh.on ? `Sharing your camera${sh.followers ? ` · ${sh.followers} following` : ""}` : fo.on ? "Following" : "";
   const badge = $("#dual-badge");
   badge.hidden = !sh.on && !fo.on;
-  badge.textContent = fo.on ? (fo.status === "following" ? "● Following the host" : "○ Following: not connected")
+  badge.textContent = fo.on ? (fo.status !== "following" ? "○ Following: not connected" : fo.free ? "◌ Free mode" : "● Following the host")
     : `📡 Camera shared${sh.followers ? ` (${sh.followers})` : ""}`;
-  badge.classList.toggle("live", fo.on ? fo.status === "following" : sh.followers > 0);
+  badge.classList.toggle("live", fo.on ? fo.status === "following" && !fo.free : sh.followers > 0);
+  badge.classList.toggle("free", fo.on && fo.free);
+  // Free mode (their own camera) and Sync (back with the host), while following.
+  $("#dual-follow").hidden = !fo.on;
+  $("#follow-free").hidden = fo.free;
+  $("#follow-sync").hidden = !fo.free;
 }
 
 $("#share-on").addEventListener("change", (e) => {
@@ -132,6 +137,8 @@ $("#follow-start").addEventListener("click", async () => {
   if (r) for (const id of ["#follow-address", "#follow-code"]) delete $(id).dataset.typed;
 });
 $("#follow-stop").addEventListener("click", () => cmd("follow_camera", { on: false }, "Stopped following"));
+$("#follow-free").addEventListener("click", (e) => { e.target.blur(); cmd("follow_free", { on: true }, "Free mode: your own camera until you Sync"); });
+$("#follow-sync").addEventListener("click", (e) => { e.target.blur(); cmd("follow_free", { on: false }, "Synced with the host"); });
 $("#follow-code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#follow-start").click(); });
 
 // ---------------------------------------------------------------------------
@@ -959,6 +966,11 @@ function hotkeyActions(s = ui.snap || {}) {
       ["grid:prev", "Back a row", () => cmd("hotkey", { action: "grid:prev" })],
       ["grid:all", "Every row now", () => cmd("hotkey", { action: "grid:all" })],
       ["desk:boards_toggle", "Boards on my screen / off it (the app window)", () => cmd("hotkey", { action: "desk:boards_toggle" })],
+    ]],
+    ["Dual commentary (following a host's camera)", [
+      ["follow:free", "Free mode: your own camera (replay something, watch someone else)", () => cmd("hotkey", { action: "follow:free" }, "Free mode")],
+      ["follow:sync", "Sync: back to what the host is showing, and following", () => cmd("hotkey", { action: "follow:sync" }, "Synced with the host")],
+      ["follow:toggle", "Free mode / Sync (switch)", () => cmd("hotkey", { action: "follow:toggle" })],
     ]],
     ["Boards (press again: off screen)", boards],
     ["Championship battle", [

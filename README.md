@@ -64,6 +64,8 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
   Tick *Let a co-commentator follow my camera* (Home) and give them the
   address and code shown; whatever driver and camera you put on (from the
   app, a hotkey or iRacing), live or a replay, their iRacing shows too.
+  **Free mode** lets them go their own way (a replay, another driver) and
+  **Sync** takes them back with you (top bar, or hotkeys).
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -135,6 +137,12 @@ the same thing without saying "go to car 23".
   the host. In between, their camera is theirs to move. The top bar shows
   *Following the host* (green while connected); it reconnects by itself if
   the connection drops, and both settings come back on when the app restarts.
+- **Free mode** (top bar, or a hotkey) lets the co-commentator go their own
+  way, still connected: rewind a replay, watch someone else; the host's
+  camera changes don't move theirs (amber *Free mode* in the top bar).
+  **Sync** takes them straight back to what the host is showing now (the
+  driver, the camera, live or the same replay moment) and following again.
+  Hotkeys: *Free mode*, *Sync*, and *Free mode / Sync* (one key to switch).
 - Only the camera is shared, through a small server of its own on port 8190
   (`share_port` in `config.json`) that runs only while sharing is ticked and
   lets in only someone with the code. The app's own pages stay on this PC.

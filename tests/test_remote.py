@@ -67,6 +67,29 @@ class DualCommentaryTests(unittest.TestCase):
         self.host_moves()
         self.assertTrue(wait_for(lambda: ("replay_search", remote_end()) in self.guest_src.commands[n:], 5))
 
+    def test_free_mode_then_sync(self):
+        code = self.host.command("share_camera", {"on": True})["code"]
+        self.guest.command("follow_camera", {"on": True, "address": f"127.0.0.1:{self.host.share.port}", "code": code})
+        self.assertTrue(wait_for(lambda: self.guest.follow.status == "following" and self.guest.follow.last, 5))
+        # Free mode: the host moves on, the co-commentator's camera stays theirs.
+        self.assertEqual(self.guest.command("hotkey", {"action": "follow:free"}), {"free": True})
+        self.assertTrue(self.guest.build_snapshot()["remote"]["follow"]["free"])
+        cars = list(self.host._drivers)
+        n = len(self.guest_src.commands)
+        self.host.command("watch", {"car_idx": cars[7], "group": 2})
+        self.host_moves()
+        number = self.host._drivers[cars[7]]["number"]
+        self.assertTrue(wait_for(lambda: (self.guest.follow.last or {}).get("car") == number, 5))
+        self.assertFalse(any(c[0] == "cam_switch_num" for c in self.guest_src.commands[n:]))
+        # Sync: straight to what the host is showing now, and following again.
+        self.assertEqual(self.guest.command("follow_free", {"on": False}), {"free": False})
+        self.assertIn(("cam_switch_num", number, 2, 0), self.guest_src.commands[n:])
+        n = len(self.guest_src.commands)
+        self.host.command("watch", {"car_idx": cars[2], "group": 1})
+        self.host_moves()
+        number = self.host._drivers[cars[2]]["number"]
+        self.assertTrue(wait_for(lambda: ("cam_switch_num", number, 1, 0) in self.guest_src.commands[n:], 5))
+
     def test_a_wrong_code_is_turned_away(self):
         self.host.command("share_camera", {"on": True})
         self.guest.command("follow_camera", {"on": True, "address": f"127.0.0.1:{self.host.share.port}", "code": "000000x"})
