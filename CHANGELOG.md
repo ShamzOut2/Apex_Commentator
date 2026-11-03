@@ -11,6 +11,15 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- **Team changes mid-season**: change a driver's team after they've raced
+  and choose whether the points they scored so far stay with their old team
+  (only new races count for the new one) or all go to the new team. Each
+  race result now keeps the team it was raced for.
+
 ## v0.6.0
 
 ### New features

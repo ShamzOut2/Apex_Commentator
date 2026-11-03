@@ -868,6 +868,7 @@ class App:
                 "fastest_lap": fastest if isinstance(fastest, (int, float)) and fastest > 0 else r["best_lap"],
                 "incidents": incidents or 0, "status": status,
                 "make": (entry or {}).get("car_make") or r.get("make", ""),
+                "team": (entry or {}).get("team", ""),  # the team they raced for (a later switch doesn't take it)
                 "gap": self._result_gap(off, won, r, checkered),
                 "race_time": off.get("Time") if checkered and isinstance(off.get("Time"), (int, float)) and off.get("Time") > 0 else None,
             }))

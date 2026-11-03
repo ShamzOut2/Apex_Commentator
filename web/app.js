@@ -4293,7 +4293,12 @@ $("#team-cards").addEventListener("change", async (e) => {
     return;
   }
   if (el.dataset.teamAdd != null) {
-    if (el.value !== "") ui.editing.drivers[+el.value].team = teams[+el.dataset.teamAdd].name;
+    if (el.value !== "") {
+      const d = ui.editing.drivers[+el.value];
+      const was = d.team;
+      d.team = teams[+el.dataset.teamAdd].name;
+      teamSwitch(d, was, d.team).then(() => { renderTeams(); renderRoster(); });
+    }
     renderTeams();
     renderRoster();
     return;
@@ -4308,8 +4313,9 @@ $("#team-cards").addEventListener("change", async (e) => {
       el.value = team.name;
       return;
     }
-    // Renaming moves the team's drivers with it.
+    // Renaming moves the team's drivers with it (and the races raced for it).
     for (const d of ui.editing.drivers || []) if (sameTeam(d.team, team.name)) d.team = name;
+    for (const r of allResults()) if (r.team && sameTeam(r.team, team.name)) r.team = name;
     team.name = name;
     renderRoster();
   } else {
@@ -4340,18 +4346,82 @@ $("#team-cards").addEventListener("click", async (e) => {
     }
     return;
   }
-  if (d.teamUnassign != null) ui.editing.drivers[+d.teamUnassign].team = "";
+  if (d.teamUnassign != null) {
+    const dr = ui.editing.drivers[+d.teamUnassign];
+    const was = dr.team;
+    dr.team = "";
+    await teamSwitch(dr, was, "");
+  }
   else if (d.teamNocolor != null) teams[+d.teamNocolor].color = "";
   else if (d.teamNologo != null) teams[+d.teamNologo].logo = null;
   else if (d.teamDelete != null) {
     const team = teams[+d.teamDelete];
     if (!confirm(`Delete ${team.name}? Its drivers stay in the league without a team.`)) return;
     for (const dr of ui.editing.drivers || []) if (sameTeam(dr.team, team.name)) dr.team = "";
+    for (const r of allResults()) if (r.team && sameTeam(r.team, team.name)) r.team = "";
     teams.splice(+d.teamDelete, 1);
   } else return;
   renderTeams();
   renderRoster();
 });
+
+// -- a driver changing team mid-season ----------------------------------------
+
+// Every race result of the league being edited.
+function allResults() {
+  const c = ui.editing && ui.editing.championship;
+  return c ? (c.rounds || []).flatMap((rd) => rd.results || []) : [];
+}
+
+// Pick one of ``options`` ([value, label, primary]) in a dialog: the value, or null.
+function choose(title, text, options) {
+  return new Promise((resolve) => {
+    const modal = $("#choice-modal");
+    $("#choice-title").textContent = title;
+    $("#choice-text").textContent = text;
+    const box = $("#choice-options");
+    box.innerHTML = options.map(([v, label, primary]) => `<button class="btn ${primary ? "primary" : ""}" data-choice="${esc(v)}">${esc(label)}</button>`).join("");
+    const done = (v) => {
+      modal.hidden = true;
+      box.onclick = modal.onclick = null;
+      resolve(v);
+    };
+    box.onclick = (e) => {
+      const b = e.target.closest("[data-choice]");
+      if (b) done(b.dataset.choice);
+    };
+    modal.onclick = (e) => { if (e.target === modal) done(null); };
+    modal.hidden = false;
+    box.querySelector("button").focus();
+  });
+}
+
+// A driver moved from one team to another (or out of one) after racing this
+// season: their points so far stay with the team they raced for, or all go
+// to their team now. Each result keeps the team it was raced for ("" = their
+// team now), which the teams' championship counts by.
+async function teamSwitch(d, from, to) {
+  from = String(from || "").trim();
+  to = String(to || "").trim();
+  if (!from || sameTeam(from, to)) return;
+  const key = driverKey(d);
+  const results = allResults().filter((r) => r.driver === key);
+  if (!results.length) return;
+  const name = d.name || "This driver";
+  const n = results.length;
+  const pick = await choose(`${name}: ${from} → ${to || "no team"}`,
+    `${name} has ${n} race${n > 1 ? "s" : ""} this season. In the teams' championship, the points from ${n > 1 ? "them" : "it"}:`, [
+      ["keep", `Stay with ${from} (only races from now on count for ${to || "a team"})`, true],
+      ["move", to ? `All go to ${to}` : "Go with them (no team for now)"],
+    ]);
+  if (pick === "move") {
+    for (const r of results) r.team = "";  // the team they're in now, whatever it is
+  } else {
+    for (const r of results) if (!r.team) r.team = from;  // races already stamped keep their team
+  }
+  toast(pick === "move" ? `${name}'s points go with them to ${to || "no team"}: save to keep it`
+    : `${name}'s points so far stay with ${from}: save to keep it`);
+}
 
 // -- classes ------------------------------------------------------------------
 
@@ -4584,8 +4654,17 @@ $("#roster-rows").addEventListener("input", (e) => {
   const { row, field } = e.target.dataset;
   if (row != null) ui.editing.drivers[+row][field] = e.target.value;
 });
+// The team a driver was in before it's typed over (for a mid-season switch).
+$("#roster-rows").addEventListener("focusin", (e) => {
+  if (e.target.dataset.field === "team") e.target.dataset.was = ui.editing.drivers[+e.target.dataset.row].team || "";
+});
 $("#roster-rows").addEventListener("change", async (e) => {
-  if (e.target.dataset.field === "team") return renderTeams();
+  if (e.target.dataset.field === "team") {
+    const d = ui.editing.drivers[+e.target.dataset.row];
+    await teamSwitch(d, e.target.dataset.was, d.team);
+    e.target.dataset.was = d.team || "";
+    return renderTeams();
+  }
   if (e.target.dataset.field === "car_make") return renderRoster();  // update the badge
   const input = e.target.closest("[data-photo]");
   if (!input || !input.files.length) return;

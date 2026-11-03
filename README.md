@@ -56,16 +56,14 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.0**
+**Coming in the next update**
 
 ### New features
 
-- **Dual commentary**: a co-commentator's app can follow your camera.
-  Tick *Let a co-commentator follow my camera* (Home) and give them the
-  address and code shown; whatever driver and camera you put on (from the
-  app, a hotkey or iRacing), live or a replay, their iRacing shows too.
-  **Free mode** lets them go their own way (a replay, another driver) and
-  **Sync** takes them back with you (top bar, or hotkeys).
+- **Team changes mid-season**: change a driver's team after they've raced
+  and choose whether the points they scored so far stay with their old team
+  (only new races count for the new one) or all go to the new team. Each
+  race result now keeps the team it was raced for.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -1090,6 +1088,13 @@ standings update from what's saved.
   - **Team championship**: count every driver, or each team's best N per
     round. With *Both*, teams count their drivers' overall points, or class
     points if you choose. Secondary classes never count for teams.
+  - **A driver changing team mid-season**: each race result keeps the team
+    the driver raced for (saved with the results, from the roster at the
+    time). Change their team (League builder or Teams) after they've raced
+    and the app asks what happens to the points from those races: **stay
+    with the old team** (only races from now on count for the new one), or
+    **all go to the new team**. Finishing order boards show the team they
+    raced for in each round. Renaming a team takes its races with it.
   - **Bonus points**: pole, fastest lap, led a lap, each lap led, most laps
     led, most places gained, clean race (no incidents), finished, started, and
     race win. Use 0 for bonuses you don't award; negative values take points

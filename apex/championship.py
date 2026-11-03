@@ -162,6 +162,8 @@ def normalise_result(r):
         "status": status,
         "adjust": _num(r.get("adjust"), 0, lo=-1000, hi=1000),  # hand-given points (+ or -)
         "make": str(r.get("make") or "").strip()[:40],  # the car driven that round (manufacturers' standings)
+        # The team they raced for that round (the teams' championship); "" = their team now.
+        "team": str(r.get("team") or "").strip()[:80],
         "gap": _num(r.get("gap"), None, lo=0),  # seconds behind the winner, for the finishing order board
         "race_time": _num(r.get("race_time"), None, lo=0),  # their whole race, in seconds, where known
     }
@@ -632,16 +634,19 @@ def _team_standings(profile, scored, per_round, rules, penalties):
     championship it scores in) and what each driver brought in.
     """
     roster = {_key(d): d for d in profile.get("drivers", []) if d.get("team", "").strip()}
-    if not roster:
+    everyone = _roster(profile)
+    if not roster and not any(r.get("team") for rd in scored for r in rd["results"]):
         return []
     rounds, wins, by_round = {}, {}, {}
     for rd in scored:
         by_team = {}
         for r in rd["results"]:
-            d = roster.get(r["driver"])
+            # The team they raced for that round (a driver who changed team
+            # mid-season), else the one they're in now.
+            team = (r.get("team") or (roster.get(r["driver"]) or {}).get("team") or "").strip()
             res = per_round[rd["id"]].get(_team_group(r, rules), {}).get(r["driver"])
-            if d and res:
-                by_team.setdefault(d["team"].strip(), []).append((res["total"], r["driver"], res["rank"]))
+            if team and res:
+                by_team.setdefault(team, []).append((res["total"], r["driver"], res["rank"]))
         for team, entries in by_team.items():
             entries.sort(key=lambda e: -e[0])
             counted = entries[:rules["team_best"]] if rules["team_best"] else entries
@@ -679,7 +684,7 @@ def _team_standings(profile, scored, per_round, rules, penalties):
             "wins": wins.get(team, 0), "penalty_points": _round(pens.get(team, 0)),
             "rounds": [{"round": rd["id"], "points": rounds.get(team, {}).get(rd["id"]), "dropped": rd["id"] in dropped.get(team, ())}
                        for rd in scored],
-            "drivers": [{"driver": d, "name": roster[d].get("name", ""), "nickname": roster[d].get("nickname", ""),
+            "drivers": [{"driver": d, "name": (everyone.get(d) or {}).get("name", ""), "nickname": (everyone.get(d) or {}).get("nickname", ""),
                          "points": _round(p)} for d, p in drivers],
         })
     return out
@@ -788,7 +793,7 @@ def round_results(profile, rd, group):
         out.append({
             "rank": s["rank"], "driver": r["driver"], "name": info.get("name") or r["name"],
             "nickname": info.get("nickname", ""), "car_number": info.get("car_number", ""),
-            "team": info.get("team", ""), "class_id": r["class_id"],
+            "team": r.get("team") or info.get("team", ""), "class_id": r["class_id"],  # the team they raced for then
             "make": r.get("make") or info.get("car_make", ""),
             "start": grid.get(r["driver"]), "laps": r["laps"], "laps_led": r["laps_led"],
             "fastest_lap": r["fastest_lap"], "has_fastest": best is not None and r["fastest_lap"] == best,
