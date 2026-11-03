@@ -88,6 +88,53 @@ function connectStream() {
 }
 
 // ---------------------------------------------------------------------------
+// dual commentary: this app's camera shared, or another app's followed (remote.py)
+// ---------------------------------------------------------------------------
+
+function renderDual(r) {
+  if (!r) return;
+  const sh = r.share;
+  const fo = r.follow;
+  const box = $("#share-on");
+  if (document.activeElement !== box) box.checked = sh.on;
+  $("#share-info").hidden = !sh.on;
+  const addrs = (sh.addresses || []).map((a) => `${a}:${sh.port}`);
+  $("#share-addr").textContent = addrs.join("  or  ") || `this PC's address:${sh.port}`;
+  $("#share-code").textContent = sh.code;
+  $("#share-followers").textContent = sh.followers ? `${sh.followers} following your camera` : "Nobody following yet";
+  document.querySelectorAll(".share-port").forEach((el) => { el.textContent = sh.port; });
+  for (const [id, v] of [["#follow-address", fo.address], ["#follow-code", fo.code]]) {
+    if (document.activeElement !== $(id) && !$(id).dataset.typed) $(id).value = v;
+  }
+  $("#follow-start").hidden = fo.on;
+  $("#follow-stop").hidden = !fo.on;
+  const host = fo.host;
+  $("#follow-status").textContent = !fo.on ? ""
+    : fo.status === "following" ? `Following: ${host && host.car ? `#${host.car} ${host.driver}${host.group ? `, ${host.group}` : ""}${host.live === false ? " (replay)" : ""}` : "connected"}`
+      : fo.status === "connecting" ? "Connecting…" : `${fo.error || "Not connected"}: trying again…`;
+  $("#follow-status").className = `hint ${fo.on && fo.status === "error" ? "bad" : ""}`;
+  $("#dual-state").textContent = sh.on ? `Sharing your camera${sh.followers ? ` · ${sh.followers} following` : ""}` : fo.on ? "Following" : "";
+  const badge = $("#dual-badge");
+  badge.hidden = !sh.on && !fo.on;
+  badge.textContent = fo.on ? (fo.status === "following" ? "● Following the host" : "○ Following: not connected")
+    : `📡 Camera shared${sh.followers ? ` (${sh.followers})` : ""}`;
+  badge.classList.toggle("live", fo.on ? fo.status === "following" : sh.followers > 0);
+}
+
+$("#share-on").addEventListener("change", (e) => {
+  e.target.blur();
+  cmd("share_camera", { on: e.target.checked }, e.target.checked ? "Your camera can be followed" : "Stopped sharing your camera");
+});
+$("#share-new-code").addEventListener("click", () => cmd("share_new_code", {}, "New code: tell your co-commentator"));
+for (const id of ["#follow-address", "#follow-code"]) $(id).addEventListener("input", (e) => { e.target.dataset.typed = "1"; });
+$("#follow-start").addEventListener("click", async () => {
+  const r = await cmd("follow_camera", { on: true, address: $("#follow-address").value, code: $("#follow-code").value }, "Following the host's camera");
+  if (r) for (const id of ["#follow-address", "#follow-code"]) delete $(id).dataset.typed;
+});
+$("#follow-stop").addEventListener("click", () => cmd("follow_camera", { on: false }, "Stopped following"));
+$("#follow-code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#follow-start").click(); });
+
+// ---------------------------------------------------------------------------
 // rendering
 // ---------------------------------------------------------------------------
 
@@ -104,6 +151,7 @@ function render() {
     if (!savedKeys) sendHotkeys();  // this window's keys, once the cameras are known
   }
   $("#status-dot").classList.toggle("on", !!s.connected);
+  renderDual(s.remote);
   if (s.data_delay_s != null && document.activeElement !== $("#data-delay")) $("#data-delay").value = s.data_delay_s;
   const league = s.league;
   const off = s.officials || { on: false, league: null };

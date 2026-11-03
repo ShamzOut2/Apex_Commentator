@@ -16,6 +16,9 @@ DEFAULTS = {
     # Web server. Use "0.0.0.0" to open the overlay from another PC on your LAN.
     "host": "127.0.0.1",
     "port": 8180,
+    # Dual commentary: the port a co-commentator's app follows this one's camera on
+    # (only while "Let a co-commentator follow my camera" is ticked).
+    "share_port": 8190,
     # How often telemetry is sampled (Hz). Event detection runs at this rate;
     # spin detection looks at 0.2 s windows, so keep it at 20 or more.
     "poll_hz": 30,

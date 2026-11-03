@@ -23,7 +23,7 @@ from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
 from .settings import UserSettings
 from .tracks import TrackCatalogue
-from . import boards, heats
+from . import boards, heats, remote
 from .league import driver_key, logo_url, strip_class_prefix
 from .makes import logo_for as make_logo
 from .makes import make_for
@@ -243,6 +243,11 @@ class App:
         self._encode_lock = threading.Lock()
         self._errors = {}                   # poller errors logged: (where, error) -> (when, times since)
         self._delay_history = deque()       # (when, snapshot) for the data delay (_delay)
+        # Dual commentary (remote.py): this app's camera shared with a
+        # co-commentator, or another app's camera followed.
+        self.share = None          # remote.CameraShare
+        self.follow = None         # remote.CameraFollow
+        self._followed = None      # (when, the host's camera) last followed
         self._version = 0
         self._changed = threading.Condition()
         self._info_update = None
@@ -306,6 +311,14 @@ class App:
 
     def start(self):
         threading.Thread(target=self._run, name="poller", daemon=True).start()
+        # Sharing or following the camera as when the app was last closed.
+        for action, params in (("share_camera", {"on": True}) if self.settings.get("share_on") else (None, None),
+                               ("follow_camera", {"on": True}) if self.settings.get("follow_on") else (None, None)):
+            if action:
+                try:
+                    self.command(action, params)
+                except Exception as e:  # noqa: BLE001
+                    print(f"[apex] couldn't {action.replace('_', ' ')} again: {e}")
 
     def stop(self):
         self._stop.set()
@@ -320,6 +333,8 @@ class App:
             # freezing every overlay until the app was restarted.
             try:
                 self.tick()
+                if self.share:
+                    self.share.update(self._camera_state())
             except Exception as e:
                 self._report("poll", e)
             try:
@@ -603,6 +618,7 @@ class App:
                             "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else [],
                             "saved": self.settings.get("hotkey_map")},
                     "desktop": self._desktop_snapshot(),
+                    "remote": self._remote_snapshot(),
                     **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
                                  "laps": {"active": False, "camera": None, "trackers": [], "all": [],
@@ -739,6 +755,7 @@ class App:
                 "classes": self._ordered_classes(classes),
                 "events": events[-200:],
                 "desktop": self._desktop_snapshot(),
+                "remote": self._remote_snapshot(),
                 "league": self._league_summary(), "officials": self._officials_state(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
@@ -1626,7 +1643,7 @@ class App:
             # click on screen: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay", "share_", "follow_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -2438,6 +2455,118 @@ class App:
 
     RESULTS_EVERY_S = 3.0   # how often the standing results are worked out during a race
     RESULTS_GRACE_S = 5.0   # after the last car is in, for iRacing's official results
+
+    # -- dual commentary: the camera shared, or followed (remote.py) -----------
+
+    def _camera_state(self):
+        """What this app's iRacing is showing, for a co-commentator to follow."""
+        frame = self._frame
+        if frame is None:
+            return None
+        d = self._drivers.get(frame.cam_car_idx)
+        live = frame.is_live
+        return {
+            "sub": self._session_meta.get("subsession"), "car": d["number"] if d else None, "driver": d["name"] if d else "",
+            "group": next((g["name"] for g in self._camera_groups if g["num"] == frame.cam_group), ""),
+            "group_num": frame.cam_group, "live": live,
+            "rs": None if live else frame.replay_session_num,
+            "rt": None if live else round(frame.replay_session_time * 2) / 2,
+            "speed": 1 if live else frame.replay_speed,
+        }
+
+    def _follow_camera(self, st):
+        """The host's camera (from their app): this iRacing does the same, for
+        whatever changed since the last time (in between, the co-commentator's
+        own camera is theirs)."""
+        now = time.monotonic()
+        with self._lock:
+            frame = self._frame
+            groups = list(self._camera_groups)
+            sub = self._session_meta.get("subsession")
+            got, prev = self._followed or (None, None)
+            self._followed = (now, st)
+        if frame is None:
+            return
+        prev = prev or {}
+        first = not prev
+        # Live or a replay: only within the same iRacing event (the same session times).
+        if st.get("sub") is not None and st.get("sub") == sub:
+            if st["live"]:
+                if first or not prev.get("live"):
+                    self._go_live()
+            else:
+                elapsed = now - got if got else 0.0
+                expected = (prev.get("rt") or 0) + elapsed * (prev.get("speed") or 0)
+                jumped = (first or prev.get("live") or prev.get("rs") != st["rs"]
+                          or abs((st["rt"] or 0) - expected) > 2.5 + abs(prev.get("speed") or 0) * 0.5)
+                if jumped:
+                    self.source.replay_search_session_time(int(st["rs"] or 0), int((st["rt"] or 0) * 1000))
+                if jumped or st.get("speed") != prev.get("speed"):
+                    self.source.replay_set_play_speed(int(st.get("speed") or 0), False)
+        # The driver and the camera: the same camera by name (its number can differ).
+        if st.get("car") and (first or (st.get("car"), st.get("group")) != (prev.get("car"), prev.get("group"))):
+            group = next((g["num"] for g in groups if g["name"] and g["name"] == st.get("group")), st.get("group_num") or 0)
+            self.source.cam_switch_num(str(st["car"]), int(group), 0)
+
+    def cmd_share_camera(self, on=True):
+        """Let a co-commentator's app follow this one's camera (or stop)."""
+        if self.share:
+            self.share.stop()
+            self.share = None
+        self.settings.set("share_on", bool(on))
+        if not on:
+            return {"sharing": False}
+        code = self.settings.get("share_code") or remote.new_code()
+        self.settings.set("share_code", code)
+        try:
+            self.share = remote.CameraShare(port=int(self.cfg.get("share_port") or remote.DEFAULT_PORT), code=code).start()
+        except OSError as e:
+            self.settings.set("share_on", False)
+            raise CommandError(f"Couldn't start sharing on port {self.cfg.get('share_port') or remote.DEFAULT_PORT}: {e}")
+        self.share.update(self._camera_state())
+        return {"sharing": True, "code": code}
+
+    def cmd_share_new_code(self):
+        """A new access code: whoever follows has to type it in again."""
+        code = remote.new_code()
+        self.settings.set("share_code", code)
+        if self.share:
+            self.share.code = code
+        return {"code": code}
+
+    def cmd_follow_camera(self, on=True, address=None, code=None):
+        """Follow a host's camera (their address and code), or stop."""
+        if self.follow:
+            self.follow.stop()
+            self.follow = None
+        self._followed = None
+        if address is not None:
+            self.settings.set("follow_address", str(address).strip())
+        if code is not None:
+            self.settings.set("follow_code", str(code).strip())
+        self.settings.set("follow_on", bool(on))
+        if not on:
+            return {"following": False}
+        try:
+            self.follow = remote.CameraFollow(self.settings.get("follow_address"), self.settings.get("follow_code"),
+                                              self._follow_camera).start()
+        except ValueError as e:
+            self.settings.set("follow_on", False)
+            raise CommandError(str(e))
+        return {"following": True}
+
+    def _remote_snapshot(self):
+        sh, fo = self.share, self.follow
+        host = (fo.last or {}) if fo else {}
+        return {
+            "share": {"on": bool(sh), "code": sh.code if sh else self.settings.get("share_code") or "",
+                      "port": sh.port if sh else int(self.cfg.get("share_port") or remote.DEFAULT_PORT),
+                      "addresses": sh.addresses if sh else [], "followers": sh.followers if sh else 0},
+            "follow": {"on": bool(fo), "address": self.settings.get("follow_address") or "",
+                       "code": self.settings.get("follow_code") or "", "status": fo.status if fo else "off",
+                       "error": fo.error if fo else "",
+                       "host": {k: host.get(k) for k in ("car", "driver", "group", "live")} if host else None},
+        }
 
     def cmd_data_delay(self, seconds=1.0):
         """How far behind iRacing everything shows (s; 0 = straight away)."""
