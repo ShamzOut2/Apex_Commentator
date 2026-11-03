@@ -505,3 +505,40 @@ class TeamAndMakeDropTests(unittest.TestCase):
         # No drop rounds: everything counts.
         profile["championship"]["rules"]["drop_rounds"] = 0
         self.assertEqual({m["make"]: m["points"] for m in ch.make_standings(profile, "gt3")}, {"Ferrari": 37, "BMW": 32})
+
+
+class TeamSwitchTests(unittest.TestCase):
+    def profile(self, stamp):
+        def res(order, teams):
+            return [{"driver": f"cust:{d}", "name": f"D{d}", "class_id": "gt3", "position": i, "status": "finished",
+                     "team": teams.get(d, "")} for i, d in enumerate(order, 1)]
+        # D1 raced rounds 1-2 for Red, then moved to Blue for round 3.
+        before = {1: "Red"} if stamp else {}
+        return {
+            "drivers": [{"cust_id": 1, "name": "D1", "team": "Blue"}, {"cust_id": 2, "name": "D2", "team": "Red"},
+                        {"cust_id": 3, "name": "D3", "team": "Blue"}],
+            "classes": [{"id": "gt3", "name": "GT3", "color": "#fff"}],
+            "championship": {"rules": {"points": [10, 6, 4]}, "rounds": [
+                {"id": "a", "name": "R1", "results": res([1, 2, 3], before)},
+                {"id": "b", "name": "R2", "results": res([1, 2, 3], before)},
+                {"id": "c", "name": "R3", "results": res([1, 2, 3], {1: "Blue"})}]},
+        }
+
+    def test_points_stay_with_the_team_they_were_scored_for(self):
+        teams = {t["team"]: t for t in ch.standings(self.profile(stamp=True))["teams"]}
+        # Red: D1's 10+10 and D2's 6+6+6; Blue: D1's 10 in round 3 and D3's 4+4+4.
+        self.assertEqual((teams["Red"]["points"], teams["Blue"]["points"]), (38, 22))
+        self.assertEqual({d["name"]: d["points"] for d in teams["Red"]["drivers"]}, {"D1": 20, "D2": 18})
+        # The finishing order of an earlier round shows the team they raced for then.
+        champ = ch.normalise(self.profile(stamp=True)["championship"])
+        row = next(r for r in ch.round_results(self.profile(stamp=True), champ["rounds"][0], "gt3") if r["driver"] == "cust:1")
+        self.assertEqual(row["team"], "Red")
+
+    def test_or_all_go_with_them(self):
+        teams = {t["team"]: t["points"] for t in ch.standings(self.profile(stamp=False))["teams"]}
+        self.assertEqual(teams, {"Red": 18, "Blue": 42})
+
+    def test_results_saved_from_a_session_carry_the_team(self):
+        r = ch.normalise_result({"driver": "cust:1", "name": "D1", "team": "Red"})
+        self.assertEqual(r["team"], "Red")
+        self.assertEqual(ch.normalise_result({"driver": "cust:1"})["team"], "")

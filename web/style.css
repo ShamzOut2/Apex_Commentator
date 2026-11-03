@@ -817,3 +817,11 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .dual-follow { display: inline-flex; gap: 4px; align-items: center; }
 .dual-follow .btn.slim { padding: 3px 10px; font-size: 12px; }
 .badge.free { background: #f0b429; color: #1d1600; }
+.choice-options { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.choice-options .btn { text-align: left; white-space: normal; padding: 10px 12px; }
+.choice-form .ov-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text); margin: 6px 0; }
+.choice-form select { width: 100%; }
+.team-history { max-height: 50vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.team-cell { display: flex; gap: 4px; align-items: center; }
+.team-cell input { flex: 1; min-width: 0; }
+.team-cell .btn.icon { padding: 2px 6px; }
