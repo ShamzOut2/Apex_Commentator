@@ -11,6 +11,17 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.6.0
+
+### New features
+
+- **Dual commentary**: a co-commentator's app can follow your camera.
+  Tick *Let a co-commentator follow my camera* (Home) and give them the
+  address and code shown; whatever driver and camera you put on (from the
+  app, a hotkey or iRacing), live or a replay, their iRacing shows too.
+  **Free mode** lets them go their own way (a replay, another driver) and
+  **Sync** takes them back with you (top bar, or hotkeys).
+
 ## v0.5.9
 
 ### New features

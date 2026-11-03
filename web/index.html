@@ -17,6 +17,11 @@
         <button id="league-badge" class="badge" data-mode="league" title="On screen: the active league's names, classes and settings">No league</button>
         <button id="officials-badge" class="badge" data-mode="officials" title="On screen: iRacing's own data, for an official or AI race (no league names, classes or rules; the league stays picked)">Officials</button>
       </div>
+      <button id="dual-badge" class="badge" data-goto="home" hidden></button>
+      <span id="dual-follow" class="dual-follow" hidden>
+        <button class="btn subtle slim" id="follow-free" title="Your own camera: replay something or watch someone else (still connected to the host)">Free mode</button>
+        <button class="btn primary slim" id="follow-sync" title="Back to what the host is showing, and following again">Sync</button>
+      </span>
       <span id="replay-badge" class="badge">—</span>
     </div>
   </header>
@@ -77,6 +82,36 @@
           </button>
         </div>
         <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>; the other overlays and boards are in the Widgets tab (their links and every setting in Widget Settings).</p>
+        <div class="updates-card" id="dual-card">
+          <div class="row"><h3>Dual commentary</h3><span id="dual-state" class="upd-status"></span></div>
+          <p class="hint">Commentating with someone on another PC: one app's camera followed by the other's. Whatever
+            driver and camera the host puts on (from the app, a hotkey or iRacing), live or a replay, the co-commentator's
+            iRacing shows too, without them doing a thing.</p>
+          <div class="dual">
+            <div class="dual-side">
+              <label class="check"><input type="checkbox" id="share-on"> <b>Let a co-commentator follow my camera</b></label>
+              <div id="share-info" class="dual-info" hidden>
+                <p>Their address for this PC: <code id="share-addr"></code> <button class="btn subtle" data-copy="share-addr">Copy</button></p>
+                <p>Code: <code id="share-code" class="dual-code"></code> <button class="btn subtle" id="share-new-code" title="A new code: whoever follows types it in again">New code</button></p>
+                <p id="share-followers" class="hint"></p>
+              </div>
+            </div>
+            <div class="dual-side">
+              <b>Follow a host's camera</b>
+              <div class="row">
+                <input id="follow-address" placeholder="Their address, e.g. 192.168.1.20" aria-label="The host's address">
+                <input id="follow-code" class="narrow-text" placeholder="Code" aria-label="The host's code" maxlength="12">
+                <button class="btn primary" id="follow-start">Follow</button>
+                <button class="btn danger" id="follow-stop" hidden>Stop</button>
+              </div>
+              <p id="follow-status" class="hint"></p>
+            </div>
+          </div>
+          <p class="hint">On the same network, the address above is all it takes. Over the internet: the host lets port
+            <span class="share-port">8190</span> through to their PC on their router, or both of you join the same VPN
+            (Tailscale, ZeroTier, Radmin VPN…) and use its address. Windows may ask the host to allow Apex Commentator
+            through the firewall the first time: say yes (private networks).</p>
+        </div>
         <div class="updates-card">
           <div class="row">
             <h3>Import &amp; export</h3>

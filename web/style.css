@@ -804,3 +804,16 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
   padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
 }
 .log-hide-menu .check { display: flex; align-items: center; gap: 8px; font-size: 13px; white-space: nowrap; }
+
+/* Dual commentary (Home). */
+.dual { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin: 8px 0; }
+.dual-side { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.dual-side .row { flex-wrap: wrap; gap: 6px; }
+.dual-side .row input:first-child { flex: 1; min-width: 180px; }
+.dual-info p { margin: 4px 0; }
+.dual-code { font-size: 18px; letter-spacing: .2em; }
+#follow-status.bad { color: var(--bad); }
+.badge.live { background: var(--good); color: #04140c; }
+.dual-follow { display: inline-flex; gap: 4px; align-items: center; }
+.dual-follow .btn.slim { padding: 3px 10px; font-size: 12px; }
+.badge.free { background: #f0b429; color: #1d1600; }
