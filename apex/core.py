@@ -2352,9 +2352,16 @@ class App:
         shown = int(params.get("reveal") or 1)
         shown = total if step == "all" else shown + 1 if step == "next" else shown - 1 if step == "prev" else shown
         shown = min(max(shown, 1), total)
-        per = max(1, int(self.overlays.get()["board_grid"]["rows"]))
+        cfg = self.overlays.get()["board_grid"]
+        per = max(1, int(cfg["rows"]))
         page = (shown * 2 - 1) // per if step != "all" else int(params.get("page") or 0)
-        self.board = {"kind": "grid", "params": dict(params, reveal=shown, page=page)}
+        extra = {}
+        if cfg["grid_scroll"] == "scroll":
+            # Scrolling: the drivers on screen end with the row just shown
+            # (a whole row at the top: an even start).
+            start = max(0, shown * 2 - per)
+            extra["start"] = start + start % 2 if step != "all" else int(params.get("start") or 0)
+        self.board = {"kind": "grid", "params": {**{k: v for k, v in params.items() if k != "start"}, "reveal": shown, "page": page, **extra}}
         return {"reveal": shown, "rows": total}
 
     def _grid_hotkey(self, what):
@@ -2371,7 +2378,7 @@ class App:
             want = {"full": "all", "rows": "rows"}.get(what) or ("rows" if now == "all" else "all")
             self.cmd_overlay_settings("board_grid", {"grid_reveal": want})
             if self.board.get("kind") == "grid":  # row by row starts again from the front row
-                self.board = {"kind": "grid", "params": dict(self.board["params"], reveal=1, page=0)}
+                self.board = {"kind": "grid", "params": dict(self.board["params"], reveal=1, page=0, start=0)}
             return {"grid_reveal": want}
         if what in ("next", "prev", "all"):
             return self.cmd_board_reveal(what)

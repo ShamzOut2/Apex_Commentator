@@ -118,28 +118,28 @@
 
 /* The starting grid, as cars line up (board_grid layout "grid"): two
    staggered columns, the odd places a little ahead on the left. */
-.grid-layout { display: grid; grid-template-columns: 1fr 1fr; column-gap: 48px; row-gap: 10px; grid-auto-rows: 74px; }
+.grid-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 48px; row-gap: 10px; grid-auto-rows: var(--slot-h, 74px); }
 /* Every driver at once: the cars roll up into their slots one after another
    (the even side a beat later); leaving, they roll back out, last first. */
 .gslot { display: flex; align-items: stretch; gap: 10px; }
 .board:not(.steady) .gslot { animation: slot-in .55s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.25s + var(--i, 0) * 60ms); }
-.gslot.even { translate: 0 42px; }
+.gslot.even { translate: 0 calc(var(--slot-h, 74px) * .57); }
 @keyframes slot-in { from { opacity: 0; transform: translateY(46px) scale(.96); } 60% { opacity: 1; } }
 .board.leaving .gslot { animation: slot-out .35s cubic-bezier(.55, 0, .75, .2) both; animation-delay: calc(min(var(--i, 0), 16) * 18ms); }
 @keyframes slot-out { to { opacity: 0; transform: translateY(30px) scale(.97); } }
-.gslot .gp { width: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: calc(34px * var(--fs, 1)); font-weight: 900; }
-.gslot .gp small { font-size: calc(14px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
+.gslot .gp { width: calc(76px * var(--slot-k, 1)); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: calc(34px * var(--fs, 1) * var(--slot-k, 1)); font-weight: 900; }
+.gslot .gp small { font-size: calc(14px * var(--fs, 1) * var(--slot-k, 1)); font-weight: 700; color: var(--muted); }
 .gslot .gbox {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 0 18px;
   border: 3px solid rgba(255, 255, 255, .55); border-left: none; border-radius: 0 10px 10px 0;
   background: rgba(255, 255, 255, .04); box-shadow: inset 6px 0 0 var(--cls);
 }
 .gslot .gname { min-width: 0; flex: 1; display: flex; flex-direction: column; }
-.gslot .gname b { font-size: calc(26px * var(--fs, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gslot .gname span { font-size: calc(16px * var(--fs, 1)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gslot .logo { height: calc(36px * var(--logo-k, 1)); width: calc(60px * var(--logo-k, 1)); object-fit: contain; }
-.gslot .gq { display: flex; flex-direction: column; align-items: flex-end; font-size: calc(18px * var(--fs, 1)); font-weight: 700; font-variant-numeric: tabular-nums; }
-.gslot .gq .muted { font-size: calc(14px * var(--fs, 1)); color: var(--muted); }
+.gslot .gname b { font-size: calc(26px * var(--fs, 1) * var(--slot-k, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gslot .gname span { font-size: calc(16px * var(--fs, 1) * var(--slot-k, 1)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gslot .logo { height: calc(36px * var(--logo-k, 1) * var(--slot-k, 1)); width: calc(60px * var(--logo-k, 1) * var(--slot-k, 1)); object-fit: contain; }
+.gslot .gq { display: flex; flex-direction: column; align-items: flex-end; font-size: calc(18px * var(--fs, 1) * var(--slot-k, 1)); font-weight: 700; font-variant-numeric: tabular-nums; }
+.gslot .gq .muted { font-size: calc(14px * var(--fs, 1) * var(--slot-k, 1)); color: var(--muted); }
 .gslot.top3.p1 .gp { color: #f2c94c; }
 .gslot.top3.p2 .gp { color: #c9d1db; }
 .gslot.top3.p3 .gp { color: #d9894a; }
@@ -170,3 +170,6 @@
 @keyframes qual-flash { 0% { color: inherit; } 30% { color: #fff; text-shadow: 0 0 12px rgba(255, 255, 255, .7); } 100% { text-shadow: none; } }
 .board.qualifying.leaving .btable tbody tr { animation: qual-out .35s cubic-bezier(.55, 0, .75, .2) both; animation-delay: calc((12 - min(var(--i, 0), 12)) * 15ms); }
 @keyframes qual-out { to { opacity: 0; transform: translateX(-30px); clip-path: inset(0 100% 0 0); } }
+
+/* Row by row, scrolling: the rows move up a row, the top one sliding off. */
+.scroll-box { overflow: hidden; min-height: 0; flex: 1; }

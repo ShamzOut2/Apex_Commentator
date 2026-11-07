@@ -310,6 +310,12 @@ def _page(out, cfg, params):
     except (TypeError, ValueError):
         page = 0
     page = min(max(page, 0), pages - 1)
+    if out["kind"] == "grid" and cfg.get("grid_reveal") == "rows" and cfg.get("grid_scroll") == "scroll" \
+            and params.get("start") is not None:
+        # The grid row by row, scrolling: the drivers on screen from ``start`` on.
+        start = min(max(int(params.get("start") or 0), 0), max(0, len(rows) - 1))
+        out.update(rows=rows[start:start + n], page=0, pages=1, scroll=start)
+        return out
     if keep and page:
         start = n + (page - 1) * (n - 1)
         shown = [dict(rows[0], kept=True)] + rows[start:start + n - 1]

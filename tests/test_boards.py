@@ -462,6 +462,17 @@ class GridBoardTests(unittest.TestCase):
         b = self.app.build_snapshot()["board"]
         self.assertEqual(b["reveal"], b["reveal_total"])
 
+    def test_row_by_row_scrolling(self):
+        self.grid(grid_reveal="rows", grid_scroll="scroll", rows=6, reverse_top=0)
+        for _ in range(4):
+            self.app.command("board_reveal", {"step": "next"})  # five rows: ten cars, six on screen
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual([r["pos"] for r in b["rows"]], [5, 6, 7, 8, 9, 10])  # the top two rows went up and off
+        self.assertEqual((b["scroll"], b["pages"]), (4, 1))
+        self.app.command("board_reveal", {"step": "prev"})
+        self.assertEqual([r["pos"] for r in self.app.build_snapshot()["board"]["rows"]][0], 3)
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"grid_scroll": "page"}})
+
     def test_grid_hotkeys(self):
         press = lambda a: self.app.command("hotkey", {"action": a})  # noqa: E731
         self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"grid_reveal": "all", "rows": 12}})

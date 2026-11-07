@@ -292,6 +292,9 @@ DEFAULTS = {
         "grid_source": "auto", "reverse_top": 0, "reverse_in_class": False,
         "grid_layout": "list",
         "grid_reveal": "all",     # "all": every driver at once; "rows": the front row, then a row a press (Next row)
+        # Row by row, past the drivers on screen: a new "page", or "scroll" (the
+        # top row slides up and off as the next one comes in).
+        "grid_scroll": "page",
         "show_class_pos": True,   # the grid place in class too (in an overall grid)
         "show_qual": True,        # their qualifying lap
         "show_gap": False,        # the gap to the class's fastest qualifier
@@ -323,7 +326,7 @@ LIMITS = {"font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1,
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
           "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
-CHOICES = {"board_overlays": ("stay", "dim", "hide"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
+CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),

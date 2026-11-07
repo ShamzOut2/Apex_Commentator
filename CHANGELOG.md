@@ -43,6 +43,9 @@ How each version's entry is written:
 - Lap tracker: when the camera moves, the big tracker changes over to the
   new driver in place, and there are never more small trackers on screen
   than set (several laps ending at once no longer swaps them in and out).
+- Starting grid board: fewer **drivers on screen** make bigger name plates;
+  and row by row can **scroll**, the top row sliding up and off as the next
+  one comes in, instead of turning to a new page.
 - Grid walk: it goes in the starting grid board's order, reversed grid
   included; a car with no picture is left black instead of drawn.
 - Starting grid board and grid walk: qualifying times and gaps only show

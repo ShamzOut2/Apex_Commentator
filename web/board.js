@@ -149,7 +149,7 @@ function markReveal(b) {
 // on the left a little ahead of the even ones on the right.
 function gridLayoutHtml(b) {
   const s = b.settings;
-  const slot = (r, i) => `<div class="gslot ${(r.pos || i + 1) % 2 ? "odd" : "even"} ${podiumClass(r)} ${r._cls || ""}" style="--i:${i}">
+  const slot = (r, i) => `<div class="gslot ${(r.pos || i + 1) % 2 ? "odd" : "even"} ${podiumClass(r)} ${r._cls || ""}" style="--i:${i}" data-pos="${esc(r.pos ?? "")}">
       <div class="gp">${r.pos}${s.show_class_pos && b.overall ? `<small>P${r.class_pos}</small>` : ""}</div>
       <div class="gbox" style="--cls:${esc(r.class_color || "#8b93a3")}">
         ${s.show_number ? numberChip(r) : ""}
@@ -164,7 +164,7 @@ function gridLayoutHtml(b) {
 function tableHtml(cols, rows) {
   return `<table class="btable"><colgroup>${cols.map((c) => `<col style="width:${c[1]}">`).join("")}</colgroup>
     <thead><tr>${cols.map((c) => `<th class="${c[2].replace(/\b(pts|p|muted|down)\b/g, "")}">${c[0]}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map((r, i) => `<tr class="${podiumClass(r)} ${r.kept ? "kept" : ""} ${r._cls || ""}" style="--i:${i}">${cols.map((c) => `<td class="${c[2]}" data-opcol="${c[4]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    <tbody>${rows.map((r, i) => `<tr class="${podiumClass(r)} ${r.kept ? "kept" : ""} ${r._cls || ""}" style="--i:${i}" data-pos="${esc(r.pos ?? "")}">${cols.map((c) => `<td class="${c[2]}" data-opcol="${c[4]}">${c[3](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -258,15 +258,25 @@ function render(snap) {
   else if (!b.rows.length) {
     body = `<div class="empty-board">${b.kind === "grid" ? "No grid yet: drivers appear once they're in the session (qualifying, or the event's entry list)."
       : b.kind === "qualifying" ? "No qualifying times yet." : "Nothing to show yet: no results in this championship."}</div>`;
-  } else if (b.kind === "grid" && b.settings.grid_layout === "grid") body = gridLayoutHtml(b);
-  else {
+  } else if (b.kind === "grid" && b.settings.grid_layout === "grid") {
+    // Fewer drivers on screen: bigger slots (and everything in them).
+    const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
+      - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? 110 : 0);
+    const pairs = Math.max(1, Math.ceil(Math.max(b.rows.length, +b.settings.rows || 1) / 2));
+    const slotH = Math.max(56, Math.min(130, Math.floor((space - 10 * (pairs - 1)) / (pairs + 0.6))));
+    body = `<div class="scroll-box" style="--slot-h:${slotH}px;--slot-k:${(slotH / 74).toFixed(3)}">${gridLayoutHtml(b)}</div>`;
+  } else {
     // Long lists go into two columns rather than shrinking past readable.
     const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
       - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? 110 : 0);
     const cols = columns(b);
     const split = b.rows.length > 20 ? 2 : 1;
-    const per = Math.ceil(b.rows.length / split);
-    const rowH = Math.max(30, Math.min(48, Math.floor(space / per)));
+    // The starting grid: fewer drivers on screen, bigger name plates.
+    const per = b.kind === "grid" ? Math.ceil(Math.max(b.rows.length, Math.min(+b.settings.rows || 1, 40)) / split) : Math.ceil(b.rows.length / split);
+    const rowH = Math.max(30, Math.min(b.kind === "grid" ? 80 : 48, Math.floor(space / per)));
+    // Bigger rows: the fixed-width columns grow with them.
+    const grow = rowH / 48;
+    if (grow > 1) for (const c of cols) if (/^\d+px$/.test(c[1])) c[1] = `${Math.round(parseInt(c[1], 10) * grow)}px`;
     const parts = [];
     for (let i = 0; i < split; i++) parts.push(b.rows.slice(i * per, (i + 1) * per));
     body = `<div class="bbody" style="--row-h:${rowH}px;--row-font:${Math.round(rowH * 0.52)}px">${parts.map((p) => tableHtml(cols, p)).join("")}</div>`;
@@ -285,7 +295,10 @@ function render(snap) {
   };
   const sub = b.subtitle
     ? `<span class="sub"><span class="chip" style="${b.accent ? `background:${esc(b.accent)};color:${inkFor(b.accent)}` : "background:rgba(255,255,255,.12)"}">${esc(b.subtitle)}</span></span>` : "";
-  const key = [b.kind, b.title, b.subtitle, b.page].join("|");
+  // Scrolling (the grid row by row): the same board as it moves on, not a new page.
+  const key = [b.kind, b.title, b.subtitle, b.scroll != null ? "scroll" : b.page].join("|");
+  const scrolled = b.scroll != null && lastScroll != null && b.scroll > lastScroll && key === boardKey ? b.scroll - lastScroll : 0;
+  lastScroll = b.scroll ?? null;
   const steady = key === boardKey;
   // Another page of the same board: the board (and its background) stays,
   // just the rows change, cascading in.
@@ -308,14 +321,65 @@ function render(snap) {
       // Same board with new numbers: swap them in without animating again.
       const cur = stage.querySelector(".board:not(.leaving)");
       const cls = steady ? 'class="board steady ' : 'class="board paging ';
+      const before = scrolled && cur ? rowTops(cur, b.rows) : null;
       if (cur) cur.outerHTML = html.replace('class="board ', cls);
       else stage.innerHTML = html;
+      if (before) scrollUp(before);
     } else {
       // Another board: the old one fades out as the new one comes in over it.
       leave();
       stage.querySelectorAll(".preview-hint").forEach((el) => el.remove());
       stage.insertAdjacentHTML("beforeend", html);
     }
+  }
+}
+
+// Row by row, scrolling: where each driver's row was (by grid place), and
+// copies of the rows (tables / grids) as they were, for the rows going off.
+let lastScroll = null;
+function rowTops(board, rows) {
+  const tops = new Map();
+  for (const el of board.querySelectorAll("[data-pos]")) tops.set(el.dataset.pos, el.getBoundingClientRect().top);
+  const staying = new Set(rows.map((r) => String(r.pos)));
+  const boardRect = board.getBoundingClientRect();
+  const k = boardRect.height / board.offsetHeight || 1;  // the stage's scaling
+  const ghosts = [];
+  for (const box of board.querySelectorAll(".btable, .grid-layout")) {
+    const r = box.getBoundingClientRect();
+    const copy = box.cloneNode(true);
+    let any = false;
+    for (const el of copy.querySelectorAll("[data-pos]")) {
+      if (staying.has(el.dataset.pos)) el.style.visibility = "hidden";
+      else any = true;
+    }
+    copy.querySelectorAll("thead").forEach((h) => { h.style.visibility = "hidden"; });
+    if (any) ghosts.push({ copy, left: (r.left - boardRect.left) / k, top: (r.top - boardRect.top) / k, width: r.width / k });
+  }
+  return { tops, ghosts, k };
+}
+
+// The rows still on screen glide up from where they were; the rows that went
+// off the top slide up and fade away above them.
+function scrollUp(before) {
+  const board = stage.querySelector(".board:not(.leaving)");
+  if (!board) return;
+  let dy = 0;
+  for (const el of board.querySelectorAll("[data-pos]")) {
+    const was = before.tops.get(el.dataset.pos);
+    if (was == null) continue;
+    dy = (was - el.getBoundingClientRect().top) / before.k;
+    if (Math.abs(dy) < 1) continue;
+    el.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 650, easing: "cubic-bezier(.2, .8, .2, 1)" });
+  }
+  if (dy <= 0) return;
+  for (const g of before.ghosts) {
+    const wrap = document.createElement("div");
+    wrap.className = "scroll-ghost";
+    Object.assign(wrap.style, { position: "absolute", left: `${g.left}px`, top: `${g.top}px`, width: `${g.width}px`, pointerEvents: "none", zIndex: "2" });
+    wrap.appendChild(g.copy);
+    board.appendChild(wrap);
+    wrap.animate([{ transform: "none", opacity: 1 }, { transform: `translateY(${-dy}px)`, opacity: 0 }],
+      { duration: 650, easing: "cubic-bezier(.2, .8, .2, 1)" }).onfinish = () => wrap.remove();
   }
 }
 
