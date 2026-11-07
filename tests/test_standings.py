@@ -484,3 +484,53 @@ class ColumnOpacityTests(unittest.TestCase):
             e = after[car["car_idx"]]
             self.assertEqual((e["pos"], e["in_world"], e["on_pit"], e.get("left", False)), (car["pos"], True, False, False))
             self.assertEqual(e["gap"], car["gap"])
+
+    def test_a_car_towed_past_the_line_isnt_given_a_lap(self):
+        from apex.core import LineFilter
+
+        f = LineFilter()
+        f((0, 10.0), 1, 4.95)                       # stopped just before the line
+        self.assertEqual(f((0, 10.1), 1, -1), -1)   # towed: off the track
+        self.assertEqual(round(f((0, 15.0), 1, 4.02), 2), 4.02)  # in its pit box just after the line: no lap more
+        f((0, 20.0), 2, 7.93)
+        self.assertEqual(round(f((0, 20.1), 2, 7.03), 2), 7.03)  # put back far along: not a lap
+
+    def test_after_the_leaders_flag_the_rest_are_timed_until_they_finish(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            src = MockSource(seed=4, clock=lambda: clock["t"], race_laps=2)
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            while not app._race.checkered and clock["t"] < 2000:
+                clock["t"] += 0.1
+                app.tick()
+
+            def still_racing():
+                return {e["car_idx"]: e["gap"] for e in app.build_snapshot()["overlays"]["standings"]
+                        if e["car_idx"] not in app._race.finished and e["in_world"]}
+
+            before = still_racing()
+            for _ in range(30):
+                clock["t"] += 0.1
+                app.tick()
+            after = still_racing()
+            moved = [c for c in before if c in after and before[c] != after[c]]
+            self.assertTrue(moved, "the cars still racing kept their gaps from the moment the leader finished")
+
+    def test_gaps_from_the_very_start(self):
+        """Before the timing has the leader's times where the others are (the
+        first moments), the gaps are estimated, not iRacing's 0.0."""
+        from dataclasses import replace
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            app = App(MockSource(seed=4, clock=lambda: clock["t"]), dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(200):
+                clock["t"] += 0.1
+                app.tick()
+            with app._lock:
+                app._frame = replace(app._frame, f2_time=[0.0] * len(app._frame.f2_time))
+            app.gaps.reset()
+            rows = sorted((r for r in app.build_snapshot()["drivers"] if r["pos"] and r["in_world"]), key=lambda r: r["pos"])
+            gaps = [r["gap"] for r in rows[1:6]]
+            self.assertTrue(all(g is not None and g > 0 for g in gaps), gaps)
+            self.assertEqual(gaps, sorted(gaps))

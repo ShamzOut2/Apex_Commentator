@@ -153,8 +153,17 @@ class LineFilter:
     def __init__(self):
         self._key, self._last, self._now = None, {}, {}
 
+    # As far as a car gets round in one update at most (a lap's fraction): a
+    # bigger jump across the line is a car put somewhere (towed to its pit
+    # box just after the line, say), not one driving over it.
+    STEP = 0.06
+
     def __call__(self, timeline, idx, raw):
         if raw is None or raw < 0:
+            # Off the track (towed, in the garage, gone): what it was is no
+            # guide to where it reappears.
+            self._last.pop(idx, None)
+            self._now.pop(idx, None)
             return raw
         if timeline != self._key:
             num, t = timeline
@@ -165,9 +174,9 @@ class LineFilter:
             return self._now[idx]
         p, prev = raw, self._last.get(idx)
         if prev is not None and (prev % 1 > 0.85 or prev % 1 < 0.15):  # it was at the line
-            if raw % 1 > 0.9 and raw - prev > 0.5:
+            if raw % 1 > 0.9 and raw - prev > 0.5 and abs(raw - 1 - prev) < self.STEP:
                 p = raw - 1  # the lap's up before the distance is back to 0
-            elif raw % 1 < 0.1 and prev - raw > 0.5:
+            elif raw % 1 < 0.1 and prev - raw > 0.5 and abs(raw + 1 - prev) < self.STEP:
                 p = raw + 1  # the distance is back to 0 before the lap's up
         self._now[idx] = p
         return p
@@ -634,6 +643,10 @@ class App:
                 frame = replace(frame, session_num=screen_num)
             is_race = self._is_race(frame)
             racing = is_race and frame.session_state == STATE_RACING
+            # Timed live: while racing, and after the flag for the cars still
+            # out there (each car's place stays as it was when it crossed the
+            # line: _keep_finishers), not frozen when the leader finishes.
+            timing = is_race and frame.session_state in (STATE_RACING, STATE_CHECKERED)
             events = self.detector.events
             counts = {}
             last_event = {}
@@ -699,8 +712,8 @@ class App:
                 for pos, r in enumerate(rows, start=1):
                     r["pos"] = pos
             else:
-                self._assign_positions(rows, racing)
-            if racing or (is_race and not frame.is_live):
+                self._assign_positions(rows, timing)
+            if timing or (is_race and not frame.is_live):
                 # Our own gaps while racing, and in a replay of the race (also after the flag).
                 self._live_gaps(rows, frame)
             # A car that's taken the chequered flag keeps its place (and gap) from
@@ -1400,6 +1413,9 @@ class App:
         leader = ranked[0]
         now = frame.timeline()[1]
         class_leader = {}
+        # A usual lap: the quickest so far, else the track's length at about 45 m/s.
+        laps = [r["best_lap"] for r in ranked if r.get("best_lap")]
+        lap_s = min(laps) if laps else max(30.0, (self._track_m or DEFAULT_TRACK_M) / 45.0)
         for r in ranked:
             cl = class_leader.setdefault(r["class_key"], r)
             r["laps_down"] = _laps_down(leader, r)
@@ -1410,6 +1426,11 @@ class App:
                 r["gap"] = None  # in the garage: no gap
                 continue
             gap = self.gaps.gap(r["car_idx"], leader["car_idx"], r["progress"], now)
+            if gap is None and leader["progress"] >= r["progress"] >= 0:
+                # Not timed yet (the first moments of the race, before the
+                # leader has been where this car is): the distance behind the
+                # leader at a usual lap's pace, rather than iRacing's 0.0.
+                gap = (leader["progress"] - r["progress"]) * lap_s
             if gap is not None:
                 r["gap"] = round(gap, 3)
 

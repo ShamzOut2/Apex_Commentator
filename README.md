@@ -60,6 +60,12 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 
 ### Fixes
 
+- A car towed to the pits (or leaving) mid-race no longer jumps to the top
+  of the timing tower and Timing Screen.
+- After the leader takes the flag, everyone still racing keeps being timed
+  live (places and gaps) until they cross the line themselves.
+- Gaps (and so intervals) show from the very start of the race, instead of
+  0.0 until the second lap.
 - Timing tower: a driver who's taken the chequered flag keeps their place
   (and gap) from the moment they crossed the line, whatever they do after:
   pitting, going to the garage or leaving no longer greys them out or moves
