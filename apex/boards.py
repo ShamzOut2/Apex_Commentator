@@ -289,7 +289,11 @@ def _gaps(rows, by_lap=False):
             if down > 0:
                 row[f"{key}_laps"], row[key] = down, None
             else:
-                mine, theirs = row["_gap"], other["_gap"]
+                # From their whole race times where both are known (the winner's
+                # time is what the board shows for them), else the gaps as saved.
+                mine, theirs = row.get("race_time"), other.get("race_time")
+                if not (mine and theirs):
+                    mine, theirs = row["_gap"], other["_gap"]
                 row[key] = round(max(mine - theirs, 0.0), 3) if mine is not None and theirs is not None else None
         ahead = row
     for row in rows:
@@ -310,6 +314,12 @@ def _page(out, cfg, params):
     except (TypeError, ValueError):
         page = 0
     page = min(max(page, 0), pages - 1)
+    if out["kind"] == "grid" and cfg.get("grid_reveal") == "rows" and cfg.get("grid_scroll") == "scroll" \
+            and params.get("start") is not None:
+        # The grid row by row, scrolling: the drivers on screen from ``start`` on.
+        start = min(max(int(params.get("start") or 0), 0), max(0, len(rows) - 1))
+        out.update(rows=rows[start:start + n], page=0, pages=1, scroll=start)
+        return out
     if keep and page:
         start = n + (page - 1) * (n - 1)
         shown = [dict(rows[0], kept=True)] + rows[start:start + n - 1]

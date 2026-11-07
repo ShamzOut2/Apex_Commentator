@@ -108,6 +108,53 @@ class CoreTests(unittest.TestCase):
         self.app.tick()
         self.assertTrue(self.app.build_snapshot()["replay"]["live"])
 
+    def test_incident_buttons_step_through_the_race_log(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, source = make_app(tmp, minutes=1)
+            num = app._frame.session_num
+            drivers = list(app._drivers)
+            app.detector.events[:] = [
+                {"id": 901, "type": "contact", "car_idx": drivers[0], "session_num": num, "session_time": 20.0},
+                {"id": 902, "type": "overtake", "car_idx": drivers[1], "session_num": num, "session_time": 30.0},
+                {"id": 903, "type": "slowdown", "car_idx": drivers[2], "session_num": num, "session_time": 40.0, "accident": True},
+            ]
+            # From live: back to the latest incident (not the overtake), then the one before.
+            self.assertEqual(app.command("replay_incident", {"direction": -1})["incident"], 903)
+            self.assertTrue(wait_for(lambda: ("replay_set_play_speed", 1, False) in source.commands))
+            app.tick()
+            self.assertEqual(app.command("replay_incident", {"direction": -1})["incident"], 901)
+            with self.assertRaises(CommandError):
+                app.command("replay_incident", {"direction": -1})
+            self.assertEqual(app.command("replay_incident", {"direction": 1})["incident"], 903)
+            with self.assertRaises(CommandError):
+                app.command("replay_incident", {"direction": 1})
+
+    def test_places_gained_at_the_line_during_a_replay_are_logged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=1)
+            cars = list(app._drivers)[:4]
+            num = app._frame.session_num
+            app._held_order = (num, list(cars))
+            before = len(app.detector.events)
+            # Car 3 (fourth) crosses the line ahead of the second and third.
+            app._log_passes_at_line(app._frame, num, [{"car_idx": c} for c in (cars[0], cars[3], cars[1], cars[2])])
+            new = app.detector.events[before:]
+            self.assertEqual([(e["car_idx"], e["other_car_idx"], e["position"], e["at_line"]) for e in new],
+                             [(cars[3], cars[1], 2, True), (cars[3], cars[2], 2, True)])
+            # The same order again: nothing more.
+            app._log_passes_at_line(app._frame, num, [{"car_idx": c} for c in (cars[0], cars[3], cars[1], cars[2])])
+            self.assertEqual(len(app.detector.events), before + 2)
+
+    def test_sync_switch_window(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=0.1)
+            self.assertEqual(app.command("sync_widget", {"on": True}), {"opened": False})  # no app window: the page opens it
+            calls = []
+            app.widget = lambda key, path, name, on: calls.append((key, path, on)) or True
+            self.assertEqual(app.command("sync_widget", {"on": True}), {"opened": True})
+            app.command("sync_widget", {"on": False})
+            self.assertEqual(calls, [("sync", "sync.html", True), ("sync", "sync.html", False)])
+
     def test_replay_driver_without_events(self):
         events = self.app.detector.events
         quiet = [i for i in self.app._drivers if not any(e["car_idx"] == i for e in events)]
@@ -157,12 +204,12 @@ class CoreTests(unittest.TestCase):
         # Rewind 60s in the live race: what's on screen was already logged.
         source.replay_search_session_time(0, int((source.session_time - 60) * 1000))
         app.tick()
-        self.assertEqual(app.detection, "paused")
+        self.assertEqual(app.detection, "replay_live")  # mid-race: the race goes on underneath
         for _ in range(50):
             source.step(0.1)
             app.tick()
         self.assertEqual(len(app.detector.events), logged)
-        self.assertEqual(app.detection, "paused")
+        self.assertEqual(app.detection, "replay_live")
         source.replay_search(1)  # back to live
         source.step(0.1)
         app.tick()

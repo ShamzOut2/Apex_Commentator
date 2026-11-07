@@ -825,3 +825,33 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .team-cell { display: flex; gap: 4px; align-items: center; }
 .team-cell input { flex: 1; min-width: 0; }
 .team-cell .btn.icon { padding: 2px 6px; }
+
+/* Race log: an accident (a crash, or any slowdown) in red. */
+.kind.accident { background: var(--bad); color: #fff; letter-spacing: .03em; }
+.race-log li.accident { background: color-mix(in srgb, var(--bad) 16%, var(--panel)); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.race-log li.accident.selected { border-color: var(--accent); }
+
+/* Co-commentator: FREE | SYNC, the side lit is the one on; click to switch. */
+.sync-pill {
+  display: inline-flex; padding: 0; border: 1px solid var(--line); border-radius: 999px; overflow: hidden;
+  background: var(--panel-2); cursor: pointer; font: inherit; font-size: 11px; font-weight: 800; letter-spacing: .06em;
+}
+.sync-pill span { padding: 3px 10px; color: var(--muted); transition: background .2s, color .2s; }
+.sync-pill .s-sync { background: var(--good); color: #04140c; }
+.sync-pill.free .s-sync { background: transparent; color: var(--muted); }
+.sync-pill.free .s-free { background: var(--warn); color: #1d1600; }
+.sync-pill.off { opacity: .55; }
+.sync-pill:hover { border-color: var(--muted); }
+
+/* Timing Screen: the tyres (white dry, blue wet). */
+.tyre {
+  display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%;
+  border: 3px solid currentColor; font-size: 9px; font-weight: 900; line-height: 1;
+}
+.tyre-dry { color: #fff; }
+.tyre-wet { color: #3d9bff; }
+td.c-tyre { text-align: center; }
+
+/* Copy settings from another league: what to bring over. */
+.copy-parts { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.copy-parts .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }

@@ -27,6 +27,12 @@ GWL_EXSTYLE = -20
 WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE = 0x20, 0x80, 0x80000, 0x8000000
 SWP_REFRESH = 0x1 | 0x2 | 0x4 | 0x10 | 0x20  # no size / move / z-order / activate; frame changed
 DWM_BB_ENABLE, DWM_BB_BLURREGION, RGN_OR = 0x1, 0x2, 2
+LWA_COLORKEY = 0x1
+# The colour key: where the page shows nothing it's painted this (almost
+# black) colour, and Windows leaves those pixels out. For PCs where the
+# window's own transparency doesn't work (transparency effects switched off
+# in Windows' settings, or the compositor refusing it).
+COLOR_KEY = (1, 2, 3)
 
 
 LOG_MAX, LOG_KEEP = 5_000_000, 1_000_000  # apex.log: trimmed to its last 1 MB once it's over 5 MB
@@ -158,6 +164,47 @@ def open_popout(key, url, title, width=1280, height=820):
     return True
 
 
+def open_widget(key, url, title, width=330, height=78):
+    """A small control (e.g. the co-commentator's FREE | SYNC switch) in a
+    window of its own: no frame, always on top of iRacing, and clickable
+    (unlike the on-screen overlays). It starts at the top right of the main
+    screen and is dragged by its handle. Shown again if it's already open.
+    False when there's no app window."""
+    if _main_window is None:
+        return False
+    import webview
+
+    window = _popouts.get(key)
+    if window is not None:
+        try:
+            window.restore()
+            window.show()
+            return True
+        except Exception:
+            _popouts.pop(key, None)
+    x = y = None
+    try:
+        main = webview.screens[0]
+        x, y = main.x + main.width - width - 24, main.y + 24
+    except Exception:
+        pass
+    window = webview.create_window(title, url, width=width, height=height, x=x, y=y, frameless=True, on_top=True,
+                                   resizable=False, easy_drag=False, focus=True, background_color="#14171d")
+    window.events.closed += lambda: _popouts.pop(key, None)
+    _popouts[key] = window
+    return True
+
+
+def close_widget(key):
+    """Close a widget window opened by open_widget (nothing if it isn't open)."""
+    window = _popouts.pop(key, None)
+    if window is not None:
+        try:
+            window.destroy()
+        except Exception as e:
+            print(f"[apex] couldn't close the {key} window: {e!r}")
+
+
 def _close_popouts():
     for window in list(_popouts.values()) + list(_windows.values()):
         try:
@@ -226,14 +273,29 @@ def screens():
         return []
 
 
-def show_overlay(key, url, title, screen=0):
+def show_overlay(key, url, title, screen=0, method="auto"):
     """Put a page on screen ``screen`` as an overlay (moving it if it's already
-    up). False when there's no app window to do it from."""
+    up). False when there's no app window to do it from. ``method``: "auto"
+    (the window's own transparency, else a colour key) or "colorkey"."""
     if _main_window is None:
         return False
     _overlays[key] = (None, screen)  # on its way: shown as up straight away
-    _run(lambda: _show(key, url, title, screen))
+    _run(lambda: _show(key, url, title, screen, method))
     return True
+
+
+def transparency_effects_off():
+    """Windows' "Transparency effects" switched off (Settings, Personalisation,
+    Colours): then a window's own transparency can come out solid."""
+    if not IS_WINDOWS:
+        return False
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
+            return winreg.QueryValueEx(k, "EnableTransparency")[0] == 0
+    except OSError:
+        return False
 
 
 def hide_overlay(key=None):
@@ -253,7 +315,7 @@ _windows = {}  # overlay page -> its window, while it's open (the worker's own r
 _hwnds = {}    # window -> its native handle, to close it by hand if need be
 
 
-def _show(key, url, title, screen):
+def _show(key, url, title, screen, method="auto"):
     import webview
 
     _close(key)  # moving screens, or shown again: the old one goes first
@@ -280,9 +342,9 @@ def _show(key, url, title, screen):
     # Windows opened once the app is running are made there and then; if not
     # yet, as soon as it's shown.
     if window.native is not None:
-        _see_through(key, window)
+        _see_through(key, window, method)
     else:
-        window.events.shown += lambda: _see_through(key, window)
+        window.events.shown += lambda: _see_through(key, window, method)
 
 
 def _close(key):
@@ -354,7 +416,7 @@ def set_region(key, rects):
             print(f"[apex] couldn't fit the overlay window to its overlay: {e!r}")
 
 
-def _see_through(key, window):
+def _see_through(key, window, method="auto"):
     """Make the overlay window see-through where the page is, and let every
     click through: what Tauri does for a transparent, click-through window
     (blur-behind with an empty region, then a layered, click-through tool
@@ -387,6 +449,18 @@ def _see_through(key, window):
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT
                                   | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)
+            if method == "colorkey" or result != 0 or transparency_effects_off():
+                # The colour key instead: the page's empty parts painted the
+                # key colour, which Windows leaves out.
+                r, g, b = COLOR_KEY
+                try:
+                    form.browser.webview.DefaultBackgroundColor = Color.FromArgb(255, r, g, b)
+                except Exception:
+                    pass
+                form.BackColor = Color.FromArgb(255, r, g, b)
+                user32.SetLayeredWindowAttributes.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_ubyte, ctypes.c_uint32]
+                ok = user32.SetLayeredWindowAttributes(hwnd, r | (g << 8) | (b << 16), 0, LWA_COLORKEY)
+                steps.append(f"colour key {'on' if ok else 'failed'}")
             user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_REFRESH)
             steps.append("click-through")
 

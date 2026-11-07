@@ -3,7 +3,7 @@
 .card {
   position: absolute; bottom: 0; display: flex; align-items: center; gap: 22px; min-width: 560px; max-width: 1200px;
   height: 104px; padding: 0 28px 0 0; border-radius: 14px; overflow: hidden;
-  background: var(--panel); box-shadow: 0 14px 40px rgba(0, 0, 0, .45);
+  background: var(--panel); box-shadow: 0 14px 40px rgba(0, 0, 0, calc(.45 * var(--bg-k, 1)));
   border-bottom: 5px solid var(--cls, var(--accent));
 }
 body.panel-image .card { isolation: isolate; }
@@ -16,7 +16,7 @@ body.panel-image .card::before {
 .card.in { animation: card-in .6s cubic-bezier(.2, .9, .25, 1) both; }
 .card.in::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .28) 50%, transparent 65%);
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, calc(.28 * var(--bg-k, 1))) 50%, transparent 65%);
   transform: translateX(-110%); animation: card-sweep .9s .35s ease-out both;
 }
 @keyframes card-in {
@@ -31,7 +31,7 @@ body.panel-image .card::before {
 .card.out > * { animation: card-content-out .25s ease-in both; }
 .card.out::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(260deg, transparent 35%, rgba(255, 255, 255, .24) 50%, transparent 65%);
+  background: linear-gradient(260deg, transparent 35%, rgba(255, 255, 255, calc(.24 * var(--bg-k, 1))) 50%, transparent 65%);
   transform: translateX(110%); animation: card-sweep-out .45s ease-in both;
 }
 @keyframes card-out {
@@ -49,15 +49,15 @@ body.panel-image .card::before {
   align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   min-width: 112px; padding: 0 18px; background: var(--cls, var(--accent));
 }
-.pos .p { font-size: 40px; font-weight: 900; line-height: 1; }
-.pos .cp { font-size: 14px; font-weight: 800; letter-spacing: .06em; opacity: .9; white-space: nowrap; }
+.pos .p { font-size: calc(40px * var(--fs, 1)); font-weight: 900; line-height: 1; }
+.pos .cp { font-size: calc(14px * var(--fs, 1)); font-weight: 800; letter-spacing: .06em; opacity: .9; white-space: nowrap; }
 .card:not(:has(.pos)) { padding-left: 24px; }
 .who { display: flex; align-items: center; gap: 18px; min-width: 0; flex: 1; }
-.who .num { font-size: 30px; font-weight: 900; min-width: 64px; height: 50px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
+.who .num { font-size: calc(30px * var(--fs, 1)); font-weight: 900; min-width: 64px; height: 50px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
 .names { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.name { font-size: 38px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 14px; }
-.klass { font-size: 14px; font-weight: 800; letter-spacing: .08em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; }
-.team { font-size: 20px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.name { font-size: calc(38px * var(--fs, 1)); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 14px; }
+.klass { font-size: calc(14px * var(--fs, 1)); font-weight: 800; letter-spacing: .08em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; }
+.team { font-size: calc(20px * var(--fs, 1)); font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 .team img { height: calc(26px * var(--logo-k, 1)); max-width: calc(60px * var(--logo-k, 1)); object-fit: contain; }
 .make { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 56px; width: 104px; padding: 6px 10px; }
 .make img { max-height: 100%; max-width: 100%; object-fit: contain; }
@@ -66,3 +66,11 @@ body.panel-image .card::before {
 .make.small img { height: 100%; max-width: 70px; }
 .team-end { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 56px; width: 104px; padding: 4px 8px; }
 .team-end img { max-height: calc(100% * var(--logo-k, 1)); max-width: calc(100% * var(--logo-k, 1)); object-fit: contain; }
+
+/* faded */
+/* Colours from variables (class, accent...) at the overlay's opacity too, where
+   the browser can mix them (older ones keep them solid). */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .card { border-bottom:5px solid color-mix(in srgb, var(--cls, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .pos { background:color-mix(in srgb, var(--cls, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+}

@@ -1,0 +1,20 @@
+/* The co-commentator's FREE | SYNC switch (sync.html), a small window on top of iRacing. */
+:root { --ink: #f4f5f7; --muted: #8b93a3; --line: rgba(255, 255, 255, .14); --good: #2fd66b; --warn: #ffd23f; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #14171d; color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; user-select: none; }
+.widget { height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 4px; border: 1px solid var(--line); border-radius: 10px; }
+.grip { color: var(--muted); font-size: 18px; cursor: move; padding: 0 2px; }
+.pill {
+  display: inline-flex; padding: 0; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; flex: none;
+  background: #1e222b; cursor: pointer; font: inherit; font-size: 14px; font-weight: 900; letter-spacing: .06em;
+}
+.pill span { padding: 8px 14px; color: var(--muted); transition: background .2s, color .2s; }
+.pill .s-sync { background: var(--good); color: #04140c; }
+.pill.free .s-sync { background: transparent; color: var(--muted); }
+.pill.free .s-free { background: var(--warn); color: #1d1600; }
+.pill.off { opacity: .5; }
+.pill:hover { border-color: var(--muted); }
+.status { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: move; }
+.close { background: none; border: none; color: var(--muted); font-size: 14px; cursor: pointer; padding: 4px; }
+.close:hover { color: var(--ink); }

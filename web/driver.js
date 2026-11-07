@@ -35,7 +35,7 @@ function cardHtml(d, cfg, cls, multiclass) {
   const pos = cfg.show_position && d.pos
     ? `<div class="pos" style="color:${color ? inkFor(color) : "#fff"}">${positionHtml(d, cfg, cls)}</div>` : "";
   const number = cfg.show_number && d.number
-    ? (color ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(d.number)}</span>` : `<span class="num plain">${esc(d.number)}</span>`) : "";
+    ? (color ? `<span class="num" style="background:${esc(bgc(color))};color:${inkFor(color)}">${esc(d.number)}</span>` : `<span class="num plain">${esc(d.number)}</span>`) : "";
   // Under the driver's name: the team name, with the team logo before or
   // after it, and the car badge at the end of the card. Swapped ("end"):
   // the car badge takes the logo's place by the team name, and the team logo
@@ -48,10 +48,11 @@ function cardHtml(d, cfg, cls, multiclass) {
   const teamName = cfg.show_team && d.team ? `<span class="team-name">${esc(d.team)}</span>` : "";
   const team = teamName || byName
     ? `<div class="team">${cfg.team_logo_side === "last" ? teamName + byName : byName + teamName}</div>` : "";
-  const klass = cfg.show_class && multiclass && cls.name && paintFor(d, cls, "main") ? `<span class="klass" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(cls.name)}</span>` : "";
+  const klass = cfg.show_class && multiclass && cls.name && paintFor(d, cls, "main") ? `<span class="klass" style="background:${esc(bgc(cls.color))};color:${inkFor(cls.color)}">${esc(cls.name)}</span>` : "";
   const end = swapped ? (teamLogo ? `<span class="team-end">${teamLogo}</span>` : "") : badge(false);
   const under = team;
-  return `${pos}<div class="who">${number}<div class="names"><div class="name">${esc(formatName(d, cfg.name_format))}${klass}</div>${under}</div></div>${end}`;
+  const tyre = cfg.show_tyre !== false ? tyreIcon(d.tyre) : "";
+  return `${pos}<div class="who">${number}<div class="names"><div class="name">${esc(formatName(d, cfg.name_format))}${klass}${tyre}</div>${under}</div></div>${end}`;
 }
 
 function render(snap) {

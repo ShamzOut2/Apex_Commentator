@@ -189,6 +189,23 @@ class IncidentTests(unittest.TestCase):
         self.assertEqual([(e["car_idx"], e["other_car_idx"]) for e in contacts], [(2, 1)])
         self.assertAlmostEqual(contacts[0]["session_time"], 400 + 72 / 30, delta=0.1)
 
+    def test_a_light_touch_is_not_an_accident_but_a_crash_is(self):
+        speeds = [(40.0, 48.0)] * 72 + [(46.0, 41.0)] * 30 + [(44.0, 43.0)] * 30
+        events, _ = self.two_cars(speeds)
+        self.assertFalse(any(e.get("accident") for e in events))
+        # The same hit, and then car 1 slows right down: an accident, both of them.
+        self.det = EventDetector(DEFAULTS)
+        speeds = [(40.0, 48.0)] * 72 + [(46.0, 41.0)] * 6 + [(4.0, 40.0)] * 60
+        events, _ = self.two_cars(speeds)
+        kinds = {(e["type"], e.get("accident", False)) for e in events}
+        self.assertIn(("contact", True), kinds)
+        self.assertTrue(any(e["type"] in ("slowdown", "spin") and e.get("accident") for e in events))
+
+    def test_every_slowdown_is_an_accident(self):
+        speeds = [50.0] * 60 + [3.0] * 40
+        events = self.drive(speeds)
+        self.assertEqual([(e["type"], e.get("accident")) for e in events], [("slowdown", True)])
+
     def test_following_through_a_braking_zone_is_not_contact(self):
         # Nose to tail into a corner: car 2 brakes a bit later and harder (0.5 g more), no touching.
         speeds = [(60.0, 60.0)] * 30
@@ -319,7 +336,7 @@ class RaceEventTests(unittest.TestCase):
             flags = FLAG_GREEN | (FLAG_FURLED if t >= 1 else 0) | (FLAG_BLACK if t >= 2 else 0)
             return (5, 0.60 + t * 0.011, TRK_ON_TRACK, False, flags, 89.0)
         penalties = [e["penalty"] for e in self.race(4, car) if e["type"] == "penalty"]
-        self.assertEqual(penalties, ["Warning", "Black flag"])
+        self.assertEqual(penalties, ["Slow down", "Black flag"])
 
     def test_class_fastest_lap(self):
         def car(t):

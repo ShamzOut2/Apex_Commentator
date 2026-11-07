@@ -6,7 +6,7 @@
 // one 3D scene: each is drawn flat (textures, painted lines and numbers) and
 // put in perspective with a CSS matrix3d worked out from the same camera, so
 // everything foreshortens together. The cars (their pictures from the
-// thumbnails folder, else a drawing in their livery colours) stand in their
+// thumbnails folder; a car without one leaves its box empty) stand in their
 // painted grid boxes, scaled for how far away they are. The cars ahead on the
 // grid wait further up the road; moving on to the next pair, the camera glides
 // back down the grid to it. Follows the walk the server keeps, so the control
@@ -196,7 +196,7 @@ function paint(x0, slots, pole, entries) {
 // --- the cars ---------------------------------------------------------------------
 function carArt(e, cfg) {
   if (e.car_image) return `<img src="${esc(e.car_image)}" alt="" class="${cfg.flip_cars ? "flip" : ""}">`;
-  return carSvg(e.car_design, e.number);  // no picture: a drawing in its livery colours
+  return "";  // no picture: the box is left empty
 }
 
 // A car standing in its box: the bottom of the picture at the middle of the
@@ -218,8 +218,8 @@ let look = {};  // the grid walk's settings, as last drawn
 // pole shows its lap time with a gap or an interval.
 function qualText(e, how = "gap") {
   if (how === "none" || !e.qual_time) return "";
-  if (how === "gap" && e.qual_gap) return `+${e.qual_gap.toFixed(3)}`;
-  if (how === "interval" && e.qual_int) return `+${e.qual_int.toFixed(3)}`;
+  if (how === "gap" && e.qual_gap) return `+${secs(e.qual_gap, false)}`;
+  if (how === "interval" && e.qual_int) return `+${secs(e.qual_int, false)}`;
   return fmtLap(e.qual_time);
 }
 
@@ -242,13 +242,13 @@ function infoHtml(e, i, cls, cfg, multiclass) {
   const color = paintFor(e, cls, cfg.class_colors) || "";
   const nick = cfg.show_nickname !== false && e.nickname && cfg.name_format !== "nickname" ? e.nickname : "";
   const logo = cfg.show_class !== false && (multiclass || cls.logo) && classLogo(cls, rerender);  // the class logo, laid on its colour
-  const klass = cfg.show_class === false ? "" : logo ? `<span class="klass has-logo" style="background:${esc(color)}"><img class="klass-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}"></span>`
-    : multiclass && cls.name ? `<span class="klass" style="background:${esc(color)};color:${inkFor(color)}">${esc(cls.name)}</span>` : "";
+  const klass = cfg.show_class === false ? "" : logo ? `<span class="klass has-logo" style="background:${esc(bgc(color))}"><img class="klass-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}"></span>`
+    : multiclass && cls.name ? `<span class="klass" style="background:${esc(bgc(color))};color:${inkFor(color)}">${esc(cls.name)}</span>` : "";
   const teamLogo = cfg.show_logo !== false && e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : "";
   const teamName = cfg.show_team !== false && e.team ? `<span class="team-name">${esc(e.team)}</span>` : "";
   const team = teamLogo || teamName ? `<div class="team">${teamLogo}${teamName}</div>` : "";
   const number = cfg.show_number === false || !e.number ? ""
-    : color ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(e.number)}</span>` : `<span class="num plain">${esc(e.number)}</span>`;
+    : color ? `<span class="num" style="background:${esc(bgc(color))};color:${inkFor(color)}">${esc(e.number)}</span>` : `<span class="num plain">${esc(e.number)}</span>`;
   return `<div class="gw-info ${i ? "rear" : "front"}" style="--cls:${esc(color || "var(--accent)")}">
       ${cfg.show_position !== false ? `<div class="pos" style="color:${color ? inkFor(color) : "#fff"}">${placeHtml(e, cfg, cls)}</div>` : ""}
       <div class="who">${number}
@@ -284,8 +284,9 @@ function sceneHtml(x0, x1, first, entries, cfg) {
   const cars = slots.filter((n) => n >= lo - 8 && n <= Math.min(entries.length, hi + 9))
     .filter((n) => cfg.neighbours !== "hide" || pairOf(n) || going(n));
   const motion = (n) => (pairOf(n) && moving ? "arrive" : departs(n) ? "depart" : cfg.neighbours === "hide" && !pairOf(n) ? "going" : "");
-  const art = cars.map((n) => `<div class="gw-car ${pairOf(n) ? "focus" : "other"} ${motion(n)} ${n % 2 ? "top" : "bottom"}" data-slot="${n}">${carArt(entries[n - 1], cfg)}</div>`).join("");
-  const shadows = cars.map((n) => {
+  const pictured = (n) => !!(entries[n - 1] && entries[n - 1].car_image);
+  const art = cars.filter(pictured).map((n) => `<div class="gw-car ${pairOf(n) ? "focus" : "other"} ${motion(n)} ${n % 2 ? "top" : "bottom"}" data-slot="${n}">${carArt(entries[n - 1], cfg)}</div>`).join("");
+  const shadows = cars.filter(pictured).map((n) => {
     const l = Math.round((slotX(n) - BOX.len + 0.2 - a) * PX), t = Math.round((ROAD_W - slotY(n) - 1.15) * PX);
     return `<i class="shadow ${pairOf(n) && moving ? "arrive" : departs(n) || (cfg.neighbours === "hide" && !pairOf(n)) ? "going" : ""}" data-shadow="${n}" style="left:${l}px;top:${t}px;width:${(BOX.len - 0.4) * PX}px;height:${2.3 * PX}px"></i>`;
   }).join("");

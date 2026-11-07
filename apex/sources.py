@@ -90,6 +90,7 @@ class Frame:
     best_lap: list = field(default_factory=list)
     car_flags: list = field(default_factory=list)
     steer: list = field(default_factory=list)  # CarIdxSteer: steering wheel angle, rad
+    tire: list = field(default_factory=list)   # CarIdxTireCompound: the tyres on (DriverInfo.DriverTires index), -1 unknown
     # Heading of the car being driven on this PC (iRacing only sends it for that one).
     player_car_idx: int = -1
     yaw: float = None                   # rad
@@ -179,6 +180,7 @@ class IRacingSource:
                 best_lap=v("CarIdxBestLapTime", []),
                 car_flags=v("CarIdxSessionFlags", []),
                 steer=v("CarIdxSteer", []),
+                tire=v("CarIdxTireCompound", []) or [],
                 player_car_idx=v("PlayerCarIdx", -1),
                 yaw=v("Yaw", None),
             )
@@ -369,6 +371,7 @@ class MockSource:
         self.race_laps = race_laps
         self.retirements = retirements
         self.checkered = False
+        self.race_time = [0.0] * n
         self.out = [i >= n - no_shows for i in range(n)]  # the last ``no_shows`` never join
         self.done = [False] * n
         self.laps_led = [0] * n
@@ -417,6 +420,7 @@ class MockSource:
             "Position": pos, "ClassPosition": pos - 1, "CarIdx": i + 1, "LapsComplete": self.mock_laps[i],
             "LapsLed": self.laps_led[i], "FastestTime": round(self.best_lap[i], 4) if self.best_lap[i] > 0 else -1,
             "Incidents": self.incidents[i],
+            "Time": self.race_time[i] if self.race_time[i] else -1,  # their whole race, once they've taken the flag
             # iRacing keeps "Running" for a car that's parked but connected.
             "ReasonOutStr": "Disconnected" if self.out[i] and self.mock_laps[i] else "Running",
         } for pos, i in enumerate(order, start=1) if self.mock_laps[i] or not self.out[i]]
@@ -472,6 +476,7 @@ class MockSource:
             just_done = self.checkered and crossed and not self.done[i]
             if just_done:
                 self.done[i] = True  # took the flag
+                self.race_time[i] = round(t, 3)  # their whole race, as iRacing's results give it
             if self.done[i]:
                 pace *= 0.5  # cool-down lap
             if int(math.floor(self.progress[i])) > int(math.floor(prev)) and self.progress[i] >= 1:
@@ -611,6 +616,8 @@ class MockSource:
                 lap=lap, laps_completed=laps_completed, pct=pct, position=position, class_position=list(position),
                 on_pit=on_pit, surface=surface, f2_time=f2,
                 last_lap=last_lap, best_lap=best_lap, car_flags=car_flags, steer=steer,
+                # A few cars on wets (car 4, 9 and 14 in the demo), the rest on drys.
+                tire=[1 if i in (4, 9, 14) else 0 for i in range(len(pct))],
             )
 
     def session_info(self):
@@ -632,7 +639,9 @@ class MockSource:
                 "SplitTimeInfo": {"Sectors": [
                     {"SectorNum": n, "SectorStartPct": pct} for n, pct in enumerate(self.SECTOR_STARTS)
                 ]},
-                "DriverInfo": {"DriverCarIdx": 1, "Drivers": [dict(d) for d in self.drivers]},
+                "DriverInfo": {"DriverCarIdx": 1, "Drivers": [dict(d) for d in self.drivers],
+                               "DriverTires": [{"TireIndex": 0, "TireCompoundType": "Hard"},
+                                               {"TireIndex": 1, "TireCompoundType": "Wet"}]},
                 "QualifyResultsInfo": {"Results": [
                     {"Position": pos, "ClassPosition": pos, "CarIdx": i + 1, "FastestTime": self.qual_time[i]}
                     for pos, i in enumerate(self.qual_order)

@@ -298,6 +298,13 @@ class BoardTests(unittest.TestCase):
             self.assertNotIn("board", app.build_snapshot()["desktop"]["on_screen"])
             app.command("desktop_hide", {})
             self.assertEqual(app.build_snapshot()["desktop"]["on_screen"], {})
+            # Solid on this PC: the colour key way, used from the next one put up.
+            fake.method = "auto"
+            app.command("desktop_method", {"method": "colorkey"})
+            self.assertEqual(app.build_snapshot()["desktop"]["method"], "colorkey")
+            app.command("desktop_show", {"page": "driver"})
+            self.assertEqual(fake.method, "colorkey")
+            app.command("desktop_method", {"method": "auto"})
             with self.assertRaises(CommandError):
                 app.command("desktop_show", {"page": "index"})
 
@@ -394,6 +401,15 @@ class FinishingGapTests(unittest.TestCase):
                          [(None, None, None), (1.5, 1.5, None), (4.0, 2.5, None), (None, None, 1)])
         self.assertTrue(rows[0]["winner"])
 
+    def test_gaps_from_the_race_times(self):
+        """With iRacing's race times: everyone's gap is to the winner's whole race time."""
+        rows = [{"rank": 1, "status": "finished", "laps": 10, "gap": 0.0, "race_time": 1500.0},
+                {"rank": 2, "status": "finished", "laps": 10, "gap": 1.4, "race_time": 1501.75},
+                {"rank": 3, "status": "finished", "laps": 10, "gap": 3.0, "race_time": 1504.5}]
+        boards._gaps(rows)
+        self.assertEqual([(r["gap"], r["interval"]) for r in rows], [(None, None), (1.75, 1.75), (4.5, 2.75)])
+        self.assertTrue(rows[0]["winner"])
+
     def test_an_earlier_race_without_race_times_uses_the_apps_own(self):
         import tempfile
 
@@ -455,6 +471,17 @@ class GridBoardTests(unittest.TestCase):
         b = self.app.build_snapshot()["board"]
         self.assertEqual(b["reveal"], b["reveal_total"])
 
+    def test_row_by_row_scrolling(self):
+        self.grid(grid_reveal="rows", grid_scroll="scroll", rows=6, reverse_top=0)
+        for _ in range(4):
+            self.app.command("board_reveal", {"step": "next"})  # five rows: ten cars, six on screen
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual([r["pos"] for r in b["rows"]], [5, 6, 7, 8, 9, 10])  # the top two rows went up and off
+        self.assertEqual((b["scroll"], b["pages"]), (4, 1))
+        self.app.command("board_reveal", {"step": "prev"})
+        self.assertEqual([r["pos"] for r in self.app.build_snapshot()["board"]["rows"]][0], 3)
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"grid_scroll": "page"}})
+
     def test_grid_hotkeys(self):
         press = lambda a: self.app.command("hotkey", {"action": a})  # noqa: E731
         self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"grid_reveal": "all", "rows": 12}})
@@ -473,6 +500,19 @@ class GridBoardTests(unittest.TestCase):
         self.assertNotIn("reveal", self.app.build_snapshot()["board"])
         press("grid:toggle")
         self.assertIsNone(self.app.board["kind"])
+
+    def test_grid_walk_follows_the_starting_grid(self):
+        b = self.grid(rows=64, reverse_top=3)
+        self.app._walk_grid_cache = (0.0, None, None)  # (worked out again at once)
+        walk = self.app.build_snapshot()["gridwalk"]
+        self.assertEqual([e["number"] for e in walk["entries"]][:6], [r["number"] for r in b["rows"]][:6])
+        self.assertTrue(any(e["qual_time"] for e in walk["entries"]))  # from qualifying: its times stay
+        # A grid from the race before: no qualifying times or gaps on the walk or the board.
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"grid_source": "previous"}})
+        self.app._walk_grid_cache = (0.0, None, None)
+        walk = self.app.build_snapshot()["gridwalk"]
+        if walk["source"] == "previous race":
+            self.assertFalse(any(e["qual_time"] or e["qual_gap"] for e in walk["entries"]))
 
     def test_grid_from_the_grid_walk_order(self):
         keys = self.app.gridwalk.apply_order(self.app._grid_keys)

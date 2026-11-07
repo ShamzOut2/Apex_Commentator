@@ -76,6 +76,7 @@ function saveSettings() {
 function connectStream() {
   liveStream((snap) => {
     ui.snap = snap;
+    if (snap.overlays && snap.overlays.settings && snap.overlays.settings.general) GENERAL = snap.overlays.settings.general;
     // After an update the server restarts on the new version: load its UI.
     if (ui.version && ui.snap.version && ui.snap.version !== ui.version) return location.reload();
     ui.version = ui.version || ui.snap.version;
@@ -122,9 +123,33 @@ function renderDual(r) {
   badge.classList.toggle("free", fo.on && fo.free);
   // Free mode (their own camera) and Sync (back with the host), while following.
   $("#dual-follow").hidden = !fo.on;
-  $("#follow-free").hidden = fo.free;
-  $("#follow-sync").hidden = !fo.free;
+  $("#cam-sync").hidden = !fo.on;
+  badge.hidden = badge.hidden || (fo.on && fo.status === "following");  // the FREE | SYNC pill says it
+  for (const pill of document.querySelectorAll(".sync-pill")) {
+    pill.classList.toggle("free", !!fo.free);
+    pill.classList.toggle("off", fo.status !== "following");
+  }
+  ui.followFree = !!fo.free;
 }
+
+// The FREE | SYNC switch in a small window on top of iRacing (sync.html); in a
+// browser, a small browser window.
+document.addEventListener("click", async (e) => {
+  if (!e.target.closest("[data-sync-widget]")) return;
+  const r = await cmd("sync_widget", { on: true });
+  if (r && r.opened) return toast("FREE | SYNC is on your screen: drag it by ⠿, close it with ✕");
+  const w = window.open("/sync.html", "apex-sync", "width=340,height=80");
+  if (!w) toast("The browser blocked the pop-up window: allow pop-ups for this page.", true);
+});
+
+// The FREE | SYNC pill (top bar, Timing Screen): click to switch.
+document.addEventListener("click", (e) => {
+  const pill = e.target.closest("[data-sync-toggle]");
+  if (!pill) return;
+  pill.blur();
+  const free = !ui.followFree;
+  cmd("follow_free", { on: free }, free ? "Free mode: your own camera until you Sync" : "Synced with the host");
+});
 
 $("#share-on").addEventListener("change", (e) => {
   e.target.blur();
@@ -137,8 +162,6 @@ $("#follow-start").addEventListener("click", async () => {
   if (r) for (const id of ["#follow-address", "#follow-code"]) delete $(id).dataset.typed;
 });
 $("#follow-stop").addEventListener("click", () => cmd("follow_camera", { on: false }, "Stopped following"));
-$("#follow-free").addEventListener("click", (e) => { e.target.blur(); cmd("follow_free", { on: true }, "Free mode: your own camera until you Sync"); });
-$("#follow-sync").addEventListener("click", (e) => { e.target.blur(); cmd("follow_free", { on: false }, "Synced with the host"); });
 $("#follow-code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#follow-start").click(); });
 
 // ---------------------------------------------------------------------------
@@ -423,7 +446,7 @@ function findBattles(s, rows) {
 
 const FLAG_LABELS = {
   green: "Green", yellow: "Yellow", blue: "Blue", white: "White", checkered: "Chequered",
-  black: "Black", meatball: "Meatball", warning: "Warning", dq: "DQ",
+  black: "Black", meatball: "Meatball", warning: "Slow down", dq: "DQ",
 };
 
 function changeCell(n) {
@@ -467,8 +490,10 @@ function renderStandings(s) {
     if (race) {
       gap = v.gap == null ? "" : v.r === firstRow ? "Leader" : v.down ? `+${v.down} L` : fmtDelta(v.gap);
       int = v.int == null ? "" : fmtDelta(v.int);
+      // Gone from the session (or out of the car, not finished): OUT instead.
+      if ((r.left || (!r.in_world && r.laps_completed > 0)) && v.r !== firstRow) gap = int = '<span class="tag out">OUT</span>';
     } else if (r.best_lap && isFinite(v.fastest)) {
-      gap = v.fastestLap ? "Fastest" : fmtDelta(r.best_lap - v.fastest);
+      gap = v.fastestLap ? "Fastest" : fmtDelta(r.best_lap - v.fastest, false);
     }
     const status = r.left ? '<span class="tag out" title="Left the session">LEFT</span>'
       : !r.in_world ? '<span class="tag out">OUT</span>'
@@ -493,6 +518,7 @@ function renderStandings(s) {
       [fmtLap(r.last_lap), "c-time col-wide"],
       [fmtLap(r.best_lap), `c-time col-wide ${v.fastestLap ? "best" : ""}`],
       [r.pit_stops ? String(r.pit_stops) : "", "col-wide"],
+      [tyreIcon(r.tyre), "c-tyre"],
       [flag],
       [(r.penalties || []).map((p) => `<span class="pen">⚑ ${esc(p)}</span>`).join(" ")],
       [r.incidents == null ? "" : r.incidents + "x"],
@@ -525,13 +551,18 @@ const LOG_GROUPS = {
 };
 const PREROLL_CHOICES = [5, 10, 15, 20, 25, 30];
 // Kinds of event that can be left out of the log (Hide…), kept for this PC.
-const LOG_KINDS = [["overtake", "Overtakes"], ["contact", "Contact"], ["offtrack", "Off track"], ["slowdown", "Slowdowns"],
+const LOG_KINDS = [["overtake", "Overtakes"], ["accident", "Accidents (crashes and slowdowns)"], ["contact", "Contact"], ["offtrack", "Off track"],
   ["spin", "Spins"], ["incident", "Incident points"], ["pit", "Pit stops"], ["position", "Places lost"],
-  ["warning", "Warnings"], ["penalty", "Other penalties"], ["fastest_lap", "Fastest laps"]];
+  ["warning", "Slow downs (penalty)"], ["penalty", "Other penalties"], ["fastest_lap", "Fastest laps"]];
+// iRacing's furled flag ("Warning" in older logs) is shown as SLOW DOWN.
+const isSlowDown = (ev) => ev.type === "penalty" && /warn|slow down/i.test(ev.penalty || "");
+// A crash (or any slowdown): ACCIDENT, its row red.
+const isAccident = (ev) => !!ev.accident || ev.type === "slowdown";
 function logKind(ev) {
+  if (isAccident(ev)) return "accident";
   if (ev.spin) return "spin";
   if (ev.type === "pit_in" || ev.type === "pit_out") return "pit";
-  if (ev.type === "penalty") return /warn/i.test(ev.penalty || "") ? "warning" : "penalty";
+  if (ev.type === "penalty") return isSlowDown(ev) ? "warning" : "penalty";
   return ev.type;
 }
 function renderLogHide() {
@@ -565,7 +596,7 @@ function eventText(ev) {
   const pts = ev.incidents ? ` <b>${ev.incidents}x</b>` : "";
   switch (ev.type) {
     case "overtake":
-      return `${who} passes ${car(ev.other_car_number, ev.other_driver)}${ev.position ? ` for <b>P${ev.position}</b>` : ""}`;
+      return `${who} passes ${car(ev.other_car_number, ev.other_driver)}${ev.position ? ` for <b>P${ev.position}</b>` : ""}${ev.at_line ? ' <span class="muted">(at the line, during a replay)</span>' : ""}`;
     case "offtrack":
       return `${who} ${ev.spin ? "spins off track" : "off track"}${pts}`;
     case "slowdown":
@@ -585,7 +616,7 @@ function eventText(ev) {
     case "position":
       return `${who} loses <b>${ev.position - ev.from_position}</b> place${ev.position - ev.from_position === 1 ? "" : "s"} after going off (P${ev.from_position} → P${ev.position})`;
     case "penalty":
-      return `${who}: <b>${esc(ev.penalty)}</b>`;
+      return `${who}: <b>${isSlowDown(ev) ? "Slow down" : esc(ev.penalty)}</b>`;
     case "fastest_lap":
       return `${who} fastest lap${ev.car_class ? ` in ${esc(ev.car_class)}` : ""}: <b>${fmtLap(ev.lap_time)}</b>`;
     default:
@@ -598,6 +629,7 @@ function logStatus(s) {
     live: "● Logging live",
     replay: "● Logging the replay being played",
     paused: "❚❚ Logging paused: you're watching something already logged. It resumes past that point (Go live).",
+    replay_live: "● Replay on screen, the race goes on: incident points and places gained at the line are still logged live (iRacing sends only the replay's car data, so passes on track, offs and contact pick up again back live).",
     waiting: "Waiting for the session to start…",
   }[s.detection] || "";
 }
@@ -607,7 +639,7 @@ let logKey = "";
 function renderLog(s) {
   const all = s.events || [];
   $("#log-status").textContent = logStatus(s);
-  $("#log-status").className = `log-status ${s.detection || ""}`;
+  $("#log-status").className = `log-status ${s.detection === "replay_live" ? "replay" : s.detection || ""}`;
   const types = LOG_GROUPS[ui.logFilter] || (ui.logFilter === "all" ? null : [ui.logFilter]);
   const hidden = new Set(settings.logHidden || []);
   const shown = all.filter((e) => (!types || types.includes(e.type)) && !hidden.has(logKind(e)))
@@ -618,11 +650,13 @@ function renderLog(s) {
   logKey = key;
   $("#race-log").innerHTML = shown.map((ev) => {
     const selected = ev.id === ui.selectedEvent;
-    const cls = ev.incidents ? "kind has-points" : `kind ${ev.spin ? "spin" : ev.type}`;
-    return `<li class="${selected ? "selected" : ""}" data-event="${ev.id}">
+    const accident = isAccident(ev);
+    const cls = accident ? "kind accident" : ev.incidents ? "kind has-points" : `kind ${ev.spin ? "spin" : ev.type}`;
+    const label = accident ? "ACCIDENT" : isSlowDown(ev) ? "SLOW DOWN" : ev.spin ? "SPIN" : LOG_LABELS[ev.type] || ev.type;
+    return `<li class="${selected ? "selected" : ""} ${accident ? "accident" : ""}" data-event="${ev.id}">
       <div class="log-line">
         <span class="when">L${ev.lap} · ${fmtClock(ev.session_time)}</span>
-        <span class="${cls}">${ev.spin ? "SPIN" : LOG_LABELS[ev.type] || ev.type}</span>
+        <span class="${cls}">${label}</span>
         <span class="what">${eventText(ev)}</span>
       </div>
       ${selected ? `<div class="log-actions">
@@ -655,9 +689,11 @@ function renderGridwalk(s) {
     if (document.activeElement !== el) el[prop] = value;
   }
   const sources = {
-    qualifying: "Grid order from qualifying.", "qualifying session": "Grid order from the qualifying session.",
+    qualifying: "Grid order from qualifying, as the starting grid board (reversed as set there).", "qualifying session": "Grid order from the qualifying session.",
     "current positions": "Grid order from current positions (no qualifying results yet).",
     "car number": "No qualifying results yet: ordered by car number.", manual: "Grid order set by hand.",
+    "previous race": "Grid order from the race before's finish, as the starting grid board (reversed as set there).",
+    "iRacing's grid": "Grid order: iRacing's grid for the race (no qualifying).",
   };
   $("#gw-source").textContent = entries.length ? sources[g.source] || "" : "";
   $("#gw-reset-order").hidden = !g.manual_order;
@@ -823,6 +859,17 @@ document.addEventListener("click", (e) => {
     const params = {};
     for (const [k, v] of Object.entries(rest)) params[k] = isNaN(v) ? v : +v;
     if (action === "clear_events" && !confirm("Clear the race log?")) return;
+    if (action === "replay_incident") {
+      // The incident replayed: picked in the race log, as if clicked there.
+      return cmd(action, params).then((r) => {
+        if (r && r.incident != null) {
+          ui.selectedEvent = r.incident;
+          if (ui.snap) renderLog(ui.snap);
+          const li = document.querySelector(`#race-log li[data-event="${r.incident}"]`);
+          if (li) li.scrollIntoView({ block: "nearest" });
+        }
+      });
+    }
     return cmd(action, params);
   }
 });
@@ -2440,11 +2487,12 @@ const OVERLAY_FIELDS = {
       ["show_laps", "Laps completed", "bool"],
       ["show_pits", "Pit stops", "bool"],
       ["show_pit_status", "PIT badge on pit road", "bool"],
+      ["show_tyre", "Tyres: a white dry tyre or a blue wet one (the full screen too)", "bool"],
       ["column_order", "Column order on the tower", "order", [["pos_change", "+/−", "show_pos_change"], ["laps", "Laps", "show_laps"],
         ["pits", "Pit stops", "show_pits"], ["last_lap", "Last lap", "show_last_lap"], ["best_lap", "Best lap", "show_best_lap"],
-        ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"]]],
+        ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"], ["tyre", "Tyres", "show_tyre"]]],
       ["screen_column_order", "Column order on the full screen", "order", [["laps", "Laps"], ["gap", "Gap"], ["interval", "Interval"],
-        ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"]]],
+        ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"], ["tyre", "Tyres"]]],
       ["screen_keep_left", "Keep drivers who leave the session in the list, where they were (tower and full screen; greyed out)", "bool"],
       ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["logo", "Team logo"], ["name", "Driver"], ["team", "Team name"],
         ["pos_change", "+/−"], ["laps", "Laps"], ["pits", "Pit stops"], ["last_lap", "Last lap"], ["best_lap", "Best lap"], ["gap", "Gap"],
@@ -2488,13 +2536,12 @@ const OVERLAY_FIELDS = {
     ]],
     ["Sectors", [
       ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
-      ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"],
-        ["overall", "Fastest overall this session (any class)"]]],
+      ["reference", "Sectors compared with (purple: beats it; green: beats their own best; yellow: slower than their own best)", "select",
+        [["overall", "Session overall best"], ["session", "Session class best"], ["personal", "Session personal best"]]],
       ["sector_delta_s", "A sector just done: its difference to what it's compared with first, for (s; 0 = just its time)", "number", { min: 0, max: 10, step: 0.5 }],
       ["invalid_text_color", "INVALID (in the lap time's place)", "color"],
       ["invalid_sector_color", "Invalidated sectors", "color"],
       ["invalid_line_color", "The line through an invalidated sector", "color"],
-      ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
     ]],
     ["Drivers", [
       ["name_format", "Names", "select", NAME_FORMATS],
@@ -2505,9 +2552,21 @@ const OVERLAY_FIELDS = {
     ]],
     OVERLAY_LOOK,
   ],
+  general: [
+    ["Gaps & intervals", [
+      ["race_decimals", "Decimal places: live race gaps and intervals (tower, timing screen, Timing tab)", "number", { min: 0, max: 3 }],
+      ["qual_decimals", "Decimal places: qualifying, the lap tracker, the grid and results boards", "number", { min: 1, max: 3 }],
+    ]],
+    ["While a board is on screen", [
+      ["board_overlays", "The overlays", "select", [["stay", "Stay as they are"], ["dim", "Dim"], ["hide", "Hide (back when the board goes)"]]],
+      iff((v) => v.board_overlays === "dim", ["board_dim", "Dimmed to (% opacity)", "number", { min: 0, max: 90, step: 5 }]),
+      ["note", "The sponsors set to stay up are never dimmed or hidden. Each board's own background opacity is in its Size & background.", "note"],
+    ]],
+  ],
   sponsors: [
     ["Logos", [
       ["sponsor_ids", "Sponsors", "sponsors"],
+      ["stay", "Stay up: not put away with everything else, and not dimmed or hidden under a board (in OBS, put this source above the boards)", "bool"],
       ["layout", "Show", "select", [["rotate", "One at a time"], ["row", "All together"]]],
       iff((v) => v.layout === "rotate", ["interval_s", "Seconds per logo", "number", { min: 1, max: 120, step: 1 }]),
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
@@ -2594,6 +2653,7 @@ const OVERLAY_FIELDS = {
       ["show_number", "Car number", "bool"],
       ["show_team", "Team", "bool"],
       iff((v) => v.show_team, ["show_logo", "Team logo", "bool"]),
+      ["show_tyre", "Tyres by the name (a white dry tyre or a blue wet one)", "bool"],
       ["team_place", "Team logo and car badge", "select", [["under", "Team logo by the team name, car badge at the end"],
         ["end", "Car badge by the team name, team logo at the end"]]],
       ["team_logo_side", "By the team name", "select", [["first", "Logo / badge, then the team name"],
@@ -2620,9 +2680,12 @@ async function loadBackgrounds() {
 }
 
 // The Size setting: a slider, 50-200 %, showing its value as it moves.
-function sizeField(v) {
+function sizeField(v, values = {}) {
+  const font = values.font_scale ?? 100;
   return `<label class="ov-field">Size: <span class="rng-val">${v}%</span>
-    <input type="range" min="50" max="200" step="5" data-key="scale" data-kind="number" value="${v}"></label>`;
+    <input type="range" min="50" max="200" step="5" data-key="scale" data-kind="number" value="${v}"></label>
+    <label class="ov-field">Text size (the boxes stay as they are): <span class="rng-val">${font}%</span>
+    <input type="range" min="60" max="200" step="5" data-key="font_scale" data-kind="number" value="${font}"></label>`;
 }
 
 // The Background setting's fields; colour / image / opacity only when they apply.
@@ -2640,9 +2703,8 @@ function backgroundFields(section, v) {
         <img src="/api/backgrounds/${encodeURIComponent(name)}" alt=""></label>`).join("")}
       <label class="btn subtle bg-upload">Upload…<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-bg-upload="${section}" hidden></label></div></div>`);
   }
-  if (v.bg !== "default") {
-    out.push(`<label class="ov-field">Opacity: <span class="rng-val">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
-  }
+  // The default look too: low, and the race shows through (a see-through board).
+  out.push(`<label class="ov-field">${v.bg === "default" ? "Opacity: everything but the text (low: the race shows through)" : "Opacity: everything but the text"}: <span class="rng-val">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
   return out.join("");
 }
 
@@ -2723,8 +2785,9 @@ document.addEventListener("toggle", (e) => {
 function fieldHtml(section, values, [k, label, kind, opts], s) {
   const v = values[k];
   const attrs = `data-key="${k}" data-kind="${kind === "banner" || kind === "class" ? "select" : kind}"`;
+  if (kind === "note") return `<p class="hint ov-field wide">${esc(label)}</p>`;
   if (kind === "background") return backgroundFields(section, values);
-  if (kind === "size") return sizeField(v);
+  if (kind === "size") return sizeField(v, values);
   if (kind === "order") return orderField(k, label, v, opts, values);
   if (kind === "classorder") return classOrderField(k, label, values, s.classes || []);
   if (kind === "colopacity") return opacityField(k, label, v, opts);
@@ -3032,9 +3095,9 @@ const BOARD_FIELDS = {
     iff((v) => v.show_logo, ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
     ["show_make", "Car badges", "bool"], ["show_laps", "Laps", "bool"], ["show_fastest", "Fastest lap", "bool"],
     ["show_gap", "Gap to the winner (DNF / DNS / DSQ show here)", "bool"],
-    iff((v) => v.show_gap, ["winner_gap", "The winner's Gap shows", "select", [["laps", "Their laps (13 Laps)"],
-      ["time", "Their race time (where it's known; else their laps)"], ["none", "Nothing"]]]),
     ["show_interval", "Interval to the car ahead", "bool"],
+    iff((v) => v.show_gap || v.show_interval, ["winner_cell", "The winner's Gap and Int show (everyone else: their gap and interval)", "select",
+      [["time", "The time it took them to complete the race (where iRacing gives it; else their laps)"], ["laps", "Laps completed (13 Laps)"]]]),
     ["show_points", "Points scored", "bool"],
     ...columnOpacity([["pos", "Position"], ["gained", "Places gained"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
       ["car", "Car badge"], ["laps", "Laps"], ["fastest", "Fastest lap"], ["gap", "Gap"], ["interval", "Interval"], ["points", "Points"]])],
@@ -3053,7 +3116,10 @@ const BOARD_FIELDS = {
     ["grid_layout", "Layout", "select", [["list", "A list"], ["grid", "As the cars line up (two staggered columns)"]]],
     ["grid_reveal", "Show the drivers", "select", [["all", "All at once (each comes in in turn)"],
       ["rows", "Row by row: the front row first, then Next row (button or hotkey) for each one after"]]],
-    ["rows", "Drivers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["name_format", "Names", "select", NAME_FORMATS],
+    iff((v) => v.grid_reveal === "rows", ["grid_scroll", "Row by row, once the screen is full", "select",
+      [["page", "A new page (the next set of drivers)"], ["scroll", "Scroll: the top row slides up and off as the next comes in"]]]),
+    ["rows", "Drivers on screen at once (fewer: bigger name plates; the rest on the next pages)", "number", { min: 1, max: 64 }],
+    ["name_format", "Names", "select", NAME_FORMATS],
     ["show_class_pos", "Place in class too (on the overall grid)", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
     iff((v) => v.show_logo && v.grid_layout !== "grid", ["team_logo_side", "Team logo column", "select", [["first", "Before the team name"], ["last", "After the team name"]]]),
@@ -3222,6 +3288,8 @@ loadBackgrounds();
 // Every widget, in the order they're listed. ``page``: its OBS page;
 // ``screen``: it has a full-screen version too.
 const WIDGETS = [
+  { key: "general", name: "All overlays & boards", page: "standings", general: true,
+    about: "Settings for every overlay and board: how many decimal places gaps and intervals show, and what the overlays do while a full-screen board is up." },
   { key: "standings", name: "Timing tower", page: "standings", screen: true,
     about: "Race: running order and gap to the leader. Qualifying and practice: fastest clean lap. The full-screen version is a timing screen of its own, with every driver." },
   { key: "laps", name: "Lap tracker", page: "laps", screen: true,
@@ -3296,7 +3364,7 @@ function renderWidgetSettings(s) {
   const changed = !wsKey.startsWith(`["${w.key}"`);
   wsKey = key;
   if (changed) {
-    $("#ws-list").innerHTML = [["Overlays", WIDGETS.filter((x) => !x.board)], ["Boards", WIDGETS.filter((x) => x.board)]]
+    $("#ws-list").innerHTML = [["General", WIDGETS.filter((x) => x.general)], ["Overlays", WIDGETS.filter((x) => !x.board && !x.general)], ["Boards", WIDGETS.filter((x) => x.board)]]
       .map(([title, list]) => `<h5>${title}</h5>${list.map((x) => `<button class="ws-item ${x.key === w.key ? "active" : ""}" data-ws="${x.key}">${esc(x.name)}</button>`).join("")}`).join("");
     $("#ws-title").textContent = w.name;
     $("#ws-about").textContent = w.about;
@@ -3304,9 +3372,10 @@ function renderWidgetSettings(s) {
     const links = [["Overlay", base, `/${w.page}.html?preview=1`, "Preview ↗"]];
     if (w.screen) links.push(["Full screen", `${base}?screen=1`, `/${w.page}.html?screen=1`, "Open ↗"]);
     if (w.board) links[0] = ["Board", base, `/${w.page}.html?preview=1`, "Open ↗"];
+    if (w.general) links.length = 0;
     $("#ws-links").innerHTML = links.map(([kind, url, open, label], i) => `<p class="obs-url"><span class="obs-kind">${kind}</span><code id="ws-url-${i}">${esc(url)}</code>
       <button class="btn subtle" data-copy="ws-url-${i}">Copy</button> <a class="btn subtle" href="${open}" target="_blank" rel="noopener">${label}</a></p>`).join("")
-      + '<p class="hint">In OBS: a Browser Source at 1920×1080 (the overlays have a see-through background).</p>';
+      + (w.general ? "" : '<p class="hint">In OBS: a Browser Source at 1920×1080 (the overlays have a see-through background).</p>');
     const frame = $("#ws-frame");
     const src = `/${w.page}.html?preview=1`;
     if (frame.getAttribute("src") !== src) frame.setAttribute("src", src);
@@ -3500,10 +3569,25 @@ $("#desk-check-yes").addEventListener("click", () => {
   stopDeskCheck();
   toast("Great: overlays will go straight on screen from now on");
 });
-$("#desk-check-no").addEventListener("click", () => {
-  if (deskCheck) cmd("desktop_hide", { page: deskCheck.page });
+$("#desk-check-no").addEventListener("click", async () => {
+  const page = deskCheck && deskCheck.page;
+  const method = (ui.snap && ui.snap.desktop && ui.snap.desktop.method) || "auto";
   stopDeskCheck();
-  toast("Removed. Use the OBS or browser link instead.");
+  if (method !== "colorkey") {
+    // Another way of making them see-through (a colour key), for PCs where
+    // the usual one comes up solid: put them up again with it, and ask again.
+    const up = Object.keys((ui.snap && ui.snap.desktop && ui.snap.desktop.on_screen) || {});
+    await cmd("desktop_method", { method: "colorkey" });
+    for (const p of page ? [page] : up) await cmd("desktop_show", { page: p, screen: deskScreen(deskTab(p)) });
+    toast("Trying another way of making it see-through…");
+    startDeskCheck(page);
+    return;
+  }
+  // Neither way works here: back to the usual one next time, and take it down.
+  await cmd("desktop_method", { method: "auto" });
+  if (page) cmd("desktop_hide", { page });
+  else cmd("desktop_hide", {});
+  toast("Removed: on-screen overlays don't work on this PC. Use the OBS or browser link instead.");
 });
 document.addEventListener("click", (e) => {
   const show = e.target.closest("[data-desk-show]");
@@ -4226,6 +4310,8 @@ function renderTeams() {
             ${t.logo ? `<button class="btn subtle" data-team-nologo="${i}">Remove logo</button>` : ""}
             <button class="btn icon danger" data-team-delete="${i}" title="Delete team">✕</button>
           </div>
+          <label class="check small" title="Its drivers still score for themselves; the team just isn't in the team championship (standings, boards).">
+            <input type="checkbox" data-team="${i}" data-key="no_standings" ${t.no_standings ? "checked" : ""}> Leave out of the team standings</label>
         </div>
       </div>
       <div class="chips team-members">${members.map(([d, j]) => `<span class="chip">${label(d)}
@@ -4322,7 +4408,7 @@ $("#team-cards").addEventListener("change", async (e) => {
     team.name = name;
     renderRoster();
   } else {
-    team[key] = el.value.trim();
+    team[key] = el.type === "checkbox" ? el.checked : el.value.trim();
   }
   renderTeams();
 });
@@ -4400,6 +4486,43 @@ function choose(title, text, options, html = "") {
     box.querySelector("button").focus();
   });
 }
+
+// Another league's settings into this one (LeagueStore.copy_settings): pick
+// the league and what to bring over; drivers and results stay as they are.
+const COPY_PARTS = [
+  ["rules", "Points & rules (points systems, drop rounds, bonuses, class points)", true],
+  ["classes", "Classes (colours, logos, how drivers are matched; same-named ones updated)", true],
+  ["teams", "Teams (names, short names, colours, logos; same-named ones updated)", false],
+  ["branding", "League logo, banners, sponsors and calendar graphic", false],
+  ["calendar", "Calendar: the rounds, without results (only into a league with no results yet)", false],
+  ["options", "Options (drivers with no class hidden, (P) name tags)", true],
+];
+$("#btn-copy-settings").addEventListener("click", async () => {
+  const me = ui.editing;
+  if (!me || !me.id) return toast("Save this league first", true);
+  let leagues = ui.leagueList || [];
+  try {
+    leagues = (await api("/api/leagues")).leagues;  // as they are now
+  } catch (e) { /* the list the pickers have */ }
+  const others = leagues.filter((l) => l.id !== me.id).sort(byName());
+  if (!others.length) return toast("There's no other league to copy from yet", true);
+  const html = `<label class="field">From <select id="copy-from">${others.map((l) => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("")}</select></label>
+    <div class="copy-parts">${COPY_PARTS.map(([k, label, on]) => `<label class="check"><input type="checkbox" data-copy-part="${k}" ${on ? "checked" : ""}> ${esc(label)}</label>`).join("")}</div>
+    <p class="hint">Drivers, results and penalties stay as they are. Unsaved changes here are lost: save first.</p>`;
+  const r = await choose(`Copy settings into ${me.name}`, "Bring another league's settings into this one.", [["copy", "Copy", true], ["cancel", "Cancel"]], html);
+  if (!r || r.value !== "copy") return;
+  const from = r.form.querySelector("#copy-from").value;
+  const parts = [...r.form.querySelectorAll("[data-copy-part]:checked")].map((b) => b.dataset.copyPart);
+  if (!parts.length) return toast("Tick at least one thing to copy", true);
+  try {
+    await api(`/api/leagues/${encodeURIComponent(me.id)}/copy-settings`, { method: "POST", body: { from, parts } });
+    await openLeague(me.id);
+    const name = (others.find((l) => l.id === from) || {}).name || from;
+    toast(`Copied from ${name}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
 
 // A driver moved from one team to another (or out of one) after racing this
 // season: their points so far stay with the team they raced for, or all go

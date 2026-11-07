@@ -507,6 +507,24 @@ class TeamAndMakeDropTests(unittest.TestCase):
         self.assertEqual({m["make"]: m["points"] for m in ch.make_standings(profile, "gt3")}, {"Ferrari": 37, "BMW": 32})
 
 
+class TeamLeftOutTests(unittest.TestCase):
+    def test_a_team_can_be_left_out_of_the_team_standings(self):
+        res = [{"driver": f"cust:{d}", "name": f"D{d}", "class_id": "gt3", "position": d, "status": "finished"} for d in (1, 2)]
+        profile = {
+            "drivers": [{"cust_id": 1, "name": "D1", "team": "Red"}, {"cust_id": 2, "name": "D2", "team": "Guest"}],
+            "teams": [{"name": "Red"}, {"name": "Guest", "no_standings": True}],
+            "classes": [{"id": "gt3", "name": "GT3", "color": "#fff"}],
+            "championship": {"rules": {"points": [10, 6]}, "rounds": [{"id": "a", "name": "R1", "results": res}]},
+        }
+        out = ch.standings(profile)
+        self.assertEqual([t["team"] for t in out["teams"]], ["Red"])
+        # Its driver still scores for themselves.
+        drivers = {r["driver"]: r["points"] for g in out["groups"] for r in g["drivers"]}
+        self.assertEqual(drivers["cust:2"], 6)
+        from apex.league import normalise_profile
+        self.assertTrue(normalise_profile(dict(profile, name="L"))["teams"][1]["no_standings"])
+
+
 class TeamSwitchTests(unittest.TestCase):
     def profile(self, stamp):
         def res(order, teams):

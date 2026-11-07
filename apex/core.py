@@ -62,7 +62,7 @@ CAR_FLAGS = (
     (FLAG_BLUE, "blue"), (CAUTION_FLAGS, "yellow"), (FLAG_CHECKERED, "checkered"), (FLAG_WHITE, "white"),
     (FLAG_GREEN, "green"),
 )
-PENALTY_NAMES = {"dq": "DQ", "black": "Black flag", "meatball": "Meatball", "warning": "Warning"}
+PENALTY_NAMES = {"dq": "DQ", "black": "Black flag", "meatball": "Meatball", "warning": "Slow down"}
 
 
 class CommandError(Exception):
@@ -153,8 +153,17 @@ class LineFilter:
     def __init__(self):
         self._key, self._last, self._now = None, {}, {}
 
+    # As far as a car gets round in one update at most (a lap's fraction): a
+    # bigger jump across the line is a car put somewhere (towed to its pit
+    # box just after the line, say), not one driving over it.
+    STEP = 0.06
+
     def __call__(self, timeline, idx, raw):
         if raw is None or raw < 0:
+            # Off the track (towed, in the garage, gone): what it was is no
+            # guide to where it reappears.
+            self._last.pop(idx, None)
+            self._now.pop(idx, None)
             return raw
         if timeline != self._key:
             num, t = timeline
@@ -165,9 +174,9 @@ class LineFilter:
             return self._now[idx]
         p, prev = raw, self._last.get(idx)
         if prev is not None and (prev % 1 > 0.85 or prev % 1 < 0.15):  # it was at the line
-            if raw % 1 > 0.9 and raw - prev > 0.5:
+            if raw % 1 > 0.9 and raw - prev > 0.5 and abs(raw - 1 - prev) < self.STEP:
                 p = raw - 1  # the lap's up before the distance is back to 0
-            elif raw % 1 < 0.1 and prev - raw > 0.5:
+            elif raw % 1 < 0.1 and prev - raw > 0.5 and abs(raw + 1 - prev) < self.STEP:
                 p = raw + 1  # the distance is back to 0 before the lap's up
         self._now[idx] = p
         return p
@@ -256,6 +265,7 @@ class App:
         self._camera_groups = []
         self._session_meta = {}
         self._track_m = DEFAULT_TRACK_M
+        self._tyre_names = {}     # the event's tyres: compound index -> its kind ("hard", "wet"...)
         self._frame = None
         self._return_timer = None
         self._last_push = 0.0
@@ -266,6 +276,7 @@ class App:
         self._qual_source = "car number"
         self._grid_cache = (None, [])   # (what it depends on, the race on screen's grid): _race_grid
         self._finish_gaps = {}           # race session -> car_idx -> its gap to the winner as it finished
+        self._finishers = {}             # race session -> car_idx -> its place, gap and laps as it finished
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
         self._green = {}           # race session number -> session time it went green (the header flash)
@@ -285,6 +296,7 @@ class App:
         self._grid_rows_total = 1  # the starting grid board's rows (two cars each), for showing them row by row
         self._put_away = None      # what the all:toggle hotkey took off screen, to bring back
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
+        self.widget = None         # set by __main__: widget(key, path, name, on) opens / closes a small on-top window
         self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
         self.backgrounds = Backgrounds()  # __main__ gives it a folder: overlay / board background images
         self.laps = LapTracker()
@@ -404,7 +416,10 @@ class App:
             self.laps.update(replace(frame, session_num=num, session_time=t), self._lap_class)
         logged = self._logged_until.get(num, -1.0)
         if t < logged - 1e-3:
-            self.detection = "paused"  # watching something already logged
+            # Watching something already logged. Mid-race: the race goes on
+            # underneath, its incident points and places at the line still logged.
+            racing = not frame.is_live and frame.session_state in (STATE_RACING, STATE_CHECKERED) and self._is_race(frame)
+            self.detection = "replay_live" if racing else "paused"
             return
         if t <= logged + 1e-3:
             return  # no new race time (sim paused): nothing changes
@@ -449,7 +464,7 @@ class App:
         """Forget the timing of the last iRacing event (see _load_session_info)."""
         self._green, self._chequered, self._last_state, self._logged_until, self._seen_in = {}, {}, {}, {}, {}
         self._drivers, self._gone = {}, {}  # the last event's drivers aren't this one's leavers
-        self._finish_gaps = {}
+        self._finish_gaps, self._finishers = {}, {}
         self._race = RaceProgress()
         self._fl_session, self._fl_records, self._fl_flash = None, {}, None
         self._laps_t = self._laps_num = None
@@ -467,8 +482,13 @@ class App:
         sub, was = weekend.get("SubSessionID"), self._session_meta.get("subsession")
         if sub is not None and was is not None and sub != was:
             self._new_event()
+        tires = (info.get("DriverInfo") or {}).get("DriverTires") or []
+        self._tyre_names = {t.get("TireIndex"): str(t.get("TireCompoundType") or "").lower()
+                            for t in tires if isinstance(t, dict) and t.get("TireIndex") is not None}
         self._track_m = parse_track_length(weekend.get("TrackLength"))
         self.gaps.set_track(self._track_m)
+        # The lap tracker throws out laps no car could do on this track.
+        self.laps.track_m = self._track_m if weekend.get("TrackLength") else None
         self.tracks.remember(weekend.get("TrackID"), weekend.get("TrackDisplayName", ""), weekend.get("TrackConfigName", ""))
         sessions = (info.get("SessionInfo") or {}).get("Sessions") or []
         self._session_meta = {
@@ -633,6 +653,10 @@ class App:
                 frame = replace(frame, session_num=screen_num)
             is_race = self._is_race(frame)
             racing = is_race and frame.session_state == STATE_RACING
+            # Timed live: while racing, and after the flag for the cars still
+            # out there (each car's place stays as it was when it crossed the
+            # line: _keep_finishers), not frozen when the leader finishes.
+            timing = is_race and frame.session_state in (STATE_RACING, STATE_CHECKERED)
             events = self.detector.events
             counts = {}
             last_event = {}
@@ -668,6 +692,7 @@ class App:
                     "official_pos": _at(frame.position, idx, 0) or None,
                     "class_pos": _at(frame.class_position, idx, 0) or None,
                     "on_pit": bool(_at(frame.on_pit, idx, False)),
+                    "tyre": self._tyre(_at(frame.tire, idx, -1)),
                     "surface": SURFACES.get(surface, "unknown"),
                     "in_world": surface != TRK_NOT_IN_WORLD,
                     # Live timing replaces it (_live_gaps). In a replay iRacing's own
@@ -698,10 +723,14 @@ class App:
                 for pos, r in enumerate(rows, start=1):
                     r["pos"] = pos
             else:
-                self._assign_positions(rows, racing)
-            if racing or (is_race and not frame.is_live):
+                self._assign_positions(rows, timing)
+            if timing or (is_race and not frame.is_live):
                 # Our own gaps while racing, and in a replay of the race (also after the flag).
                 self._live_gaps(rows, frame)
+            # A car that's taken the chequered flag keeps its place (and gap) from
+            # the moment it crossed the line, whatever it does after (pits, garage, leaving).
+            if is_race and self._race.checkered and self._race.session == frame.session_num:
+                self._keep_finishers(frame.session_num, rows)
             # Each car's gap to the winner as it took the flag (the app's own
             # timing): the finishing order's gaps where iRacing has no race times.
             if is_race and self._race.checkered and frame.is_live:
@@ -1026,6 +1055,7 @@ class App:
             "team": team_name, "team_short": (team or {}).get("short", ""), "team_color": (team or {}).get("color", ""),
             "team_logo": logo_url(pid, team.get("logo")) if team and pid else None,
             "class_key": r["class_key"], "car": r["car"], "on_pit": r["on_pit"], "in_world": r["in_world"],
+            "tyre": r.get("tyre"),
             "paint": self._paint(r, active_league),
             # For the full-screen versions.
             "make": r["make"], "make_logo": r["make_logo"],
@@ -1217,6 +1247,29 @@ class App:
                      "all": sorted(everyone, key=lambda x: (x["pos"] or 10_000, x["name"].lower()))},
         }
 
+    def _keep_finishers(self, num, rows):
+        """Rows in order with every car that's finished at its place as it
+        crossed the line (its gap and laps then too), still in the order
+        however it drives (or doesn't) afterwards: no PIT, OUT or LEFT."""
+        kept = self._finishers.setdefault(num, {})
+        done = self._race.finished
+        for r in rows:
+            idx = r["car_idx"]
+            if idx in done and idx not in kept and r["pos"] is not None:
+                kept[idx] = {k: r[k] for k in ("pos", "gap", "lap", "laps_completed")}
+        held = [r for r in rows if r["car_idx"] in done and r["car_idx"] in kept]
+        if not held:
+            return
+        for r in held:
+            r.update(kept[r["car_idx"]], in_world=True, on_pit=False, left=False)
+        # The finishers where they finished; the rest as they are, after any finisher with the same place.
+        rows.sort(key=lambda r: (r["pos"] is None, r["pos"] or 0, r["car_idx"] not in kept))
+        place = 0
+        for r in rows:
+            if r["pos"] is not None:
+                place += 1
+                r["pos"] = place
+
     def _hold_live(self, live, rows):
         """The standings while a replay is on screen during a race: the live
         race's, not the replay's. iRacing's car data (where each car is) is
@@ -1227,6 +1280,7 @@ class App:
         num = live.session_num
         if live.is_live:
             self._live_rows = (self._session_meta.get("subsession"), num, rows)
+            self._held_order = (num, [r["car_idx"] for r in sorted((r for r in rows if r["pos"] is not None), key=lambda r: r["pos"])])
             return rows
         session = self._session_meta.get("sessions", {}).get(num, {})
         held = self._live_rows
@@ -1264,7 +1318,28 @@ class App:
                 r["pos_change"] = r["start_pos"] - pos
             if r.get("class_start_pos"):
                 r["class_pos_change"] = r["class_start_pos"] - r["class_pos"]
+        self._log_passes_at_line(live, num, placed)
         return placed + [r for r in out if r["pos"] is None]
+
+    def _log_passes_at_line(self, live, num, placed):
+        """During a replay the race log can't see the cars (iRacing sends the
+        replay's), but iRacing's results still come in live: a car that's
+        gone up the order at the line is logged as passing the cars it went
+        past there (once, with the live race time)."""
+        order = [r["car_idx"] for r in placed]
+        was_num, was = getattr(self, "_held_order", (None, None))
+        self._held_order = (num, order)
+        if was_num != num or not was or was == order:
+            return
+        before = {idx: i for i, idx in enumerate(was)}
+        for i, idx in enumerate(order):
+            j = before.get(idx)
+            if j is None or j <= i:
+                continue
+            for other in was[i:j]:  # those it was behind and is now ahead of
+                if other in order and order.index(other) > i:
+                    self.detector._emit("overtake", idx, replace(live, session_num=num), self._drivers,
+                                        other=other, position=i + 1, at_line=True)
 
     def _keep_left(self, num, standings, rows, is_race):
         """The standings (unranked, copies) with the drivers seen in them this
@@ -1372,6 +1447,9 @@ class App:
         leader = ranked[0]
         now = frame.timeline()[1]
         class_leader = {}
+        # A usual lap: the quickest so far, else the track's length at about 45 m/s.
+        laps = [r["best_lap"] for r in ranked if r.get("best_lap")]
+        lap_s = min(laps) if laps else max(30.0, (self._track_m or DEFAULT_TRACK_M) / 45.0)
         for r in ranked:
             cl = class_leader.setdefault(r["class_key"], r)
             r["laps_down"] = _laps_down(leader, r)
@@ -1382,6 +1460,11 @@ class App:
                 r["gap"] = None  # in the garage: no gap
                 continue
             gap = self.gaps.gap(r["car_idx"], leader["car_idx"], r["progress"], now)
+            if gap is None and leader["progress"] >= r["progress"] >= 0:
+                # Not timed yet (the first moments of the race, before the
+                # leader has been where this car is): the distance behind the
+                # leader at a usual lap's pace, rather than iRacing's 0.0.
+                gap = (leader["progress"] - r["progress"]) * lap_s
             if gap is not None:
                 r["gap"] = round(gap, 3)
 
@@ -1464,6 +1547,13 @@ class App:
                     d, ld, active_league, classes, car_idx=None, in_session=False, in_world=False,
                 )
         self._grid_keys = list(entries)
+        # In the starting grid's order (the board's: by qualifying or the race
+        # before, reversed as set), unless the grid board takes the walk's.
+        grid = self._walk_grid(active_league)
+        grid_from = grid[1] if grid else "qualifying"
+        if grid:
+            place = {f"car:{idx}": n for n, idx in enumerate(grid[0])}
+            self._grid_keys.sort(key=lambda k: (k not in place, place.get(k, 0)))
         order = self.gridwalk.apply_order(self._grid_keys)
         in_class = {}
         # Gaps are to the class pole time, as in multiclass qualifying.
@@ -1476,6 +1566,8 @@ class App:
         ahead = {}  # class key -> qualifying time of the car ahead on the grid in that class
         for pos, key in enumerate(order, start=1):
             e = entries[key]
+            if grid_from != "qualifying" or self.gridwalk.manual_order:
+                e = dict(e, qual_time=None)  # not a grid from qualifying: no qualifying times or gaps
             in_class[e["class_key"]] = in_class.get(e["class_key"], 0) + 1
             pole = class_pole.get(e["class_key"])
             gap = round(e["qual_time"] - pole, 3) if e["qual_time"] and pole else None
@@ -1488,8 +1580,40 @@ class App:
         th = self.thumbnails
         thumbs = {"folder": str(th.folder or ""), "count": th.count, "error": th.error,
                   "matched": sum(1 for e in out if e["has_thumb"]), "drivers": len(out)}
-        return {**self.gridwalk.state(), "source": "manual" if self.gridwalk.manual_order else self._grid_source,
+        return {**self.gridwalk.state(), "source": "manual" if self.gridwalk.manual_order else grid_from if grid else self._grid_source,
                 "entries": out, "thumbs": thumbs}
+
+    def _tyre(self, index):
+        """A car's tyres: "dry", "wet" or None (not known), from its compound
+        index and the event's tyres (DriverInfo.DriverTires; without them,
+        0 is the dry tyre and 1 the wet, as on most cars)."""
+        if index is None or index < 0:
+            return None
+        tires = self._tyre_names
+        if tires:
+            name = tires.get(index)
+            return None if name is None else "wet" if ("wet" in name or "rain" in name) else "dry"
+        return {0: "dry", 1: "wet"}.get(index)
+
+    def _walk_grid(self, league):
+        """The starting grid board's order for the next race (car indexes) and
+        where it's from, for the grid walk; None when the board takes its
+        order from the grid walk, or has nobody. Worked out once a second."""
+        if self.overlays.get()["board_grid"]["grid_source"] == "gridwalk":
+            return None
+        key = (league or {}).get("id")
+        at, was, found = getattr(self, "_walk_grid_cache", (0.0, None, None))
+        if was == key and time.monotonic() - at < 1.0:
+            return found
+        try:
+            board = self._grid_board(league, "next")
+            rows = [r["car_idx"] for r in board["rows"]]
+            found = (rows, board["from"]) if rows else None
+        except Exception as e:  # noqa: BLE001 - the walk carries on in its own order
+            self._report("grid walk order", e)
+            found = None
+        self._walk_grid_cache = (time.monotonic(), key, found)
+        return found
 
     def _thumb_for(self, d):
         """The thumbnails folder's picture for this driver in their car (a file name), or None."""
@@ -1645,7 +1769,7 @@ class App:
             # click on screen: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay", "share_", "follow_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay", "share_", "follow_", "sync_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -1681,7 +1805,8 @@ class App:
         picked = self.settings.get("desk_screens") or {}
         if d is None:
             return {"available": False, "on_screen": {}, "screens": [], "picked": picked}
-        return {"available": True, "on_screen": d.on_screen(), "screens": d.screens(), "picked": picked}
+        return {"available": True, "on_screen": d.on_screen(), "screens": d.screens(), "picked": picked,
+                "method": self.settings.get("desk_method") or "auto"}
 
     def cmd_desktop_screen(self, tab, screen=0):
         """Which screen the Overlays tab's (or the Boards tab's) overlays go on,
@@ -1700,10 +1825,21 @@ class App:
         if self.desktop is None:
             raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
         name, path = self.DESKTOP_PAGES[page]
+        if hasattr(self.desktop, "method"):
+            self.desktop.method = self.settings.get("desk_method") or "auto"
         # desktop=<page>: the page reports where it draws, to fit the window to it (cmd_desktop_region).
         if not self.desktop.show(page, f"{path}{'&' if '?' in path else '?'}desktop={page}", name, int(screen or 0)):
             raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
         return {"on_screen": self.desktop.on_screen()}
+
+    def cmd_desktop_method(self, method="auto"):
+        """How on-screen overlays are made see-through: "auto" (Windows' own
+        transparency, else a colour key) or "colorkey" (always the colour key:
+        for PCs where they come up solid). Overlays up now go up again with it."""
+        if method not in ("auto", "colorkey"):
+            raise CommandError("Unknown way")
+        self.settings.set("desk_method", method)
+        return {"method": method}
 
     # What "all of them on my screen" puts up (hotkeys desk:overlays / desk:boards).
     DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits"), "boards": ("board",),
@@ -1748,6 +1884,12 @@ class App:
         if page not in self.POPOUT_PAGES:
             raise CommandError("That page can't be popped out.")
         return {"opened": bool(self.popout and self.popout(page, self.POPOUT_PAGES[page]))}
+
+    def cmd_sync_widget(self, on=True):
+        """The co-commentator's FREE | SYNC switch in a small window of its
+        own, on top of iRacing (sync.html). ``opened`` False: no app window
+        (in a browser), the page opens it as a browser window itself."""
+        return {"opened": bool(self.widget and self.widget("sync", "sync.html", "Free / Sync", bool(on)))}
 
     def cmd_watch(self, car_idx, group=None, camera=0):
         d = self._driver(car_idx)
@@ -1927,10 +2069,40 @@ class App:
     def cmd_replay_speed(self, speed=1, slow_motion=False):
         self.source.replay_set_play_speed(int(speed), bool(slow_motion))
 
+    INCIDENT_TYPES = ("contact", "offtrack", "slowdown", "spin", "incident")
+
     def cmd_replay_incident(self, direction=1):
-        """Step through iRacing's own incident markers on the replay tape."""
-        self.source.replay_search(RPY_SRCH_NEXT_INCIDENT if int(direction) > 0 else RPY_SRCH_PREV_INCIDENT)
-        self.source.replay_set_play_speed(1, False)
+        """The previous / next incident in the race log, replayed (as clicking
+        it would). The first press from live: the latest one. With nothing in
+        the log, iRacing's own incident markers on the replay tape."""
+        step = 1 if int(direction) > 0 else -1
+        frame = self._frame
+        events = sorted((e for e in self.detector.events if e["type"] in self.INCIDENT_TYPES or e.get("accident")),
+                        key=lambda e: (e["session_num"], e["session_time"], e["id"]))
+        if not events:
+            self.source.replay_search(RPY_SRCH_NEXT_INCIDENT if step > 0 else RPY_SRCH_PREV_INCIDENT)
+            self.source.replay_set_play_speed(1, False)
+            return {"incident": None}
+        ids = [e["id"] for e in events]
+        live = frame is None or frame.is_live
+        cur = getattr(self, "_incident_at", None)
+        if not live and cur in ids:
+            i = ids.index(cur) + step
+        elif live:
+            i = len(events) - 1 if step < 0 else len(events)
+        else:
+            # In a replay of something else: from where it is.
+            at = (frame.session_num, frame.replay_session_time + float(self.cfg["replay_preroll_s"]))
+            later = [k for k, e in enumerate(events) if (e["session_num"], e["session_time"]) > (at[0], at[1] + 0.5)]
+            i = (later[0] if later else len(events)) if step > 0 else (later[0] - 1 if later else len(events) - 1)
+        if i < 0:
+            raise CommandError("No earlier incident in the race log")
+        if i >= len(events):
+            raise CommandError("No later incident in the race log (● LIVE goes back to live)")
+        ev = events[i]
+        self._incident_at = ev["id"]
+        out = self._replay(ev["car_idx"], ev["session_num"], ev["session_time"])
+        return dict(out, incident=ev["id"])
 
     def cmd_clear_events(self):
         self.detector.clear()
@@ -2073,12 +2245,16 @@ class App:
 
     TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits")
 
+    def _toggled(self, ov):
+        """The overlays everything-off / on takes: not the sponsors set to stay."""
+        return [k for k in self.TOGGLE_ALL if not (k == "sponsors" and ov.get(k, {}).get("stay"))]
+
     def cmd_toggle_all(self):
         """Every overlay, the board and the grid walk off screen at once; again,
         and whatever that took off comes back (nothing was up: every overlay
         comes on). Returns {"shown": True / False}."""
         ov = self.overlays.get()
-        up = [k for k in self.TOGGLE_ALL if ov.get(k, {}).get("visible")]
+        up = [k for k in self._toggled(ov) if ov.get(k, {}).get("visible")]
         if up or self.board.get("kind") or self.gridwalk.visible:
             self._put_away = {"overlays": up, "board": dict(self.board) if self.board.get("kind") else None,
                               "gridwalk": self.gridwalk.index if self.gridwalk.visible else None}
@@ -2089,7 +2265,7 @@ class App:
             return {"shown": False}
         away, self._put_away = self._put_away, None
         if not away:
-            away = {"overlays": list(self.TOGGLE_ALL), "board": None, "gridwalk": None}
+            away = {"overlays": self._toggled(ov), "board": None, "gridwalk": None}
         for k in away["overlays"]:
             self.cmd_overlay_settings(k, {"visible": True})
         if away["board"]:
@@ -2102,7 +2278,7 @@ class App:
         """Every overlay and the grid walk off screen; again, and they come
         back (nothing was up: every overlay comes on). Boards stay as they are."""
         ov = self.overlays.get()
-        up = [k for k in self.TOGGLE_ALL if ov.get(k, {}).get("visible")]
+        up = [k for k in self._toggled(ov) if ov.get(k, {}).get("visible")]
         if up or self.gridwalk.visible:
             self._overlays_away = {"overlays": up, "gridwalk": self.gridwalk.index if self.gridwalk.visible else None}
             for k in up:
@@ -2110,7 +2286,7 @@ class App:
             self.gridwalk.hide()
             return {"shown": False}
         away, self._overlays_away = getattr(self, "_overlays_away", None), None
-        away = away or {"overlays": list(self.TOGGLE_ALL), "gridwalk": None}
+        away = away or {"overlays": self._toggled(ov), "gridwalk": None}
         for k in away["overlays"]:
             self.cmd_overlay_settings(k, {"visible": True})
         if away["gridwalk"] is not None and self._grid_count():
@@ -2226,9 +2402,16 @@ class App:
         shown = int(params.get("reveal") or 1)
         shown = total if step == "all" else shown + 1 if step == "next" else shown - 1 if step == "prev" else shown
         shown = min(max(shown, 1), total)
-        per = max(1, int(self.overlays.get()["board_grid"]["rows"]))
+        cfg = self.overlays.get()["board_grid"]
+        per = max(1, int(cfg["rows"]))
         page = (shown * 2 - 1) // per if step != "all" else int(params.get("page") or 0)
-        self.board = {"kind": "grid", "params": dict(params, reveal=shown, page=page)}
+        extra = {}
+        if cfg["grid_scroll"] == "scroll":
+            # Scrolling: the drivers on screen end with the row just shown
+            # (a whole row at the top: an even start).
+            start = max(0, shown * 2 - per)
+            extra["start"] = start + start % 2 if step != "all" else int(params.get("start") or 0)
+        self.board = {"kind": "grid", "params": {**{k: v for k, v in params.items() if k != "start"}, "reveal": shown, "page": page, **extra}}
         return {"reveal": shown, "rows": total}
 
     def _grid_hotkey(self, what):
@@ -2245,7 +2428,7 @@ class App:
             want = {"full": "all", "rows": "rows"}.get(what) or ("rows" if now == "all" else "all")
             self.cmd_overlay_settings("board_grid", {"grid_reveal": want})
             if self.board.get("kind") == "grid":  # row by row starts again from the front row
-                self.board = {"kind": "grid", "params": dict(self.board["params"], reveal=1, page=0)}
+                self.board = {"kind": "grid", "params": dict(self.board["params"], reveal=1, page=0, start=0)}
             return {"grid_reveal": want}
         if what in ("next", "prev", "all"):
             return self.cmd_board_reveal(what)

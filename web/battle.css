@@ -1,7 +1,7 @@
 /* Championship battle: a small table of a few drivers, in a corner or along an edge. */
 .battle {
   position: absolute; min-width: 470px; border-radius: 12px; overflow: hidden;
-  background: var(--panel); box-shadow: 0 12px 36px rgba(0, 0, 0, .45);
+  background: var(--panel); box-shadow: 0 12px 36px rgba(0, 0, 0, calc(.45 * var(--bg-k, 1)));
 }
 body.panel-image .battle { isolation: isolate; }
 body.panel-image .battle::before {
@@ -21,32 +21,41 @@ body.panel-image .battle::before {
 .battle.bottom-right { bottom: 40px; right: 40px; }
 
 .bt-head {
-  display: flex; align-items: center; gap: 12px; padding: 8px 16px; font-size: 17px; font-weight: 900;
+  display: flex; align-items: center; gap: 12px; padding: 8px 16px; font-size: calc(17px * var(--fs, 1)); font-weight: 900;
   letter-spacing: .1em; text-transform: uppercase; border-bottom: 3px solid var(--grp, var(--accent));
 }
-.bt-head .chip { padding: 2px 9px; border-radius: 5px; font-size: 14px; letter-spacing: .06em; }
-.bt-head .live { margin-left: auto; font-size: 13px; letter-spacing: .12em; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+.bt-head .chip { padding: 2px 9px; border-radius: 5px; font-size: calc(14px * var(--fs, 1)); letter-spacing: .06em; }
+.bt-head .live { margin-left: auto; font-size: calc(13px * var(--fs, 1)); letter-spacing: .12em; color: var(--muted); display: flex; align-items: center; gap: 7px; }
 .bt-head .live::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--red); animation: bt-blink 1.4s ease-in-out infinite; }
 @keyframes bt-blink { 50% { opacity: .25; } }
 
 .bt-cols, .bt-row { display: grid; grid-template-columns: var(--bt-cols); align-items: center; column-gap: 12px; padding: 0 16px; }
-.bt-cols { height: 26px; font-size: 12px; font-weight: 800; letter-spacing: .1em; color: var(--muted); text-transform: uppercase; }
+.bt-cols { height: 26px; font-size: calc(12px * var(--fs, 1)); font-weight: 800; letter-spacing: .1em; color: var(--muted); text-transform: uppercase; }
 .bt-row { height: 52px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
-.bt-row .pos { font-size: 26px; font-weight: 900; text-align: center; }
-.bt-row .chg { font-size: 14px; font-weight: 800; text-align: left; }
+.bt-row .pos { font-size: calc(26px * var(--fs, 1)); font-weight: 900; text-align: center; }
+.bt-row .chg { font-size: calc(14px * var(--fs, 1)); font-weight: 800; text-align: left; }
 .chg.up { color: var(--green); }
 .chg.down { color: var(--red); }
 .bt-row .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.bt-row .num { height: 30px; font-size: 18px; }
+.bt-row .num { height: 30px; font-size: calc(18px * var(--fs, 1)); }
 .bt-row .names { min-width: 0; display: flex; flex-direction: column; }
-.bt-row .name { font-size: 22px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bt-row .team { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-row .name { font-size: calc(22px * var(--fs, 1)); font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-row .team { font-size: calc(14px * var(--fs, 1)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bt-row .logo { flex: none; height: calc(28px * var(--logo-k, 1)); width: calc(40px * var(--logo-k, 1)); object-fit: contain; }
-.bt-row .pts { font-size: 26px; font-weight: 900; text-align: right; }
-.bt-row .race { font-size: 18px; font-weight: 800; color: var(--green); text-align: right; }
+.bt-row .pts { font-size: calc(26px * var(--fs, 1)); font-weight: 900; text-align: right; }
+.bt-row .race { font-size: calc(18px * var(--fs, 1)); font-weight: 800; color: var(--green); text-align: right; }
 .bt-row .race.zero { color: var(--muted); }
-.bt-row .gap { font-size: 20px; font-weight: 800; text-align: right; color: var(--muted); }
+.bt-row .gap { font-size: calc(20px * var(--fs, 1)); font-weight: 800; text-align: right; color: var(--muted); }
 .bt-row.first .gap { color: var(--ink); }
 .bt-cols .r { text-align: right; }
-.bt-empty { padding: 14px 16px; color: var(--muted); font-size: 18px; }
-.bt-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; opacity: .6; font-size: 28px; text-align: center; padding: 0 200px; }
+.bt-empty { padding: 14px 16px; color: var(--muted); font-size: calc(18px * var(--fs, 1)); }
+.bt-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; opacity: .6; font-size: calc(28px * var(--fs, 1)); text-align: center; padding: 0 200px; }
+
+/* faded */
+/* Colours from variables (class, accent...) at the overlay's opacity too, where
+   the browser can mix them (older ones keep them solid). */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .bt-head { border-bottom:3px solid color-mix(in srgb, var(--grp, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .bt-head .live::before { background:color-mix(in srgb, var(--red) calc(var(--bg-k, 1) * 100%), transparent); }
+  .bt-row { border-top:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }
+}

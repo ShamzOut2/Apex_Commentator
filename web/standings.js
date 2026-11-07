@@ -194,6 +194,12 @@ function renderFlash(snap, ov) {
 
 // Columns after the driver, as the commentator has chosen them:
 // [setting, width, label, value(e, race, classMode)].
+// A race car gone from the session (or out of the car after racing, not
+// finished): OUT in its gap and interval boxes. (Not yet in the car before
+// the start isn't OUT.)
+const isOut = (e) => !!(e.left || (!e.in_world && e.laps_completed > 0));
+const OUT_TAG = '<span class="out-tag">OUT</span>';
+
 const COLUMNS = [
   ["show_pos_change", "46px", "+/−", (e, race) => {
     if (!race || !e.pos_change) return race ? '<span class="dim">–</span>' : "";
@@ -208,16 +214,19 @@ const COLUMNS = [
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
     if (!race && e.best == null) return '<span class="dim">No time</span>';
     if (first) return `<span class="lead">${race ? leaderText(e, cfg) : fmtLap(e.best)}</span>`;
+    if (race && isOut(e)) return OUT_TAG;
     const down = race && (classMode ? e.class_laps_down : e.laps_down);
     if (down) return `+${down} L`;
-    return gap != null ? `+${race ? gap.toFixed(1) : gap.toFixed(3)}` : "";
+    return gap != null ? `+${secs(gap, race)}` : "";
   }],
+  ["show_tyre", "40px", "Tyre", (e) => tyreIcon(e.tyre)],
   ["show_interval", "80px", "Int", (e, race, classMode, cfg, green) => {
     const interval = classMode ? e.class_interval : e.interval;
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
     if (first) return race ? leaderInterval(e, cfg) : "";
+    if (race && isOut(e)) return OUT_TAG;
     if (interval == null) return "";
-    const text = `+${race ? interval.toFixed(1) : interval.toFixed(3)}`;
+    const text = `+${secs(interval, race)}`;
     // Racing within close_s of the car ahead: red until they're past or it opens up.
     const close = race && green && cfg.close_s > 0 && interval <= cfg.close_s && e.in_world && !e.on_pit;
     return close ? `<span class="close">${text}</span>` : text;
@@ -282,7 +291,7 @@ function stripeColor(e, cls, cfg) {
 function numberChip(e, cls, cfg) {
   const color = paintFor(e, cls, cfg.class_colors);
   return cfg.color_number && color
-    ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(e.number)}</span>`
+    ? `<span class="num" style="background:${esc(bgc(color))};color:${inkFor(color)}">${esc(e.number)}</span>`
     : `<span class="num plain">${esc(e.number)}</span>`;
 }
 
@@ -375,7 +384,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
   // The cells in the order rowSpec gives: the team logo and the team name are columns of their own.
   const cell = {
     pos: () => `<span class="p tnum" data-opcol="pos">${pos}</span>`,
-    stripe: () => `<span class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(stripeColor(e, cls, cfg))}` : ""}"></span>`,
+    stripe: () => `<span class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(bgc(stripeColor(e, cls, cfg)))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
     logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
     name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
@@ -634,25 +643,26 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     ? `<td class="lg c" data-opcol="logo">${e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}</td>`
     : `<td class="team" data-opcol="team">${esc(e.team || "")}</td>`)).join("");
   const cells = [
-    `<td class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(stripeColor(e, cls, cfg))}` : "background:none"}"></td>`,
+    `<td class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(bgc(stripeColor(e, cls, cfg)))}` : "background:none"}"></td>`,
     `<td class="p r" data-opcol="pos">${pos}</td>`,
     race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
     `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,
-    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
+    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${!e.in_world ? (race ? "" : '<span class="pit">OUT</span>') : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
     teamCells,
   ];
   const down = classMode ? e.class_laps_down : e.laps_down;
   const cell = {
     laps: () => `<td class="r muted">${(race ? e.laps_completed : e.lap) ?? ""}</td>`,
     gap: () => (race
-      ? `<td class="r ${first ? "lead" : ""}">${first ? leaderText(e, cfg) : down ? `+${down} L` : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`
-      : `<td class="r">${first ? "" : gap != null ? `+${gap.toFixed(3)}` : ""}</td>`),
+      ? `<td class="r ${first ? "lead" : ""}">${first ? leaderText(e, cfg) : isOut(e) ? OUT_TAG : down ? `+${down} L` : gap != null ? `+${secs(gap)}` : ""}</td>`
+      : `<td class="r">${first ? "" : gap != null ? `+${secs(gap, false)}` : ""}</td>`),
     interval: () => (first && race && cfg.interval_leader !== "blank"
       ? `<td class="r lead">${leaderText(e, cfg, cfg.interval_leader)}</td>`
-      : `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(race ? 1 : 3)}` : ""}</td>`),
+      : `<td class="r muted">${!first && race && isOut(e) ? OUT_TAG : !first && interval != null ? `+${secs(interval, race)}` : ""}</td>`),
     last_lap: () => `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
     best_lap: () => (race ? `<td class="r">${fmtLap(e.best_lap)}</td>` : `<td class="r lead">${fmtLap(e.best)}</td>`),
     pits: () => `<td class="r muted">${e.pit_stops || ""}</td>`,
+    tyre: () => `<td class="c">${tyreIcon(e.tyre)}</td>`,
   };
   cells.push(...screenColumns(cfg, race, compact).map((k) => cell[k]().replace("<td", `<td data-opcol="${k}"`)));
   const moved = moveOf(e.car_idx);
@@ -663,13 +673,14 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
 // (cfg.screen_column_order; "" = the usual order, which differs between races
 // and qualifying). Last lap and pit stops are race only; split into narrow
 // columns, the least needed go.
-const SCREEN_LABELS = { laps: "Laps", gap: "Gap", interval: "Int", last_lap: "Last", best_lap: "Best", pits: "Pits" };
+const SCREEN_LABELS = { laps: "Laps", gap: "Gap", interval: "Int", last_lap: "Last", best_lap: "Best", pits: "Pits", tyre: "Tyre" };
 
 function screenColumns(cfg, race, compact) {
   const order = cfg.screen_column_order ? cfg.screen_column_order.split(",")
-    : race ? ["laps", "gap", "interval", "last_lap", "best_lap", "pits"] : ["best_lap", "gap", "interval", "laps"];
+    : race ? ["laps", "gap", "interval", "last_lap", "best_lap", "pits", "tyre"] : ["best_lap", "gap", "interval", "laps", "tyre"];
   const keep = race ? (k) => !compact || (k !== "last_lap" && k !== "pits") : (k) => k !== "last_lap" && k !== "pits" && (!compact || k !== "laps");
-  return order.filter((k) => SCREEN_LABELS[k] && keep(k));
+  const tyre = (k) => k !== "tyre" || cfg.show_tyre;
+  return order.filter((k) => SCREEN_LABELS[k] && keep(k) && tyre(k));
 }
 
 // The full screen's team columns, in order: the logo (also when two tables
@@ -683,7 +694,7 @@ function screenHead(cfg, race, compact) {
   const cols = [["", "stripe"], ["Pos", "r"], race ? ["", "c"] : null, ["#", "c"], ["Driver", ""],
     ...screenTeamParts(cfg, compact).map((p) => (p === "logo" ? ["", "lg"] : ["Team", ""]))];
   cols.push(...screenColumns(cfg, race, compact).map((k) => [SCREEN_LABELS[k], "r"]));
-  const widths = { "": "", Pos: "70px", "#": "70px", Laps: "70px", Pits: "60px", Gap: "120px", Int: "110px", Last: "130px", Best: "130px" };
+  const widths = { "": "", Pos: "70px", "#": "70px", Laps: "70px", Pits: "60px", Gap: "120px", Int: "110px", Last: "130px", Best: "130px", Tyre: "70px" };
   return `<colgroup>${cols.filter(Boolean).map(([l, c]) => `<col style="width:${c === "stripe" ? "6px" : c === "lg" ? "64px" : c === "c" && !l ? "78px" : widths[l] || "auto"}">`).join("")}</colgroup>
     <thead><tr>${cols.filter(Boolean).map(([l, c]) => `<th class="${c === "stripe" ? "stripe" : c}">${l}</th>`).join("")}</tr></thead>`;
 }

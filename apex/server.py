@@ -170,6 +170,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._csv_preview(body)
             if path.startswith("/api/leagues/") and path.endswith("/import-csv"):
                 return self._csv_import(path.split("/")[3], body)
+            if path.startswith("/api/leagues/") and path.endswith("/copy-settings"):
+                league = self.app.leagues.copy_settings(path.split("/")[3], str(body.get("from") or ""), body.get("parts") or [])
+                self.app.publish()
+                return self._send_json({"ok": True, "league": league})
             if path.startswith("/api/leagues/") and path.endswith("/duplicate"):
                 league = self.app.leagues.duplicate(path.split("/")[3], body.get("name"))
                 return self._send_json({"ok": True, "league": league})

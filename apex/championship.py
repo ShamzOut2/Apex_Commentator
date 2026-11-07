@@ -637,6 +637,7 @@ def _team_standings(profile, scored, per_round, rules, penalties):
     everyone = _roster(profile)
     if not roster and not any(r.get("team") for rd in scored for r in rd["results"]):
         return []
+    left_out = {str(t.get("name") or "").strip().lower() for t in profile.get("teams") or [] if t.get("no_standings")}
     rounds, wins, by_round = {}, {}, {}
     for rd in scored:
         by_team = {}
@@ -645,7 +646,7 @@ def _team_standings(profile, scored, per_round, rules, penalties):
             # mid-season), else the one they're in now.
             team = (r.get("team") or (roster.get(r["driver"]) or {}).get("team") or "").strip()
             res = per_round[rd["id"]].get(_team_group(r, rules), {}).get(r["driver"])
-            if team and res:
+            if team and res and team.lower() not in left_out:
                 by_team.setdefault(team, []).append((res["total"], r["driver"], res["rank"]))
         for team, entries in by_team.items():
             entries.sort(key=lambda e: -e[0])

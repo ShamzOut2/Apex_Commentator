@@ -308,12 +308,31 @@ class ColumnOrderTests(unittest.TestCase):
     def test_orders_keep_every_column_once(self):
         from apex.overlays import OverlaySettings
         o = OverlaySettings()
-        self.assertEqual(o.get()["standings"]["column_order"], "pos_change,laps,pits,last_lap,best_lap,gap,interval")
+        self.assertEqual(o.get()["standings"]["column_order"], "pos_change,laps,pits,last_lap,best_lap,gap,interval,tyre")
         self.assertEqual(o.get()["standings"]["screen_column_order"], "")  # the usual order for the session
         o.update("standings", {"column_order": "interval,gap,nonsense,gap", "screen_column_order": "pits,best_lap"})
         s = o.get()["standings"]
-        self.assertEqual(s["column_order"], "interval,gap,pos_change,laps,pits,last_lap,best_lap")
-        self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap")
+        self.assertEqual(s["column_order"], "interval,gap,pos_change,laps,pits,last_lap,best_lap,tyre")
+        self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap,tyre")
+
+
+class TyreTests(unittest.TestCase):
+    def test_tyres_from_the_events_compounds(self):
+        import tempfile
+
+        from tests.test_app import make_app
+        with tempfile.TemporaryDirectory() as tmp:
+            app, source = make_app(tmp, minutes=2)  # (the tower shows drivers from their second lap)
+            rows = {d["car_idx"]: d["tyre"] for d in app.build_snapshot()["drivers"]}
+            self.assertEqual(rows[4], "wet")  # the demo's cars 4, 9 and 14 are on wets
+            self.assertEqual(rows[1], "dry")
+            entries = app.build_snapshot()["overlays"]["standings"]
+            self.assertTrue(any(e["tyre"] == "wet" for e in entries))
+            # Without the event's tyres: 0 is the dry tyre, 1 the wet.
+            app._tyre_names = {}
+            self.assertEqual((app._tyre(0), app._tyre(1), app._tyre(2), app._tyre(-1)), ("dry", "wet", None, None))
+            app._tyre_names = {0: "soft", 1: "medium", 2: "wet"}
+            self.assertEqual((app._tyre(1), app._tyre(2)), ("dry", "wet"))
 
 
 class ColumnOpacityTests(unittest.TestCase):
@@ -457,3 +476,80 @@ class ColumnOpacityTests(unittest.TestCase):
             gaps = [e["gap"] for e in app.build_snapshot()["drivers"] if e["pos"] and e["pos"] > 1]
             self.assertTrue(gaps)
             self.assertNotIn(1.0, gaps)
+
+    def test_a_finisher_keeps_its_place_whatever_it_does_after(self):
+        """Over the line after the flag: its place stays, even when it then
+        pits, goes to the garage or leaves (not greyed out, no OUT / PIT)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            src = MockSource(seed=4, clock=lambda: clock["t"], race_laps=2)
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(20000):
+                clock["t"] += 0.1
+                app.tick()
+                if len(app._race.finished) >= 4:
+                    break
+            snap = app.build_snapshot()["overlays"]["standings"]
+            done = [e for e in snap if e["car_idx"] in app._race.finished]
+            self.assertGreaterEqual(len(done), 4)
+            car = done[2]
+            # It parks and leaves the world.
+            src.out[car["car_idx"] - 1] = True
+            for _ in range(30):
+                clock["t"] += 0.1
+                app.tick()
+            after = {e["car_idx"]: e for e in app.build_snapshot()["overlays"]["standings"]}
+            self.assertIn(car["car_idx"], after)
+            e = after[car["car_idx"]]
+            self.assertEqual((e["pos"], e["in_world"], e["on_pit"], e.get("left", False)), (car["pos"], True, False, False))
+            self.assertEqual(e["gap"], car["gap"])
+
+    def test_a_car_towed_past_the_line_isnt_given_a_lap(self):
+        from apex.core import LineFilter
+
+        f = LineFilter()
+        f((0, 10.0), 1, 4.95)                       # stopped just before the line
+        self.assertEqual(f((0, 10.1), 1, -1), -1)   # towed: off the track
+        self.assertEqual(round(f((0, 15.0), 1, 4.02), 2), 4.02)  # in its pit box just after the line: no lap more
+        f((0, 20.0), 2, 7.93)
+        self.assertEqual(round(f((0, 20.1), 2, 7.03), 2), 7.03)  # put back far along: not a lap
+
+    def test_after_the_leaders_flag_the_rest_are_timed_until_they_finish(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            src = MockSource(seed=4, clock=lambda: clock["t"], race_laps=2)
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            while not app._race.checkered and clock["t"] < 2000:
+                clock["t"] += 0.1
+                app.tick()
+
+            def still_racing():
+                return {e["car_idx"]: e["gap"] for e in app.build_snapshot()["overlays"]["standings"]
+                        if e["car_idx"] not in app._race.finished and e["in_world"]}
+
+            before = still_racing()
+            for _ in range(30):
+                clock["t"] += 0.1
+                app.tick()
+            after = still_racing()
+            moved = [c for c in before if c in after and before[c] != after[c]]
+            self.assertTrue(moved, "the cars still racing kept their gaps from the moment the leader finished")
+
+    def test_gaps_from_the_very_start(self):
+        """Before the timing has the leader's times where the others are (the
+        first moments), the gaps are estimated, not iRacing's 0.0."""
+        from dataclasses import replace
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            app = App(MockSource(seed=4, clock=lambda: clock["t"]), dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(200):
+                clock["t"] += 0.1
+                app.tick()
+            with app._lock:
+                app._frame = replace(app._frame, f2_time=[0.0] * len(app._frame.f2_time))
+            app.gaps.reset()
+            rows = sorted((r for r in app.build_snapshot()["drivers"] if r["pos"] and r["in_world"]), key=lambda r: r["pos"])
+            gaps = [r["gap"] for r in rows[1:6]]
+            self.assertTrue(all(g is not None and g > 0 for g in gaps), gaps)
+            self.assertEqual(gaps, sorted(gaps))

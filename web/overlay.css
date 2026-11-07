@@ -24,30 +24,31 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 .tnum { font-variant-numeric: tabular-nums; }
 .class-head { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 34px; font-weight: 800; }
 .class-head .class-logo { height: 26px; }
-.class-head .class-detail { margin-left: auto; font-size: 15px; opacity: .85; }
+.class-head .class-detail { margin-left: auto; font-size: calc(15px * var(--fs, 1)); opacity: .85; }
 
 /* --- full-screen displays (?screen=1) ------------------------------------- */
-body.screen { background: #0b0d12; }
-.screen-page {
-  position: absolute; inset: 0; padding: 36px 48px 40px; display: flex; flex-direction: column; gap: 18px;
+body.screen { background: rgba(11, 13, 18, var(--board-bg-op, 1)); }
+.screen-page { position: absolute; inset: 0; padding: 36px 48px 40px; display: flex; flex-direction: column; gap: 18px; z-index: 0; }
+.screen-page::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: var(--board-bg-op, 1);
   background:
     linear-gradient(115deg, rgba(255, 122, 26, .10) 0 18%, transparent 18% 100%),
     radial-gradient(circle at 80% 0%, #1d2330, #0b0d12 70%);
 }
 .screen-head { display: flex; align-items: center; gap: 24px; padding-bottom: 14px; border-bottom: 3px solid var(--head-accent, var(--accent)); }
-.screen-head .t1 { font-size: 46px; font-weight: 900; letter-spacing: .06em; }
-.screen-head .t2 { font-size: 24px; color: var(--muted); font-weight: 600; }
-.screen-head .t3 { margin-left: auto; font-size: 26px; font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: var(--head-accent, inherit); }
+.screen-head .t1 { font-size: calc(46px * var(--fs, 1)); font-weight: 900; letter-spacing: .06em; }
+.screen-head .t2 { font-size: calc(24px * var(--fs, 1)); color: var(--muted); font-weight: 600; }
+.screen-head .t3 { margin-left: auto; font-size: calc(26px * var(--fs, 1)); font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: var(--head-accent, inherit); }
 .screen-body { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 28px; min-height: 0; }
 .screen-col { display: flex; flex-direction: column; min-width: 0; }
 .screen-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
 .screen-table th {
-  text-align: left; font-size: 15px; letter-spacing: .1em; color: var(--muted); font-weight: 700;
+  text-align: left; font-size: calc(15px * var(--fs, 1)); letter-spacing: .1em; color: var(--muted); font-weight: 700;
   padding: 0 10px 8px; text-transform: uppercase; white-space: nowrap;
 }
 .screen-table td { padding: 0 10px; height: var(--row-h, 38px); font-size: var(--row-font, 21px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.screen-table tbody tr:nth-child(odd) td { background: rgba(255, 255, 255, .035); }
-.screen-table tr.cam td { background: rgba(255, 122, 26, .22) !important; }
+.screen-table tbody tr:nth-child(odd) td { background: rgba(255, 255, 255, calc(.035 * var(--bg-k, 1))); }
+.screen-table tr.cam td { background: rgba(255, 122, 26, calc(.22 * var(--bg-k, 1))) !important; }
 .screen-table .r { text-align: right; }
 .screen-table .c { text-align: center; }
 .screen-table .p { font-weight: 900; }
@@ -59,26 +60,26 @@ body.screen { background: #0b0d12; }
 .screen-table td.lg img { height: calc(1.3em * var(--logo-k, 1)); width: calc(2.2em * var(--logo-k, 1)); object-fit: contain; vertical-align: middle; }
 .screen-table .up { color: var(--green); }
 .screen-table .down { color: var(--red); }
-.screen-table .pit { font-size: .65em; font-weight: 800; padding: 1px 6px; border-radius: 3px; background: #fff; color: #111; margin-left: 8px; vertical-align: .15em; }
+.screen-table .pit { font-size: .65em; font-weight: 800; padding: 1px 6px; border-radius: 3px; background: rgba(255, 255, 255, calc(1 * var(--bg-k, 1))); color: #111; margin-left: 8px; vertical-align: .15em; }
 /* Each class starts the same gap below the one before (or the column labels). */
 .screen-table .classrow td { height: 54px; padding: 14px 0 0; vertical-align: bottom; background: none !important; }
-.screen-table .classrow .class-head { height: 36px; font-size: 20px; border-radius: 6px; }
-.screen-empty { margin: auto; font-size: 30px; color: var(--muted); font-weight: 700; }
+.screen-table .classrow .class-head { height: 36px; font-size: calc(20px * var(--fs, 1)); border-radius: 6px; }
+.screen-empty { margin: auto; font-size: calc(30px * var(--fs, 1)); color: var(--muted); font-weight: 700; }
 .screen-table .sec { padding: 0 4px; }
 .screen-table .sec div {
   position: relative; height: calc(var(--row-h, 38px) - 10px); border-radius: 4px; overflow: hidden;
-  background: rgba(255, 255, 255, .07); display: flex; align-items: center; justify-content: center; font-size: .85em; font-weight: 700;
+  background: rgba(255, 255, 255, calc(.07 * var(--bg-k, 1))); display: flex; align-items: center; justify-content: center; font-size: .85em; font-weight: 700;
 }
-.screen-table .sec i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255, 255, 255, .22); transition: width .3s linear; }
+.screen-table .sec i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255, 255, 255, calc(.22 * var(--bg-k, 1))); transition: width .3s linear; }
 .screen-table .sec span { position: relative; }
 .screen-table .sec .purple { background: var(--purple); }
 .screen-table .sec .green { background: var(--green); color: #06210f; }
 .screen-table .sec .yellow { background: var(--yellow); color: #2a2100; }
 .screen-table .lapclock { font-weight: 800; }
 /* An invalidated lap on the full-screen timing: as the tracker (laps.css). */
-.screen-table .sec.struck div, .screen-table .sec.grey div { background: var(--inv-sector, #5b616b); color: #fff; }
+.screen-table .sec.struck div, .screen-table .sec.grey div { background: var(--inv-sector, rgba(91, 97, 107, calc(1 * var(--bg-k, 1)))); color: #fff; }
 .screen-table .sec.grey div { opacity: .75; }
-.screen-table .sec.struck div::after { content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 2px; background: var(--inv-line, #ff4d4d); }
+.screen-table .sec.struck div::after { content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 2px; background: var(--inv-line, rgba(255, 77, 77, calc(1 * var(--bg-k, 1)))); }
 .screen-table .lapclock.void { color: var(--inv-text, #ff4d4d); letter-spacing: .06em; }
 .screen-table .faster { color: var(--green); }
 .screen-table .slower { color: var(--red); }
@@ -91,7 +92,8 @@ body.desktop *, body.desktop *::before, body.desktop *::after { box-shadow: none
 
 /* A custom Background (colour or image, see setBackground in common.js) takes
    the place of the boards' and full screens' own backdrop. */
-body.custom-bg .board, body.custom-bg .screen-page { background: none; }
+body.custom-bg .board::before, body.custom-bg .screen-page::before { display: none; }
+body.custom-bg.screen { background: transparent; }
 
 /* Background setting on overlays: an uploaded image inside each panel, under
    its contents, at the opacity set (setPanels in common.js). */
@@ -128,8 +130,40 @@ body.custom-panels .sp.panel { background: var(--panel); }
 .panel-in { animation: panel-in .6s cubic-bezier(.2, .9, .25, 1) both; }
 .panel-in::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
-  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%);
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, calc(.22 * var(--bg-k, 1))) 50%, transparent 65%);
   animation: panel-sweep .8s .3s ease-out both;
 }
 .panel-in .panel-row { animation: panel-row-in .4s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.25s + var(--i, 0) * 70ms); }
 .panel-out { animation: panel-out .45s cubic-bezier(.55, 0, .75, .1) both !important; pointer-events: none; }
+
+/* An overlay while a full-screen board is up (General settings): as it is,
+   dimmed or hidden; back when the board goes. */
+body.board-fade .stage { opacity: var(--board-dim, 1); transition: opacity .6s ease; }
+
+/* A race car gone from the session: OUT in its gap and interval boxes. */
+.out-tag {
+  display: inline-block; padding: 1px 6px; border-radius: 3px; background: rgba(255, 255, 255, calc(.16 * var(--bg-k, 1))); color: var(--muted);
+  font-size: .72em; font-weight: 800; letter-spacing: .06em; line-height: 1.3; vertical-align: .08em;
+}
+
+/* The tyres a car is on: a small tyre, white for dry, blue for wet. */
+.tyre {
+  display: inline-flex; align-items: center; justify-content: center; width: 1.45em; height: 1.45em; border-radius: 50%;
+  border: .2em solid currentColor; font-size: .78em; font-weight: 900; line-height: 1; vertical-align: .1em; margin-left: .35em;
+  box-shadow: inset 0 0 0 .12em rgba(0, 0, 0, calc(.35 * var(--bg-k, 1)));
+}
+td > .tyre:only-child { margin-left: 0; }
+.tyre-dry { color: #fff; }
+.tyre-wet { color: #3d9bff; }
+
+/* faded */
+/* Colours from variables (class, accent...) at the overlay's opacity too, where
+   the browser can mix them (older ones keep them solid). */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .screen-head { border-bottom:3px solid color-mix(in srgb, var(--head-accent, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .screen-table .sec .purple { background:color-mix(in srgb, var(--purple) calc(var(--bg-k, 1) * 100%), transparent); }
+  .screen-table .sec .green { background:color-mix(in srgb, var(--green) calc(var(--bg-k, 1) * 100%), transparent); }
+  .screen-table .sec .yellow { background:color-mix(in srgb, var(--yellow) calc(var(--bg-k, 1) * 100%), transparent); }
+  .screen-table .sec.struck div, .screen-table .sec.grey div { background:color-mix(in srgb, var(--inv-sector, #5b616b) calc(var(--bg-k, 1) * 100%), transparent); }
+  .screen-table .sec.struck div::after { background:color-mix(in srgb, var(--inv-line, #ff4d4d) calc(var(--bg-k, 1) * 100%), transparent); }
+}

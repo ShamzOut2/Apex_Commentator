@@ -19,8 +19,9 @@
       </div>
       <button id="dual-badge" class="badge" data-goto="home" hidden></button>
       <span id="dual-follow" class="dual-follow" hidden>
-        <button class="btn subtle slim" id="follow-free" title="Your own camera: replay something or watch someone else (still connected to the host)">Free mode</button>
-        <button class="btn primary slim" id="follow-sync" title="Back to what the host is showing, and following again">Sync</button>
+        <button class="sync-pill" data-sync-toggle title="Free: your own camera (replay something, watch someone else; still connected). Sync: what the host is showing. Click to switch.">
+          <span class="s-free">FREE</span><span class="s-sync">SYNC</span></button>
+        <button class="btn subtle slim" data-sync-widget title="Put this switch on your screen, on top of iRacing">⧉</button>
       </span>
       <span id="replay-badge" class="badge">—</span>
     </div>
@@ -105,6 +106,7 @@
                 <button class="btn danger" id="follow-stop" hidden>Stop</button>
               </div>
               <p id="follow-status" class="hint"></p>
+              <button class="btn subtle" data-sync-widget title="A small FREE | SYNC switch in a window of its own, kept on top of iRacing: click it there, no need to come back to the app">⧉ FREE | SYNC switch on my screen</button>
             </div>
           </div>
           <p class="hint">On the same network, the address above is all it takes. Over the internet: the host lets port
@@ -152,6 +154,12 @@
     <section id="tab-timing" class="panel timing">
       <div class="cam-bar" aria-label="Cameras">
         <div class="group" id="cam-buttons"></div>
+        <div class="group" id="cam-sync" hidden>
+          <span class="label">Host's camera</span>
+          <button class="sync-pill" data-sync-toggle title="Free: your own camera. Sync: what the host is showing. Click to switch.">
+            <span class="s-free">FREE</span><span class="s-sync">SYNC</span></button>
+          <button class="btn subtle" data-sync-widget title="Put this switch on your screen, on top of iRacing">⧉ On my screen</button>
+        </div>
         <div class="group">
           <button class="btn" data-cmd="step_car" data-direction="-1" title="Car ahead (↑)">▲ Ahead</button>
           <button class="btn" data-cmd="step_car" data-direction="1" title="Car behind (↓)">▼ Behind</button>
@@ -191,7 +199,7 @@
                   <th class="c-num">#</th><th>Driver</th><th class="c-num">Lap</th>
                   <th class="c-time" title="Gap to the leader">Gap</th><th class="c-time" title="Interval to the car ahead">Int</th>
                   <th class="c-time col-wide">Last</th><th class="c-time col-wide">Best</th>
-                  <th class="c-num col-wide" title="Pit stops">Pit</th><th class="c-flag">Flag</th><th>Penalty</th>
+                  <th class="c-num col-wide" title="Pit stops">Pit</th><th class="c-num" title="Tyres: D dry, W wet">Tyre</th><th class="c-flag">Flag</th><th>Penalty</th>
                   <th class="c-num" title="Incident points">Inc</th>
                 </tr>
               </thead>
@@ -233,11 +241,11 @@
           <button class="btn" id="btn-rewind" title="Instant replay of the car on camera (R)">⏪ Rewind</button>
         </div>
         <div class="group">
-          <button class="btn" data-cmd="replay_incident" data-direction="-1" title="Previous iRacing incident marker">⏮ Incident</button>
+          <button class="btn" data-cmd="replay_incident" data-direction="-1" title="Replay the previous incident in the race log (from live: the latest)">⏮ Incident</button>
           <button class="btn" data-cmd="replay_speed" data-speed="0" title="Pause">❚❚</button>
           <button class="btn" data-cmd="replay_speed" data-speed="1" title="Play">▶</button>
           <button class="btn" data-cmd="replay_speed" data-speed="2" data-slow_motion="1" title="Slow motion">Slow-mo</button>
-          <button class="btn" data-cmd="replay_incident" data-direction="1" title="Next iRacing incident marker">Incident ⏭</button>
+          <button class="btn" data-cmd="replay_incident" data-direction="1" title="Replay the next incident in the race log">Incident ⏭</button>
           <span class="media-sep" aria-hidden="true"></span>
           <button class="btn live-btn" id="btn-live" title="Back to live (L)">● LIVE</button>
         </div>
@@ -340,6 +348,7 @@
             <input id="edit-name" class="grow" placeholder="League name" aria-label="League name">
             <button id="btn-save-league" class="btn primary">Save</button>
             <button id="btn-activate-league" class="btn">Use in overlay</button>
+            <button id="btn-copy-settings" class="btn subtle" title="Bring another league's points and rules, classes, teams, logos and sponsors, or calendar into this one: no exporting or importing">⇆ Copy settings from…</button>
             <button class="btn subtle" data-export="league" title="Everything about this league, images included, to import on this PC or another">⤓ Export league</button>
           </div>
           <div class="row league-tabs">
