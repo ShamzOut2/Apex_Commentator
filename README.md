@@ -110,6 +110,10 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 
 ### Fixes
 
+- Overlays' opacity setting now makes the whole overlay see-through (its
+  panels, class colour boxes, number boxes, stripes, sector bars and
+  borders) while the text stays solid; before, only some parts faded.
+
 - On-screen overlays that came up solid on some PCs (Windows'
   transparency effects off, for one): answering **No** to "Can you see
   your screen through the overlay?" now tries another way of making them

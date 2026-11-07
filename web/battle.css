@@ -1,7 +1,7 @@
 /* Championship battle: a small table of a few drivers, in a corner or along an edge. */
 .battle {
   position: absolute; min-width: 470px; border-radius: 12px; overflow: hidden;
-  background: var(--panel); box-shadow: 0 12px 36px rgba(0, 0, 0, .45);
+  background: var(--panel); box-shadow: 0 12px 36px rgba(0, 0, 0, calc(.45 * var(--bg-k, 1)));
 }
 body.panel-image .battle { isolation: isolate; }
 body.panel-image .battle::before {
@@ -50,3 +50,12 @@ body.panel-image .battle::before {
 .bt-cols .r { text-align: right; }
 .bt-empty { padding: 14px 16px; color: var(--muted); font-size: calc(18px * var(--fs, 1)); }
 .bt-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; opacity: .6; font-size: calc(28px * var(--fs, 1)); text-align: center; padding: 0 200px; }
+
+/* faded */
+/* Colours from variables (class, accent...) at the overlay's opacity too, where
+   the browser can mix them (older ones keep them solid). */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .bt-head { border-bottom:3px solid color-mix(in srgb, var(--grp, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .bt-head .live::before { background:color-mix(in srgb, var(--red) calc(var(--bg-k, 1) * 100%), transparent); }
+  .bt-row { border-top:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }
+}

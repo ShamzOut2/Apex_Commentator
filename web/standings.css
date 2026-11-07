@@ -56,8 +56,8 @@ body.col-bg .srow.shead > span:last-child { padding-right: 12px; }
 .srow .c .up { color: var(--green); }
 .srow .c .down { color: var(--red); }
 .srow .c .dim { color: var(--muted); opacity: .6; font-size: calc(14px * var(--fs, 1)); }
-.srow .pitb { margin-left: 8px; font-size: calc(11px * var(--fs, 1)); padding: 1px 5px; border-radius: 3px; background: #fff; color: #111; vertical-align: 2px; }
-.srow.cam { background: rgba(255, 122, 26, .22); }
+.srow .pitb { margin-left: 8px; font-size: calc(11px * var(--fs, 1)); padding: 1px 5px; border-radius: 3px; background: rgba(255, 255, 255, calc(1 * var(--bg-k, 1))); color: #111; vertical-align: 2px; }
+.srow.cam { background: rgba(255, 122, 26, calc(.22 * var(--bg-k, 1))); }
 /* Column labels, when there are numbers to label. */
 .srow.shead { height: 22px; background: var(--panel); border-top: none; }
 .srow.shead .c { font-size: calc(11px * var(--fs, 1)); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
@@ -75,7 +75,7 @@ body.col-bg .srow.shead > span:last-child { padding-right: 12px; }
 .fl-flash { position: absolute; left: 0; right: 0; top: 40px; display: flex; justify-content: center; pointer-events: none; z-index: 5; }
 .fl-pill {
   display: flex; align-items: center; gap: 16px; padding: 12px 34px 12px 22px; border-radius: 999px;
-  background: linear-gradient(135deg, #8a2be2, #6a1bb8); color: #fff; box-shadow: 0 8px 28px rgba(60, 0, 110, .45);
+  background: linear-gradient(135deg, rgba(138, 43, 226, calc(1 * var(--bg-k, 1))), rgba(106, 27, 184, calc(1 * var(--bg-k, 1)))); color: #fff; box-shadow: 0 8px 28px rgba(60, 0, 110, calc(.45 * var(--bg-k, 1)));
   animation: fl-in .45s cubic-bezier(.2, .9, .3, 1.2) both;
 }
 .fl-pill.out { animation: fl-out .4s ease both; }
@@ -132,7 +132,7 @@ body.screen .fl-flash { top: 14px; }
 .fin-tab {
   position: absolute; left: 0; width: 46px; display: flex; align-items: center; justify-content: center;
   background: var(--panel); border-radius: 0 8px 8px 0; border-top: 1px solid var(--line);
-  box-shadow: inset 6px 0 8px -6px rgba(0, 0, 0, .6); transition: top .45s ease;
+  box-shadow: inset 6px 0 8px -6px rgba(0, 0, 0, calc(.6 * var(--bg-k, 1))); transition: top .45s ease;
 }
 .fin-tab .fin-flag { margin: 0; font-size: calc(22px * var(--fs, 1)); }
 .fin-tab.in { animation: fin-tab-in .6s cubic-bezier(.2, .9, .25, 1) both; }
@@ -145,7 +145,7 @@ body.screen .fl-flash { top: 14px; }
 .fl-pill { position: relative; overflow: hidden; }
 .fl-pill::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .35) 50%, transparent 65%);
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, calc(.35 * var(--bg-k, 1))) 50%, transparent 65%);
   transform: translateX(-120%); animation: fl-sweep 1.1s .25s ease-out both;
 }
 @keyframes fl-sweep { to { transform: translateX(120%); } }
@@ -166,7 +166,7 @@ body.screen .fl-flash { top: 14px; }
 @keyframes go-flash-screen { 35%, 65% { background-color: #16b455; box-shadow: inset 0 0 40px rgba(255, 255, 255, .3); } }
 .tower-head.go::after, .screen-head.go::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .6) 50%, transparent 70%);
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, calc(.6 * var(--bg-k, 1))) 50%, transparent 70%);
   transform: translateX(-120%); animation: go-sweep .55s ease-in-out 5 both; animation-delay: var(--go-delay, 0s);
 }
 @keyframes go-sweep { 60%, 100% { transform: translateX(120%); } }
@@ -175,7 +175,7 @@ body.screen .fl-flash { top: 14px; }
 
 /* The last lap: a white header (white flag), dark text on it; the chequered
    flag takes its place as the leader crosses the line. */
-.tower-head.final-lap, .screen-head.final-lap { background: #f4f5f7; color: #111317; text-shadow: none; }
+.tower-head.final-lap, .screen-head.final-lap { background: rgba(244, 245, 247, calc(1 * var(--bg-k, 1))); color: #111317; text-shadow: none; }
 .tower-head.final-lap .t2, .screen-head.final-lap .t2 { color: #3c414a; }
 .tower-head.final-lap .t3, .screen-head.final-lap .t3 { color: #111317; }
 .screen-head.final-lap { padding: 10px 16px 14px; border-radius: 8px 8px 0 0; }
@@ -220,7 +220,7 @@ body.screen .fl-flash { top: 14px; }
 }
 .tower-head.chequered::after, .screen-head.chequered::after {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .55) 50%, transparent 70%);
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, calc(.55 * var(--bg-k, 1))) 50%, transparent 70%);
   transform: translateX(-120%); animation: go-sweep 1.4s ease-in-out 3 both; animation-delay: var(--go-delay, 0s);
 }
 /* Text readable on the flag: the flag carries a dark tint the size of the
@@ -235,3 +235,15 @@ body.screen .fl-flash { top: 14px; }
 
 /* Full screen: a driver who's left the session, kept where they were (screen_keep_left). */
 .screen-table tr.left, .tower .srow.left { opacity: .55; }
+
+/* faded */
+/* Colours from variables (class, accent...) at the overlay's opacity too, where
+   the browser can mix them (older ones keep them solid). */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .tower-head { border-left:6px solid color-mix(in srgb, var(--head-accent, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .tower-sponsor { border-top:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }
+  .srow { border-top:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }
+  .srow.skip { border-top:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }
+  .fin-tab { border-top:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }
+  .tower-head.replay { background:color-mix(in srgb, var(--head-accent, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+}

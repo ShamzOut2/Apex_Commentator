@@ -9,7 +9,7 @@
 .small-slot { flex: 1; display: flex; flex-wrap: wrap-reverse; align-items: flex-end; gap: 12px; min-width: 0; }
 .tracker {
   background: var(--panel); border-radius: 10px; overflow: hidden; flex: 0 0 auto;
-  border-top: 4px solid var(--cls, #8b93a3);
+  border-top: 4px solid var(--cls, rgba(139, 147, 163, calc(1 * var(--bg-k, 1))));
   position: relative;
 }
 /* Coming in: it rises and opens out from the middle, a light sweeps across
@@ -19,7 +19,7 @@
 .tracker.entering > * { animation: tk-content .4s .25s ease both; }
 .tracker.entering::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
-  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%);
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, calc(.22 * var(--bg-k, 1))) 50%, transparent 65%);
   transform: translateX(-110%); animation: tk-sweep .9s .3s ease-out both;
 }
 @keyframes tk-in {
@@ -46,7 +46,7 @@
 .tracker.land-purple .timebox .lt.done { color: #d9a8ff; }
 .tracker.land-purple::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
-  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .28) 50%, transparent 65%);
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, calc(.28 * var(--bg-k, 1))) 50%, transparent 65%);
   transform: translateX(-110%); animation: tk-sweep 1s .1s ease-out both;
 }
 @keyframes land-purple { 0%, 100% { box-shadow: 0 0 0 0 rgba(177, 76, 255, 0); } 50% { box-shadow: 0 0 22px 3px rgba(177, 76, 255, .8), inset 0 0 0 2px rgba(206, 150, 255, .9); } }
@@ -65,7 +65,7 @@
 .tk-top .tm { font-size: calc(12px * var(--fs, 1)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tk-top .dn { font-size: calc(13px * var(--fs, 1)); font-weight: 800; padding: 0 5px; border: 2px solid; border-radius: 4px; }
 .tk-top .badge { font-size: calc(11px * var(--fs, 1)); font-weight: 800; padding: 2px 6px; border-radius: 3px; background: var(--red); color: #fff; letter-spacing: .05em; }
-.tk-top .badge.info { background: rgba(255,255,255,.18); }
+.tk-top .badge.info { background: rgba(255, 255, 255, calc(.18 * var(--bg-k, 1))); }
 
 .tk-body { display: flex; align-items: center; gap: 12px; padding: 6px 10px 10px; }
 /* One pill per sector: it fills as the car goes round, then turns solid with
@@ -73,9 +73,9 @@
 .sectors { flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 5px; }
 .sector {
   position: relative; height: 26px; border-radius: 6px; overflow: hidden; min-width: 0;
-  background: rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, calc(.1 * var(--bg-k, 1))); display: flex; align-items: center; justify-content: center;
 }
-.sector i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(255,255,255,.3); transition: width .3s linear; }
+.sector i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(255, 255, 255, calc(.3 * var(--bg-k, 1))); transition: width .3s linear; }
 .sector i.purple { background: var(--purple); }
 .sector i.green { background: var(--green); }
 .sector i.yellow { background: var(--yellow); }
@@ -92,7 +92,7 @@
    a lighter green; a yellow one stays as it is. */
 .sector.delta[data-c=purple]::before {
   content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 60%; z-index: 1; pointer-events: none;
-  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, .55) 50%, transparent 100%);
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, calc(.55 * var(--bg-k, 1))) 50%, transparent 100%);
   transform: translateX(-120%); animation: sector-sweep 1.1s ease-in-out 2 both; animation-delay: calc(var(--dage, 0s) + .25s);
 }
 @keyframes sector-sweep { 0% { transform: translateX(-120%); } 70%, 100% { transform: translateX(220%); } }
@@ -117,12 +117,12 @@
 /* An invalidated lap: the sector it happened in struck through, the rest of
    the lap greyed out as it goes on; at the line, every sector struck through
    and INVALID in the lap time's place (colours: the lap tracker's settings). */
-.tracker .sector.struck i, .tracker .sector.grey i { background: var(--inv-sector, #5b616b); }
+.tracker .sector.struck i, .tracker .sector.grey i { background: var(--inv-sector, rgba(91, 97, 107, calc(1 * var(--bg-k, 1)))); }
 .tracker .sector.struck .st, .tracker .sector.grey .st { color: #fff; }
 .tracker .sector.grey { opacity: .75; }
 .tracker .sector.struck::after {
   content: ""; position: absolute; left: 5px; right: 5px; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 2px;
-  background: var(--inv-line, #ff4d4d); box-shadow: 0 0 0 1px rgba(0, 0, 0, .25);
+  background: var(--inv-line, rgba(255, 77, 77, calc(1 * var(--bg-k, 1)))); box-shadow: 0 0 0 1px rgba(0, 0, 0, calc(.25 * var(--bg-k, 1)));
   animation: strike .35s ease-out both; transform-origin: 0 50%;
 }
 @keyframes strike { from { transform: scaleX(0); } }
@@ -145,3 +145,17 @@
 /* The camera moved: the big tracker changes over to the new driver in place. */
 .tracker.swap > * { animation: tk-swap .32s ease both; }
 @keyframes tk-swap { from { opacity: 0; transform: translateY(5px); } }
+
+/* faded */
+/* Colours from variables (class, accent...) at the overlay's opacity too, where
+   the browser can mix them (older ones keep them solid). */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .tracker { border-top:4px solid color-mix(in srgb, var(--cls, #8b93a3) calc(var(--bg-k, 1) * 100%), transparent); }
+  .tk-top .badge { background:color-mix(in srgb, var(--red) calc(var(--bg-k, 1) * 100%), transparent); }
+  .sector i.purple { background:color-mix(in srgb, var(--purple) calc(var(--bg-k, 1) * 100%), transparent); }
+  .sector i.green { background:color-mix(in srgb, var(--green) calc(var(--bg-k, 1) * 100%), transparent); }
+  .sector i.yellow { background:color-mix(in srgb, var(--yellow) calc(var(--bg-k, 1) * 100%), transparent); }
+  .tracker .sector.struck i, .tracker .sector.grey i { background:color-mix(in srgb, var(--inv-sector, #5b616b) calc(var(--bg-k, 1) * 100%), transparent); }
+  .tracker .sector.struck::after { background:color-mix(in srgb, var(--inv-line, #ff4d4d) calc(var(--bg-k, 1) * 100%), transparent); }
+  .tk-top .badge:not(.info) { background:color-mix(in srgb, var(--inv-text, var(--red)) calc(var(--bg-k, 1) * 100%), transparent); }
+}

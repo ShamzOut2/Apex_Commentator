@@ -52,10 +52,10 @@ function topHtml(item, cfg, cls, kind) {
   if (!lap) badge = `<span class="badge info">${item.on_pit ? "IN PITS" : item.in_world ? "OUT LAP" : "NOT ON TRACK"}</span>`;
   else if (!lap.valid) badge = '<span class="badge">INVALID</span>';
   return `<span class="pos tnum">${item.pos ? `P${item.pos}` : ""}</span>
-    ${cfg.show_number ? `<span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">#${esc(item.number)}</span>` : ""}
+    ${cfg.show_number ? `<span class="num" style="background:${esc(bgc(cls.color))};color:${inkFor(cls.color)}">#${esc(item.number)}</span>` : ""}
     ${cfg.show_logo && item.team_logo ? `<img class="team-logo" src="${esc(item.team_logo)}" alt="">` : ""}
     <span class="who"><span class="n">${esc(formatName(item, cfg.name_format))}</span>${team}</span>
-    ${cfg.show_driver_number && item.driver_number ? `<span class="dn" style="border-color:${esc(cls.color)};color:${esc(cls.color)}">${esc(item.driver_number)}</span>` : ""}
+    ${cfg.show_driver_number && item.driver_number ? `<span class="dn" style="border-color:${esc(bgc(cls.color))};color:${esc(cls.color)}">${esc(item.driver_number)}</span>` : ""}
     ${badge}`;
 }
 
@@ -283,9 +283,9 @@ function screenRowHtml(item, cfg, cls, nsec, camIdx) {
   } else lapCell = `<span class="lapclock ${lap.valid ? "" : "invalid"}" data-clock="${item.car_idx}"></span>`;
   const team = item.team ? `${cfg.show_logo && item.team_logo ? `<img src="${esc(item.team_logo)}" alt="">` : ""}${esc(item.team)}` : "";
   return `<tr class="${item.car_idx === camIdx ? "cam" : ""}">
-    <td class="stripe" style="background:${esc(cls.color)}"></td>
+    <td class="stripe" style="background:${esc(bgc(cls.color))}"></td>
     <td class="p r">${item.pos ?? ""}</td>
-    <td class="c"><span class="num" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">${esc(item.number)}</span></td>
+    <td class="c"><span class="num" style="background:${esc(bgc(cls.color))};color:${inkFor(cls.color)}">${esc(item.number)}</span></td>
     <td>${esc(formatName(item, cfg.name_format))}</td>
     <td class="team">${team}</td>
     ${sectors.map((sc) => `<td class="sec ${sc.mark || ""}"><div class="${sc.colour || ""}">${sc.colour ? "" : `<i style="width:${Math.round(sc.done * 100)}%"></i>`}<span>${sc.time == null ? "" : deltaFor(sc, cfg) ? fmtGain(sc.delta) : fmtSector(sc.time)}</span></div></td>`).join("")}

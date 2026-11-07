@@ -20,7 +20,7 @@ function rowHtml(r, i, b, cfg, cols) {
   const cells = [`<span class="pos">${r.pos ? `P${r.pos}` : "–"}</span>`];
   if (cols.change) cells.push(`<span class="chg ${change > 0 ? "up" : change < 0 ? "down" : ""}">${change > 0 ? `▲${change}` : change < 0 ? `▼${-change}` : ""}</span>`);
   const number = cfg.show_number && r.number
-    ? `<span class="num" style="${r.class_color ? `background:${esc(r.class_color)};color:${inkFor(r.class_color)}` : "background:rgba(255,255,255,.14)"}">${esc(r.number)}</span>` : "";
+    ? `<span class="num" style="${r.class_color ? `background:${esc(bgc(r.class_color))};color:${inkFor(r.class_color)}` : `background:${bgc("rgba(255,255,255,.14)")}`}">${esc(r.number)}</span>` : "";
   // An empty space where a driver has no team logo, so the names line up.
   const logo = !cfg.show_logo ? "" : r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : '<span class="logo"></span>';
   cells.push(`<span class="who">${number}${logo}<span class="names"><span class="name">${esc(formatName(r, cfg.name_format))}</span>
@@ -38,7 +38,7 @@ function battleHtml(b, cfg) {
     [cfg.gap_to === "ahead" ? "Ahead" : "Gap", "r"]].filter(Boolean)
     .map(([l, cls]) => `<span class="${cls}">${esc(l)}</span>`).join("");
   const title = cfg.title || "Championship";
-  const chip = `<span class="chip" style="${b.color ? `background:${esc(b.color)};color:${inkFor(b.color)}` : "background:rgba(255,255,255,.14)"}">${esc(b.name)}</span>`;
+  const chip = `<span class="chip" style="${b.color ? `background:${esc(bgc(b.color))};color:${inkFor(b.color)}` : `background:${bgc("rgba(255,255,255,.14)")}`}">${esc(b.name)}</span>`;
   return `<div class="bt-head">${esc(title)} ${chip}${b.live ? '<span class="live">If it ended now</span>' : ""}</div>
     ${b.rows.length ? `<div class="bt-cols">${labels}</div>${b.rows.map((r, i) => rowHtml(r, i, b, cfg, cols)).join("")}`
       : '<div class="bt-empty">None of the drivers picked are in this championship.</div>'}

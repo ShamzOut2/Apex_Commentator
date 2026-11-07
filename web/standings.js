@@ -291,7 +291,7 @@ function stripeColor(e, cls, cfg) {
 function numberChip(e, cls, cfg) {
   const color = paintFor(e, cls, cfg.class_colors);
   return cfg.color_number && color
-    ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(e.number)}</span>`
+    ? `<span class="num" style="background:${esc(bgc(color))};color:${inkFor(color)}">${esc(e.number)}</span>`
     : `<span class="num plain">${esc(e.number)}</span>`;
 }
 
@@ -384,7 +384,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
   // The cells in the order rowSpec gives: the team logo and the team name are columns of their own.
   const cell = {
     pos: () => `<span class="p tnum" data-opcol="pos">${pos}</span>`,
-    stripe: () => `<span class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(stripeColor(e, cls, cfg))}` : ""}"></span>`,
+    stripe: () => `<span class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(bgc(stripeColor(e, cls, cfg)))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
     logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
     name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
@@ -643,7 +643,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     ? `<td class="lg c" data-opcol="logo">${e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}</td>`
     : `<td class="team" data-opcol="team">${esc(e.team || "")}</td>`)).join("");
   const cells = [
-    `<td class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(stripeColor(e, cls, cfg))}` : "background:none"}"></td>`,
+    `<td class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(bgc(stripeColor(e, cls, cfg)))}` : "background:none"}"></td>`,
     `<td class="p r" data-opcol="pos">${pos}</td>`,
     race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
     `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,

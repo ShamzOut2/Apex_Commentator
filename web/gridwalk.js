@@ -242,13 +242,13 @@ function infoHtml(e, i, cls, cfg, multiclass) {
   const color = paintFor(e, cls, cfg.class_colors) || "";
   const nick = cfg.show_nickname !== false && e.nickname && cfg.name_format !== "nickname" ? e.nickname : "";
   const logo = cfg.show_class !== false && (multiclass || cls.logo) && classLogo(cls, rerender);  // the class logo, laid on its colour
-  const klass = cfg.show_class === false ? "" : logo ? `<span class="klass has-logo" style="background:${esc(color)}"><img class="klass-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}"></span>`
-    : multiclass && cls.name ? `<span class="klass" style="background:${esc(color)};color:${inkFor(color)}">${esc(cls.name)}</span>` : "";
+  const klass = cfg.show_class === false ? "" : logo ? `<span class="klass has-logo" style="background:${esc(bgc(color))}"><img class="klass-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}"></span>`
+    : multiclass && cls.name ? `<span class="klass" style="background:${esc(bgc(color))};color:${inkFor(color)}">${esc(cls.name)}</span>` : "";
   const teamLogo = cfg.show_logo !== false && e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : "";
   const teamName = cfg.show_team !== false && e.team ? `<span class="team-name">${esc(e.team)}</span>` : "";
   const team = teamLogo || teamName ? `<div class="team">${teamLogo}${teamName}</div>` : "";
   const number = cfg.show_number === false || !e.number ? ""
-    : color ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(e.number)}</span>` : `<span class="num plain">${esc(e.number)}</span>`;
+    : color ? `<span class="num" style="background:${esc(bgc(color))};color:${inkFor(color)}">${esc(e.number)}</span>` : `<span class="num plain">${esc(e.number)}</span>`;
   return `<div class="gw-info ${i ? "rear" : "front"}" style="--cls:${esc(color || "var(--accent)")}">
       ${cfg.show_position !== false ? `<div class="pos" style="color:${color ? inkFor(color) : "#fff"}">${placeHtml(e, cfg, cls)}</div>` : ""}
       <div class="who">${number}

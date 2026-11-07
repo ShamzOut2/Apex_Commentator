@@ -2704,7 +2704,7 @@ function backgroundFields(section, v) {
       <label class="btn subtle bg-upload">Upload…<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-bg-upload="${section}" hidden></label></div></div>`);
   }
   // The default look too: low, and the race shows through (a see-through board).
-  out.push(`<label class="ov-field">${v.bg === "default" ? "Background opacity (low: the race shows through)" : "Opacity"}: <span class="rng-val">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
+  out.push(`<label class="ov-field">${v.bg === "default" ? "Opacity: everything but the text (low: the race shows through)" : "Opacity: everything but the text"}: <span class="rng-val">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
   return out.join("");
 }
 

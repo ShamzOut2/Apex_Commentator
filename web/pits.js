@@ -22,7 +22,7 @@ const keyOf = (s) => `${s.car_idx}:${s.entry}`;
 function cardHtml(s, cfg, cls) {
   const color = paintFor(s, cls, cfg.class_colors);
   const number = cfg.show_number && s.number
-    ? (color ? `<span class="num" style="background:${esc(color)};color:${inkFor(color)}">${esc(s.number)}</span>` : `<span class="num plain">${esc(s.number)}</span>`) : "";
+    ? (color ? `<span class="num" style="background:${esc(bgc(color))};color:${inkFor(color)}">${esc(s.number)}</span>` : `<span class="num plain">${esc(s.number)}</span>`) : "";
   const logo = cfg.show_logo && s.team_logo ? `<img class="logo" src="${esc(s.team_logo)}" alt="">` : "";
   // Overall or in class, as the standings tower is (Overall / By class).
   const place = byClass ? s.class_pos : s.pos;

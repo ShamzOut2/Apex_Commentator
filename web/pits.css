@@ -11,7 +11,7 @@
 
 .pit-card {
   width: 470px; border-radius: 12px; overflow: hidden; background: var(--panel);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, .45); border-left: 6px solid var(--cls, var(--accent));
+  box-shadow: 0 12px 34px rgba(0, 0, 0, calc(.45 * var(--bg-k, 1))); border-left: 6px solid var(--cls, var(--accent));
   position: relative;
 }
 body.panel-image .pit-card { isolation: isolate; position: relative; }
@@ -37,7 +37,18 @@ body.panel-image .pit-card::before {
 .pit-time .lbl { font-size: calc(12px * var(--fs, 1)); font-weight: 800; letter-spacing: .12em; color: var(--muted); }
 .pit-time .val { font-size: calc(28px * var(--fs, 1)); font-weight: 900; font-variant-numeric: tabular-nums; }
 /* In the box now: its clock lit up. */
-.pit-time.live.box { background: rgba(255, 210, 63, .12); }
+.pit-time.live.box { background: rgba(255, 210, 63, calc(.12 * var(--bg-k, 1))); }
 .pit-time.live.box .val { color: var(--yellow); }
 .pit-time.done .val { color: var(--ink); }
 .pit-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; opacity: .6; font-size: calc(28px * var(--fs, 1)); text-align: center; padding: 0 200px; }
+
+/* faded */
+/* Colours from variables (class, accent...) at the overlay's opacity too, where
+   the browser can mix them (older ones keep them solid). */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .pit-card { border-left:6px solid color-mix(in srgb, var(--cls, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .pit-tag { background:color-mix(in srgb, var(--yellow) calc(var(--bg-k, 1) * 100%), transparent); }
+  .pit-tag.out { background:color-mix(in srgb, var(--green) calc(var(--bg-k, 1) * 100%), transparent); }
+  .pit-times { border-top:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }
+  .pit-time + .pit-time { border-left:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }
+}

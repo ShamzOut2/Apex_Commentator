@@ -224,7 +224,7 @@ function classLogo(cls, onReady) {
 
 function classHeaderHtml(cls, detail, onReady) {
   const logo = classLogo(cls, onReady);
-  return `<div class="class-head" style="background:${esc(cls.color)};color:${inkFor(cls.color)}">
+  return `<div class="class-head" style="background:${esc(bgc(cls.color))};color:${inkFor(cls.color)}">
     ${logo ? `<img class="class-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}" title="${esc(cls.name)}">`
       : `<span class="class-name">${esc(cls.name)}</span>`}${detail ? `<span class="class-detail">${esc(detail)}</span>` : ""}
   </div>`;
@@ -613,6 +613,9 @@ function setPanels(cfg) {
   const st = document.body.style;
   setLogoScale(cfg);
   const op = (cfg && cfg.bg_opacity != null ? cfg.bg_opacity : 100) / 100;
+  // Every box, border and colour block of the overlay at this opacity (the
+  // stylesheets and bgc() use --bg-k); the text stays as it is.
+  st.setProperty("--bg-k", String(op));
   const image = mode === "image" && cfg.bg_image;
   document.body.classList.toggle("custom-panels", mode === "color" || !!image);
   document.body.classList.toggle("panel-image", !!image);
@@ -751,4 +754,19 @@ function pageLook(snap) {
 function tyreIcon(t) {
   if (t !== "dry" && t !== "wet") return "";
   return `<span class="tyre tyre-${t}" title="${t === "wet" ? "Wet tyres" : "Dry tyres"}">${t === "wet" ? "W" : "D"}</span>`;
+}
+
+// A colour for a box or bar (class colours, team colours...) at the overlay's
+// opacity (--bg-k, set by setPanels), so it goes see-through with the rest
+// and the text on it doesn't. Colours it can't read go as they are.
+function bgc(color) {
+  const c = String(color || "").trim();
+  let m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c);
+  if (m) {
+    const h = m[1].length === 3 ? m[1].replace(/./g, "$&$&") : m[1];
+    return `rgba(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)}, calc(1 * var(--bg-k, 1)))`;
+  }
+  m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/i.exec(c);
+  if (m) return `rgba(${m[1]}, ${m[2]}, ${m[3]}, calc(${m[4] ?? 1} * var(--bg-k, 1)))`;
+  return c;
 }
