@@ -19,7 +19,7 @@ const ROW_SPACE = 820;  // px for table rows under the header (less with a horiz
 // common.js, in render), rather than a panel round the table like the overlays.
 
 // The car number, in the driver's class colour.
-const numberChip = (r) => (r.number ? `<span class="num" style="${r.class_color ? `background:${esc(r.class_color)};color:${inkFor(r.class_color)}` : ""}">${esc(r.number)}</span>` : "");
+const numberChip = (r) => (r.number ? `<span class="num" style="${r.class_color ? `background:${esc(bgc(r.class_color))};color:${inkFor(r.class_color)}` : ""}">${esc(r.number)}</span>` : "");
 
 // Places 1-3: gold, silver and bronze (the board's podium setting), else the accent colour.
 let podium = true;
@@ -67,7 +67,7 @@ function columns(b) {
     add(s.show_ahead, "ahead", "To ahead", "140px", "r muted", (r) => (r.ahead != null ? `−${fmtPts(r.ahead)}` : ""));
   } else if (b.kind === "teams") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
-    teamCols(true, (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(r.color)}"></span>` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
+    teamCols(true, (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(bgc(r.color))}"></span>` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
     add(s.show_drivers, "drivers", "Drivers", "auto", "muted team-drivers", (r) => esc((r.people || r.drivers.map((name) => ({ name }))).map((p) => formatName(p, s.name_format)).join(" · ")));
     b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => (r.rounds[i] == null ? "–" : fmtPts(r.rounds[i]))));
     add(s.show_wins, "wins", "Wins", "80px", "c muted", (r) => r.wins || "");
@@ -98,7 +98,7 @@ function columns(b) {
     // are from it), else their laps.
     const how = s.winner_cell || "time";
     const winnerCell = (r) => (how === "time" && r.race_time ? fmtRaceTime(r.race_time)
-      : how !== "none" && r.laps ? `${r.laps} ${r.laps === 1 ? "Lap" : "Laps"}` : "");
+      : r.laps ? `${r.laps} ${r.laps === 1 ? "Lap" : "Laps"}` : "");
     const lead = (r) => (r.winner && !r.out ? `<span class="lead">${winnerCell(r)}</span>` : null);
     add(s.show_gap, "gap", "Gap", "150px", "r muted", (r) => lead(r) ?? gapCell(r, r.gap, r.gap_laps));
     add(s.show_interval, "interval", "Int", "150px", "r muted", (r) => lead(r) ?? gapCell(r, r.interval, r.interval_laps));
@@ -217,7 +217,7 @@ function racesHtml(r, s) {
     const head = [s.show_race_name !== false && x.name, s.show_length && x.length].filter(Boolean);
     const shown = (x.winners || []).filter((w) => !only || only.has(w.group));
     const wins = s.show_winners && shown.length ? shown.map((w) => `<div class="rb-win">
-        <span class="dot" style="background:${esc(w.color || "#8b93a3")}"></span>${s.show_winner_class !== false && w.group_name ? `<span class="cls">${esc(w.group_name)}:</span> ` : "🏆 "}${esc(formatName(w, s.winner_name_format))}</div>`).join("") : "";
+        <span class="dot" style="background:${esc(bgc(w.color || "#8b93a3"))}"></span>${s.show_winner_class !== false && w.group_name ? `<span class="cls">${esc(w.group_name)}:</span> ` : "🏆 "}${esc(formatName(w, s.winner_name_format))}</div>`).join("") : "";
     if (!head.length && !wins) return "";
     return `<div class="race-box">${head.length ? `<div class="rb-head"><b>${esc(head[0])}</b>${head[1] ? ` <span class="len">${esc(head[1])}</span>` : ""}</div>` : ""}${wins}</div>`;
   }).filter(Boolean);
@@ -248,6 +248,8 @@ function render(snap) {
   }
   const look = b ? b.settings : lastSettings;
   setBackground(look, !!b);
+  // The whole board but its text at the opacity set (backdrop, rows, boxes, lines).
+  document.body.style.setProperty("--bg-k", String(look && look.bg_opacity != null ? look.bg_opacity / 100 : 1));
   podium = !look || look.podium !== false;
   setColumnOpacity(look);
   setLogoScale(look);
@@ -303,7 +305,7 @@ function render(snap) {
     return `<div class="edge ${place === "top" || place === "bottom" ? "across" : "down"} ${place}">${parts.join("")}</div>`;
   };
   const sub = b.subtitle
-    ? `<span class="sub"><span class="chip" style="${b.accent ? `background:${esc(b.accent)};color:${inkFor(b.accent)}` : "background:rgba(255,255,255,.12)"}">${esc(b.subtitle)}</span></span>` : "";
+    ? `<span class="sub"><span class="chip" style="${b.accent ? `background:${esc(bgc(b.accent))};color:${inkFor(b.accent)}` : `background:${bgc("rgba(255,255,255,.12)")}`}">${esc(b.subtitle)}</span></span>` : "";
   // Scrolling (the grid row by row): the same board as it moves on, not a new page.
   const key = [b.kind, b.title, b.subtitle, b.scroll != null ? "scroll" : b.page].join("|");
   const scrolled = b.scroll != null && lastScroll != null && b.scroll > lastScroll && key === boardKey ? b.scroll - lastScroll : 0;

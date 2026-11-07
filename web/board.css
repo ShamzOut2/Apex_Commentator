@@ -53,13 +53,13 @@
 .cal-image { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
 .cal-image img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
 .bhead .league { margin-left: auto; font-size: calc(24px * var(--fs, 1)); color: var(--muted); font-weight: 600; }
-.bhead .pageno { font-size: calc(24px * var(--fs, 1)); font-weight: 800; padding: 4px 12px; border-radius: 6px; background: rgba(255, 255, 255, .12); font-variant-numeric: tabular-nums; }
+.bhead .pageno { font-size: calc(24px * var(--fs, 1)); font-weight: 800; padding: 4px 12px; border-radius: 6px; background: rgba(255, 255, 255, calc(.12 * var(--bg-k, 1))); font-variant-numeric: tabular-nums; }
 
 .bbody { flex: 1; min-height: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 28px; align-content: start; }
 .btable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
 .btable th { text-align: left; font-size: calc(15px * var(--fs, 1)); letter-spacing: .1em; color: var(--muted); font-weight: 700; padding: 0 10px 8px; text-transform: uppercase; white-space: nowrap; }
 .btable td { padding: 0 10px; height: var(--row-h, 42px); font-size: var(--row-font, 22px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.btable tbody tr:nth-child(odd) td { background: rgba(255, 255, 255, .04); }
+.btable tbody tr:nth-child(odd) td { background: rgba(255, 255, 255, calc(.04 * var(--bg-k, 1))); }
 .btable .r { text-align: right; } .btable .c { text-align: center; }
 .btable .p { font-weight: 900; }
 .btable .muted { color: var(--muted); }
@@ -72,7 +72,7 @@
 .btable .lead { color: var(--ink); font-weight: 800; }
 /* The leader kept at the top of the next pages: a line under them. */
 .btable tr.kept td { border-bottom: 2px solid var(--accent-c, var(--accent)); }
-.btable .num { font-size: .8em; height: 1.45em; background: #fff; color: #111; }
+.btable .num { font-size: .8em; height: 1.45em; background: rgba(255, 255, 255, calc(1 * var(--bg-k, 1))); color: #111; }
 .btable .logo { height: calc(1.3em * var(--logo-k, 1)); width: calc(2.6em * var(--logo-k, 1)); object-fit: contain; vertical-align: middle; }
 .make { display: inline-flex; align-items: center; justify-content: center; height: 1.6em; width: 3.4em; vertical-align: -.4em; padding: 2px 4px; }
 .make img { max-height: 100%; max-width: 100%; object-fit: contain; }
@@ -86,13 +86,13 @@
 .btable .rd.dropped { text-decoration: line-through; opacity: .5; }
 .btable .up { color: var(--green); } .btable .down { color: var(--red); }
 .btable .fl { color: var(--purple); font-weight: 800; }
-.btable .st { font-size: .7em; font-weight: 800; padding: 1px 6px; border-radius: 3px; background: rgba(255,255,255,.15); }
+.btable .st { font-size: .7em; font-weight: 800; padding: 1px 6px; border-radius: 3px; background: rgba(255, 255, 255, calc(.15 * var(--bg-k, 1))); }
 
 /* calendar */
 .cal { display: grid; grid-template-columns: repeat(auto-fill, minmax(390px, 1fr)); gap: 14px; align-content: start; }
-.round { background: rgba(255, 255, 255, .05); border-radius: 10px; padding: 14px 18px; border-left: 6px solid rgba(255,255,255,.15); display: flex; flex-direction: column; gap: 4px; }
+.round { background: rgba(255, 255, 255, calc(.05 * var(--bg-k, 1))); border-radius: 10px; padding: 14px 18px; border-left: 6px solid rgba(255, 255, 255, calc(.15 * var(--bg-k, 1))); display: flex; flex-direction: column; gap: 4px; }
 .round.done { opacity: .75; }
-.round.next { border-left-color: var(--accent); background: rgba(255, 122, 26, .14); }
+.round.next { border-left-color: var(--accent); background: rgba(255, 122, 26, calc(.14 * var(--bg-k, 1))); }
 .round .rn { display: flex; align-items: baseline; gap: 10px; font-size: calc(16px * var(--fs, 1)); font-weight: 800; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
 .round .rn .tag { margin-left: auto; color: var(--accent); }
 .round .rn .rt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -101,7 +101,7 @@
 /* Each race: its name and length, then each class's winner under it, in one
    box; the boxes side by side, wrapping. */
 .round .races { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; align-items: flex-start; }
-.round .race-box { flex: 1 1 150px; min-width: 0; padding: 6px 10px; border-radius: 7px; background: rgba(255, 255, 255, .08);
+.round .race-box { flex: 1 1 150px; min-width: 0; padding: 6px 10px; border-radius: 7px; background: rgba(255, 255, 255, calc(.08 * var(--bg-k, 1)));
   display: flex; flex-direction: column; gap: 2px; }
 .round .rb-head { font-size: calc(16px * var(--fs, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .round .rb-head b { font-weight: 800; }
@@ -131,8 +131,8 @@
 .gslot .gp small { font-size: calc(14px * var(--fs, 1) * var(--slot-k, 1)); font-weight: 700; color: var(--muted); }
 .gslot .gbox {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 0 18px;
-  border: 3px solid rgba(255, 255, 255, .55); border-left: none; border-radius: 0 10px 10px 0;
-  background: rgba(255, 255, 255, .04); box-shadow: inset 6px 0 0 var(--cls);
+  border: 3px solid rgba(255, 255, 255, calc(.55 * var(--bg-k, 1))); border-left: none; border-radius: 0 10px 10px 0;
+  background: rgba(255, 255, 255, calc(.04 * var(--bg-k, 1))); box-shadow: inset 6px 0 0 var(--cls);
 }
 .gslot .gname { min-width: 0; flex: 1; display: flex; flex-direction: column; }
 .gslot .gname b { font-size: calc(26px * var(--fs, 1) * var(--slot-k, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -152,7 +152,7 @@
 .board .gslot.reveal-in.even { animation-delay: .12s; }
 .board .gslot.reveal-in .gbox::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .22) 50%, transparent 65%);
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, calc(.22 * var(--bg-k, 1))) 50%, transparent 65%);
   transform: translateX(-110%); animation: reveal-sweep .9s .35s ease-out both;
 }
 .gslot .gbox { position: relative; overflow: hidden; }
@@ -173,3 +173,14 @@
 
 /* Row by row, scrolling: the rows move up a row, the top one sliding off. */
 .scroll-box { overflow: hidden; min-height: 0; flex: 1; }
+
+/* faded */
+/* Colours from variables (class, accent...) at the overlay's opacity too, where
+   the browser can mix them (older ones keep them solid). */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .bhead { border-bottom:3px solid color-mix(in srgb, var(--accent-c, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .btable tr.kept td { border-bottom:2px solid color-mix(in srgb, var(--accent-c, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .round.next { border-left-color:color-mix(in srgb, var(--accent) calc(var(--bg-k, 1) * 100%), transparent); }
+  .round .rn .mult { background:color-mix(in srgb, var(--accent) calc(var(--bg-k, 1) * 100%), transparent); }
+  .gslot .gbox { box-shadow:inset 6px 0 0 color-mix(in srgb, var(--cls) calc(var(--bg-k, 1) * 100%), transparent); }
+}
