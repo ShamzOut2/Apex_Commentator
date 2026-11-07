@@ -97,7 +97,8 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
   and row by row can **scroll**, the top row sliding up and off as the next
   one comes in, instead of turning to a new page.
 - Grid walk: it goes in the starting grid board's order, reversed grid
-  included; a car with no picture is left black instead of drawn.
+  included; a car with no picture leaves its grid box empty instead of
+  being drawn.
 - Starting grid board and grid walk: qualifying times and gaps only show
   when the grid is from qualifying.
 - Watching a replay mid-race: the race log goes on logging live incident
