@@ -746,3 +746,9 @@ function pageLook(snap) {
   document.body.classList.add("board-fade");
   document.body.style.setProperty("--board-dim", String(how === "dim" ? (GENERAL.board_dim ?? 35) / 100 : how === "hide" ? 0 : 1));
 }
+
+// The tyres a car is on: a small tyre, white for dry, blue for wet.
+function tyreIcon(t) {
+  if (t !== "dry" && t !== "wet") return "";
+  return `<span class="tyre tyre-${t}" title="${t === "wet" ? "Wet tyres" : "Dry tyres"}">${t === "wet" ? "W" : "D"}</span>`;
+}

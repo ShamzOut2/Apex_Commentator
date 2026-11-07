@@ -40,8 +40,8 @@ NAME_FORMATS = ("full", "initial_last", "last_initial", "last", "first", "abbrev
 # (each switched on and off with its show_ setting) and the full screen's
 # (a fixed set: Last and Pits in races only). "" for the full screen keeps
 # its usual order, which differs between races and qualifying.
-TOWER_COLUMNS = ("pos_change", "laps", "pits", "last_lap", "best_lap", "gap", "interval")
-SCREEN_COLUMNS = ("laps", "gap", "interval", "last_lap", "best_lap", "pits")
+TOWER_COLUMNS = ("pos_change", "laps", "pits", "last_lap", "best_lap", "gap", "interval", "tyre")
+SCREEN_COLUMNS = ("laps", "gap", "interval", "last_lap", "best_lap", "pits", "tyre")
 ORDERS = {"column_order": TOWER_COLUMNS, "screen_column_order": SCREEN_COLUMNS}
 
 DEFAULTS = {
@@ -94,6 +94,7 @@ DEFAULTS = {
         "show_last_lap": False,
         "show_laps": False,       # laps completed
         "show_pits": False,       # pit stops made
+        "show_tyre": True,        # the tyres on: a white dry tyre or a blue wet one (the full screen too)
         "show_pit_status": True,  # "PIT" while on pit road
         "column_order": ",".join(TOWER_COLUMNS),
         "screen_column_order": "",
@@ -154,6 +155,7 @@ DEFAULTS = {
     # "Who's this": a board at the bottom centre for the driver on camera (driver.html).
     "driver": {**LOGO, 
         "visible": True,
+        "show_tyre": True,        # the tyres on (dry white, wet blue)
         "hide_s": 8.0,            # seconds it stays up after the camera moves to someone (0 = while they're on camera)
         "stay": False,            # stay up for as long as the camera's on them (hide_s not used)
         "name_format": "full",

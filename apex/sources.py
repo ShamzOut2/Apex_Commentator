@@ -90,6 +90,7 @@ class Frame:
     best_lap: list = field(default_factory=list)
     car_flags: list = field(default_factory=list)
     steer: list = field(default_factory=list)  # CarIdxSteer: steering wheel angle, rad
+    tire: list = field(default_factory=list)   # CarIdxTireCompound: the tyres on (DriverInfo.DriverTires index), -1 unknown
     # Heading of the car being driven on this PC (iRacing only sends it for that one).
     player_car_idx: int = -1
     yaw: float = None                   # rad
@@ -179,6 +180,7 @@ class IRacingSource:
                 best_lap=v("CarIdxBestLapTime", []),
                 car_flags=v("CarIdxSessionFlags", []),
                 steer=v("CarIdxSteer", []),
+                tire=v("CarIdxTireCompound", []) or [],
                 player_car_idx=v("PlayerCarIdx", -1),
                 yaw=v("Yaw", None),
             )
@@ -611,6 +613,8 @@ class MockSource:
                 lap=lap, laps_completed=laps_completed, pct=pct, position=position, class_position=list(position),
                 on_pit=on_pit, surface=surface, f2_time=f2,
                 last_lap=last_lap, best_lap=best_lap, car_flags=car_flags, steer=steer,
+                # A few cars on wets (car 4, 9 and 14 in the demo), the rest on drys.
+                tire=[1 if i in (4, 9, 14) else 0 for i in range(len(pct))],
             )
 
     def session_info(self):
@@ -632,7 +636,9 @@ class MockSource:
                 "SplitTimeInfo": {"Sectors": [
                     {"SectorNum": n, "SectorStartPct": pct} for n, pct in enumerate(self.SECTOR_STARTS)
                 ]},
-                "DriverInfo": {"DriverCarIdx": 1, "Drivers": [dict(d) for d in self.drivers]},
+                "DriverInfo": {"DriverCarIdx": 1, "Drivers": [dict(d) for d in self.drivers],
+                               "DriverTires": [{"TireIndex": 0, "TireCompoundType": "Hard"},
+                                               {"TireIndex": 1, "TireCompoundType": "Wet"}]},
                 "QualifyResultsInfo": {"Results": [
                     {"Position": pos, "ClassPosition": pos, "CarIdx": i + 1, "FastestTime": self.qual_time[i]}
                     for pos, i in enumerate(self.qual_order)

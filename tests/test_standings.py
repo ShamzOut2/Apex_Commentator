@@ -308,12 +308,31 @@ class ColumnOrderTests(unittest.TestCase):
     def test_orders_keep_every_column_once(self):
         from apex.overlays import OverlaySettings
         o = OverlaySettings()
-        self.assertEqual(o.get()["standings"]["column_order"], "pos_change,laps,pits,last_lap,best_lap,gap,interval")
+        self.assertEqual(o.get()["standings"]["column_order"], "pos_change,laps,pits,last_lap,best_lap,gap,interval,tyre")
         self.assertEqual(o.get()["standings"]["screen_column_order"], "")  # the usual order for the session
         o.update("standings", {"column_order": "interval,gap,nonsense,gap", "screen_column_order": "pits,best_lap"})
         s = o.get()["standings"]
-        self.assertEqual(s["column_order"], "interval,gap,pos_change,laps,pits,last_lap,best_lap")
-        self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap")
+        self.assertEqual(s["column_order"], "interval,gap,pos_change,laps,pits,last_lap,best_lap,tyre")
+        self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap,tyre")
+
+
+class TyreTests(unittest.TestCase):
+    def test_tyres_from_the_events_compounds(self):
+        import tempfile
+
+        from tests.test_app import make_app
+        with tempfile.TemporaryDirectory() as tmp:
+            app, source = make_app(tmp, minutes=2)  # (the tower shows drivers from their second lap)
+            rows = {d["car_idx"]: d["tyre"] for d in app.build_snapshot()["drivers"]}
+            self.assertEqual(rows[4], "wet")  # the demo's cars 4, 9 and 14 are on wets
+            self.assertEqual(rows[1], "dry")
+            entries = app.build_snapshot()["overlays"]["standings"]
+            self.assertTrue(any(e["tyre"] == "wet" for e in entries))
+            # Without the event's tyres: 0 is the dry tyre, 1 the wet.
+            app._tyre_names = {}
+            self.assertEqual((app._tyre(0), app._tyre(1), app._tyre(2), app._tyre(-1)), ("dry", "wet", None, None))
+            app._tyre_names = {0: "soft", 1: "medium", 2: "wet"}
+            self.assertEqual((app._tyre(1), app._tyre(2)), ("dry", "wet"))
 
 
 class ColumnOpacityTests(unittest.TestCase):

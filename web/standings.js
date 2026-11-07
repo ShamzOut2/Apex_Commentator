@@ -219,6 +219,7 @@ const COLUMNS = [
     if (down) return `+${down} L`;
     return gap != null ? `+${secs(gap, race)}` : "";
   }],
+  ["show_tyre", "40px", "Tyre", (e) => tyreIcon(e.tyre)],
   ["show_interval", "80px", "Int", (e, race, classMode, cfg, green) => {
     const interval = classMode ? e.class_interval : e.interval;
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
@@ -661,6 +662,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     last_lap: () => `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
     best_lap: () => (race ? `<td class="r">${fmtLap(e.best_lap)}</td>` : `<td class="r lead">${fmtLap(e.best)}</td>`),
     pits: () => `<td class="r muted">${e.pit_stops || ""}</td>`,
+    tyre: () => `<td class="c">${tyreIcon(e.tyre)}</td>`,
   };
   cells.push(...screenColumns(cfg, race, compact).map((k) => cell[k]().replace("<td", `<td data-opcol="${k}"`)));
   const moved = moveOf(e.car_idx);
@@ -671,13 +673,14 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
 // (cfg.screen_column_order; "" = the usual order, which differs between races
 // and qualifying). Last lap and pit stops are race only; split into narrow
 // columns, the least needed go.
-const SCREEN_LABELS = { laps: "Laps", gap: "Gap", interval: "Int", last_lap: "Last", best_lap: "Best", pits: "Pits" };
+const SCREEN_LABELS = { laps: "Laps", gap: "Gap", interval: "Int", last_lap: "Last", best_lap: "Best", pits: "Pits", tyre: "Tyre" };
 
 function screenColumns(cfg, race, compact) {
   const order = cfg.screen_column_order ? cfg.screen_column_order.split(",")
-    : race ? ["laps", "gap", "interval", "last_lap", "best_lap", "pits"] : ["best_lap", "gap", "interval", "laps"];
+    : race ? ["laps", "gap", "interval", "last_lap", "best_lap", "pits", "tyre"] : ["best_lap", "gap", "interval", "laps", "tyre"];
   const keep = race ? (k) => !compact || (k !== "last_lap" && k !== "pits") : (k) => k !== "last_lap" && k !== "pits" && (!compact || k !== "laps");
-  return order.filter((k) => SCREEN_LABELS[k] && keep(k));
+  const tyre = (k) => k !== "tyre" || cfg.show_tyre;
+  return order.filter((k) => SCREEN_LABELS[k] && keep(k) && tyre(k));
 }
 
 // The full screen's team columns, in order: the logo (also when two tables
@@ -691,7 +694,7 @@ function screenHead(cfg, race, compact) {
   const cols = [["", "stripe"], ["Pos", "r"], race ? ["", "c"] : null, ["#", "c"], ["Driver", ""],
     ...screenTeamParts(cfg, compact).map((p) => (p === "logo" ? ["", "lg"] : ["Team", ""]))];
   cols.push(...screenColumns(cfg, race, compact).map((k) => [SCREEN_LABELS[k], "r"]));
-  const widths = { "": "", Pos: "70px", "#": "70px", Laps: "70px", Pits: "60px", Gap: "120px", Int: "110px", Last: "130px", Best: "130px" };
+  const widths = { "": "", Pos: "70px", "#": "70px", Laps: "70px", Pits: "60px", Gap: "120px", Int: "110px", Last: "130px", Best: "130px", Tyre: "70px" };
   return `<colgroup>${cols.filter(Boolean).map(([l, c]) => `<col style="width:${c === "stripe" ? "6px" : c === "lg" ? "64px" : c === "c" && !l ? "78px" : widths[l] || "auto"}">`).join("")}</colgroup>
     <thead><tr>${cols.filter(Boolean).map(([l, c]) => `<th class="${c === "stripe" ? "stripe" : c}">${l}</th>`).join("")}</tr></thead>`;
 }

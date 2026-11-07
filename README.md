@@ -66,6 +66,9 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 - Every overlay and board has a **Text size** next to its Size, and its
   background opacity works on the default look too: turn a board's down
   and the race shows through it.
+- **Tyres**: a small tyre shows what each car is on, white for dry and
+  blue for wet, on the timing tower (and its full screen), the driver card
+  and the Timing Screen.
 - Teams: **Leave out of the team standings**, for a team that shouldn't be
   in the team championship (its drivers still score for themselves).
 - Sponsors overlay: **Stay up**, so it isn't put away with everything else

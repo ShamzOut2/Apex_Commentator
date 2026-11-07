@@ -265,6 +265,7 @@ class App:
         self._camera_groups = []
         self._session_meta = {}
         self._track_m = DEFAULT_TRACK_M
+        self._tyre_names = {}     # the event's tyres: compound index -> its kind ("hard", "wet"...)
         self._frame = None
         self._return_timer = None
         self._last_push = 0.0
@@ -477,6 +478,9 @@ class App:
         sub, was = weekend.get("SubSessionID"), self._session_meta.get("subsession")
         if sub is not None and was is not None and sub != was:
             self._new_event()
+        tires = (info.get("DriverInfo") or {}).get("DriverTires") or []
+        self._tyre_names = {t.get("TireIndex"): str(t.get("TireCompoundType") or "").lower()
+                            for t in tires if isinstance(t, dict) and t.get("TireIndex") is not None}
         self._track_m = parse_track_length(weekend.get("TrackLength"))
         self.gaps.set_track(self._track_m)
         # The lap tracker throws out laps no car could do on this track.
@@ -684,6 +688,7 @@ class App:
                     "official_pos": _at(frame.position, idx, 0) or None,
                     "class_pos": _at(frame.class_position, idx, 0) or None,
                     "on_pit": bool(_at(frame.on_pit, idx, False)),
+                    "tyre": self._tyre(_at(frame.tire, idx, -1)),
                     "surface": SURFACES.get(surface, "unknown"),
                     "in_world": surface != TRK_NOT_IN_WORLD,
                     # Live timing replaces it (_live_gaps). In a replay iRacing's own
@@ -1046,6 +1051,7 @@ class App:
             "team": team_name, "team_short": (team or {}).get("short", ""), "team_color": (team or {}).get("color", ""),
             "team_logo": logo_url(pid, team.get("logo")) if team and pid else None,
             "class_key": r["class_key"], "car": r["car"], "on_pit": r["on_pit"], "in_world": r["in_world"],
+            "tyre": r.get("tyre"),
             "paint": self._paint(r, active_league),
             # For the full-screen versions.
             "make": r["make"], "make_logo": r["make_logo"],
@@ -1550,6 +1556,18 @@ class App:
                   "matched": sum(1 for e in out if e["has_thumb"]), "drivers": len(out)}
         return {**self.gridwalk.state(), "source": "manual" if self.gridwalk.manual_order else grid_from if grid else self._grid_source,
                 "entries": out, "thumbs": thumbs}
+
+    def _tyre(self, index):
+        """A car's tyres: "dry", "wet" or None (not known), from its compound
+        index and the event's tyres (DriverInfo.DriverTires; without them,
+        0 is the dry tyre and 1 the wet, as on most cars)."""
+        if index is None or index < 0:
+            return None
+        tires = self._tyre_names
+        if tires:
+            name = tires.get(index)
+            return None if name is None else "wet" if ("wet" in name or "rain" in name) else "dry"
+        return {0: "dry", 1: "wet"}.get(index)
 
     def _walk_grid(self, league):
         """The starting grid board's order for the next race (car indexes) and

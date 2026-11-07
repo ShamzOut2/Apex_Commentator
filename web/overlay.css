@@ -145,3 +145,13 @@ body.board-fade .stage { opacity: var(--board-dim, 1); transition: opacity .6s e
   display: inline-block; padding: 1px 6px; border-radius: 3px; background: rgba(255, 255, 255, .16); color: var(--muted);
   font-size: .72em; font-weight: 800; letter-spacing: .06em; line-height: 1.3; vertical-align: .08em;
 }
+
+/* The tyres a car is on: a small tyre, white for dry, blue for wet. */
+.tyre {
+  display: inline-flex; align-items: center; justify-content: center; width: 1.45em; height: 1.45em; border-radius: 50%;
+  border: .2em solid currentColor; font-size: .78em; font-weight: 900; line-height: 1; vertical-align: .1em; margin-left: .35em;
+  box-shadow: inset 0 0 0 .12em rgba(0, 0, 0, .35);
+}
+td > .tyre:only-child { margin-left: 0; }
+.tyre-dry { color: #fff; }
+.tyre-wet { color: #3d9bff; }
