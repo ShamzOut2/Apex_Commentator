@@ -123,9 +123,23 @@ function renderDual(r) {
   badge.classList.toggle("free", fo.on && fo.free);
   // Free mode (their own camera) and Sync (back with the host), while following.
   $("#dual-follow").hidden = !fo.on;
-  $("#follow-free").hidden = fo.free;
-  $("#follow-sync").hidden = !fo.free;
+  $("#cam-sync").hidden = !fo.on;
+  badge.hidden = badge.hidden || (fo.on && fo.status === "following");  // the FREE | SYNC pill says it
+  for (const pill of document.querySelectorAll(".sync-pill")) {
+    pill.classList.toggle("free", !!fo.free);
+    pill.classList.toggle("off", fo.status !== "following");
+  }
+  ui.followFree = !!fo.free;
 }
+
+// The FREE | SYNC pill (top bar, Timing Screen): click to switch.
+document.addEventListener("click", (e) => {
+  const pill = e.target.closest("[data-sync-toggle]");
+  if (!pill) return;
+  pill.blur();
+  const free = !ui.followFree;
+  cmd("follow_free", { on: free }, free ? "Free mode: your own camera until you Sync" : "Synced with the host");
+});
 
 $("#share-on").addEventListener("change", (e) => {
   e.target.blur();
@@ -138,8 +152,6 @@ $("#follow-start").addEventListener("click", async () => {
   if (r) for (const id of ["#follow-address", "#follow-code"]) delete $(id).dataset.typed;
 });
 $("#follow-stop").addEventListener("click", () => cmd("follow_camera", { on: false }, "Stopped following"));
-$("#follow-free").addEventListener("click", (e) => { e.target.blur(); cmd("follow_free", { on: true }, "Free mode: your own camera until you Sync"); });
-$("#follow-sync").addEventListener("click", (e) => { e.target.blur(); cmd("follow_free", { on: false }, "Synced with the host"); });
 $("#follow-code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#follow-start").click(); });
 
 // ---------------------------------------------------------------------------

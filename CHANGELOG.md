@@ -34,6 +34,8 @@ How each version's entry is written:
 - Timing Screen: **⏮ Incident / Incident ⏭** step through the incidents in
   the race log (the first press from live replays the latest one) and pick
   each in the log.
+- Co-commentator: a **FREE | SYNC** pill in the top bar and on the Timing
+  Screen shows which you're on; click it to switch.
 - Lap tracker: sectors are compared with the **Session overall best**,
   **Session class best** or **Session personal best**. Purple beats that;
   green only when it beats the driver's own best; yellow when it's slower

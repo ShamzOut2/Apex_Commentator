@@ -19,8 +19,8 @@
       </div>
       <button id="dual-badge" class="badge" data-goto="home" hidden></button>
       <span id="dual-follow" class="dual-follow" hidden>
-        <button class="btn subtle slim" id="follow-free" title="Your own camera: replay something or watch someone else (still connected to the host)">Free mode</button>
-        <button class="btn primary slim" id="follow-sync" title="Back to what the host is showing, and following again">Sync</button>
+        <button class="sync-pill" data-sync-toggle title="Free: your own camera (replay something, watch someone else; still connected). Sync: what the host is showing. Click to switch.">
+          <span class="s-free">FREE</span><span class="s-sync">SYNC</span></button>
       </span>
       <span id="replay-badge" class="badge">—</span>
     </div>
@@ -152,6 +152,11 @@
     <section id="tab-timing" class="panel timing">
       <div class="cam-bar" aria-label="Cameras">
         <div class="group" id="cam-buttons"></div>
+        <div class="group" id="cam-sync" hidden>
+          <span class="label">Host's camera</span>
+          <button class="sync-pill" data-sync-toggle title="Free: your own camera. Sync: what the host is showing. Click to switch.">
+            <span class="s-free">FREE</span><span class="s-sync">SYNC</span></button>
+        </div>
         <div class="group">
           <button class="btn" data-cmd="step_car" data-direction="-1" title="Car ahead (↑)">▲ Ahead</button>
           <button class="btn" data-cmd="step_car" data-direction="1" title="Car behind (↓)">▼ Behind</button>
