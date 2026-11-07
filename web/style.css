@@ -825,3 +825,8 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .team-cell { display: flex; gap: 4px; align-items: center; }
 .team-cell input { flex: 1; min-width: 0; }
 .team-cell .btn.icon { padding: 2px 6px; }
+
+/* Race log: an accident (a crash, or any slowdown) in red. */
+.kind.accident { background: var(--bad); color: #fff; letter-spacing: .03em; }
+.race-log li.accident { background: color-mix(in srgb, var(--bad) 16%, var(--panel)); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.race-log li.accident.selected { border-color: var(--accent); }

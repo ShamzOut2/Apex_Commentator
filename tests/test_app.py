@@ -108,6 +108,27 @@ class CoreTests(unittest.TestCase):
         self.app.tick()
         self.assertTrue(self.app.build_snapshot()["replay"]["live"])
 
+    def test_incident_buttons_step_through_the_race_log(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, source = make_app(tmp, minutes=1)
+            num = app._frame.session_num
+            drivers = list(app._drivers)
+            app.detector.events[:] = [
+                {"id": 901, "type": "contact", "car_idx": drivers[0], "session_num": num, "session_time": 20.0},
+                {"id": 902, "type": "overtake", "car_idx": drivers[1], "session_num": num, "session_time": 30.0},
+                {"id": 903, "type": "slowdown", "car_idx": drivers[2], "session_num": num, "session_time": 40.0, "accident": True},
+            ]
+            # From live: back to the latest incident (not the overtake), then the one before.
+            self.assertEqual(app.command("replay_incident", {"direction": -1})["incident"], 903)
+            self.assertTrue(wait_for(lambda: ("replay_set_play_speed", 1, False) in source.commands))
+            app.tick()
+            self.assertEqual(app.command("replay_incident", {"direction": -1})["incident"], 901)
+            with self.assertRaises(CommandError):
+                app.command("replay_incident", {"direction": -1})
+            self.assertEqual(app.command("replay_incident", {"direction": 1})["incident"], 903)
+            with self.assertRaises(CommandError):
+                app.command("replay_incident", {"direction": 1})
+
     def test_replay_driver_without_events(self):
         events = self.app.detector.events
         quiet = [i for i in self.app._drivers if not any(e["car_idx"] == i for e in events)]

@@ -79,8 +79,15 @@ PENALTY_FLAGS = (
     (FLAG_DISQUALIFY, "Disqualified"),
     (FLAG_BLACK, "Black flag"),
     (FLAG_REPAIR, "Meatball (repairs)"),
-    (FLAG_FURLED, "Warning"),
+    (FLAG_FURLED, "Slow down"),
 )
+# Accidents: every slowdown, a spin that stops the car (or follows contact)
+# and contact that's followed by either car slowing / spinning / going off
+# within ACCIDENT_WINDOW_S, or that's a heavy hit (ACCIDENT_JOLT x the
+# contact jolt). They're marked accident=True (the log's red ACCIDENT).
+ACCIDENT_WINDOW_S = 4.0
+ACCIDENT_STOP_KPH = 20
+ACCIDENT_JOLT = 2.0
 
 
 def _at(seq, i, default=None):
@@ -335,8 +342,13 @@ class EventDetector:
                 pair = frozenset((behind, ahead))
                 last = self._contact_at.get(pair)
                 if last is None or now - last >= CONTACT_COOLDOWN_S:
-                    self._contact_at[pair] = now
-                    created.append(self._emit("contact", behind, frame, drivers, other=ahead, other_incidents=0))
+                    ev = self._emit("contact", behind, frame, drivers, other=ahead, other_incidents=0)
+                    moment = self._recent_moment((behind, ahead), now)
+                    if was >= ACCIDENT_JOLT * self.contact_jolt or moment is not None:
+                        ev["accident"] = True
+                        if moment is not None:
+                            moment["accident"] = True
+                    created.append(ev)
                 closing.clear()
         for near in self._near.values():
             while near and now - near[0][0] > NEAR_KEEP_S:
@@ -369,7 +381,29 @@ class EventDetector:
         rot = self._rotated.get(idx)
         if rot and frame.session_time - rot[0] <= SPIN_MATCH_S:
             self._make_spin(ev, rot[1])
+        hit = self._recent_contact(idx, frame.session_time)
+        if kind == "slowdown" or hit is not None:
+            ev["accident"] = True
+        if hit is not None:
+            hit["accident"] = True
         return ev
+
+    def _recent_contact(self, idx, now):
+        """Contact involving ``idx`` in the last few seconds (an accident's start), or None."""
+        for ev in reversed(self.events):
+            if now - ev["session_time"] > ACCIDENT_WINDOW_S:
+                break
+            if ev["type"] == "contact" and idx in (ev["car_idx"], ev.get("other_car_idx")):
+                return ev
+        return None
+
+    def _recent_moment(self, cars, now):
+        """Either car's slowdown / spin / off in the last few seconds, or None."""
+        for idx in cars:
+            ev = self._moment.get(idx)
+            if ev is not None and 0 <= now - ev["session_time"] <= ACCIDENT_WINDOW_S:
+                return ev
+        return None
 
     @staticmethod
     def _make_spin(ev, how):

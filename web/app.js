@@ -424,7 +424,7 @@ function findBattles(s, rows) {
 
 const FLAG_LABELS = {
   green: "Green", yellow: "Yellow", blue: "Blue", white: "White", checkered: "Chequered",
-  black: "Black", meatball: "Meatball", warning: "Warning", dq: "DQ",
+  black: "Black", meatball: "Meatball", warning: "Slow down", dq: "DQ",
 };
 
 function changeCell(n) {
@@ -528,13 +528,18 @@ const LOG_GROUPS = {
 };
 const PREROLL_CHOICES = [5, 10, 15, 20, 25, 30];
 // Kinds of event that can be left out of the log (Hide…), kept for this PC.
-const LOG_KINDS = [["overtake", "Overtakes"], ["contact", "Contact"], ["offtrack", "Off track"], ["slowdown", "Slowdowns"],
+const LOG_KINDS = [["overtake", "Overtakes"], ["accident", "Accidents (crashes and slowdowns)"], ["contact", "Contact"], ["offtrack", "Off track"],
   ["spin", "Spins"], ["incident", "Incident points"], ["pit", "Pit stops"], ["position", "Places lost"],
-  ["warning", "Warnings"], ["penalty", "Other penalties"], ["fastest_lap", "Fastest laps"]];
+  ["warning", "Slow downs (penalty)"], ["penalty", "Other penalties"], ["fastest_lap", "Fastest laps"]];
+// iRacing's furled flag ("Warning" in older logs) is shown as SLOW DOWN.
+const isSlowDown = (ev) => ev.type === "penalty" && /warn|slow down/i.test(ev.penalty || "");
+// A crash (or any slowdown): ACCIDENT, its row red.
+const isAccident = (ev) => !!ev.accident || ev.type === "slowdown";
 function logKind(ev) {
+  if (isAccident(ev)) return "accident";
   if (ev.spin) return "spin";
   if (ev.type === "pit_in" || ev.type === "pit_out") return "pit";
-  if (ev.type === "penalty") return /warn/i.test(ev.penalty || "") ? "warning" : "penalty";
+  if (ev.type === "penalty") return isSlowDown(ev) ? "warning" : "penalty";
   return ev.type;
 }
 function renderLogHide() {
@@ -588,7 +593,7 @@ function eventText(ev) {
     case "position":
       return `${who} loses <b>${ev.position - ev.from_position}</b> place${ev.position - ev.from_position === 1 ? "" : "s"} after going off (P${ev.from_position} → P${ev.position})`;
     case "penalty":
-      return `${who}: <b>${esc(ev.penalty)}</b>`;
+      return `${who}: <b>${isSlowDown(ev) ? "Slow down" : esc(ev.penalty)}</b>`;
     case "fastest_lap":
       return `${who} fastest lap${ev.car_class ? ` in ${esc(ev.car_class)}` : ""}: <b>${fmtLap(ev.lap_time)}</b>`;
     default:
@@ -621,11 +626,13 @@ function renderLog(s) {
   logKey = key;
   $("#race-log").innerHTML = shown.map((ev) => {
     const selected = ev.id === ui.selectedEvent;
-    const cls = ev.incidents ? "kind has-points" : `kind ${ev.spin ? "spin" : ev.type}`;
-    return `<li class="${selected ? "selected" : ""}" data-event="${ev.id}">
+    const accident = isAccident(ev);
+    const cls = accident ? "kind accident" : ev.incidents ? "kind has-points" : `kind ${ev.spin ? "spin" : ev.type}`;
+    const label = accident ? "ACCIDENT" : isSlowDown(ev) ? "SLOW DOWN" : ev.spin ? "SPIN" : LOG_LABELS[ev.type] || ev.type;
+    return `<li class="${selected ? "selected" : ""} ${accident ? "accident" : ""}" data-event="${ev.id}">
       <div class="log-line">
         <span class="when">L${ev.lap} · ${fmtClock(ev.session_time)}</span>
-        <span class="${cls}">${ev.spin ? "SPIN" : LOG_LABELS[ev.type] || ev.type}</span>
+        <span class="${cls}">${label}</span>
         <span class="what">${eventText(ev)}</span>
       </div>
       ${selected ? `<div class="log-actions">
@@ -826,6 +833,17 @@ document.addEventListener("click", (e) => {
     const params = {};
     for (const [k, v] of Object.entries(rest)) params[k] = isNaN(v) ? v : +v;
     if (action === "clear_events" && !confirm("Clear the race log?")) return;
+    if (action === "replay_incident") {
+      // The incident replayed: picked in the race log, as if clicked there.
+      return cmd(action, params).then((r) => {
+        if (r && r.incident != null) {
+          ui.selectedEvent = r.incident;
+          if (ui.snap) renderLog(ui.snap);
+          const li = document.querySelector(`#race-log li[data-event="${r.incident}"]`);
+          if (li) li.scrollIntoView({ block: "nearest" });
+        }
+      });
+    }
     return cmd(action, params);
   }
 });

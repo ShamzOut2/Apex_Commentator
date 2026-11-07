@@ -26,6 +26,12 @@ How each version's entry is written:
 
 ### Improvements
 
+- Race log: crashes are spotted and shown as a red **ACCIDENT** (contact
+  followed by a car slowing, spinning or going off, a heavy hit, and every
+  slowdown); iRacing's warning now reads **SLOW DOWN**.
+- Timing Screen: **⏮ Incident / Incident ⏭** step through the incidents in
+  the race log (the first press from live replays the latest one) and pick
+  each in the log.
 - A driver who leaves the race shows a small **OUT** tag in place of their
   gap and interval, on the timing tower, its full screen and the Timing
   Screen.

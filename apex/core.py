@@ -62,7 +62,7 @@ CAR_FLAGS = (
     (FLAG_BLUE, "blue"), (CAUTION_FLAGS, "yellow"), (FLAG_CHECKERED, "checkered"), (FLAG_WHITE, "white"),
     (FLAG_GREEN, "green"),
 )
-PENALTY_NAMES = {"dq": "DQ", "black": "Black flag", "meatball": "Meatball", "warning": "Warning"}
+PENALTY_NAMES = {"dq": "DQ", "black": "Black flag", "meatball": "Meatball", "warning": "Slow down"}
 
 
 class CommandError(Exception):
@@ -1976,10 +1976,40 @@ class App:
     def cmd_replay_speed(self, speed=1, slow_motion=False):
         self.source.replay_set_play_speed(int(speed), bool(slow_motion))
 
+    INCIDENT_TYPES = ("contact", "offtrack", "slowdown", "spin", "incident")
+
     def cmd_replay_incident(self, direction=1):
-        """Step through iRacing's own incident markers on the replay tape."""
-        self.source.replay_search(RPY_SRCH_NEXT_INCIDENT if int(direction) > 0 else RPY_SRCH_PREV_INCIDENT)
-        self.source.replay_set_play_speed(1, False)
+        """The previous / next incident in the race log, replayed (as clicking
+        it would). The first press from live: the latest one. With nothing in
+        the log, iRacing's own incident markers on the replay tape."""
+        step = 1 if int(direction) > 0 else -1
+        frame = self._frame
+        events = sorted((e for e in self.detector.events if e["type"] in self.INCIDENT_TYPES or e.get("accident")),
+                        key=lambda e: (e["session_num"], e["session_time"], e["id"]))
+        if not events:
+            self.source.replay_search(RPY_SRCH_NEXT_INCIDENT if step > 0 else RPY_SRCH_PREV_INCIDENT)
+            self.source.replay_set_play_speed(1, False)
+            return {"incident": None}
+        ids = [e["id"] for e in events]
+        live = frame is None or frame.is_live
+        cur = getattr(self, "_incident_at", None)
+        if not live and cur in ids:
+            i = ids.index(cur) + step
+        elif live:
+            i = len(events) - 1 if step < 0 else len(events)
+        else:
+            # In a replay of something else: from where it is.
+            at = (frame.session_num, frame.replay_session_time + float(self.cfg["replay_preroll_s"]))
+            later = [k for k, e in enumerate(events) if (e["session_num"], e["session_time"]) > (at[0], at[1] + 0.5)]
+            i = (later[0] if later else len(events)) if step > 0 else (later[0] - 1 if later else len(events) - 1)
+        if i < 0:
+            raise CommandError("No earlier incident in the race log")
+        if i >= len(events):
+            raise CommandError("No later incident in the race log (● LIVE goes back to live)")
+        ev = events[i]
+        self._incident_at = ev["id"]
+        out = self._replay(ev["car_idx"], ev["session_num"], ev["session_time"])
+        return dict(out, incident=ev["id"])
 
     def cmd_clear_events(self):
         self.detector.clear()
