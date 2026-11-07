@@ -141,3 +141,7 @@
 .tracker.big .timebox .lt { font-size: calc(32px * var(--fs, 1)); }
 .tracker.big .timebox .pv { font-size: calc(15px * var(--fs, 1)); }
 .tracker.big .timebox .dl { font-size: calc(20px * var(--fs, 1)); }
+
+/* The camera moved: the big tracker changes over to the new driver in place. */
+.tracker.swap > * { animation: tk-swap .32s ease both; }
+@keyframes tk-swap { from { opacity: 0; transform: translateY(5px); } }

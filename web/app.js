@@ -2509,13 +2509,12 @@ const OVERLAY_FIELDS = {
     ]],
     ["Sectors", [
       ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
-      ["reference", "Purple sector is", "select", [["personal", "Faster than their best"], ["session", "Fastest in class this session"],
-        ["overall", "Fastest overall this session (any class)"]]],
+      ["reference", "Sectors compared with (purple: beats it; green: beats their own best; yellow: slower than their own best)", "select",
+        [["overall", "Session overall best"], ["session", "Session class best"], ["personal", "Session personal best"]]],
       ["sector_delta_s", "A sector just done: its difference to what it's compared with first, for (s; 0 = just its time)", "number", { min: 0, max: 10, step: 0.5 }],
       ["invalid_text_color", "INVALID (in the lap time's place)", "color"],
       ["invalid_sector_color", "Invalidated sectors", "color"],
       ["invalid_line_color", "The line through an invalidated sector", "color"],
-      ["green_s", "Green within (s)", "number", { min: 0, max: 5, step: 0.05 }],
     ]],
     ["Drivers", [
       ["name_format", "Names", "select", NAME_FORMATS],

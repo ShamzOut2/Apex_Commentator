@@ -156,6 +156,27 @@ function update(entry, item, cfg, classes, nsec) {
   entry.received = performance.now();
 }
 
+// The small trackers, at most count: those already up stay up while they're
+// still on a lap (no swapping back and forth when several laps end at once);
+// a lap just finished takes the place of the one that's run the least; the
+// rest of the room goes in the app's order.
+function pickSmall(trackers, count) {
+  const up = new Set([...shown].filter(([, e]) => e.kind === "small").map(([idx]) => idx));
+  const pick = trackers.filter((t) => up.has(t.car_idx)).slice(0, count);
+  for (const t of trackers) {
+    if (up.has(t.car_idx)) continue;
+    if (pick.length < count) pick.push(t);
+    else if (t.lap.state === "finished" && t.lap.shown_for != null && t.lap.shown_for < 1.5) {
+      const running = pick.filter((p) => p.lap.state !== "finished");
+      if (!running.length) continue;
+      const least = running.reduce((a, b) => (a.lap.elapsed <= b.lap.elapsed ? a : b));
+      pick[pick.indexOf(least)] = t;
+    }
+  }
+  const rank = new Map(trackers.map((t, i) => [t.car_idx, i]));
+  return pick.sort((a, b) => rank.get(a.car_idx) - rank.get(b.car_idx));
+}
+
 function render() {
   const ov = snap && snap.overlays;
   if (!ov) return;
@@ -172,10 +193,33 @@ function render() {
   const laps = ov.laps;
   const classes = new Map((snap.classes || []).map((c) => [c.key, c]));
   const want = new Map();
+  const smalls = snap.connected && cfg.visible && laps.active ? pickSmall(laps.trackers, cfg.count) : [];
   if (snap.connected && cfg.visible && laps.active) {
     if (laps.camera) want.set(laps.camera.car_idx, ["big", laps.camera]);
-    for (const t of laps.trackers.slice(0, cfg.count)) want.set(t.car_idx, ["small", t]);
+    for (const t of smalls) want.set(t.car_idx, ["small", t]);
   }
+  // The camera moved to someone else: the big tracker changes over to them
+  // at once (in place), rather than one leaving and another coming in.
+  if (laps.camera && want.has(laps.camera.car_idx)) {
+    const old = [...shown].find(([idx, e]) => e.kind === "big" && idx !== laps.camera.car_idx);
+    if (old && (!shown.has(laps.camera.car_idx) || shown.get(laps.camera.car_idx).kind !== "big")) {
+      const [oldIdx, entry] = old;
+      const small = shown.get(laps.camera.car_idx);
+      if (small) {  // it was a small tracker: that one just goes
+        shown.delete(laps.camera.car_idx);
+        small.el.remove();
+      }
+      shown.delete(oldIdx);
+      Object.assign(entry, { top: "", landKey: "" });
+      entry.el.classList.remove("swap", "landed", "land-purple", "land-green");
+      void entry.el.offsetWidth;
+      entry.el.classList.add("swap");
+      shown.set(laps.camera.car_idx, entry);
+    }
+  }
+  // Small trackers replaced by others go at once (never more on screen than
+  // set); ones simply done fade out.
+  const incoming = [...want].some(([idx, [kind]]) => kind === "small" && !shown.has(idx));
   // As many small trackers to a row as fit at a readable width; the rest
   // wrap onto a row above.
   const smallCount = [...want.values()].filter(([k]) => k === "small").length;
@@ -186,6 +230,10 @@ function render() {
     const w = want.get(idx);
     if (!w || w[0] !== entry.kind) {
       shown.delete(idx);
+      if (entry.kind === "small" && incoming) {
+        entry.el.remove();
+        continue;
+      }
       entry.el.classList.remove("entering", "landed", "land-purple", "land-green");
       entry.el.classList.add("gone");
       setTimeout(() => entry.el.remove(), 650);
@@ -202,7 +250,7 @@ function render() {
   }
   // Keep the small ones in the server's order (moving a node replays its
   // entrance animation, so only when the order changed).
-  const order = laps.trackers.slice(0, cfg.count).map((t) => shown.get(t.car_idx)).filter((e) => e && e.kind === "small");
+  const order = smalls.map((t) => shown.get(t.car_idx)).filter((e) => e && e.kind === "small");
   const current = [...smallSlot.children].filter((el) => !el.classList.contains("gone"));
   if (order.some((e, i) => current[i] !== e.el)) {
     // The trackers slide to their new places rather than jumping.

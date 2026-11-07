@@ -16,8 +16,9 @@ references, so the commentator can switch between them live:
 * ``session``: the fastest in the driver's class this session.
 * ``overall``: the fastest of anyone this session, whatever their class.
 
-Faster than (or equal to) the reference is purple, within ``green_s`` is green,
-anything slower is yellow. With no reference yet, it's purple.
+Faster than (or equal to) the reference is purple; otherwise green if it's
+at least as quick as the driver's own best, and yellow if it's slower than
+their own best at all. With no reference yet, it's purple.
 
 A purple sector against the class or overall best turns green once someone
 else (in the class / anyone) goes faster through it: it's no longer the
@@ -40,6 +41,14 @@ TIME_JUMP_S = 10.0
 # (skipped ahead): laps being timed are dropped and timing starts again.
 REWIND_S = 0.5
 LAST_LAP_ADOPT_S = 3.0  # how long to wait for iRacing's own lap time
+# No car goes faster than this (m/s, ~430 km/h): a car "moving" faster between
+# samples was moved (a tow, a reset): the lap can't be timed. And a lap or a
+# sector quicker than that over its distance can't be real: it's thrown out.
+MAX_SPEED_MS = 120.0
+TELEPORT_M = 200.0
+# Without the track's length: a lap under this share of the fastest anyone
+# else has done can't be real either.
+MIN_LAP_SHARE = 0.7
 DEFAULT_SECTORS = (0.0, 1 / 3, 2 / 3)
 
 
@@ -74,10 +83,12 @@ def group_sectors(starts, count):
     return (0.0, *chosen)
 
 
-def colour(time, reference, green_s):
+def colour(time, reference, own=None):
+    """A sector's colour: purple (as quick as the reference), green (as quick
+    as the driver's own best, or their first) or yellow (slower than their own best)."""
     if reference is None or time <= reference + 1e-4:
         return "purple"
-    return "green" if time <= reference + green_s + 1e-4 else "yellow"
+    return "green" if own is None or time <= own + 1e-4 else "yellow"
 
 
 def _between(a, b, x):
@@ -102,8 +113,9 @@ class _Car:
 
 
 class LapTracker:
-    def __init__(self, green_s=0.2):
+    def __init__(self, green_s=0.2, track_m=None):
         self.green_s = green_s
+        self.track_m = track_m   # the track's length (m), when known: impossible laps are thrown out
         self.starts = DEFAULT_SECTORS
         self.session = None
         self.cars = {}
@@ -191,7 +203,10 @@ class LapTracker:
         forward = (pct - prev_pct) % 1.0
         if dt <= 0:
             return
-        if dt > TIME_JUMP_S or forward > MAX_STEP_PCT:
+        # Moved, not driven: far and impossibly quick (a network catch-up is shorter).
+        teleport = self.track_m and forward < 0.5 and forward * self.track_m > TELEPORT_M \
+            and forward * self.track_m / dt > MAX_SPEED_MS
+        if dt > TIME_JUMP_S or forward > MAX_STEP_PCT or teleport:
             if car.lap is not None and self._logged < LOG_DROPS:
                 # Shown in apex.log (a few a session): why a car's timed lap stopped.
                 self._logged += 1
@@ -237,9 +252,9 @@ class LapTracker:
         lap.setdefault("refs", []).append({"personal": ref_p, "session": ref_s, "overall": ref_o})
         lap.setdefault("ended", []).append(when)
         lap["colours"].append({
-            "personal": colour(sector, ref_p, self.green_s),
-            "session": colour(sector, ref_s, self.green_s),
-            "overall": colour(sector, ref_o, self.green_s),
+            "personal": colour(sector, ref_p, ref_p),
+            "session": colour(sector, ref_s, ref_p),
+            "overall": colour(sector, ref_o, ref_p),
         })
 
     def _finish_lap(self, idx, car, when, iracing_before, class_of):
@@ -248,6 +263,12 @@ class LapTracker:
             return  # missed a sector (joined mid-lap)
         self._finish_sector(idx, car, when, class_of)
         lap_time = round(when - lap["start"], 3)
+        if not self._possible(lap["splits"], lap_time, car):
+            if self._logged < LOG_DROPS:
+                self._logged += 1
+                print(f"[apex] lap timing: car {idx}'s lap of {lap_time:.3f} s thrown out (impossible)")
+            car.lap = None  # nothing shown, nothing kept
+            return
         car.laps += 1
         car.last = {
             "lap_time": lap_time, "sectors": list(lap["splits"]), "colours": lap["colours"],
@@ -259,6 +280,18 @@ class LapTracker:
         if lap["valid"]:
             self._record_best(idx, car, lap_time, class_of)
         self._close(car)
+
+    def _possible(self, splits, lap_time, car):
+        """Could a car really have done this lap (and each of its sectors)?"""
+        if self.track_m:
+            ends = list(self.starts[1:]) + [1.0]
+            for n, s in enumerate(splits):
+                share = ends[n] - self.starts[n]
+                if s <= 0 or share * self.track_m / s > MAX_SPEED_MS:
+                    return False
+            return lap_time > 0 and self.track_m / lap_time <= MAX_SPEED_MS
+        others = [c.best_lap for c in self.cars.values() if c.best_lap]
+        return lap_time > 0 and (not others or lap_time >= MIN_LAP_SHARE * min(others))
 
     def _close(self, car):
         """The lap being timed is over (finished, or dropped): if it's clean,

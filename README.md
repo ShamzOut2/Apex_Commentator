@@ -77,11 +77,22 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 - Timing Screen: **⏮ Incident / Incident ⏭** step through the incidents in
   the race log (the first press from live replays the latest one) and pick
   each in the log.
+- Lap tracker: sectors are compared with the **Session overall best**,
+  **Session class best** or **Session personal best**. Purple beats that;
+  green only when it beats the driver's own best; yellow when it's slower
+  than their own best at all.
+- Lap tracker: when the camera moves, the big tracker changes over to the
+  new driver in place, and there are never more small trackers on screen
+  than set (several laps ending at once no longer swaps them in and out).
 - A driver who leaves the race shows a small **OUT** tag in place of their
   gap and interval, on the timing tower, its full screen and the Timing
   Screen.
 
 ### Fixes
+
+- Lap tracker: a lap no car could do (a tow or reset mid-lap) is thrown out
+  instead of becoming an impossible personal best (an 8 s lap) that put
+  every colour wrong.
 
 - A car towed to the pits (or leaving) mid-race no longer jumps to the top
   of the timing tower and Timing Screen.

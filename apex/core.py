@@ -479,6 +479,8 @@ class App:
             self._new_event()
         self._track_m = parse_track_length(weekend.get("TrackLength"))
         self.gaps.set_track(self._track_m)
+        # The lap tracker throws out laps no car could do on this track.
+        self.laps.track_m = self._track_m if weekend.get("TrackLength") else None
         self.tracks.remember(weekend.get("TrackID"), weekend.get("TrackDisplayName", ""), weekend.get("TrackConfigName", ""))
         sessions = (info.get("SessionInfo") or {}).get("Sessions") or []
         self._session_meta = {
