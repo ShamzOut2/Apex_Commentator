@@ -56,15 +56,14 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.1**
+**Coming in the next update**
 
-### New features
+### Fixes
 
-- **Team changes mid-season**: change a driver's team after they've raced
-  and pick their first race for the new team (the races before it stay
-  with the old team), or move all their points to the new team. **⇄** by
-  their team on the roster sets the team for each race one by one. Each
-  race result now keeps the team it was raced for.
+- Timing tower: a driver who's taken the chequered flag keeps their place
+  (and gap) from the moment they crossed the line, whatever they do after:
+  pitting, going to the garage or leaving no longer greys them out or moves
+  them.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -464,6 +463,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     race's clock has run out) the header (tower and full screen) turns
     white, like the white flag; as the leader takes the chequered flag it
     turns into the chequered flag.
+  - **After the flag**: a driver who's taken the chequered flag keeps their
+    place and gap from the moment they crossed the line, whatever they do
+    after (pit, garage, leave): no greying out, no PIT or OUT.
   - **Drivers who leave**: *Keep drivers who leave the session in the
     list* keeps a driver who leaves where they were, on the tower and the
     full screen, greyed out (marked OUT on the full screen); the others

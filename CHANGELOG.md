@@ -11,6 +11,15 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- Timing tower: a driver who's taken the chequered flag keeps their place
+  (and gap) from the moment they crossed the line, whatever they do after:
+  pitting, going to the garage or leaving no longer greys them out or moves
+  them.
+
 ## v0.6.1
 
 ### New features

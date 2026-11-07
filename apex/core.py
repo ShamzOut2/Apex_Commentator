@@ -266,6 +266,7 @@ class App:
         self._qual_source = "car number"
         self._grid_cache = (None, [])   # (what it depends on, the race on screen's grid): _race_grid
         self._finish_gaps = {}           # race session -> car_idx -> its gap to the winner as it finished
+        self._finishers = {}             # race session -> car_idx -> its place, gap and laps as it finished
         self._grid_source = ""
         self._qual_times = {}      # car_idx -> best qualifying lap
         self._green = {}           # race session number -> session time it went green (the header flash)
@@ -449,7 +450,7 @@ class App:
         """Forget the timing of the last iRacing event (see _load_session_info)."""
         self._green, self._chequered, self._last_state, self._logged_until, self._seen_in = {}, {}, {}, {}, {}
         self._drivers, self._gone = {}, {}  # the last event's drivers aren't this one's leavers
-        self._finish_gaps = {}
+        self._finish_gaps, self._finishers = {}, {}
         self._race = RaceProgress()
         self._fl_session, self._fl_records, self._fl_flash = None, {}, None
         self._laps_t = self._laps_num = None
@@ -702,6 +703,10 @@ class App:
             if racing or (is_race and not frame.is_live):
                 # Our own gaps while racing, and in a replay of the race (also after the flag).
                 self._live_gaps(rows, frame)
+            # A car that's taken the chequered flag keeps its place (and gap) from
+            # the moment it crossed the line, whatever it does after (pits, garage, leaving).
+            if is_race and self._race.checkered and self._race.session == frame.session_num:
+                self._keep_finishers(frame.session_num, rows)
             # Each car's gap to the winner as it took the flag (the app's own
             # timing): the finishing order's gaps where iRacing has no race times.
             if is_race and self._race.checkered and frame.is_live:
@@ -1216,6 +1221,29 @@ class App:
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
                      "all": sorted(everyone, key=lambda x: (x["pos"] or 10_000, x["name"].lower()))},
         }
+
+    def _keep_finishers(self, num, rows):
+        """Rows in order with every car that's finished at its place as it
+        crossed the line (its gap and laps then too), still in the order
+        however it drives (or doesn't) afterwards: no PIT, OUT or LEFT."""
+        kept = self._finishers.setdefault(num, {})
+        done = self._race.finished
+        for r in rows:
+            idx = r["car_idx"]
+            if idx in done and idx not in kept and r["pos"] is not None:
+                kept[idx] = {k: r[k] for k in ("pos", "gap", "lap", "laps_completed")}
+        held = [r for r in rows if r["car_idx"] in done and r["car_idx"] in kept]
+        if not held:
+            return
+        for r in held:
+            r.update(kept[r["car_idx"]], in_world=True, on_pit=False, left=False)
+        # The finishers where they finished; the rest as they are, after any finisher with the same place.
+        rows.sort(key=lambda r: (r["pos"] is None, r["pos"] or 0, r["car_idx"] not in kept))
+        place = 0
+        for r in rows:
+            if r["pos"] is not None:
+                place += 1
+                r["pos"] = place
 
     def _hold_live(self, live, rows):
         """The standings while a replay is on screen during a race: the live

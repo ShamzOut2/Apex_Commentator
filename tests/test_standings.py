@@ -457,3 +457,30 @@ class ColumnOpacityTests(unittest.TestCase):
             gaps = [e["gap"] for e in app.build_snapshot()["drivers"] if e["pos"] and e["pos"] > 1]
             self.assertTrue(gaps)
             self.assertNotIn(1.0, gaps)
+
+    def test_a_finisher_keeps_its_place_whatever_it_does_after(self):
+        """Over the line after the flag: its place stays, even when it then
+        pits, goes to the garage or leaves (not greyed out, no OUT / PIT)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            src = MockSource(seed=4, clock=lambda: clock["t"], race_laps=2)
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(20000):
+                clock["t"] += 0.1
+                app.tick()
+                if len(app._race.finished) >= 4:
+                    break
+            snap = app.build_snapshot()["overlays"]["standings"]
+            done = [e for e in snap if e["car_idx"] in app._race.finished]
+            self.assertGreaterEqual(len(done), 4)
+            car = done[2]
+            # It parks and leaves the world.
+            src.out[car["car_idx"] - 1] = True
+            for _ in range(30):
+                clock["t"] += 0.1
+                app.tick()
+            after = {e["car_idx"]: e for e in app.build_snapshot()["overlays"]["standings"]}
+            self.assertIn(car["car_idx"], after)
+            e = after[car["car_idx"]]
+            self.assertEqual((e["pos"], e["in_world"], e["on_pit"], e.get("left", False)), (car["pos"], True, False, False))
+            self.assertEqual(e["gap"], car["gap"])
