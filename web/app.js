@@ -4266,6 +4266,8 @@ function renderTeams() {
             ${t.logo ? `<button class="btn subtle" data-team-nologo="${i}">Remove logo</button>` : ""}
             <button class="btn icon danger" data-team-delete="${i}" title="Delete team">✕</button>
           </div>
+          <label class="check small" title="Its drivers still score for themselves; the team just isn't in the team championship (standings, boards).">
+            <input type="checkbox" data-team="${i}" data-key="no_standings" ${t.no_standings ? "checked" : ""}> Leave out of the team standings</label>
         </div>
       </div>
       <div class="chips team-members">${members.map(([d, j]) => `<span class="chip">${label(d)}
@@ -4362,7 +4364,7 @@ $("#team-cards").addEventListener("change", async (e) => {
     team.name = name;
     renderRoster();
   } else {
-    team[key] = el.value.trim();
+    team[key] = el.type === "checkbox" ? el.checked : el.value.trim();
   }
   renderTeams();
 });

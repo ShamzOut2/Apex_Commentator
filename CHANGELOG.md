@@ -21,6 +21,8 @@ How each version's entry is written:
 - Every overlay and board has a **Text size** next to its Size, and its
   background opacity works on the default look too: turn a board's down
   and the race shows through it.
+- Teams: **Leave out of the team standings**, for a team that shouldn't be
+  in the team championship (its drivers still score for themselves).
 - Sponsors overlay: **Stay up**, so it isn't put away with everything else
   and isn't dimmed or hidden while a board is up.
 

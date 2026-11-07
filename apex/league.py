@@ -354,6 +354,8 @@ def normalise_profile(profile):
             "short": str(t.get("short") or "").strip()[:8],
             "color": color if HEX_COLOR.fullmatch(color) else "",
             "logo": logo if logo and _valid_logo_ref(str(logo)) else None,
+            # Not in the team championship (its drivers still score for themselves).
+            "no_standings": bool(t.get("no_standings")),
             # The other leagues this team is also in (LeagueStore._sync_teams).
             "shared": sorted({_slug(x) for x in t.get("shared") or [] if isinstance(x, str) and x.strip()}),
         })
