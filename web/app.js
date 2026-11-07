@@ -3552,10 +3552,25 @@ $("#desk-check-yes").addEventListener("click", () => {
   stopDeskCheck();
   toast("Great: overlays will go straight on screen from now on");
 });
-$("#desk-check-no").addEventListener("click", () => {
-  if (deskCheck) cmd("desktop_hide", { page: deskCheck.page });
+$("#desk-check-no").addEventListener("click", async () => {
+  const page = deskCheck && deskCheck.page;
+  const method = (ui.snap && ui.snap.desktop && ui.snap.desktop.method) || "auto";
   stopDeskCheck();
-  toast("Removed. Use the OBS or browser link instead.");
+  if (method !== "colorkey") {
+    // Another way of making them see-through (a colour key), for PCs where
+    // the usual one comes up solid: put them up again with it, and ask again.
+    const up = Object.keys((ui.snap && ui.snap.desktop && ui.snap.desktop.on_screen) || {});
+    await cmd("desktop_method", { method: "colorkey" });
+    for (const p of page ? [page] : up) await cmd("desktop_show", { page: p, screen: deskScreen(deskTab(p)) });
+    toast("Trying another way of making it see-through…");
+    startDeskCheck(page);
+    return;
+  }
+  // Neither way works here: back to the usual one next time, and take it down.
+  await cmd("desktop_method", { method: "auto" });
+  if (page) cmd("desktop_hide", { page });
+  else cmd("desktop_hide", {});
+  toast("Removed: on-screen overlays don't work on this PC. Use the OBS or browser link instead.");
 });
 document.addEventListener("click", (e) => {
   const show = e.target.closest("[data-desk-show]");

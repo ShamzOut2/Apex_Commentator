@@ -1761,7 +1761,8 @@ class App:
         picked = self.settings.get("desk_screens") or {}
         if d is None:
             return {"available": False, "on_screen": {}, "screens": [], "picked": picked}
-        return {"available": True, "on_screen": d.on_screen(), "screens": d.screens(), "picked": picked}
+        return {"available": True, "on_screen": d.on_screen(), "screens": d.screens(), "picked": picked,
+                "method": self.settings.get("desk_method") or "auto"}
 
     def cmd_desktop_screen(self, tab, screen=0):
         """Which screen the Overlays tab's (or the Boards tab's) overlays go on,
@@ -1780,10 +1781,21 @@ class App:
         if self.desktop is None:
             raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
         name, path = self.DESKTOP_PAGES[page]
+        if hasattr(self.desktop, "method"):
+            self.desktop.method = self.settings.get("desk_method") or "auto"
         # desktop=<page>: the page reports where it draws, to fit the window to it (cmd_desktop_region).
         if not self.desktop.show(page, f"{path}{'&' if '?' in path else '?'}desktop={page}", name, int(screen or 0)):
             raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
         return {"on_screen": self.desktop.on_screen()}
+
+    def cmd_desktop_method(self, method="auto"):
+        """How on-screen overlays are made see-through: "auto" (Windows' own
+        transparency, else a colour key) or "colorkey" (always the colour key:
+        for PCs where they come up solid). Overlays up now go up again with it."""
+        if method not in ("auto", "colorkey"):
+            raise CommandError("Unknown way")
+        self.settings.set("desk_method", method)
+        return {"method": method}
 
     # What "all of them on my screen" puts up (hotkeys desk:overlays / desk:boards).
     DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits"), "boards": ("board",),

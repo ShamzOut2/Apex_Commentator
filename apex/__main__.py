@@ -109,6 +109,7 @@ class OnScreen:
 
     def __init__(self, base, title):
         self.base, self.title, self._screens = base, title, None
+        self.method = "auto"  # how the windows are made see-through (desktop.see_through_method), set by the App
 
     def screens(self):
         if self._screens is None:
@@ -117,7 +118,7 @@ class OnScreen:
 
     def show(self, page, path, name, screen):
         self._screens = None
-        return desktop.show_overlay(page, self.base + path, f"{name} – {self.title}", screen)
+        return desktop.show_overlay(page, self.base + path, f"{name} – {self.title}", screen, self.method)
 
     def hide(self, page=None):
         desktop.hide_overlay(page)

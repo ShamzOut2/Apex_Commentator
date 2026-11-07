@@ -298,6 +298,13 @@ class BoardTests(unittest.TestCase):
             self.assertNotIn("board", app.build_snapshot()["desktop"]["on_screen"])
             app.command("desktop_hide", {})
             self.assertEqual(app.build_snapshot()["desktop"]["on_screen"], {})
+            # Solid on this PC: the colour key way, used from the next one put up.
+            fake.method = "auto"
+            app.command("desktop_method", {"method": "colorkey"})
+            self.assertEqual(app.build_snapshot()["desktop"]["method"], "colorkey")
+            app.command("desktop_show", {"page": "driver"})
+            self.assertEqual(fake.method, "colorkey")
+            app.command("desktop_method", {"method": "auto"})
             with self.assertRaises(CommandError):
                 app.command("desktop_show", {"page": "index"})
 
