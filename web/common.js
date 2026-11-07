@@ -23,9 +23,9 @@ function fmtClock(t) {
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-function fmtDelta(d) {
+function fmtDelta(d, race = true) {
   if (d == null || !isFinite(d)) return "";
-  return (d >= 0 ? "+" : "−") + Math.abs(d).toFixed(1);
+  return (d >= 0 ? "+" : "−") + secs(Math.abs(d), race);
 }
 
 // ---------------------------------------------------------------------------
@@ -623,8 +623,13 @@ function setPanels(cfg) {
     st.setProperty("--panel", "transparent");
     st.setProperty("--panel-image", `url("/api/backgrounds/${encodeURIComponent(cfg.bg_image)}")`);
     st.setProperty("--panel-opacity", String(op));
+  } else if (op < 1) {
+    // The default panels, at the opacity set.
+    st.setProperty("--panel", `rgba(14, 16, 21, ${(0.9 * op).toFixed(3)})`);
+    st.setProperty("--panel-2", `rgba(30, 34, 42, ${(0.92 * op).toFixed(3)})`);
   } else {
     st.removeProperty("--panel");
+    st.removeProperty("--panel-2");
   }
 }
 
@@ -643,6 +648,8 @@ let pageBg = null;
 function setBackground(cfg, visible) {
   const mode = cfg ? cfg.bg : "default";
   const custom = mode === "color" || (mode === "image" && cfg.bg_image);
+  // The default backdrop at the opacity set (see-through: the race behind it).
+  document.body.style.setProperty("--board-bg-op", String(!custom && cfg && cfg.bg_opacity != null ? cfg.bg_opacity / 100 : 1));
   if (!pageBg) {
     if (!custom) return;
     pageBg = document.createElement("div");
@@ -706,6 +713,36 @@ function followSnapshots(onSnap) {
   liveStream((snap) => {
     if (version && snap.version && snap.version !== version) return location.reload();
     version = version || snap.version;
+    pageLook(snap);
     onSnap(snap);
   });
+}
+
+// For every overlay and board (Widget Settings, General): decimal places of
+// gaps and intervals, and what overlays do while a board is up.
+let GENERAL = { race_decimals: 1, qual_decimals: 3, board_overlays: "stay", board_dim: 35 };
+const PAGE = location.pathname.replace(/^.*\//, "").replace(/\.html$/, "");
+const FULL_SCREEN = new URLSearchParams(location.search).has("screen");
+const DIMMED_PAGES = ["standings", "laps", "driver", "pits", "battle", "sponsors"];
+let fontFrom = null;
+
+// A gap or interval in seconds, to the places set: race (1) or qualifying (3).
+function secs(v, race = true) {
+  return Number(v).toFixed(race ? GENERAL.race_decimals : GENERAL.qual_decimals);
+}
+
+function pageLook(snap) {
+  const st = (snap.overlays && snap.overlays.settings) || {};
+  if (st.general) GENERAL = st.general;
+  // The text size of this page's widget (font_scale, %): CSS sizes text by --fs.
+  const own = PAGE === "board" ? (snap.board && snap.board.settings) || fontFrom : st[PAGE];
+  if (own) fontFrom = own;
+  document.body.style.setProperty("--fs", String(((own && own.font_scale) || 100) / 100));
+  // An overlay while a full-screen board is up: as it is, dimmed or hidden
+  // (the sponsors set to stay: always as they are).
+  if (!DIMMED_PAGES.includes(PAGE) || FULL_SCREEN || document.body.classList.contains("preview")) return;
+  const stays = PAGE === "sponsors" && st.sponsors && st.sponsors.stay;
+  const how = snap.board && !stays ? GENERAL.board_overlays : "stay";
+  document.body.classList.add("board-fade");
+  document.body.style.setProperty("--board-dim", String(how === "dim" ? (GENERAL.board_dim ?? 35) / 100 : how === "hide" ? 0 : 1));
 }

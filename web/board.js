@@ -91,8 +91,8 @@ function columns(b) {
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
     add(s.show_fastest, "fastest", "Fastest", "140px", "r", (r) => (r.fastest_lap ? `<span class="${r.has_fastest ? "fl" : "muted"}">${fmtLap(r.fastest_lap)}</span>` : ""));
     // Gap to the winner and to the car ahead; a DNF / DNS / DSQ shows there instead.
-    const gapCell = (r, secs, laps) => (r.out ? `<span class="st">${esc(r.out)}</span>`
-      : laps ? `+${laps} ${laps === 1 ? "Lap" : "Laps"}` : secs != null ? `+${secs.toFixed(3)}` : "");
+    const gapCell = (r, t, laps) => (r.out ? `<span class="st">${esc(r.out)}</span>`
+      : laps ? `+${laps} ${laps === 1 ? "Lap" : "Laps"}` : t != null ? `+${secs(t, false)}` : "");
     // The winner's Gap: their laps, or their race time (where it's known).
     const winnerCell = (r) => (s.winner_gap === "time" && r.race_time ? fmtRaceTime(r.race_time)
       : s.winner_gap !== "none" && r.laps ? `${r.laps} ${r.laps === 1 ? "Lap" : "Laps"}` : "");
@@ -107,8 +107,8 @@ function columns(b) {
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
     add(s.show_best, "best", "Best lap", "150px", "r", (r) => (r.fastest_lap ? `<span class="${r.rank === 1 ? "fl" : ""}">${fmtLap(r.fastest_lap)}</span>` : ""));
-    add(s.show_gap, "gap", "Gap", "130px", "r muted", (r) => (r.gap != null ? `+${r.gap.toFixed(3)}` : ""));
-    add(s.show_interval, "interval", "Int", "130px", "r muted", (r) => (r.interval != null ? `+${r.interval.toFixed(3)}` : ""));
+    add(s.show_gap, "gap", "Gap", "130px", "r muted", (r) => (r.gap != null ? `+${secs(r.gap, false)}` : ""));
+    add(s.show_interval, "interval", "Int", "130px", "r muted", (r) => (r.interval != null ? `+${secs(r.interval, false)}` : ""));
   } else if (b.kind === "grid") {
     add(true, "pos", "Grid", "80px", "p r", (r) => r.pos);
     add(s.show_class_pos && b.overall, "class_pos", "Cls", "70px", "c muted", (r) => r.class_pos);
@@ -117,7 +117,7 @@ function columns(b) {
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_qual, "qual", "Qualifying", "150px", "r", (r) => (r.qual_time ? fmtLap(r.qual_time) : ""));
-    add(s.show_gap, "gap", "Gap", "130px", "r muted", (r) => (r.qual_gap != null ? `+${r.qual_gap.toFixed(3)}` : ""));
+    add(s.show_gap, "gap", "Gap", "130px", "r muted", (r) => (r.qual_gap != null ? `+${secs(r.qual_gap, false)}` : ""));
     add(s.show_from && b.grid_from === "previous race", "from", "Finished", "120px", "c muted", (r) => (r.from ? `P${r.from}` : ""));
   }
   return cols;
@@ -151,7 +151,7 @@ function gridLayoutHtml(b) {
         <div class="gname"><b>${esc(formatName(r, s.name_format))}</b>${s.show_team && r.team ? `<span>${esc(r.team)}</span>` : ""}</div>
         ${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}
         ${s.show_make && r.make_logo ? makeChip({ name: r.make, logo: r.make_logo }) : ""}
-        <div class="gq">${s.show_qual && r.qual_time ? `<span>${fmtLap(r.qual_time)}</span>` : ""}${s.show_gap && r.qual_gap != null ? `<span class="muted">+${r.qual_gap.toFixed(3)}</span>` : ""}${s.show_from && b.grid_from === "previous race" && r.from ? `<span class="muted">Finished P${r.from}</span>` : ""}</div>
+        <div class="gq">${s.show_qual && r.qual_time ? `<span>${fmtLap(r.qual_time)}</span>` : ""}${s.show_gap && r.qual_gap != null ? `<span class="muted">+${secs(r.qual_gap, false)}</span>` : ""}${s.show_from && b.grid_from === "previous race" && r.from ? `<span class="muted">Finished P${r.from}</span>` : ""}</div>
       </div></div>`;
   return `<div class="grid-layout">${b.rows.map(slot).join("")}</div>`;
 }

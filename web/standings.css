@@ -10,16 +10,16 @@
   padding: 10px 14px; display: flex; flex-direction: column; gap: 2px;
 }
 .tower-head .h1 { display: flex; align-items: baseline; gap: 10px; }
-.tower-head .t1 { font-size: 22px; font-weight: 900; letter-spacing: .06em; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tower-head .t1 { font-size: calc(22px * var(--fs, 1)); font-weight: 900; letter-spacing: .06em; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* "Wrap a long session name": onto two lines instead. */
 .tower.wrap-title .tower-head .t1 { white-space: normal; overflow: visible; }
 .tower.wrap-title .tower-head .h1 { align-items: flex-start; }
-.tower-head .t3 { margin-left: auto; flex: none; white-space: nowrap; font-size: 20px; font-weight: 900; letter-spacing: .04em; color: var(--head-accent, var(--accent)); }
+.tower-head .t3 { margin-left: auto; flex: none; white-space: nowrap; font-size: calc(20px * var(--fs, 1)); font-weight: 900; letter-spacing: .04em; color: var(--head-accent, var(--accent)); }
 /* A sponsor logo under the header. */
 .tower-sponsor { display: flex; align-items: center; justify-content: center; height: var(--sb-h, 44px); padding: 5px 14px;
   background: var(--panel); border-top: 1px solid var(--line); }
 .tower-sponsor img { max-height: 100%; max-width: 100%; object-fit: contain; }
-.tower-head .t2 { font-size: 14px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tower-head .t2 { font-size: calc(14px * var(--fs, 1)); color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .block { background: var(--panel); }
 .block:last-child { border-radius: 0 0 10px 10px; overflow: hidden; }
 /* By class: the header and each class are separate panels, the same gap apart. */
@@ -28,10 +28,10 @@
 .tower.by-class .block { margin-top: var(--class-gap); border-radius: 10px; overflow: hidden; }
 .srow {
   display: grid; grid-template-columns: var(--grid); align-items: center; gap: 8px;
-  height: 38px; padding-right: 12px; border-top: 1px solid var(--line); font-size: 18px;
+  height: 38px; padding-right: 12px; border-top: 1px solid var(--line); font-size: calc(18px * var(--fs, 1));
   transition: background .3s;
 }
-.srow .p { text-align: center; font-weight: 900; font-size: 19px; }
+.srow .p { text-align: center; font-weight: 900; font-size: calc(19px * var(--fs, 1)); }
 /* A background per column (setColumnOpacity): the columns make the panel, so
    the rows have none of their own and the columns touch. */
 body.col-bg .tower .block { background: none; }
@@ -44,28 +44,28 @@ body.col-bg .srow > [data-opcol]:last-child { padding-right: 12px; }
 body.col-bg .srow.shead > span { padding: 0 4px; }
 body.col-bg .srow.shead > span:last-child { padding-right: 12px; }
 .srow .stripe { height: 100%; }
-.srow .num { font-size: 16px; height: 26px; }
+.srow .num { font-size: calc(16px * var(--fs, 1)); height: 26px; }
 .srow .team-logo { width: calc(30px * var(--logo-k, 1)); height: min(calc(26px * var(--logo-k, 1)), 36px); }
 .srow .who { min-width: 0; display: flex; flex-direction: column; line-height: 1.05; }
 .srow .who .n { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.srow .who .tm { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srow .who .tm { font-size: calc(12px * var(--fs, 1)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .srow .lg { display: flex; align-items: center; justify-content: center; }
-.srow .tmc { font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.srow .c { font-weight: 700; color: var(--muted); font-size: 17px; text-align: right; white-space: nowrap; }
+.srow .tmc { font-size: calc(14px * var(--fs, 1)); font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srow .c { font-weight: 700; color: var(--muted); font-size: calc(17px * var(--fs, 1)); text-align: right; white-space: nowrap; }
 .srow .c .lead { color: var(--ink); }
 .srow .c .up { color: var(--green); }
 .srow .c .down { color: var(--red); }
-.srow .c .dim { color: var(--muted); opacity: .6; font-size: 14px; }
-.srow .pitb { margin-left: 8px; font-size: 11px; padding: 1px 5px; border-radius: 3px; background: #fff; color: #111; vertical-align: 2px; }
+.srow .c .dim { color: var(--muted); opacity: .6; font-size: calc(14px * var(--fs, 1)); }
+.srow .pitb { margin-left: 8px; font-size: calc(11px * var(--fs, 1)); padding: 1px 5px; border-radius: 3px; background: #fff; color: #111; vertical-align: 2px; }
 .srow.cam { background: rgba(255, 122, 26, .22); }
 /* Column labels, when there are numbers to label. */
 .srow.shead { height: 22px; background: var(--panel); border-top: none; }
-.srow.shead .c { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.srow.shead .c { font-size: calc(11px * var(--fs, 1)); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
 .empty { padding: 12px 14px; color: var(--muted); background: var(--panel); border-radius: 0 0 10px 10px; font-weight: 600; }
 
 /* Overall with "also the last N": a gap between the top of the order and the back. */
 .srow.skip { height: 16px; grid-template-columns: 40px 1fr; border-top: 1px solid var(--line); }
-.srow.skip .dots { color: var(--muted); font-size: 11px; letter-spacing: .3em; text-align: center; }
+.srow.skip .dots { color: var(--muted); font-size: calc(11px * var(--fs, 1)); letter-spacing: .3em; text-align: center; }
 
 /* Fastest lap: a purple stopwatch by the holder's name. */
 .fl-icon { display: inline-flex; vertical-align: -3px; margin-left: 7px; color: #b26bff; }
@@ -87,11 +87,11 @@ body.col-bg .srow.shead > span:last-child { padding-right: 12px; }
 .fl-swap { display: grid; align-items: center; }
 .fl-swap > * { grid-area: 1 / 1; }
 .fl-intro {
-  display: flex; flex-direction: column; justify-content: center; font-size: 30px; font-weight: 900;
+  display: flex; flex-direction: column; justify-content: center; font-size: calc(30px * var(--fs, 1)); font-weight: 900;
   letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
   animation: fl-intro 1.9s ease both;
 }
-.fl-intro span { font-size: 15px; letter-spacing: .14em; opacity: .85; }
+.fl-intro span { font-size: calc(15px * var(--fs, 1)); letter-spacing: .14em; opacity: .85; }
 @keyframes fl-intro {
   0% { opacity: 0; transform: scale(.85); }
   15%, 75% { opacity: 1; transform: none; }
@@ -99,9 +99,9 @@ body.col-bg .srow.shead > span:last-child { padding-right: 12px; }
 }
 .fl-text { display: flex; flex-direction: column; line-height: 1.1; animation: fl-details .5s 1.6s ease both; }
 @keyframes fl-details { from { opacity: 0; transform: translateY(14px); } }
-.fl-cap { font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
-.fl-name { font-size: 26px; font-weight: 900; white-space: nowrap; }
-.fl-time { font-size: 24px; font-weight: 800; }
+.fl-cap { font-size: calc(13px * var(--fs, 1)); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
+.fl-name { font-size: calc(26px * var(--fs, 1)); font-weight: 900; white-space: nowrap; }
+.fl-time { font-size: calc(24px * var(--fs, 1)); font-weight: 800; }
 /* Full screen: in the page heading, between the title and the lap count. */
 body.screen .fl-flash { top: 14px; }
 
@@ -134,7 +134,7 @@ body.screen .fl-flash { top: 14px; }
   background: var(--panel); border-radius: 0 8px 8px 0; border-top: 1px solid var(--line);
   box-shadow: inset 6px 0 8px -6px rgba(0, 0, 0, .6); transition: top .45s ease;
 }
-.fin-tab .fin-flag { margin: 0; font-size: 22px; }
+.fin-tab .fin-flag { margin: 0; font-size: calc(22px * var(--fs, 1)); }
 .fin-tab.in { animation: fin-tab-in .6s cubic-bezier(.2, .9, .25, 1) both; }
 .fin-tab.in .fin-flag { animation: fin-pop .9s .35s cubic-bezier(.2, .9, .3, 1.4) both; transform-origin: 10% 100%; }
 @keyframes fin-tab-in { from { transform: translateX(-100%); } }

@@ -2122,12 +2122,16 @@ class App:
 
     TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits")
 
+    def _toggled(self, ov):
+        """The overlays everything-off / on takes: not the sponsors set to stay."""
+        return [k for k in self.TOGGLE_ALL if not (k == "sponsors" and ov.get(k, {}).get("stay"))]
+
     def cmd_toggle_all(self):
         """Every overlay, the board and the grid walk off screen at once; again,
         and whatever that took off comes back (nothing was up: every overlay
         comes on). Returns {"shown": True / False}."""
         ov = self.overlays.get()
-        up = [k for k in self.TOGGLE_ALL if ov.get(k, {}).get("visible")]
+        up = [k for k in self._toggled(ov) if ov.get(k, {}).get("visible")]
         if up or self.board.get("kind") or self.gridwalk.visible:
             self._put_away = {"overlays": up, "board": dict(self.board) if self.board.get("kind") else None,
                               "gridwalk": self.gridwalk.index if self.gridwalk.visible else None}
@@ -2138,7 +2142,7 @@ class App:
             return {"shown": False}
         away, self._put_away = self._put_away, None
         if not away:
-            away = {"overlays": list(self.TOGGLE_ALL), "board": None, "gridwalk": None}
+            away = {"overlays": self._toggled(ov), "board": None, "gridwalk": None}
         for k in away["overlays"]:
             self.cmd_overlay_settings(k, {"visible": True})
         if away["board"]:
@@ -2151,7 +2155,7 @@ class App:
         """Every overlay and the grid walk off screen; again, and they come
         back (nothing was up: every overlay comes on). Boards stay as they are."""
         ov = self.overlays.get()
-        up = [k for k in self.TOGGLE_ALL if ov.get(k, {}).get("visible")]
+        up = [k for k in self._toggled(ov) if ov.get(k, {}).get("visible")]
         if up or self.gridwalk.visible:
             self._overlays_away = {"overlays": up, "gridwalk": self.gridwalk.index if self.gridwalk.visible else None}
             for k in up:
@@ -2159,7 +2163,7 @@ class App:
             self.gridwalk.hide()
             return {"shown": False}
         away, self._overlays_away = getattr(self, "_overlays_away", None), None
-        away = away or {"overlays": list(self.TOGGLE_ALL), "gridwalk": None}
+        away = away or {"overlays": self._toggled(ov), "gridwalk": None}
         for k in away["overlays"]:
             self.cmd_overlay_settings(k, {"visible": True})
         if away["gridwalk"] is not None and self._grid_count():

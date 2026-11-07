@@ -19,7 +19,8 @@ OFFSET = {"offset_x": 0, "offset_y": 0}
 # How big team logos are drawn, in % of their usual size (every overlay and
 # board that shows them).
 LOGO = {"logo_scale": 100}
-BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacity": 100, "scale": 100}
+# font_scale: its text alone bigger or smaller (percent), the boxes as they are.
+BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacity": 100, "scale": 100, "font_scale": 100}
 
 # Overlays and boards with columns can dim each column on its own:
 # col_opacity "gap:60,laps:40" (percent; columns left out are 100), used
@@ -44,6 +45,12 @@ SCREEN_COLUMNS = ("laps", "gap", "interval", "last_lap", "best_lap", "pits")
 ORDERS = {"column_order": TOWER_COLUMNS, "screen_column_order": SCREEN_COLUMNS}
 
 DEFAULTS = {
+    # For every overlay and board: decimal places of race gaps / intervals
+    # (race_decimals) and of qualifying ones (qual_decimals); and the overlays
+    # while a full-screen board is on screen: "stay" as they are, "dim" (to
+    # board_dim percent) or "hide" (back when the board goes). Overlays set
+    # to stay (the sponsors' stay) are never dimmed or hidden.
+    "general": {"race_decimals": 1, "qual_decimals": 3, "board_overlays": "stay", "board_dim": 35},
     "standings": {**LOGO, 
         "visible": True,
         "mode": "overall",        # "overall" or "class"
@@ -139,6 +146,9 @@ DEFAULTS = {
         "background": True,       # a dark panel behind the logos
         "title": "",              # a small caption above them, e.g. "Partners"
         "sponsor_ids": "",        # which sponsors, comma separated ("" = all, "none" = none)
+        # Stays up: not put away with everything else (hotkeys, Widgets tab)
+        # and not dimmed or hidden while a board is up.
+        "stay": False,
         **BACKGROUND, **OFFSET,
     },
     # "Who's this": a board at the bottom centre for the driver on camera (driver.html).
@@ -309,11 +319,11 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
+LIMITS = {"font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1, 3), "board_dim": (0, 90), "sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
           "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
-CHOICES = {"banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
+CHOICES = {"board_overlays": ("stay", "dim", "hide"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),

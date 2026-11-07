@@ -1,9 +1,13 @@
 .board {
   position: absolute; inset: 0; display: flex; gap: 32px; padding: 40px 48px;
+  animation: board-in .55s ease both;
+}
+/* Its own backdrop, at the background opacity set (low: the race shows through). */
+.board::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: var(--board-bg-op, 1);
   background:
     linear-gradient(115deg, rgba(255, 122, 26, .10) 0 18%, transparent 18% 100%),
     radial-gradient(circle at 80% 0%, #1d2330, #0b0d12 70%);
-  animation: board-in .55s ease both;
 }
 @keyframes board-in { from { opacity: 0; transform: scale(1.02); } }
 /* Swapping boards: the old one fades out under the new one. */
@@ -41,19 +45,19 @@
 .main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 18px; }
 
 .bhead { display: flex; align-items: center; gap: 22px; padding-bottom: 14px; border-bottom: 3px solid var(--accent-c, var(--accent)); }
-.bhead .t1 { font-size: 46px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
-.bhead .sub { display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 800; }
+.bhead .t1 { font-size: calc(46px * var(--fs, 1)); font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+.bhead .sub { display: flex; align-items: center; gap: 12px; font-size: calc(28px * var(--fs, 1)); font-weight: 800; }
 .bhead .sub .chip { padding: 4px 14px; border-radius: 6px; }
 .bhead .sub img { height: 40px; }
 .bhead .league-logo { height: 72px; max-width: 260px; object-fit: contain; }
 .cal-image { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
 .cal-image img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
-.bhead .league { margin-left: auto; font-size: 24px; color: var(--muted); font-weight: 600; }
-.bhead .pageno { font-size: 24px; font-weight: 800; padding: 4px 12px; border-radius: 6px; background: rgba(255, 255, 255, .12); font-variant-numeric: tabular-nums; }
+.bhead .league { margin-left: auto; font-size: calc(24px * var(--fs, 1)); color: var(--muted); font-weight: 600; }
+.bhead .pageno { font-size: calc(24px * var(--fs, 1)); font-weight: 800; padding: 4px 12px; border-radius: 6px; background: rgba(255, 255, 255, .12); font-variant-numeric: tabular-nums; }
 
 .bbody { flex: 1; min-height: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 28px; align-content: start; }
 .btable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
-.btable th { text-align: left; font-size: 15px; letter-spacing: .1em; color: var(--muted); font-weight: 700; padding: 0 10px 8px; text-transform: uppercase; white-space: nowrap; }
+.btable th { text-align: left; font-size: calc(15px * var(--fs, 1)); letter-spacing: .1em; color: var(--muted); font-weight: 700; padding: 0 10px 8px; text-transform: uppercase; white-space: nowrap; }
 .btable td { padding: 0 10px; height: var(--row-h, 42px); font-size: var(--row-font, 22px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .btable tbody tr:nth-child(odd) td { background: rgba(255, 255, 255, .04); }
 .btable .r { text-align: right; } .btable .c { text-align: center; }
@@ -89,26 +93,26 @@
 .round { background: rgba(255, 255, 255, .05); border-radius: 10px; padding: 14px 18px; border-left: 6px solid rgba(255,255,255,.15); display: flex; flex-direction: column; gap: 4px; }
 .round.done { opacity: .75; }
 .round.next { border-left-color: var(--accent); background: rgba(255, 122, 26, .14); }
-.round .rn { display: flex; align-items: baseline; gap: 10px; font-size: 16px; font-weight: 800; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.round .rn { display: flex; align-items: baseline; gap: 10px; font-size: calc(16px * var(--fs, 1)); font-weight: 800; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
 .round .rn .tag { margin-left: auto; color: var(--accent); }
 .round .rn .rt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.round .rn .mult { flex: none; font-size: 12px; padding: 2px 7px; border-radius: 4px; background: var(--accent); color: #1a0d00; letter-spacing: .04em; }
-.round .tr { font-size: 26px; font-weight: 800; line-height: 1.15; }
+.round .rn .mult { flex: none; font-size: calc(12px * var(--fs, 1)); padding: 2px 7px; border-radius: 4px; background: var(--accent); color: #1a0d00; letter-spacing: .04em; }
+.round .tr { font-size: calc(26px * var(--fs, 1)); font-weight: 800; line-height: 1.15; }
 /* Each race: its name and length, then each class's winner under it, in one
    box; the boxes side by side, wrapping. */
 .round .races { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; align-items: flex-start; }
 .round .race-box { flex: 1 1 150px; min-width: 0; padding: 6px 10px; border-radius: 7px; background: rgba(255, 255, 255, .08);
   display: flex; flex-direction: column; gap: 2px; }
-.round .rb-head { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.round .rb-head { font-size: calc(16px * var(--fs, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .round .rb-head b { font-weight: 800; }
 .round .rb-head .len { color: var(--muted); font-weight: 600; margin-left: 4px; }
-.round .rb-win { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+.round .rb-win { font-size: calc(14px * var(--fs, 1)); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
 .round .rb-win .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
 .round .rb-win .cls { color: var(--muted); font-weight: 700; }
-.round .cf { font-size: 18px; color: var(--muted); font-weight: 600; }
-.round .when { font-size: 18px; font-weight: 700; }
-.empty-board { margin: auto; font-size: 30px; color: var(--muted); font-weight: 700; }
-.preview-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--muted); }
+.round .cf { font-size: calc(18px * var(--fs, 1)); color: var(--muted); font-weight: 600; }
+.round .when { font-size: calc(18px * var(--fs, 1)); font-weight: 700; }
+.empty-board { margin: auto; font-size: calc(30px * var(--fs, 1)); color: var(--muted); font-weight: 700; }
+.preview-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: calc(30px * var(--fs, 1)); color: var(--muted); }
 .board.steady { animation: none; }
 
 
@@ -123,19 +127,19 @@
 @keyframes slot-in { from { opacity: 0; transform: translateY(46px) scale(.96); } 60% { opacity: 1; } }
 .board.leaving .gslot { animation: slot-out .35s cubic-bezier(.55, 0, .75, .2) both; animation-delay: calc(min(var(--i, 0), 16) * 18ms); }
 @keyframes slot-out { to { opacity: 0; transform: translateY(30px) scale(.97); } }
-.gslot .gp { width: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 34px; font-weight: 900; }
-.gslot .gp small { font-size: 14px; font-weight: 700; color: var(--muted); }
+.gslot .gp { width: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: calc(34px * var(--fs, 1)); font-weight: 900; }
+.gslot .gp small { font-size: calc(14px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
 .gslot .gbox {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 0 18px;
   border: 3px solid rgba(255, 255, 255, .55); border-left: none; border-radius: 0 10px 10px 0;
   background: rgba(255, 255, 255, .04); box-shadow: inset 6px 0 0 var(--cls);
 }
 .gslot .gname { min-width: 0; flex: 1; display: flex; flex-direction: column; }
-.gslot .gname b { font-size: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gslot .gname span { font-size: 16px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gslot .gname b { font-size: calc(26px * var(--fs, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gslot .gname span { font-size: calc(16px * var(--fs, 1)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gslot .logo { height: calc(36px * var(--logo-k, 1)); width: calc(60px * var(--logo-k, 1)); object-fit: contain; }
-.gslot .gq { display: flex; flex-direction: column; align-items: flex-end; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.gslot .gq .muted { font-size: 14px; color: var(--muted); }
+.gslot .gq { display: flex; flex-direction: column; align-items: flex-end; font-size: calc(18px * var(--fs, 1)); font-weight: 700; font-variant-numeric: tabular-nums; }
+.gslot .gq .muted { font-size: calc(14px * var(--fs, 1)); color: var(--muted); }
 .gslot.top3.p1 .gp { color: #f2c94c; }
 .gslot.top3.p2 .gp { color: #c9d1db; }
 .gslot.top3.p3 .gp { color: #d9894a; }

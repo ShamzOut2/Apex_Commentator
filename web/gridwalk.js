@@ -218,8 +218,8 @@ let look = {};  // the grid walk's settings, as last drawn
 // pole shows its lap time with a gap or an interval.
 function qualText(e, how = "gap") {
   if (how === "none" || !e.qual_time) return "";
-  if (how === "gap" && e.qual_gap) return `+${e.qual_gap.toFixed(3)}`;
-  if (how === "interval" && e.qual_int) return `+${e.qual_int.toFixed(3)}`;
+  if (how === "gap" && e.qual_gap) return `+${secs(e.qual_gap, false)}`;
+  if (how === "interval" && e.qual_int) return `+${secs(e.qual_int, false)}`;
   return fmtLap(e.qual_time);
 }
 

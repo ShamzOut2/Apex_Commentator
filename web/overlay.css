@@ -24,25 +24,26 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 .tnum { font-variant-numeric: tabular-nums; }
 .class-head { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 34px; font-weight: 800; }
 .class-head .class-logo { height: 26px; }
-.class-head .class-detail { margin-left: auto; font-size: 15px; opacity: .85; }
+.class-head .class-detail { margin-left: auto; font-size: calc(15px * var(--fs, 1)); opacity: .85; }
 
 /* --- full-screen displays (?screen=1) ------------------------------------- */
-body.screen { background: #0b0d12; }
-.screen-page {
-  position: absolute; inset: 0; padding: 36px 48px 40px; display: flex; flex-direction: column; gap: 18px;
+body.screen { background: rgba(11, 13, 18, var(--board-bg-op, 1)); }
+.screen-page { position: absolute; inset: 0; padding: 36px 48px 40px; display: flex; flex-direction: column; gap: 18px; z-index: 0; }
+.screen-page::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: var(--board-bg-op, 1);
   background:
     linear-gradient(115deg, rgba(255, 122, 26, .10) 0 18%, transparent 18% 100%),
     radial-gradient(circle at 80% 0%, #1d2330, #0b0d12 70%);
 }
 .screen-head { display: flex; align-items: center; gap: 24px; padding-bottom: 14px; border-bottom: 3px solid var(--head-accent, var(--accent)); }
-.screen-head .t1 { font-size: 46px; font-weight: 900; letter-spacing: .06em; }
-.screen-head .t2 { font-size: 24px; color: var(--muted); font-weight: 600; }
-.screen-head .t3 { margin-left: auto; font-size: 26px; font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: var(--head-accent, inherit); }
+.screen-head .t1 { font-size: calc(46px * var(--fs, 1)); font-weight: 900; letter-spacing: .06em; }
+.screen-head .t2 { font-size: calc(24px * var(--fs, 1)); color: var(--muted); font-weight: 600; }
+.screen-head .t3 { margin-left: auto; font-size: calc(26px * var(--fs, 1)); font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: var(--head-accent, inherit); }
 .screen-body { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 28px; min-height: 0; }
 .screen-col { display: flex; flex-direction: column; min-width: 0; }
 .screen-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
 .screen-table th {
-  text-align: left; font-size: 15px; letter-spacing: .1em; color: var(--muted); font-weight: 700;
+  text-align: left; font-size: calc(15px * var(--fs, 1)); letter-spacing: .1em; color: var(--muted); font-weight: 700;
   padding: 0 10px 8px; text-transform: uppercase; white-space: nowrap;
 }
 .screen-table td { padding: 0 10px; height: var(--row-h, 38px); font-size: var(--row-font, 21px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -62,8 +63,8 @@ body.screen { background: #0b0d12; }
 .screen-table .pit { font-size: .65em; font-weight: 800; padding: 1px 6px; border-radius: 3px; background: #fff; color: #111; margin-left: 8px; vertical-align: .15em; }
 /* Each class starts the same gap below the one before (or the column labels). */
 .screen-table .classrow td { height: 54px; padding: 14px 0 0; vertical-align: bottom; background: none !important; }
-.screen-table .classrow .class-head { height: 36px; font-size: 20px; border-radius: 6px; }
-.screen-empty { margin: auto; font-size: 30px; color: var(--muted); font-weight: 700; }
+.screen-table .classrow .class-head { height: 36px; font-size: calc(20px * var(--fs, 1)); border-radius: 6px; }
+.screen-empty { margin: auto; font-size: calc(30px * var(--fs, 1)); color: var(--muted); font-weight: 700; }
 .screen-table .sec { padding: 0 4px; }
 .screen-table .sec div {
   position: relative; height: calc(var(--row-h, 38px) - 10px); border-radius: 4px; overflow: hidden;
@@ -91,7 +92,8 @@ body.desktop *, body.desktop *::before, body.desktop *::after { box-shadow: none
 
 /* A custom Background (colour or image, see setBackground in common.js) takes
    the place of the boards' and full screens' own backdrop. */
-body.custom-bg .board, body.custom-bg .screen-page { background: none; }
+body.custom-bg .board::before, body.custom-bg .screen-page::before { display: none; }
+body.custom-bg.screen { background: transparent; }
 
 /* Background setting on overlays: an uploaded image inside each panel, under
    its contents, at the opacity set (setPanels in common.js). */
@@ -133,3 +135,13 @@ body.custom-panels .sp.panel { background: var(--panel); }
 }
 .panel-in .panel-row { animation: panel-row-in .4s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.25s + var(--i, 0) * 70ms); }
 .panel-out { animation: panel-out .45s cubic-bezier(.55, 0, .75, .1) both !important; pointer-events: none; }
+
+/* An overlay while a full-screen board is up (General settings): as it is,
+   dimmed or hidden; back when the board goes. */
+body.board-fade .stage { opacity: var(--board-dim, 1); transition: opacity .6s ease; }
+
+/* A race car gone from the session: OUT in its gap and interval boxes. */
+.out-tag {
+  display: inline-block; padding: 1px 6px; border-radius: 3px; background: rgba(255, 255, 255, .16); color: var(--muted);
+  font-size: .72em; font-weight: 800; letter-spacing: .06em; line-height: 1.3; vertical-align: .08em;
+}

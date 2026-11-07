@@ -26,7 +26,7 @@ function fmtSector(t) {
 }
 
 // A sector against what it was compared with: −0.324 (faster), +0.512 (slower).
-const fmtGain = (d) => `${d < 0 ? "−" : d > 0 ? "+" : "±"}${Math.abs(d).toFixed(3)}`;
+const fmtGain = (d) => `${d < 0 ? "−" : d > 0 ? "+" : "±"}${secs(Math.abs(d), false)}`;
 
 // A sector just done shows its difference first (sector_delta_s seconds, fading
 // in and out), then its time.
@@ -144,7 +144,7 @@ function update(entry, item, cfg, classes, nsec) {
     }
   }
   if (lap && lap.state === "finished" && lap.delta != null && lap.valid) {
-    dl.textContent = `${lap.delta > 0 ? "+" : lap.delta < 0 ? "−" : "±"}${Math.abs(lap.delta).toFixed(3)}`;
+    dl.textContent = `${lap.delta > 0 ? "+" : lap.delta < 0 ? "−" : "±"}${secs(Math.abs(lap.delta), false)}`;
     dl.className = `dl tnum ${lap.delta <= 0 ? "faster" : "slower"}`;
   } else {
     dl.textContent = "";
@@ -230,7 +230,7 @@ function screenRowHtml(item, cfg, cls, nsec, camIdx) {
   let lapCell = "";
   if (!lap) lapCell = `<span class="state">${item.on_pit ? "IN PITS" : item.in_world ? "OUT LAP" : "—"}</span>`;
   else if (lap.state === "finished") {
-    const d = lap.delta != null && lap.valid ? `<span class="${lap.delta <= 0 ? "faster" : "slower"}"> ${lap.delta > 0 ? "+" : "−"}${Math.abs(lap.delta).toFixed(3)}</span>` : "";
+    const d = lap.delta != null && lap.valid ? `<span class="${lap.delta <= 0 ? "faster" : "slower"}"> ${lap.delta > 0 ? "+" : "−"}${secs(Math.abs(lap.delta), false)}</span>` : "";
     lapCell = lap.valid ? `<span class="lapclock">${fmtLap(lap.lap_time)}</span>${d}` : '<span class="lapclock void">INVALID</span>';
   } else lapCell = `<span class="lapclock ${lap.valid ? "" : "invalid"}" data-clock="${item.car_idx}"></span>`;
   const team = item.team ? `${cfg.show_logo && item.team_logo ? `<img src="${esc(item.team_logo)}" alt="">` : ""}${esc(item.team)}` : "";
@@ -243,7 +243,7 @@ function screenRowHtml(item, cfg, cls, nsec, camIdx) {
     ${sectors.map((sc) => `<td class="sec ${sc.mark || ""}"><div class="${sc.colour || ""}">${sc.colour ? "" : `<i style="width:${Math.round(sc.done * 100)}%"></i>`}<span>${sc.time == null ? "" : deltaFor(sc, cfg) ? fmtGain(sc.delta) : fmtSector(sc.time)}</span></div></td>`).join("")}
     <td class="r">${lapCell}</td>
     <td class="r lead">${fmtLap(item.best)}</td>
-    <td class="r">${item.pos > 1 && item.gap != null ? `+${item.gap.toFixed(3)}` : ""}</td>
+    <td class="r">${item.pos > 1 && item.gap != null ? `+${secs(item.gap, false)}` : ""}</td>
   </tr>`;
 }
 

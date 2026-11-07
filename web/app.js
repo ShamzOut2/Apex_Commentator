@@ -76,6 +76,7 @@ function saveSettings() {
 function connectStream() {
   liveStream((snap) => {
     ui.snap = snap;
+    if (snap.overlays && snap.overlays.settings && snap.overlays.settings.general) GENERAL = snap.overlays.settings.general;
     // After an update the server restarts on the new version: load its UI.
     if (ui.version && ui.snap.version && ui.snap.version !== ui.version) return location.reload();
     ui.version = ui.version || ui.snap.version;
@@ -467,8 +468,10 @@ function renderStandings(s) {
     if (race) {
       gap = v.gap == null ? "" : v.r === firstRow ? "Leader" : v.down ? `+${v.down} L` : fmtDelta(v.gap);
       int = v.int == null ? "" : fmtDelta(v.int);
+      // Gone from the session (or out of the car, not finished): OUT instead.
+      if ((r.left || (!r.in_world && r.laps_completed > 0)) && v.r !== firstRow) gap = int = '<span class="tag out">OUT</span>';
     } else if (r.best_lap && isFinite(v.fastest)) {
-      gap = v.fastestLap ? "Fastest" : fmtDelta(r.best_lap - v.fastest);
+      gap = v.fastestLap ? "Fastest" : fmtDelta(r.best_lap - v.fastest, false);
     }
     const status = r.left ? '<span class="tag out" title="Left the session">LEFT</span>'
       : !r.in_world ? '<span class="tag out">OUT</span>'
@@ -2505,9 +2508,21 @@ const OVERLAY_FIELDS = {
     ]],
     OVERLAY_LOOK,
   ],
+  general: [
+    ["Gaps & intervals", [
+      ["race_decimals", "Decimal places: live race gaps and intervals (tower, timing screen, Timing tab)", "number", { min: 0, max: 3 }],
+      ["qual_decimals", "Decimal places: qualifying, the lap tracker, the grid and results boards", "number", { min: 1, max: 3 }],
+    ]],
+    ["While a board is on screen", [
+      ["board_overlays", "The overlays", "select", [["stay", "Stay as they are"], ["dim", "Dim"], ["hide", "Hide (back when the board goes)"]]],
+      iff((v) => v.board_overlays === "dim", ["board_dim", "Dimmed to (% opacity)", "number", { min: 0, max: 90, step: 5 }]),
+      ["note", "The sponsors set to stay up are never dimmed or hidden. Each board's own background opacity is in its Size & background.", "note"],
+    ]],
+  ],
   sponsors: [
     ["Logos", [
       ["sponsor_ids", "Sponsors", "sponsors"],
+      ["stay", "Stay up: not put away with everything else, and not dimmed or hidden under a board (in OBS, put this source above the boards)", "bool"],
       ["layout", "Show", "select", [["rotate", "One at a time"], ["row", "All together"]]],
       iff((v) => v.layout === "rotate", ["interval_s", "Seconds per logo", "number", { min: 1, max: 120, step: 1 }]),
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
@@ -2620,9 +2635,12 @@ async function loadBackgrounds() {
 }
 
 // The Size setting: a slider, 50-200 %, showing its value as it moves.
-function sizeField(v) {
+function sizeField(v, values = {}) {
+  const font = values.font_scale ?? 100;
   return `<label class="ov-field">Size: <span class="rng-val">${v}%</span>
-    <input type="range" min="50" max="200" step="5" data-key="scale" data-kind="number" value="${v}"></label>`;
+    <input type="range" min="50" max="200" step="5" data-key="scale" data-kind="number" value="${v}"></label>
+    <label class="ov-field">Text size (the boxes stay as they are): <span class="rng-val">${font}%</span>
+    <input type="range" min="60" max="200" step="5" data-key="font_scale" data-kind="number" value="${font}"></label>`;
 }
 
 // The Background setting's fields; colour / image / opacity only when they apply.
@@ -2640,9 +2658,8 @@ function backgroundFields(section, v) {
         <img src="/api/backgrounds/${encodeURIComponent(name)}" alt=""></label>`).join("")}
       <label class="btn subtle bg-upload">Upload…<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-bg-upload="${section}" hidden></label></div></div>`);
   }
-  if (v.bg !== "default") {
-    out.push(`<label class="ov-field">Opacity: <span class="rng-val">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
-  }
+  // The default look too: low, and the race shows through (a see-through board).
+  out.push(`<label class="ov-field">${v.bg === "default" ? "Background opacity (low: the race shows through)" : "Opacity"}: <span class="rng-val">${v.bg_opacity}%</span><input type="range" min="0" max="100" step="5" data-key="bg_opacity" data-kind="number" value="${v.bg_opacity}"></label>`);
   return out.join("");
 }
 
@@ -2723,8 +2740,9 @@ document.addEventListener("toggle", (e) => {
 function fieldHtml(section, values, [k, label, kind, opts], s) {
   const v = values[k];
   const attrs = `data-key="${k}" data-kind="${kind === "banner" || kind === "class" ? "select" : kind}"`;
+  if (kind === "note") return `<p class="hint ov-field wide">${esc(label)}</p>`;
   if (kind === "background") return backgroundFields(section, values);
-  if (kind === "size") return sizeField(v);
+  if (kind === "size") return sizeField(v, values);
   if (kind === "order") return orderField(k, label, v, opts, values);
   if (kind === "classorder") return classOrderField(k, label, values, s.classes || []);
   if (kind === "colopacity") return opacityField(k, label, v, opts);
@@ -3222,6 +3240,8 @@ loadBackgrounds();
 // Every widget, in the order they're listed. ``page``: its OBS page;
 // ``screen``: it has a full-screen version too.
 const WIDGETS = [
+  { key: "general", name: "All overlays & boards", page: "standings", general: true,
+    about: "Settings for every overlay and board: how many decimal places gaps and intervals show, and what the overlays do while a full-screen board is up." },
   { key: "standings", name: "Timing tower", page: "standings", screen: true,
     about: "Race: running order and gap to the leader. Qualifying and practice: fastest clean lap. The full-screen version is a timing screen of its own, with every driver." },
   { key: "laps", name: "Lap tracker", page: "laps", screen: true,
@@ -3296,7 +3316,7 @@ function renderWidgetSettings(s) {
   const changed = !wsKey.startsWith(`["${w.key}"`);
   wsKey = key;
   if (changed) {
-    $("#ws-list").innerHTML = [["Overlays", WIDGETS.filter((x) => !x.board)], ["Boards", WIDGETS.filter((x) => x.board)]]
+    $("#ws-list").innerHTML = [["General", WIDGETS.filter((x) => x.general)], ["Overlays", WIDGETS.filter((x) => !x.board && !x.general)], ["Boards", WIDGETS.filter((x) => x.board)]]
       .map(([title, list]) => `<h5>${title}</h5>${list.map((x) => `<button class="ws-item ${x.key === w.key ? "active" : ""}" data-ws="${x.key}">${esc(x.name)}</button>`).join("")}`).join("");
     $("#ws-title").textContent = w.name;
     $("#ws-about").textContent = w.about;
@@ -3304,9 +3324,10 @@ function renderWidgetSettings(s) {
     const links = [["Overlay", base, `/${w.page}.html?preview=1`, "Preview ↗"]];
     if (w.screen) links.push(["Full screen", `${base}?screen=1`, `/${w.page}.html?screen=1`, "Open ↗"]);
     if (w.board) links[0] = ["Board", base, `/${w.page}.html?preview=1`, "Open ↗"];
+    if (w.general) links.length = 0;
     $("#ws-links").innerHTML = links.map(([kind, url, open, label], i) => `<p class="obs-url"><span class="obs-kind">${kind}</span><code id="ws-url-${i}">${esc(url)}</code>
       <button class="btn subtle" data-copy="ws-url-${i}">Copy</button> <a class="btn subtle" href="${open}" target="_blank" rel="noopener">${label}</a></p>`).join("")
-      + '<p class="hint">In OBS: a Browser Source at 1920×1080 (the overlays have a see-through background).</p>';
+      + (w.general ? "" : '<p class="hint">In OBS: a Browser Source at 1920×1080 (the overlays have a see-through background).</p>');
     const frame = $("#ws-frame");
     const src = `/${w.page}.html?preview=1`;
     if (frame.getAttribute("src") !== src) frame.setAttribute("src", src);

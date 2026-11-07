@@ -194,6 +194,12 @@ function renderFlash(snap, ov) {
 
 // Columns after the driver, as the commentator has chosen them:
 // [setting, width, label, value(e, race, classMode)].
+// A race car gone from the session (or out of the car after racing, not
+// finished): OUT in its gap and interval boxes. (Not yet in the car before
+// the start isn't OUT.)
+const isOut = (e) => !!(e.left || (!e.in_world && e.laps_completed > 0));
+const OUT_TAG = '<span class="out-tag">OUT</span>';
+
 const COLUMNS = [
   ["show_pos_change", "46px", "+/−", (e, race) => {
     if (!race || !e.pos_change) return race ? '<span class="dim">–</span>' : "";
@@ -208,16 +214,18 @@ const COLUMNS = [
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
     if (!race && e.best == null) return '<span class="dim">No time</span>';
     if (first) return `<span class="lead">${race ? leaderText(e, cfg) : fmtLap(e.best)}</span>`;
+    if (race && isOut(e)) return OUT_TAG;
     const down = race && (classMode ? e.class_laps_down : e.laps_down);
     if (down) return `+${down} L`;
-    return gap != null ? `+${race ? gap.toFixed(1) : gap.toFixed(3)}` : "";
+    return gap != null ? `+${secs(gap, race)}` : "";
   }],
   ["show_interval", "80px", "Int", (e, race, classMode, cfg, green) => {
     const interval = classMode ? e.class_interval : e.interval;
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
     if (first) return race ? leaderInterval(e, cfg) : "";
+    if (race && isOut(e)) return OUT_TAG;
     if (interval == null) return "";
-    const text = `+${race ? interval.toFixed(1) : interval.toFixed(3)}`;
+    const text = `+${secs(interval, race)}`;
     // Racing within close_s of the car ahead: red until they're past or it opens up.
     const close = race && green && cfg.close_s > 0 && interval <= cfg.close_s && e.in_world && !e.on_pit;
     return close ? `<span class="close">${text}</span>` : text;
@@ -638,18 +646,18 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     `<td class="p r" data-opcol="pos">${pos}</td>`,
     race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
     `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,
-    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${!e.in_world ? '<span class="pit">OUT</span>' : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
+    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${!e.in_world ? (race ? "" : '<span class="pit">OUT</span>') : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
     teamCells,
   ];
   const down = classMode ? e.class_laps_down : e.laps_down;
   const cell = {
     laps: () => `<td class="r muted">${(race ? e.laps_completed : e.lap) ?? ""}</td>`,
     gap: () => (race
-      ? `<td class="r ${first ? "lead" : ""}">${first ? leaderText(e, cfg) : down ? `+${down} L` : gap != null ? `+${gap.toFixed(1)}` : ""}</td>`
-      : `<td class="r">${first ? "" : gap != null ? `+${gap.toFixed(3)}` : ""}</td>`),
+      ? `<td class="r ${first ? "lead" : ""}">${first ? leaderText(e, cfg) : isOut(e) ? OUT_TAG : down ? `+${down} L` : gap != null ? `+${secs(gap)}` : ""}</td>`
+      : `<td class="r">${first ? "" : gap != null ? `+${secs(gap, false)}` : ""}</td>`),
     interval: () => (first && race && cfg.interval_leader !== "blank"
       ? `<td class="r lead">${leaderText(e, cfg, cfg.interval_leader)}</td>`
-      : `<td class="r muted">${!first && interval != null ? `+${interval.toFixed(race ? 1 : 3)}` : ""}</td>`),
+      : `<td class="r muted">${!first && race && isOut(e) ? OUT_TAG : !first && interval != null ? `+${secs(interval, race)}` : ""}</td>`),
     last_lap: () => `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
     best_lap: () => (race ? `<td class="r">${fmtLap(e.best_lap)}</td>` : `<td class="r lead">${fmtLap(e.best)}</td>`),
     pits: () => `<td class="r muted">${e.pit_stops || ""}</td>`,

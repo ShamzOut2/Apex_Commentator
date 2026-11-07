@@ -58,6 +58,23 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- **All overlays & boards** in Widget Settings: how many decimal places
+  gaps and intervals show (live race, and qualifying / results), and what
+  the overlays do while a board is up: stay, dim or hide.
+- Every overlay and board has a **Text size** next to its Size, and its
+  background opacity works on the default look too: turn a board's down
+  and the race shows through it.
+- Sponsors overlay: **Stay up**, so it isn't put away with everything else
+  and isn't dimmed or hidden while a board is up.
+
+### Improvements
+
+- A driver who leaves the race shows a small **OUT** tag in place of their
+  gap and interval, on the timing tower, its full screen and the Timing
+  Screen.
+
 ### Fixes
 
 - A car towed to the pits (or leaving) mid-race no longer jumps to the top
