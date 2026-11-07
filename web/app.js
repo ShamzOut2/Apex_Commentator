@@ -586,7 +586,7 @@ function eventText(ev) {
   const pts = ev.incidents ? ` <b>${ev.incidents}x</b>` : "";
   switch (ev.type) {
     case "overtake":
-      return `${who} passes ${car(ev.other_car_number, ev.other_driver)}${ev.position ? ` for <b>P${ev.position}</b>` : ""}`;
+      return `${who} passes ${car(ev.other_car_number, ev.other_driver)}${ev.position ? ` for <b>P${ev.position}</b>` : ""}${ev.at_line ? ' <span class="muted">(at the line, during a replay)</span>' : ""}`;
     case "offtrack":
       return `${who} ${ev.spin ? "spins off track" : "off track"}${pts}`;
     case "slowdown":
@@ -619,6 +619,7 @@ function logStatus(s) {
     live: "● Logging live",
     replay: "● Logging the replay being played",
     paused: "❚❚ Logging paused: you're watching something already logged. It resumes past that point (Go live).",
+    replay_live: "● Replay on screen, the race goes on: incident points and places gained at the line are still logged live (iRacing sends only the replay's car data, so passes on track, offs and contact pick up again back live).",
     waiting: "Waiting for the session to start…",
   }[s.detection] || "";
 }
@@ -628,7 +629,7 @@ let logKey = "";
 function renderLog(s) {
   const all = s.events || [];
   $("#log-status").textContent = logStatus(s);
-  $("#log-status").className = `log-status ${s.detection || ""}`;
+  $("#log-status").className = `log-status ${s.detection === "replay_live" ? "replay" : s.detection || ""}`;
   const types = LOG_GROUPS[ui.logFilter] || (ui.logFilter === "all" ? null : [ui.logFilter]);
   const hidden = new Set(settings.logHidden || []);
   const shown = all.filter((e) => (!types || types.includes(e.type)) && !hidden.has(logKind(e)))

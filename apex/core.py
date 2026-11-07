@@ -415,7 +415,10 @@ class App:
             self.laps.update(replace(frame, session_num=num, session_time=t), self._lap_class)
         logged = self._logged_until.get(num, -1.0)
         if t < logged - 1e-3:
-            self.detection = "paused"  # watching something already logged
+            # Watching something already logged. Mid-race: the race goes on
+            # underneath, its incident points and places at the line still logged.
+            racing = not frame.is_live and frame.session_state in (STATE_RACING, STATE_CHECKERED) and self._is_race(frame)
+            self.detection = "replay_live" if racing else "paused"
             return
         if t <= logged + 1e-3:
             return  # no new race time (sim paused): nothing changes
@@ -1276,6 +1279,7 @@ class App:
         num = live.session_num
         if live.is_live:
             self._live_rows = (self._session_meta.get("subsession"), num, rows)
+            self._held_order = (num, [r["car_idx"] for r in sorted((r for r in rows if r["pos"] is not None), key=lambda r: r["pos"])])
             return rows
         session = self._session_meta.get("sessions", {}).get(num, {})
         held = self._live_rows
@@ -1313,7 +1317,28 @@ class App:
                 r["pos_change"] = r["start_pos"] - pos
             if r.get("class_start_pos"):
                 r["class_pos_change"] = r["class_start_pos"] - r["class_pos"]
+        self._log_passes_at_line(live, num, placed)
         return placed + [r for r in out if r["pos"] is None]
+
+    def _log_passes_at_line(self, live, num, placed):
+        """During a replay the race log can't see the cars (iRacing sends the
+        replay's), but iRacing's results still come in live: a car that's
+        gone up the order at the line is logged as passing the cars it went
+        past there (once, with the live race time)."""
+        order = [r["car_idx"] for r in placed]
+        was_num, was = getattr(self, "_held_order", (None, None))
+        self._held_order = (num, order)
+        if was_num != num or not was or was == order:
+            return
+        before = {idx: i for i, idx in enumerate(was)}
+        for i, idx in enumerate(order):
+            j = before.get(idx)
+            if j is None or j <= i:
+                continue
+            for other in was[i:j]:  # those it was behind and is now ahead of
+                if other in order and order.index(other) > i:
+                    self.detector._emit("overtake", idx, replace(live, session_num=num), self._drivers,
+                                        other=other, position=i + 1, at_line=True)
 
     def _keep_left(self, num, standings, rows, is_race):
         """The standings (unranked, copies) with the drivers seen in them this

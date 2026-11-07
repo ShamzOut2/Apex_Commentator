@@ -98,6 +98,9 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
   included; a car with no picture is left black instead of drawn.
 - Starting grid board and grid walk: qualifying times and gaps only show
   when the grid is from qualifying.
+- Watching a replay mid-race: the race log goes on logging live incident
+  points and the places gained at the line (iRacing's results keep coming),
+  and says so; the tower and Timing Screen keep their live order.
 - A driver who leaves the race shows a small **OUT** tag in place of their
   gap and interval, on the timing tower, its full screen and the Timing
   Screen.
