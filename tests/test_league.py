@@ -190,7 +190,7 @@ class StoreTests(unittest.TestCase):
         junk = normalise_profile({"name": "L", "drivers": [{"name": "A", "car_image": "../../x.png"}],
                                   "teams": [{"name": "T", "logo": "../x.png"}, {"name": "t"}, {"name": ""}]})
         self.assertEqual(junk["drivers"][0]["car_image"], "")
-        self.assertEqual(junk["teams"], [{"name": "T", "short": "", "color": "", "logo": None, "shared": []}])
+        self.assertEqual(junk["teams"], [{"name": "T", "short": "", "color": "", "logo": None, "no_standings": False, "shared": []}])
 
     def test_teams_shared_between_leagues(self):
         png = b"\x89PNG\r\n\x1a\n" + b"\0" * 16
