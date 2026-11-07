@@ -401,6 +401,15 @@ class FinishingGapTests(unittest.TestCase):
                          [(None, None, None), (1.5, 1.5, None), (4.0, 2.5, None), (None, None, 1)])
         self.assertTrue(rows[0]["winner"])
 
+    def test_gaps_from_the_race_times(self):
+        """With iRacing's race times: everyone's gap is to the winner's whole race time."""
+        rows = [{"rank": 1, "status": "finished", "laps": 10, "gap": 0.0, "race_time": 1500.0},
+                {"rank": 2, "status": "finished", "laps": 10, "gap": 1.4, "race_time": 1501.75},
+                {"rank": 3, "status": "finished", "laps": 10, "gap": 3.0, "race_time": 1504.5}]
+        boards._gaps(rows)
+        self.assertEqual([(r["gap"], r["interval"]) for r in rows], [(None, None), (1.75, 1.75), (4.5, 2.75)])
+        self.assertTrue(rows[0]["winner"])
+
     def test_an_earlier_race_without_race_times_uses_the_apps_own(self):
         import tempfile
 

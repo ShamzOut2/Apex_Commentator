@@ -289,7 +289,11 @@ def _gaps(rows, by_lap=False):
             if down > 0:
                 row[f"{key}_laps"], row[key] = down, None
             else:
-                mine, theirs = row["_gap"], other["_gap"]
+                # From their whole race times where both are known (the winner's
+                # time is what the board shows for them), else the gaps as saved.
+                mine, theirs = row.get("race_time"), other.get("race_time")
+                if not (mine and theirs):
+                    mine, theirs = row["_gap"], other["_gap"]
                 row[key] = round(max(mine - theirs, 0.0), 3) if mine is not None and theirs is not None else None
         ahead = row
     for row in rows:

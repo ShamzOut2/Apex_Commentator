@@ -267,7 +267,10 @@ DEFAULTS = {
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True,
         # Gap to the winner and to the car ahead (a DNF / DNS / DSQ shows there instead).
         "show_gap": True, "show_interval": True,
-        "winner_gap": "laps",  # the winner's Gap cell: "laps" (13 laps), "time" (their race time, else laps) or "none"
+        # The winner's Gap and Int cells: "time" (their whole race time, else
+        # their laps), "laps" (13 Laps) or "none". (A new key, so everyone
+        # starts on "time"; winner_gap was the old one.)
+        "winner_cell": "time",
     },
     # Qualifying results (board.html): a qualifying session of the iRacing event,
     # by best lap, overall or a class.
@@ -331,7 +334,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_gap": ("laps", "time", "none"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
+           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps", "none"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS}
 
 

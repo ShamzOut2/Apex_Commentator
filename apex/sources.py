@@ -371,6 +371,7 @@ class MockSource:
         self.race_laps = race_laps
         self.retirements = retirements
         self.checkered = False
+        self.race_time = [0.0] * n
         self.out = [i >= n - no_shows for i in range(n)]  # the last ``no_shows`` never join
         self.done = [False] * n
         self.laps_led = [0] * n
@@ -419,6 +420,7 @@ class MockSource:
             "Position": pos, "ClassPosition": pos - 1, "CarIdx": i + 1, "LapsComplete": self.mock_laps[i],
             "LapsLed": self.laps_led[i], "FastestTime": round(self.best_lap[i], 4) if self.best_lap[i] > 0 else -1,
             "Incidents": self.incidents[i],
+            "Time": self.race_time[i] if self.race_time[i] else -1,  # their whole race, once they've taken the flag
             # iRacing keeps "Running" for a car that's parked but connected.
             "ReasonOutStr": "Disconnected" if self.out[i] and self.mock_laps[i] else "Running",
         } for pos, i in enumerate(order, start=1) if self.mock_laps[i] or not self.out[i]]
@@ -474,6 +476,7 @@ class MockSource:
             just_done = self.checkered and crossed and not self.done[i]
             if just_done:
                 self.done[i] = True  # took the flag
+                self.race_time[i] = round(t, 3)  # their whole race, as iRacing's results give it
             if self.done[i]:
                 pace *= 0.5  # cool-down lap
             if int(math.floor(self.progress[i])) > int(math.floor(prev)) and self.progress[i] >= 1:

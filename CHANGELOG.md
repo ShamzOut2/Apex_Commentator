@@ -65,6 +65,12 @@ How each version's entry is written:
 
 ### Fixes
 
+- Boards: the leader's Gap and Int are no longer empty. Qualifying
+  results: pole's lap. Starting grid: each class pole's lap. Race results:
+  the winner's whole race time (the new **The winner's Gap and Int show**
+  setting; their laps where iRacing hasn't given a time), with everyone
+  else's gaps measured from the race times.
+
 - Overlays' opacity setting now makes the whole overlay see-through (its
   panels, class colour boxes, number boxes, stripes, sector bars and
   borders) while the text stays solid; before, only some parts faded.
