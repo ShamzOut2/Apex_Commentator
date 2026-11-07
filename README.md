@@ -111,11 +111,9 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
   transparency effects off, for one): answering **No** to "Can you see
   your screen through the overlay?" now tries another way of making them
   see-through before giving up.
-
 - Lap tracker: a lap no car could do (a tow or reset mid-lap) is thrown out
   instead of becoming an impossible personal best (an 8 s lap) that put
   every colour wrong.
-
 - A car towed to the pits (or leaving) mid-race no longer jumps to the top
   of the timing tower and Timing Screen.
 - After the leader takes the flag, everyone still racing keeps being timed
