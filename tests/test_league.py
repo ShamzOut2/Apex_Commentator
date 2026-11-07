@@ -40,6 +40,35 @@ class StoreTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_copy_settings_from_another_league(self):
+        from apex.league import LeagueError
+        png = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+        src = self.store.save({"name": "Pro Series", "classes": [{"name": "GT3", "color": "#ff0000"}, {"name": "GT4", "color": "#00ff00"}],
+                               "teams": [{"name": "Red Bulls", "short": "RBR", "color": "#112233"}],
+                               "championship": {"rules": {"points": [30, 20, 10], "drop_rounds": 2, "class_points": {"gt4": [9, 5]}},
+                                                "rounds": [{"name": "Spa", "track": "Spa", "results": [
+                                                    {"driver": "cust:1", "name": "A", "class_id": "gt3", "position": 1}]}]}})
+        src = self.store.save_image(src["id"], "sponsor:Sponsor", png)  # the league, saved
+        dst = self.store.save({"name": "Am Series", "classes": [{"id": "am-gt4", "name": "GT4", "color": "#0000ff"}],
+                               "drivers": [{"cust_id": 5, "name": "Keep Me", "class_id": "am-gt4"}]})
+        out = self.store.copy_settings(dst["id"], src["id"], ["rules", "classes", "teams", "calendar", "branding"])
+        self.assertEqual(out["championship"]["rules"]["points"], [30, 20, 10])
+        self.assertEqual(out["championship"]["rules"]["drop_rounds"], 2)
+        self.assertEqual(out["championship"]["rules"]["class_points"], {"am-gt4": [9, 5]})  # its GT4, by name
+        classes = {c["name"]: c for c in out["classes"]}
+        self.assertEqual((classes["GT4"]["id"], classes["GT4"]["color"]), ("am-gt4", "#00ff00"))  # updated, same id
+        self.assertIn("GT3", classes)
+        self.assertEqual([(t["name"], t["short"]) for t in out["teams"]], [("Red Bulls", "RBR")])
+        self.assertEqual([(rd["name"], rd["results"]) for rd in out["championship"]["rounds"]], [("Spa", [])])
+        self.assertEqual([d["name"] for d in out["drivers"]], ["Keep Me"])  # drivers untouched
+        self.assertEqual(len(out["sponsors"]), 1)  # with its image copied over
+        self.assertIsNotNone(self.store.logo_file(out["id"], out["sponsors"][0]["file"]))
+        # A league with results keeps its own calendar.
+        with self.assertRaises(LeagueError):
+            self.store.copy_settings(src["id"], dst["id"], ["calendar"])
+        with self.assertRaises(LeagueError):
+            self.store.copy_settings(dst["id"], dst["id"], ["rules"])
+
     def seed(self):
         """A league with two drivers, Amy (7) and Zed (99)."""
         return self.store.save({"id": "4242", "league_id": 4242, "name": "Thursday Night Thunder", "drivers": [

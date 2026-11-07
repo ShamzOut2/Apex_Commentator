@@ -709,6 +709,85 @@ class LeagueStore:
             shutil.copytree(src, dst, dirs_exist_ok=True)
         return self._write(copy)
 
+    COPY_PARTS = ("rules", "classes", "teams", "branding", "calendar", "options")
+
+    def copy_settings(self, profile_id, source_id, parts):
+        """Bring another league's settings into this one, without exporting
+        and importing: ``parts`` any of COPY_PARTS.
+
+        * rules: the points and championship rules (custom points systems,
+          drops, bonuses, class points...), its classes matched by name;
+        * classes: its classes (colour, logo, how drivers are matched): a
+          class of the same name is updated, others are added;
+        * teams: its teams (name, short name, colour, logo), the same way;
+        * branding: its logo, banners, sponsors and calendar graphic;
+        * calendar: its rounds (tracks, dates, lengths, race meetings), with
+          no results (only into a league with no results yet);
+        * options: hiding drivers with no class, (P) name tags.
+
+        Drivers, results and penalties are never touched. Images are copied
+        over. Returns the league as saved."""
+        profile, source = self.get(profile_id), self.get(source_id)
+        if profile is None or source is None:
+            raise LeagueError("League not found")
+        if profile["id"] == source["id"]:
+            raise LeagueError("Pick another league to copy from")
+        parts = [p for p in parts or [] if p in self.COPY_PARTS]
+        if not parts:
+            raise LeagueError("Tick at least one thing to copy")
+        src = json.loads(json.dumps(source))
+        dst = json.loads(json.dumps(profile))
+        champ = dst.setdefault("championship", {})
+        if "calendar" in parts and any(rd.get("results") for rd in champ.get("rounds") or []):
+            raise LeagueError("This league has results already: its calendar can't be replaced (copy the rest without it)")
+        img = lambda name: self._copy_logo(src["id"], dst["id"], name)  # noqa: E731
+
+        def by_name(items, key="name"):
+            return {str(x.get(key) or "").strip().lower(): x for x in items}
+
+        if "classes" in parts:
+            mine = by_name(dst.setdefault("classes", []))
+            for c in src.get("classes", []):
+                c = dict(c, logo=img(c.get("logo")))
+                have = mine.get(c["name"].strip().lower())
+                if have:
+                    have.update({k: v for k, v in c.items() if k != "id"})
+                else:
+                    dst["classes"].append(c)
+        # Class ids: the source's to this league's, by class name.
+        theirs = {c["id"]: c["name"].strip().lower() for c in src.get("classes", [])}
+        ours = {c["name"].strip().lower(): c["id"] for c in dst.get("classes", [])}
+        cid = lambda k: ours.get(theirs.get(k, ""), k)  # noqa: E731
+        if "rules" in parts:
+            rules = json.loads(json.dumps((src.get("championship") or {}).get("rules") or {}))
+            for key in ("class_points", "secondary_scoring"):
+                if isinstance(rules.get(key), dict):
+                    rules[key] = {cid(k): v for k, v in rules[key].items()}
+            champ["rules"] = rules
+        if "teams" in parts:
+            mine = by_name(dst.setdefault("teams", []))
+            for t in src.get("teams", []):
+                have = mine.get(t["name"].strip().lower())
+                fields = {"short": t.get("short", ""), "color": t.get("color", ""), "logo": img(t.get("logo")),
+                          "no_standings": bool(t.get("no_standings"))}
+                if have:
+                    have.update(fields)
+                else:
+                    dst["teams"].append(dict(fields, name=t["name"], shared=[]))
+        if "branding" in parts:
+            dst["logo"] = img(src.get("logo")) or dst.get("logo")
+            dst["calendar_image"] = img(src.get("calendar_image")) or dst.get("calendar_image")
+            dst["banners"] = [dict(b, file=img(b["file"])) for b in src.get("banners", []) if img(b["file"])]
+            dst["sponsors"] = [dict(x, file=img(x["file"])) for x in src.get("sponsors", []) if img(x["file"])]
+        if "calendar" in parts:
+            champ["rounds"] = [dict(rd, results=[], session="") for rd in (src.get("championship") or {}).get("rounds") or []]
+            champ["live_round"] = ""
+        if "options" in parts:
+            for key in ("strip_class_prefix", "hide_unclassed"):
+                if key in src:
+                    dst[key] = src[key]
+        return self.save(dst)
+
     def delete(self, profile_id):
         path = self._path(profile_id)
         if path.exists():

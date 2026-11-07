@@ -15,6 +15,11 @@ How each version's entry is written:
 
 ### New features
 
+- League builder: **⇆ Copy settings from…** brings another league's
+  settings into this one in a couple of clicks: points and rules, classes,
+  teams, logo, banners and sponsors, the calendar (without results) and
+  options, each ticked or not. Drivers and results stay as they are.
+
 - **All overlays & boards** in Widget Settings: how many decimal places
   gaps and intervals show (live race, and qualifying / results), and what
   the overlays do while a board is up: stay, dim or hide.

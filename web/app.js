@@ -4487,6 +4487,43 @@ function choose(title, text, options, html = "") {
   });
 }
 
+// Another league's settings into this one (LeagueStore.copy_settings): pick
+// the league and what to bring over; drivers and results stay as they are.
+const COPY_PARTS = [
+  ["rules", "Points & rules (points systems, drop rounds, bonuses, class points)", true],
+  ["classes", "Classes (colours, logos, how drivers are matched; same-named ones updated)", true],
+  ["teams", "Teams (names, short names, colours, logos; same-named ones updated)", false],
+  ["branding", "League logo, banners, sponsors and calendar graphic", false],
+  ["calendar", "Calendar: the rounds, without results (only into a league with no results yet)", false],
+  ["options", "Options (drivers with no class hidden, (P) name tags)", true],
+];
+$("#btn-copy-settings").addEventListener("click", async () => {
+  const me = ui.editing;
+  if (!me || !me.id) return toast("Save this league first", true);
+  let leagues = ui.leagueList || [];
+  try {
+    leagues = (await api("/api/leagues")).leagues;  // as they are now
+  } catch (e) { /* the list the pickers have */ }
+  const others = leagues.filter((l) => l.id !== me.id).sort(byName());
+  if (!others.length) return toast("There's no other league to copy from yet", true);
+  const html = `<label class="field">From <select id="copy-from">${others.map((l) => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("")}</select></label>
+    <div class="copy-parts">${COPY_PARTS.map(([k, label, on]) => `<label class="check"><input type="checkbox" data-copy-part="${k}" ${on ? "checked" : ""}> ${esc(label)}</label>`).join("")}</div>
+    <p class="hint">Drivers, results and penalties stay as they are. Unsaved changes here are lost: save first.</p>`;
+  const r = await choose(`Copy settings into ${me.name}`, "Bring another league's settings into this one.", [["copy", "Copy", true], ["cancel", "Cancel"]], html);
+  if (!r || r.value !== "copy") return;
+  const from = r.form.querySelector("#copy-from").value;
+  const parts = [...r.form.querySelectorAll("[data-copy-part]:checked")].map((b) => b.dataset.copyPart);
+  if (!parts.length) return toast("Tick at least one thing to copy", true);
+  try {
+    await api(`/api/leagues/${encodeURIComponent(me.id)}/copy-settings`, { method: "POST", body: { from, parts } });
+    await openLeague(me.id);
+    const name = (others.find((l) => l.id === from) || {}).name || from;
+    toast(`Copied from ${name}`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
 // A driver moved from one team to another (or out of one) after racing this
 // season: their points so far stay with the team they raced for, or all go
 // to their team now. Each result keeps the team it was raced for ("" = their

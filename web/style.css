@@ -851,3 +851,7 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .tyre-dry { color: #fff; }
 .tyre-wet { color: #3d9bff; }
 td.c-tyre { text-align: center; }
+
+/* Copy settings from another league: what to bring over. */
+.copy-parts { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.copy-parts .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
