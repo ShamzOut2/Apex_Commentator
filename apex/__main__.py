@@ -169,6 +169,9 @@ def main(argv=None):
     print(f"{title} running at {url}")
 
     app.popout = lambda page, name: desktop.open_popout(page, f"{url}?popout={page}", f"{name} – {title}")
+    # Small always-on-top controls (the co-commentator's FREE | SYNC switch).
+    app.widget = lambda key, path, name, on: (desktop.open_widget(key, f"{url}{path}", f"{name} – {title}") if on
+                                             else desktop.close_widget(key) or True)
     if not args.no_window and desktop.window_available():
         app.desktop = OnScreen(url.rstrip("/"), title)
     try:

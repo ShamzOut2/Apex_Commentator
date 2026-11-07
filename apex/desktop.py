@@ -164,6 +164,47 @@ def open_popout(key, url, title, width=1280, height=820):
     return True
 
 
+def open_widget(key, url, title, width=330, height=78):
+    """A small control (e.g. the co-commentator's FREE | SYNC switch) in a
+    window of its own: no frame, always on top of iRacing, and clickable
+    (unlike the on-screen overlays). It starts at the top right of the main
+    screen and is dragged by its handle. Shown again if it's already open.
+    False when there's no app window."""
+    if _main_window is None:
+        return False
+    import webview
+
+    window = _popouts.get(key)
+    if window is not None:
+        try:
+            window.restore()
+            window.show()
+            return True
+        except Exception:
+            _popouts.pop(key, None)
+    x = y = None
+    try:
+        main = webview.screens[0]
+        x, y = main.x + main.width - width - 24, main.y + 24
+    except Exception:
+        pass
+    window = webview.create_window(title, url, width=width, height=height, x=x, y=y, frameless=True, on_top=True,
+                                   resizable=False, easy_drag=False, focus=True, background_color="#14171d")
+    window.events.closed += lambda: _popouts.pop(key, None)
+    _popouts[key] = window
+    return True
+
+
+def close_widget(key):
+    """Close a widget window opened by open_widget (nothing if it isn't open)."""
+    window = _popouts.pop(key, None)
+    if window is not None:
+        try:
+            window.destroy()
+        except Exception as e:
+            print(f"[apex] couldn't close the {key} window: {e!r}")
+
+
 def _close_popouts():
     for window in list(_popouts.values()) + list(_windows.values()):
         try:

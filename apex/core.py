@@ -296,6 +296,7 @@ class App:
         self._grid_rows_total = 1  # the starting grid board's rows (two cars each), for showing them row by row
         self._put_away = None      # what the all:toggle hotkey took off screen, to bring back
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
+        self.widget = None         # set by __main__: widget(key, path, name, on) opens / closes a small on-top window
         self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
         self.backgrounds = Backgrounds()  # __main__ gives it a folder: overlay / board background images
         self.laps = LapTracker()
@@ -1768,7 +1769,7 @@ class App:
             # click on screen: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay", "share_", "follow_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay", "share_", "follow_", "sync_")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)
@@ -1883,6 +1884,12 @@ class App:
         if page not in self.POPOUT_PAGES:
             raise CommandError("That page can't be popped out.")
         return {"opened": bool(self.popout and self.popout(page, self.POPOUT_PAGES[page]))}
+
+    def cmd_sync_widget(self, on=True):
+        """The co-commentator's FREE | SYNC switch in a small window of its
+        own, on top of iRacing (sync.html). ``opened`` False: no app window
+        (in a browser), the page opens it as a browser window itself."""
+        return {"opened": bool(self.widget and self.widget("sync", "sync.html", "Free / Sync", bool(on)))}
 
     def cmd_watch(self, car_idx, group=None, camera=0):
         d = self._driver(car_idx)

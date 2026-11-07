@@ -132,6 +132,16 @@ function renderDual(r) {
   ui.followFree = !!fo.free;
 }
 
+// The FREE | SYNC switch in a small window on top of iRacing (sync.html); in a
+// browser, a small browser window.
+document.addEventListener("click", async (e) => {
+  if (!e.target.closest("[data-sync-widget]")) return;
+  const r = await cmd("sync_widget", { on: true });
+  if (r && r.opened) return toast("FREE | SYNC is on your screen: drag it by ⠿, close it with ✕");
+  const w = window.open("/sync.html", "apex-sync", "width=340,height=80");
+  if (!w) toast("The browser blocked the pop-up window: allow pop-ups for this page.", true);
+});
+
 // The FREE | SYNC pill (top bar, Timing Screen): click to switch.
 document.addEventListener("click", (e) => {
   const pill = e.target.closest("[data-sync-toggle]");

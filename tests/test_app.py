@@ -145,6 +145,16 @@ class CoreTests(unittest.TestCase):
             app._log_passes_at_line(app._frame, num, [{"car_idx": c} for c in (cars[0], cars[3], cars[1], cars[2])])
             self.assertEqual(len(app.detector.events), before + 2)
 
+    def test_sync_switch_window(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=0.1)
+            self.assertEqual(app.command("sync_widget", {"on": True}), {"opened": False})  # no app window: the page opens it
+            calls = []
+            app.widget = lambda key, path, name, on: calls.append((key, path, on)) or True
+            self.assertEqual(app.command("sync_widget", {"on": True}), {"opened": True})
+            app.command("sync_widget", {"on": False})
+            self.assertEqual(calls, [("sync", "sync.html", True), ("sync", "sync.html", False)])
+
     def test_replay_driver_without_events(self):
         events = self.app.detector.events
         quiet = [i for i in self.app._drivers if not any(e["car_idx"] == i for e in events)]

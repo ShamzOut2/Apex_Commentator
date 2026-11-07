@@ -83,7 +83,9 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
   the race log (the first press from live replays the latest one) and pick
   each in the log.
 - Co-commentator: a **FREE | SYNC** pill in the top bar and on the Timing
-  Screen shows which you're on; click it to switch.
+  Screen shows which you're on; click it to switch. **⧉** puts the switch
+  in a small window of its own on top of iRacing, to click without going
+  back to the app.
 - Lap tracker: sectors are compared with the **Session overall best**,
   **Session class best** or **Session personal best**. Purple beats that;
   green only when it beats the driver's own best; yellow when it's slower
