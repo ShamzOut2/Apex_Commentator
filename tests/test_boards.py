@@ -474,6 +474,19 @@ class GridBoardTests(unittest.TestCase):
         press("grid:toggle")
         self.assertIsNone(self.app.board["kind"])
 
+    def test_grid_walk_follows_the_starting_grid(self):
+        b = self.grid(rows=64, reverse_top=3)
+        self.app._walk_grid_cache = (0.0, None, None)  # (worked out again at once)
+        walk = self.app.build_snapshot()["gridwalk"]
+        self.assertEqual([e["number"] for e in walk["entries"]][:6], [r["number"] for r in b["rows"]][:6])
+        self.assertTrue(any(e["qual_time"] for e in walk["entries"]))  # from qualifying: its times stay
+        # A grid from the race before: no qualifying times or gaps on the walk or the board.
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"grid_source": "previous"}})
+        self.app._walk_grid_cache = (0.0, None, None)
+        walk = self.app.build_snapshot()["gridwalk"]
+        if walk["source"] == "previous race":
+            self.assertFalse(any(e["qual_time"] or e["qual_gap"] for e in walk["entries"]))
+
     def test_grid_from_the_grid_walk_order(self):
         keys = self.app.gridwalk.apply_order(self.app._grid_keys)
         self.app.command("gridwalk_move", {"key": keys[1], "direction": -1})  # second up to pole by hand

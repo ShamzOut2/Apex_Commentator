@@ -665,9 +665,11 @@ function renderGridwalk(s) {
     if (document.activeElement !== el) el[prop] = value;
   }
   const sources = {
-    qualifying: "Grid order from qualifying.", "qualifying session": "Grid order from the qualifying session.",
+    qualifying: "Grid order from qualifying, as the starting grid board (reversed as set there).", "qualifying session": "Grid order from the qualifying session.",
     "current positions": "Grid order from current positions (no qualifying results yet).",
     "car number": "No qualifying results yet: ordered by car number.", manual: "Grid order set by hand.",
+    "previous race": "Grid order from the race before's finish, as the starting grid board (reversed as set there).",
+    "iRacing's grid": "Grid order: iRacing's grid for the race (no qualifying).",
   };
   $("#gw-source").textContent = entries.length ? sources[g.source] || "" : "";
   $("#gw-reset-order").hidden = !g.manual_order;

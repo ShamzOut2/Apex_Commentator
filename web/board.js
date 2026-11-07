@@ -116,12 +116,17 @@ function columns(b) {
     add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
-    add(s.show_qual, "qual", "Qualifying", "150px", "r", (r) => (r.qual_time ? fmtLap(r.qual_time) : ""));
-    add(s.show_gap, "gap", "Gap", "130px", "r muted", (r) => (r.qual_gap != null ? `+${secs(r.qual_gap, false)}` : ""));
+    // Qualifying times and gaps only on a grid that's from qualifying.
+    const fromQual = gridFromQual(b);
+    add(s.show_qual && fromQual, "qual", "Qualifying", "150px", "r", (r) => (r.qual_time ? fmtLap(r.qual_time) : ""));
+    add(s.show_gap && fromQual, "gap", "Gap", "130px", "r muted", (r) => (r.qual_gap != null ? `+${secs(r.qual_gap, false)}` : ""));
     add(s.show_from && b.grid_from === "previous race", "from", "Finished", "120px", "c muted", (r) => (r.from ? `P${r.from}` : ""));
   }
   return cols;
 }
+
+// A grid from qualifying (reversed or not), not from a race's finish or the grid walk's own order.
+const gridFromQual = (b) => !b.grid_from || b.grid_from === "qualifying";
 
 // The starting grid row by row: rows not shown yet keep their place, unseen
 // (so nothing moves as they come); the row (or rows) just shown comes in.
@@ -151,7 +156,7 @@ function gridLayoutHtml(b) {
         <div class="gname"><b>${esc(formatName(r, s.name_format))}</b>${s.show_team && r.team ? `<span>${esc(r.team)}</span>` : ""}</div>
         ${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}
         ${s.show_make && r.make_logo ? makeChip({ name: r.make, logo: r.make_logo }) : ""}
-        <div class="gq">${s.show_qual && r.qual_time ? `<span>${fmtLap(r.qual_time)}</span>` : ""}${s.show_gap && r.qual_gap != null ? `<span class="muted">+${secs(r.qual_gap, false)}</span>` : ""}${s.show_from && b.grid_from === "previous race" && r.from ? `<span class="muted">Finished P${r.from}</span>` : ""}</div>
+        <div class="gq">${s.show_qual && gridFromQual(b) && r.qual_time ? `<span>${fmtLap(r.qual_time)}</span>` : ""}${s.show_gap && gridFromQual(b) && r.qual_gap != null ? `<span class="muted">+${secs(r.qual_gap, false)}</span>` : ""}${s.show_from && b.grid_from === "previous race" && r.from ? `<span class="muted">Finished P${r.from}</span>` : ""}</div>
       </div></div>`;
   return `<div class="grid-layout">${b.rows.map(slot).join("")}</div>`;
 }

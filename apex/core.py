@@ -1515,6 +1515,13 @@ class App:
                     d, ld, active_league, classes, car_idx=None, in_session=False, in_world=False,
                 )
         self._grid_keys = list(entries)
+        # In the starting grid's order (the board's: by qualifying or the race
+        # before, reversed as set), unless the grid board takes the walk's.
+        grid = self._walk_grid(active_league)
+        grid_from = grid[1] if grid else "qualifying"
+        if grid:
+            place = {f"car:{idx}": n for n, idx in enumerate(grid[0])}
+            self._grid_keys.sort(key=lambda k: (k not in place, place.get(k, 0)))
         order = self.gridwalk.apply_order(self._grid_keys)
         in_class = {}
         # Gaps are to the class pole time, as in multiclass qualifying.
@@ -1527,6 +1534,8 @@ class App:
         ahead = {}  # class key -> qualifying time of the car ahead on the grid in that class
         for pos, key in enumerate(order, start=1):
             e = entries[key]
+            if grid_from != "qualifying" or self.gridwalk.manual_order:
+                e = dict(e, qual_time=None)  # not a grid from qualifying: no qualifying times or gaps
             in_class[e["class_key"]] = in_class.get(e["class_key"], 0) + 1
             pole = class_pole.get(e["class_key"])
             gap = round(e["qual_time"] - pole, 3) if e["qual_time"] and pole else None
@@ -1539,8 +1548,28 @@ class App:
         th = self.thumbnails
         thumbs = {"folder": str(th.folder or ""), "count": th.count, "error": th.error,
                   "matched": sum(1 for e in out if e["has_thumb"]), "drivers": len(out)}
-        return {**self.gridwalk.state(), "source": "manual" if self.gridwalk.manual_order else self._grid_source,
+        return {**self.gridwalk.state(), "source": "manual" if self.gridwalk.manual_order else grid_from if grid else self._grid_source,
                 "entries": out, "thumbs": thumbs}
+
+    def _walk_grid(self, league):
+        """The starting grid board's order for the next race (car indexes) and
+        where it's from, for the grid walk; None when the board takes its
+        order from the grid walk, or has nobody. Worked out once a second."""
+        if self.overlays.get()["board_grid"]["grid_source"] == "gridwalk":
+            return None
+        key = (league or {}).get("id")
+        at, was, found = getattr(self, "_walk_grid_cache", (0.0, None, None))
+        if was == key and time.monotonic() - at < 1.0:
+            return found
+        try:
+            board = self._grid_board(league, "next")
+            rows = [r["car_idx"] for r in board["rows"]]
+            found = (rows, board["from"]) if rows else None
+        except Exception as e:  # noqa: BLE001 - the walk carries on in its own order
+            self._report("grid walk order", e)
+            found = None
+        self._walk_grid_cache = (time.monotonic(), key, found)
+        return found
 
     def _thumb_for(self, d):
         """The thumbnails folder's picture for this driver in their car (a file name), or None."""

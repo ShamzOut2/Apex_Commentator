@@ -6,7 +6,7 @@
 // one 3D scene: each is drawn flat (textures, painted lines and numbers) and
 // put in perspective with a CSS matrix3d worked out from the same camera, so
 // everything foreshortens together. The cars (their pictures from the
-// thumbnails folder, else a drawing in their livery colours) stand in their
+// thumbnails folder, else left black) stand in their
 // painted grid boxes, scaled for how far away they are. The cars ahead on the
 // grid wait further up the road; moving on to the next pair, the camera glides
 // back down the grid to it. Follows the walk the server keeps, so the control
@@ -196,7 +196,8 @@ function paint(x0, slots, pole, entries) {
 // --- the cars ---------------------------------------------------------------------
 function carArt(e, cfg) {
   if (e.car_image) return `<img src="${esc(e.car_image)}" alt="" class="${cfg.flip_cars ? "flip" : ""}">`;
-  return carSvg(e.car_design, e.number);  // no picture: a drawing in its livery colours
+  // No picture: left black (a plain dark car), no drawing of the livery.
+  return carSvg({ colors: ["#060708", "#060708", "#060708"], pattern: 0 }, "");
 }
 
 // A car standing in its box: the bottom of the picture at the middle of the

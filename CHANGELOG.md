@@ -39,6 +39,10 @@ How each version's entry is written:
 - Lap tracker: when the camera moves, the big tracker changes over to the
   new driver in place, and there are never more small trackers on screen
   than set (several laps ending at once no longer swaps them in and out).
+- Grid walk: it goes in the starting grid board's order, reversed grid
+  included; a car with no picture is left black instead of drawn.
+- Starting grid board and grid walk: qualifying times and gaps only show
+  when the grid is from qualifying.
 - A driver who leaves the race shows a small **OUT** tag in place of their
   gap and interval, on the timing tower, its full screen and the Timing
   Screen.
