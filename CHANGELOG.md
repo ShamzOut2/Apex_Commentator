@@ -11,6 +11,15 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- On-screen overlays came up with a solid full-screen background on some
+  PCs since v0.6.2: they're made see-through the way they were before
+  again (the other way is only tried after you answer No to "Can you see
+  your screen through the overlay?").
+
 ## v0.6.3
 
 ### New features

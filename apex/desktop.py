@@ -276,7 +276,8 @@ def screens():
 def show_overlay(key, url, title, screen=0, method="auto"):
     """Put a page on screen ``screen`` as an overlay (moving it if it's already
     up). False when there's no app window to do it from. ``method``: "auto"
-    (the window's own transparency, else a colour key) or "colorkey"."""
+    (the window's own transparency, as always) or "colorkey" (only once
+    someone has said they can't see through the usual way)."""
     if _main_window is None:
         return False
     _overlays[key] = (None, screen)  # on its way: shown as up straight away
@@ -446,10 +447,12 @@ def _see_through(key, window, method="auto"):
             result = dwmapi.DwmEnableBlurBehindWindow(hwnd, ctypes.byref(blur))
             gdi32.DeleteObject(empty)
             steps.append(f"blur-behind {'on' if result == 0 else f'failed ({result & 0xFFFFFFFF:#x})'}")
+            if transparency_effects_off():
+                steps.append("Windows transparency effects off")  # for apex.log: a likely reason if it comes up solid
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT
                                   | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)
-            if method == "colorkey" or result != 0 or transparency_effects_off():
+            if method == "colorkey":
                 # The colour key instead: the page's empty parts painted the
                 # key colour, which Windows leaves out.
                 r, g, b = COLOR_KEY
