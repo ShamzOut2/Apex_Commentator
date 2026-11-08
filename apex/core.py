@@ -478,7 +478,11 @@ class App:
                                    _at(frame.surface, idx, TRK_NOT_IN_WORLD) == TRK_IN_PIT_STALL,
                                    _at(frame.surface, idx, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD) for idx in self._drivers])
         self._logged_until[num] = t
-        self.detection = "live" if frame.is_live else "replay"
+        # A replay of race time the app didn't see (it was in a replay then too)
+        # while the race goes on live: the replay's moments are logged, the
+        # standings stay the live race's (_hold_live).
+        racing = not frame.is_live and frame.session_state in (STATE_RACING, STATE_CHECKERED) and self._is_race(frame)
+        self.detection = "live" if frame.is_live else "replay_live" if racing else "replay"
 
     def _apply_sectors(self):
         """Time the lap in the sectors the overlay shows (a no-op when unchanged)."""
@@ -1450,10 +1454,14 @@ class App:
     def _hold_live(self, live, rows):
         """The standings while a replay is on screen during a race: the live
         race's, not the replay's. iRacing's car data (where each car is) is
-        the replay's then, so the live order as it last stood is kept, and
-        brought up to date from iRacing's results, which go on coming in live
-        as each car crosses the line (laps, places, lap times). Live: noted
-        for then."""
+        the replay's then, but its results go on coming in live as each car
+        crosses the line: laps, places and lap times. Each crossing's time is
+        the one before plus the lap time just done (the timing points had the
+        ones before the replay), so the order, gaps and intervals are timed
+        at the line, lap by lap, as a single timing loop would: who crossed
+        first, and how long after the leader crossed there. Between crossings
+        each car is put round the lap at its pace (the track map, the live
+        timing website). Live: noted for then."""
         num = live.session_num
         if live.is_live:
             self._live_rows = (self._session_meta.get("subsession"), num, rows)
@@ -1464,12 +1472,20 @@ class App:
         if (not heats.race_kind(session) or live.session_state not in (STATE_RACING, STATE_CHECKERED)
                 or not held or held[:2] != (self._session_meta.get("subsession"), num)):
             return rows  # not a race going on, or not seen live: what's on screen
-        now = {r["car_idx"]: r for r in rows}
+        now = live.session_time
+        gaps = self.gaps
+        now_rows = {r["car_idx"]: r for r in rows}
         out = []
         results = {p.get("CarIdx"): p for p in session.get("ResultsPositions") or [] if isinstance(p, dict)}
+        crossed = {}  # car -> (laps done, when it crossed the line completing them)
+        # Each car's last known spot: where it was when the replay started, until
+        # it crosses the line again; then that crossing. (laps + lap distance, time)
+        spot = {}
         for r in held[2]:
             r = dict(r)
-            res = results.get(r["car_idx"])
+            idx = r["car_idx"]
+            was = r["laps_completed"]
+            res = results.get(idx)
             if res:
                 done = res.get("LapsComplete")
                 if isinstance(done, int) and done >= 0 and done > (r["laps_completed"] or -1):
@@ -1478,25 +1494,82 @@ class App:
                     t = _lap_time(res.get(src))
                     if t:
                         r[key] = t
+            done = r["laps_completed"]
+            if done is not None and done >= 0:
+                # The line, completing `done` laps, is the start of lap done + 1 (progress counts from lap 1).
+                t = gaps.line_time(idx, done + 1)
+                if t is None and was is not None and done > was:
+                    before = gaps.line_time(idx, done)
+                    last = r["last_lap"]
+                    t = before + last if before is not None and last and before + last <= now + 1.0 else now
+                    gaps.set_line_time(idx, done + 1, t)
+                if t is not None:
+                    crossed[idx] = (done, t)
+                    if was is not None and done > was:
+                        spot[idx] = (done + 1, t)
+            if idx not in spot:
+                lap, pct = r.get("lap"), r.get("pct")
+                spot[idx] = ((lap + pct) if lap is not None and pct is not None else -1, 0.0)
             # Who they are and their flags/penalties: as they are now.
-            cur = now.get(r["car_idx"])
+            cur = now_rows.get(idx)
             if cur:
                 for key in ("flag", "penalties", "left", "event_count", "last_event_id", "incidents"):
                     r[key] = cur.get(key, r.get(key))
             out.append(r)
-        # The order: laps done (as each crosses the line), then where they were.
-        placed = sorted((r for r in out if r["pos"] is not None), key=lambda r: (-(r["laps_completed"] or 0), r["pos"]))
-        in_class = {}
+        # The order: how far round each car had got at its last known spot (the
+        # first there ahead), then where they were. At the start of a replay
+        # that's the live order as it was; it changes only as cars cross the line.
+        placed = sorted((r for r in out if r["pos"] is not None),
+                        key=lambda r: (-spot[r["car_idx"]][0], spot[r["car_idx"]][1], r["pos"]))
+        in_class, class_leader = {}, {}
         for pos, r in enumerate(placed, start=1):
             r["pos"] = pos
             in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
             r["class_pos"] = in_class[r["class_key"]]
+            class_leader.setdefault(r["class_key"], r)
             if r.get("start_pos"):
                 r["pos_change"] = r["start_pos"] - pos
             if r.get("class_start_pos"):
                 r["class_pos_change"] = r["class_start_pos"] - r["class_pos"]
+        if placed:
+            self._line_gaps(placed, placed[0], crossed, "gap", "laps_down")
+            for r in placed:
+                cl = class_leader[r["class_key"]]
+                self._line_gaps([r], cl, crossed, None, "class_laps_down")
+            for r in placed:
+                at = crossed.get(r["car_idx"])
+                pace = r.get("last_lap") or r.get("best_lap")
+                if at and pace and r.get("in_world") and not r.get("left"):
+                    # Round the lap at its pace since it crossed the line (just short of
+                    # the line again if it's late: in the pits, or slowed).
+                    r["pct"] = round(min(0.995, max(0.0, (now - at[1]) / pace)), 4)
         self._log_passes_at_line(live, num, placed)
         return placed + [r for r in out if r["pos"] is None]
+
+    def _line_gaps(self, rows, leader, crossed, gap_key, down_key):
+        """Gaps timed at the line (a replay during a race, _hold_live): each
+        car's time behind ``leader`` crossing the line at the same lap, and the
+        laps it's down (the laps the leader had done when it crossed)."""
+        lead = crossed.get(leader["car_idx"])
+        for r in rows:
+            mine = crossed.get(r["car_idx"])
+            if r is leader:
+                if gap_key:
+                    r[gap_key] = 0.0
+                r[down_key] = 0
+                continue
+            if not lead or not mine:
+                continue  # not timed at the line yet: as it was
+            done, t = mine
+            there = self.gaps.line_time(leader["car_idx"], done + 1)
+            if there is None:
+                continue
+            k = done  # the laps the leader had done when this car crossed
+            while k < lead[0] and (tt := self.gaps.line_time(leader["car_idx"], k + 2)) is not None and tt <= t:
+                k += 1
+            r[down_key] = k - done
+            if gap_key:
+                r[gap_key] = round(max(0.0, t - there), 3)
 
     def _log_passes_at_line(self, live, num, placed):
         """During a replay the race log can't see the cars (iRacing sends the

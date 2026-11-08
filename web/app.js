@@ -699,7 +699,7 @@ function logStatus(s) {
     live: "● Logging live",
     replay: "● Logging the replay being played",
     paused: "❚❚ Logging paused: you're watching something already logged. It resumes past that point (Go live).",
-    replay_live: "● Replay on screen, the race goes on: incident points and places gained at the line are still logged live (iRacing sends only the replay's car data, so passes on track, offs and contact pick up again back live).",
+    replay_live: "● Replay on screen, the race goes on: the order, gaps and intervals stay the live race's, timed at the line as each car crosses it, and incident points and places gained at the line are still logged live (iRacing sends only the replay's car data, so passes on track, offs and contact pick up again back live).",
     waiting: "Waiting for the session to start…",
   }[s.detection] || "";
 }

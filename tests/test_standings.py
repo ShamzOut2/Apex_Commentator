@@ -561,6 +561,76 @@ class ColumnOpacityTests(unittest.TestCase):
             # Live again: what's on screen.
             self.assertIs(app._hold_live(frame, rows), rows)
 
+    def test_a_long_replay_mid_race_keeps_the_timing_live(self):
+        """Minutes of replay during a race: iRacing's car data is the replay's,
+        but its results go on coming in live as cars cross the line. The
+        order, gaps and laps down follow the live race, timed at the line
+        (each crossing: the one before plus the lap just done), not frozen."""
+        from dataclasses import replace
+
+        clock = {"t": 0.0}
+        src = MockSource(seed=4, clock=lambda: clock["t"])
+
+        class Replayed:  # what iRacing gives during a replay: the replay's car data, live results
+            name = "replayed"
+            frame, info = None, (0, {})
+
+            def connect(self):
+                return True
+
+            def read(self):
+                return self.frame
+
+            def session_info(self):
+                return self.info
+
+        fake = Replayed()
+        with tempfile.TemporaryDirectory() as tmp:
+            live = App(src, dict(DEFAULTS), LeagueStore(tmp + "/a"))
+            app = App(fake, dict(DEFAULTS), LeagueStore(tmp + "/b"))
+            history, start, back = [], 1200, 600  # 0.1 s ticks: the replay 2 min in, 60 s back
+            for step in range(start + 2400):  # 4 minutes of replay (two laps and more)
+                clock["t"] += 0.1
+                live.tick()
+                f = live._frame
+                history.append(f)
+                if step >= start:
+                    old = history[step - back]
+                    f = replace(f, replay_frames_from_end=back * 6, replay_session_time=old.session_time,
+                                replay_session_num=f.session_num, lap=old.lap, laps_completed=old.laps_completed,
+                                pct=old.pct, position=old.position, last_lap=old.last_lap, surface=old.surface,
+                                on_pit=old.on_pit, f2_time=old.f2_time)
+                fake.frame, fake.info = f, src.session_info()
+                app.tick()
+                if step % 5 == 0:
+                    app.build_snapshot()  # as the app does, several times a second
+                if step == start + 300:
+                    early = {r["car_idx"]: r["gap"] for r in app.build_snapshot()["drivers"]}
+            rows = [r for r in app.build_snapshot()["drivers"] if r["pos"]]
+            pct_then = {r["car_idx"]: r["pct"] for r in rows}
+            # As the live race's own line crossings have it.
+            line = {r["car_idx"]: (r["laps_completed"], live.gaps.line_time(r["car_idx"], r["laps_completed"] + 1)) for r in rows}
+            expected = sorted(line, key=lambda c: (-line[c][0], line[c][1]))
+            self.assertEqual([r["car_idx"] for r in sorted(rows, key=lambda r: r["pos"])], expected)
+            lead = expected[0]
+            for r in rows[1:]:
+                if r["laps_down"] == 0 and r["gap"] is not None:
+                    done, t = line[r["car_idx"]]
+                    # (The demo's lap times step in tenths: it runs in 0.1 s ticks. iRacing's are to the 10,000th.)
+                    self.assertAlmostEqual(r["gap"], t - live.gaps.line_time(lead, done + 1), delta=0.15)
+            # Not frozen: the gaps have moved on since early in the replay, and
+            # the cars go on round the lap (the track map, the live timing website).
+            moved = [c for c, g in early.items() if g is not None and c in line and abs(g - next(r["gap"] for r in rows if r["car_idx"] == c) or 0) > 0.05]
+            self.assertGreater(len(moved), len(rows) // 2)
+            for _ in range(10):
+                clock["t"] += 0.1
+                live.tick()
+                fake.frame, fake.info = replace(live._frame, replay_frames_from_end=back * 6, replay_session_time=live._frame.session_time - 60,
+                                                replay_session_num=live._frame.session_num), src.session_info()
+                app.tick()
+            pct_now = {r["car_idx"]: r["pct"] for r in app.build_snapshot()["drivers"] if r["pos"]}
+            self.assertGreater(sum(1 for c in pct_now if pct_now[c] != pct_then.get(c)), len(rows) // 2)
+
     def test_crossing_the_line_doesnt_jump_a_lap(self):
         from apex.core import LineFilter
 

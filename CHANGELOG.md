@@ -29,6 +29,9 @@ How each version's entry is written:
 
 ### Improvements
 
+- Replays during a race: the tower, Timing Screen, live timing website and
+  widgets keep the live race's order, gaps, intervals and laps down however
+  long you watch, re-timed at the line each time a car crosses it.
 - Starting grid board: the name plates grow to fill the page however many
   drivers are on it, and can be made bigger or smaller by hand.
 - Decimal places of gaps and intervals can be set from the timing tower's

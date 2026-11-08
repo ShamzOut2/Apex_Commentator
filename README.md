@@ -74,6 +74,9 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 
 ### Improvements
 
+- Replays during a race: the tower, Timing Screen, live timing website and
+  widgets keep the live race's order, gaps, intervals and laps down however
+  long you watch, re-timed at the line each time a car crosses it.
 - Starting grid board: the name plates grow to fill the page however many
   drivers are on it, and can be made bigger or smaller by hand.
 - Decimal places of gaps and intervals can be set from the timing tower's
@@ -386,9 +389,23 @@ Things to know:
 
 - Replays need iRacing's replay buffer. Keep *Options → Replay → Write
   Replay Data* enabled, and give it enough memory to cover the race.
-- Detection pauses while you are watching a replay (telemetry then shows the
-  replay, not the live race), so moments that happen during a replay are
-  not logged. iRacing's **◀ Inc / Inc ▶** markers still cover them.
+- **The timing goes on during a replay of a race**, however long you
+  watch. iRacing's car data is the replay's then, but its results keep
+  coming in live as each car crosses the line (laps done, lap times,
+  places). Each crossing's time is the one before plus the lap just done,
+  so the tower, the Timing Screen, the live timing website and the
+  widgets keep the live race's order, gaps, intervals and laps down,
+  re-timed at the line every time a car crosses it, as a single timing
+  loop would (a pass on track shows when the cars next cross the line).
+  At the start of the replay the order is the live one as it was. Between
+  crossings the track map and the live timing website move each car round
+  at its lap pace, and put it right at the line.
+- In the race log during a replay, incident points and places gained at
+  the line are logged live. Passes on track, offs, slowdowns and contact
+  need the cars' live positions, so they aren't logged until you're back
+  live; iRacing's **◀ Inc / Inc ▶** markers still cover them. A replay
+  that plays on into race time the app didn't see live is logged as it
+  plays (it's the race's own moments, just later).
 - Incident **points** for other drivers only appear if iRacing shares them
   with you, for example as a league admin or in hosted sessions. Off-track and
   slowdown detection works regardless.

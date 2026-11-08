@@ -419,6 +419,7 @@ class MockSource:
         return [{
             "Position": pos, "ClassPosition": pos - 1, "CarIdx": i + 1, "LapsComplete": self.mock_laps[i],
             "LapsLed": self.laps_led[i], "FastestTime": round(self.best_lap[i], 4) if self.best_lap[i] > 0 else -1,
+            "LastTime": round(self.last_lap[i], 4) if self.last_lap[i] > 0 else -1,
             "Incidents": self.incidents[i],
             "Time": self.race_time[i] if self.race_time[i] else -1,  # their whole race, once they've taken the flag
             # iRacing keeps "Running" for a car that's parked but connected.
