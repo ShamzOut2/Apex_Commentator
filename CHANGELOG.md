@@ -11,6 +11,16 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.6.4
+
+### Fixes
+
+- On-screen overlays no longer cover the screen with a dark, blurred
+  background when Windows is in dark mode: Windows 11's frosted backdrop
+  (Mica) is switched off on them, and kept off. The colour key way of
+  making them see-through is only tried after you answer No to "Can you see
+  your screen through the overlay?".
+
 ## v0.6.3
 
 ### New features

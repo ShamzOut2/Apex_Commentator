@@ -56,15 +56,15 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.3**
+**v0.6.4**
 
-### New features
+### Fixes
 
-- **Live timing website** for spectators (Home tab): a page anyone can open
-  in their browser with the running order, a head-to-head of any two drivers
-  and a track map with every car on it. It goes out through Cloudflare, so
-  nobody sees your PC's address, and it only shows the timing: never
-  iRacing IDs, notes or anything about you.
+- On-screen overlays no longer cover the screen with a dark, blurred
+  background when Windows is in dark mode: Windows 11's frosted backdrop
+  (Mica) is switched off on them, and kept off. The colour key way of
+  making them see-through is only tried after you answer No to "Can you see
+  your screen through the overlay?".
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
