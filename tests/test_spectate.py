@@ -93,6 +93,18 @@ class FeedTests(unittest.TestCase):
             self.assertNotIn("spectator", app._snapshot)
 
 
+    def test_every_driver_whatever_the_tower_shows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=1.5)
+            app.overlays.update("standings", {"rows": 3, "rows_last": 0, "mode": "class", "rows_class": 2})
+            app.spectators = spectate.SpectatorServer(WEB_DIR / "live", port=0)
+            snap = app.build_snapshot()
+            everyone = {r["car_idx"] for r in snap["drivers"] if not r.get("hidden")}
+            self.assertGreater(len(everyone), 3)
+            self.assertEqual({c["id"] for c in snap["spectator"]["cars"]}, everyone)
+            self.assertIsInstance(snap["spectator"]["clock"], float)
+
+
 class TunnelTests(unittest.TestCase):
     def test_quick_link_from_cloudflared(self):
         lines = [b"INF Requesting new quick Tunnel on trycloudflare.com...\n",

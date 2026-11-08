@@ -13,7 +13,17 @@ How each version's entry is written:
 
 ## Unreleased
 
+### Improvements
+
+- Live timing website: cars move smoothly round the track map instead of
+  stepping and catching up, and the page does less work, so it keeps up
+  better on phones.
+
 ### Fixes
+
+- Timing tower and Timing Screen: names no longer jump around at the end of
+  a race. Drivers who've finished keep their places as they park or leave,
+  and the cars still racing stay in order round them.
 
 - Timing tower: the fastest lap stopwatch stays with the driver who set it.
   When they leave it no longer jumps to whoever is quickest of those still

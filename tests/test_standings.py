@@ -529,6 +529,47 @@ class ColumnOpacityTests(unittest.TestCase):
             self.assertEqual((e["pos"], e["in_world"], e["on_pit"], e.get("left", False)), (car["pos"], True, False, False))
             self.assertEqual(e["gap"], car["gap"])
 
+    def test_after_the_flag_no_one_jumps_round_a_finisher(self):
+        """Once a car has finished, the cars ahead of it stay ahead and those
+        behind stay behind: whatever the finishers do on their cool-down lap
+        (park, garage), the order around them doesn't flicker."""
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            src = MockSource(seed=4, clock=lambda: clock["t"], race_laps=2)
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            while not app._race.checkered and clock["t"] < 2000:
+                clock["t"] += 0.1
+                app.tick()
+            fixed = {}  # (finisher, other) -> finisher ahead?
+            flips = []
+            parked = set()
+            for step in range(6000):
+                clock["t"] += 0.1
+                app.tick()
+                done = app._race.finished
+                if step % 5:
+                    continue
+                kept = app._finishers.get(app._frame.session_num, {})
+                for idx in list(kept)[:4]:  # the first finishers park and go to the garage
+                    if idx not in parked:
+                        parked.add(idx)
+                        src.out[idx - 1] = True
+                order = [r["car_idx"] for r in sorted((r for r in app.build_snapshot()["drivers"] if r["pos"] and not r["hidden"]),
+                                                         key=lambda r: r["pos"])]
+                place = {c: i for i, c in enumerate(order)}
+                for x in done:
+                    for y in order:
+                        if x == y or x not in place:
+                            continue
+                        ahead = place[x] < place[y]
+                        was = fixed.setdefault((x, y), ahead)
+                        if was != ahead:
+                            flips.append((step, x, y))
+                            fixed[(x, y)] = ahead
+                if len(done) >= len(order) - 1:
+                    break
+            self.assertEqual(flips, [])
+
     def test_a_car_towed_past_the_line_isnt_given_a_lap(self):
         from apex.core import LineFilter
 

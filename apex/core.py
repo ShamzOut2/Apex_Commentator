@@ -1283,17 +1283,32 @@ class App:
         however it drives (or doesn't) afterwards: no PIT, OUT or LEFT."""
         kept = self._finishers.setdefault(num, {})
         done = self._race.finished
-        for r in rows:
+        for r in rows:  # rows in live order: those crossing on the same tick in that order
             idx = r["car_idx"]
             if idx in done and idx not in kept and r["pos"] is not None:
                 kept[idx] = {k: r[k] for k in ("pos", "gap", "lap", "laps_completed")}
+                # Where it finished, in laps: the line it crossed.
+                line = round(r["progress"]) if r["progress"] >= 0 else (r["laps_completed"] or 0)
+                kept[idx]["_at"] = (line, len(kept))
         held = [r for r in rows if r["car_idx"] in done and r["car_idx"] in kept]
         if not held:
             return
         for r in held:
-            r.update(kept[r["car_idx"]], in_world=True, on_pit=False, left=False)
-        # The finishers where they finished; the rest as they are, after any finisher with the same place.
-        rows.sort(key=lambda r: (r["pos"] is None, r["pos"] or 0, r["car_idx"] not in kept))
+            r.update({k: v for k, v in kept[r["car_idx"]].items() if k != "_at"}, in_world=True, on_pit=False, left=False)
+
+        # The finishers by where and when they crossed the line; the rest by
+        # how far round they are. Nobody gets past a finisher without crossing
+        # the line (finishing too, behind it), so the order round them holds,
+        # whatever the finishers do on their slowing-down lap: the places of
+        # the cars still out there aren't counted with theirs (which jumped
+        # each time a finisher parked or went to the garage).
+        def key(r):
+            at = kept.get(r["car_idx"], {}).get("_at") if r["car_idx"] in done else None
+            if at:
+                return (r["pos"] is None, -at[0], 0, at[1])
+            return (r["pos"] is None, -r["progress"], 1, r["official_pos"] or 999)
+
+        rows.sort(key=key)
         place = 0
         for r in rows:
             if r["pos"] is not None:
@@ -2864,6 +2879,8 @@ class App:
             return token
 
         classes = {c["key"]: c for c in snap.get("classes") or []}
+        # Every driver with a class, whatever the tower is set to show (its
+        # rows, classes, overall / class): this is the spectators' own timing.
         entries = {r["car_idx"]: self._overlay_entry(r, league) for r in rows if not r.get("hidden")}
         placed = sorted((r for r in rows if r["car_idx"] in entries), key=lambda r: (r["pos"] is None, r["pos"] or 0))
         cars, ahead = [], {}
@@ -2909,6 +2926,9 @@ class App:
             "sectors": [round(x, 4) for x in self.laps.starts],
             "dec": [self.overlays.get()["general"]["race_decimals"], self.overlays.get()["general"]["qual_decimals"]],
             "map": tmap["id"] if tmap else None,
+            # The session clock of these figures (s): the page moves the cars on
+            # the map between updates from it, however unevenly they arrive.
+            "clock": round(frame.timeline()[1], 3),
             "cars": cars,
         }
         self._spec = (now, section, tmap, images)
