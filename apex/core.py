@@ -190,16 +190,22 @@ def _lap_time(value):
 class RaceProgress:
     """Who started a race and who took the chequered flag, from watching it.
 
-    A car started if it was in the world once the race went green. It
-    finished if it crossed the line after the chequered flag came out.
+    A car started if it was in the world once the race went green. The race
+    is won when, with iRacing's chequered flag out, the leader (the car
+    furthest round) crosses the line: only then is it over (``checkered``).
+    iRacing can put the flag out before that (a timed race's clock running
+    out with the leader still on their last lap), and a car further back
+    crossing the line then hasn't finished: it has a lap more to go. After
+    the leader, every car has finished as it next crosses the line.
     """
 
     def __init__(self):
         self.session = None
         self.started = set()
         self.finished = set()
-        self.checkered = False
-        self._laps = {}
+        self.checkered = False   # the leader has taken the flag: the race is over
+        self.flag_out = False    # iRacing's session state is chequered
+        self._laps = {}          # each car's lap count as last seen
 
     def update(self, frame):
         if frame.session_num != self.session:
@@ -208,23 +214,35 @@ class RaceProgress:
         if frame.session_state < STATE_RACING:
             return
         in_world = {i for i, s in enumerate(frame.surface) if s != TRK_NOT_IN_WORLD}
+        laps = {i: _at(frame.lap, i, -1) for i in in_world}
+        pct = {i: _at(frame.pct, i, -1.0) for i in in_world}
         if frame.session_state == STATE_RACING:
-            if self.checkered:  # a replay back before the flag: nobody has finished yet
-                self.checkered, self.finished, self._laps = False, set(), {}
+            if self.flag_out:  # a replay back before the flag: nobody has finished yet
+                self.checkered, self.flag_out, self.finished = False, False, set()
             self.started |= in_world
+            self._laps.update(laps)
             return
-        if frame.session_state >= STATE_CHECKERED and not self.checkered:
-            self.checkered = True
-            # The winner crossed the line as the flag came out (and anyone
-            # crossing with them).
-            self.finished |= {i for i in in_world if 0 <= _at(frame.pct, i, -1) < 0.02}
-            self._laps = {i: _at(frame.lap, i, -1) for i in in_world}
-            return
-        for i in in_world:
-            lap = _at(frame.lap, i, -1)
-            if i in self._laps and lap > self._laps[i]:
-                self.finished.add(i)
-            self._laps.setdefault(i, lap)
+        first = not self.flag_out
+        self.flag_out = True
+        # Over the line this moment: a lap more than before (as the flag comes
+        # out, also just past the line: iRacing's lap count and lap distance
+        # don't always change on the same tick).
+        crossed = [i for i in in_world if laps[i] >= 0 and (
+            laps[i] > self._laps.get(i, laps[i]) or (first and 0 <= pct[i] < 0.02))]
+        if crossed and not self.checkered:
+            # Whoever crossed (at the line: their lap count) furthest round of
+            # everyone: that's the leader taking the flag.
+            def at(i):
+                return laps[i] if i in crossed else laps[i] + max(0.0, pct[i])
+            lead = max(crossed, key=at)
+            if all(at(lead) >= at(i) - 1e-6 for i in in_world if laps[i] >= 0):
+                self.checkered = True
+        if self.checkered:
+            self.finished.update(crossed)
+        if frame.session_state >= STATE_COOLDOWN:
+            self.checkered = True  # over, whether or not the leader was seen crossing
+        for i, lap in laps.items():
+            self._laps[i] = max(lap, self._laps.get(i, lap))
 
     def status(self, car_idx, session_num, laps, in_world, official_reason):
         """finished / dnf / dns for a car, or None to leave it to iRacing's results."""
@@ -444,11 +462,13 @@ class App:
             if frame.session_state == STATE_RACING and num not in self._green and (
                     (was is not None and was < STATE_RACING) or (was is None and t < 5.0)):
                 self._green[num] = t
-            # The chequered flag: from racing to chequered, the leader crossing the line.
-            if frame.session_state == STATE_CHECKERED and num not in self._chequered and was == STATE_RACING:
-                self._chequered[num] = t
             self._last_state[num] = frame.session_state
             self._race.update(timeline_frame)
+            # The chequered flag: the leader crossing the line with it out (seen
+            # racing first): not when iRacing puts the flag out, which in a timed
+            # race can be with the leader still on their last lap.
+            if self._race.checkered and self._race.started and num not in self._chequered:
+                self._chequered[num] = t
             # Gap timing: race time not timed yet (live, or a replay of a part
             # the app didn't see); a replay of time already timed reads it back.
             self.gaps.update(num, t, {idx: self._line((num, t), idx, _progress(frame, idx)) for idx in self._drivers})
@@ -873,7 +893,7 @@ class App:
             if rows is None:
                 rows = self.build_snapshot().get("drivers") or []
             session = self._session(frame) if frame else {}
-            checkered = bool(frame) and frame.session_state >= STATE_CHECKERED
+            checkered = self._won(frame)
         official = {r.get("CarIdx"): r for r in session.get("ResultsPositions") or [] if isinstance(r, dict)}
         # Time behind the winner: iRacing's race times once it has them, else live timing.
         won = next((o.get("Time") for o in official.values() if o.get("Position") == 1), None)
@@ -935,7 +955,7 @@ class App:
             rd = {"id": "live", "name": "This race", "track": "", "date": "", "multiplier": 1.0, "no_drop": False}
         if rd is not None:
             results, _ = self.session_results(active_league, rows)
-            provisional = frame.session_state < STATE_CHECKERED
+            provisional = not self._won(frame)
             groups = championship.projection(active_league, dict(rd, results=results, provisional=provisional))
             return {"live": True, "round": rd["name"], "groups": groups}
         table = championship.standings(active_league)
@@ -1179,11 +1199,11 @@ class App:
         lead = max((r["laps_completed"] or 0 for r in rows if r["laps_completed"] is not None), default=0)
         remain = frame.session_time_remain
         time_remain = remain if remain is not None and 0 <= remain < 604000 else None
-        finished = frame.session_state >= STATE_CHECKERED
+        finished = self._won(frame) if heats.race_kind(session) else frame.session_state >= STATE_CHECKERED
         lap = min(lead + 1, int(laps_total)) if laps_total else lead + 1
-        # A timed session whose clock has run out, the chequered flag not out
-        # yet: the leader's on their last lap (the header says LAST LAP).
-        time_up = (bool(time_total) and frame.session_state == STATE_RACING
+        # A timed session whose clock has run out, the leader not over the line
+        # under the flag yet: they're on their last lap (the header says LAST LAP).
+        time_up = (bool(time_total) and not finished and frame.session_state in (STATE_RACING, STATE_CHECKERED)
                    and remain is not None and remain <= 0.05)
         return {
             "mode": mode,
@@ -1297,6 +1317,12 @@ class App:
             "laps": {"active": active, "camera": cam, "trackers": trackers, "sectors": len(self.laps.starts),
                      "all": sorted(everyone, key=lambda x: (x["pos"] or 10_000, x["name"].lower()))},
         }
+
+    def _won(self, frame):
+        """The race on screen is over: its leader has taken the chequered flag
+        (or it's in cool-down). iRacing's chequered state alone isn't that."""
+        return bool(frame) and (frame.session_state >= STATE_COOLDOWN
+                                or (self._race.checkered and self._race.session == frame.session_num))
 
     def _keep_finishers(self, num, rows):
         """Rows in order with every car that's finished at its place as it
@@ -2933,7 +2959,7 @@ class App:
             })
         progress = snap.get("overlays", {}).get("progress") or {}
         flags = frame.session_flags
-        flag = ("chequered" if frame.session_state >= STATE_CHECKERED else "yellow" if flags & CAUTION_FLAGS
+        flag = ("chequered" if (self._won(frame) if is_race else frame.session_state >= STATE_CHECKERED) else "yellow" if flags & CAUTION_FLAGS
                 else "white" if progress.get("laps_total") and progress.get("lap") == progress.get("laps_total") else "green")
         title = self._race_title(league, frame.session_num, session) if is_race else str(session.get("SessionName") or "Session").strip()
         track_id = self._session_meta.get("track_id")

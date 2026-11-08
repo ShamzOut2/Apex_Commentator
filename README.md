@@ -56,19 +56,14 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.6**
-
-### New features
-
-- Live timing tab: the spectators' website has a tab of its own, with a live
-  preview and settings for its heading and colour, name style, team names and
-  logos, car numbers, which columns show, the Driver tracker and the map's
-  labels.
+**Coming in the next update**
 
 ### Fixes
 
-- Live timing website: when Cloudflare's tunnel can't start, the link no
-  longer shows Cloudflare's own address as if it were yours.
+- Timing tower: in a timed race, the chequered header and the finish flags by
+  drivers' names wait for the leader to cross the line. A car further back
+  crossing first no longer gets a flag: it has a lap more to go. The header
+  says LAST LAP until the leader finishes.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

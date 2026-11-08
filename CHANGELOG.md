@@ -11,6 +11,15 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- Timing tower: in a timed race, the chequered header and the finish flags by
+  drivers' names wait for the leader to cross the line. A car further back
+  crossing first no longer gets a flag: it has a lap more to go. The header
+  says LAST LAP until the leader finishes.
+
 ## v0.6.6
 
 ### New features

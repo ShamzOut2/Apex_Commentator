@@ -341,6 +341,85 @@ class ColumnOrderTests(unittest.TestCase):
         self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap,tyre")
 
 
+class FinishTests(unittest.TestCase):
+    """The race is over when the leader crosses the line under the chequered
+    flag, not when iRacing puts the flag out (a timed race's clock running
+    out with the leader still on their last lap)."""
+
+    @staticmethod
+    def frame(state, cars):
+        from types import SimpleNamespace
+
+        from apex.sources import TRK_ON_TRACK
+        return SimpleNamespace(session_num=2, session_state=state, surface=[TRK_ON_TRACK] * len(cars),
+                               lap=[lap for lap, _ in cars], pct=[pct for _, pct in cars])
+
+    def test_a_backmarker_crossing_first_hasnt_finished(self):
+        from apex.core import RaceProgress
+        from apex.sources import STATE_CHECKERED, STATE_RACING
+        race = RaceProgress()
+        # Car 0 leads (lap 10, half way round); car 1 is a lap down, nearly at the line.
+        race.update(self.frame(STATE_RACING, [(10, 0.50), (9, 0.97)]))
+        race.update(self.frame(STATE_CHECKERED, [(10, 0.52), (9, 0.99)]))  # the clock's run out
+        race.update(self.frame(STATE_CHECKERED, [(10, 0.54), (10, 0.01)]))  # the backmarker crosses
+        self.assertFalse(race.checkered)
+        self.assertEqual(race.finished, set())
+        race.update(self.frame(STATE_CHECKERED, [(10, 0.99), (10, 0.45)]))
+        race.update(self.frame(STATE_CHECKERED, [(11, 0.01), (10, 0.47)]))  # the leader takes the flag
+        self.assertTrue(race.checkered)
+        self.assertEqual(race.finished, {0})
+        race.update(self.frame(STATE_CHECKERED, [(11, 0.50), (10, 0.99)]))
+        race.update(self.frame(STATE_CHECKERED, [(11, 0.52), (11, 0.01)]))  # and now the backmarker has
+        self.assertEqual(race.finished, {0, 1})
+
+    def test_the_flag_out_as_the_leader_crosses(self):
+        from apex.core import RaceProgress
+        from apex.sources import STATE_CHECKERED, STATE_RACING
+        race = RaceProgress()
+        race.update(self.frame(STATE_RACING, [(9, 0.99), (9, 0.60)]))
+        race.update(self.frame(STATE_CHECKERED, [(10, 0.005), (9, 0.62)]))
+        self.assertTrue(race.checkered)
+        self.assertEqual(race.finished, {0})
+        # Its lap count and lap distance not changing on the same tick: still the leader's flag.
+        race = RaceProgress()
+        race.update(self.frame(STATE_RACING, [(9, 0.99), (9, 0.60)]))
+        race.update(self.frame(STATE_CHECKERED, [(10, 0.995), (9, 0.62)]))
+        self.assertEqual((race.checkered, race.finished), (True, {0}))
+
+    def test_the_tower_header_and_flags_wait_for_the_leader(self):
+        """In the app: the flag out with the leader mid-lap: no chequered
+        header, no finish flags, the header says the leader's on the last lap."""
+        from dataclasses import replace
+
+        from apex.sources import STATE_CHECKERED
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            src = MockSource(seed=4, clock=lambda: clock["t"])
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(1500):
+                clock["t"] += 0.1
+                app.tick()
+            real = src.read
+
+            def flag_out():  # iRacing's chequered state, the race going on
+                return replace(real(), session_state=STATE_CHECKERED)
+
+            src.read = flag_out
+            for _ in range(300):  # 30 s: cars cross the line, the leader (it's lapping) among them
+                clock["t"] += 0.1
+                app.tick()
+                ov = app.build_snapshot()["overlays"]
+                if app._race.checkered:
+                    break
+                self.assertIsNone(ov["since_chequered"])
+                self.assertFalse(any(e.get("finished") for e in ov["standings"]))
+                self.assertFalse(ov["progress"]["finished"])
+            self.assertTrue(app._race.checkered, "the leader crossed the line in 30 s")
+            lead = min(app.build_snapshot()["overlays"]["standings"], key=lambda e: e["pos"])
+            self.assertTrue(lead["finished"])
+
+
 class LeaderIntervalTests(unittest.TestCase):
     def test_the_leaders_interval_shows_leader_unless_a_lap_was_picked(self):
         from apex.overlays import normalise
