@@ -193,6 +193,8 @@
                   <option value="full">Full name</option><option value="initial_last">D. Price</option>
                   <option value="last_initial">Price D.</option><option value="last">Last name</option>
                 </select></label>
+              <label title="Decimal places of race gaps and intervals (here, the tower and every widget)">Decimals
+                <select id="timing-decimals"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
               <label class="toggle" title="The league's nickname by the name"><input type="checkbox" id="timing-nick"> Nicknames</label>
               <label class="toggle" title="Drivers who leave the session stay in the list, marked LEFT"><input type="checkbox" id="timing-left"> Drivers who left</label>
             </div>
@@ -503,6 +505,18 @@
             <div id="battle-pick" class="battle-pick"></div>
             <div class="wfoot"><span class="desk" data-desk="battle"></span><button class="btn subtle" data-wsettings="battle">⚙ Settings</button></div>
           </div>
+          <div class="wcard" data-widget="duel">
+            <h4>On-track battle</h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="duel">Show</button><button class="wbtn" data-whide="duel">Hide</button></div>
+            <div class="ov-form wq" data-overlay="duel" data-quick="auto,gap_s"></div>
+            <div class="wfoot"><span class="desk" data-desk="duel"></span><button class="btn subtle" data-wsettings="duel">⚙ Settings</button></div>
+          </div>
+          <div class="wcard" data-widget="trackmap">
+            <h4>Track map</h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="trackmap">Show</button><button class="wbtn" data-whide="trackmap">Hide</button></div>
+            <div class="ov-form wq" data-overlay="trackmap" data-quick="colors,labels"></div>
+            <div class="wfoot"><span class="desk" data-desk="trackmap"></span><button class="btn subtle" data-wsettings="trackmap">⚙ Settings</button></div>
+          </div>
           <div class="wcard" data-widget="sponsors">
             <h4>Sponsors</h4>
             <div class="wbtns"><button class="wbtn" data-wshow="sponsors">Show</button><button class="wbtn" data-whide="sponsors">Hide</button></div>
@@ -606,6 +620,11 @@
           <h3>Widgets</h3>
           <nav id="ws-list" class="ws-list" aria-label="Widgets"></nav>
           <div class="ws-tools">
+            <p class="hint" id="ws-league-note">Each league keeps its own widget settings: picking a league brings in its own.</p>
+            <div id="ws-copy" class="ws-copy" hidden>
+              <select id="ws-copy-league" aria-label="League to copy widget settings from"></select>
+              <button class="btn subtle" id="ws-copy-btn">Copy its settings here</button>
+            </div>
             <p class="hint">Every widget's settings, with their background images:</p>
             <button class="btn subtle" data-export="overlays">⤓ Export settings</button>
             <label class="btn subtle">⤒ Import settings…<input type="file" accept=".json,application/json" data-import="overlays" hidden></label>

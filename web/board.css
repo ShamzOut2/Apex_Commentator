@@ -135,6 +135,10 @@
   background: rgba(255, 255, 255, calc(.04 * var(--bg-k, 1))); box-shadow: inset 6px 0 0 var(--cls);
 }
 .gslot .gname { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+/* The car number and the car's badge grow with the slot too (they're sized in em). */
+.gslot .gbox { font-size: calc(22px * var(--fs, 1) * var(--slot-k, 1)); }
+.gslot .num { height: 1.45em; font-size: .9em; }
+.gslot .make { height: 1.5em; width: 2.6em; }
 .gslot .gname b { font-size: calc(26px * var(--fs, 1) * var(--slot-k, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gslot .gname span { font-size: calc(16px * var(--fs, 1) * var(--slot-k, 1)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gslot .logo { height: calc(36px * var(--logo-k, 1) * var(--slot-k, 1)); width: calc(60px * var(--logo-k, 1) * var(--slot-k, 1)); object-fit: contain; }

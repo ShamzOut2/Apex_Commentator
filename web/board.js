@@ -274,8 +274,12 @@ function render(snap) {
     const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
       - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? 110 : 0);
     const pairs = Math.max(1, Math.ceil(Math.max(b.rows.length, +b.settings.rows || 1) / 2));
-    const slotH = Math.max(56, Math.min(130, Math.floor((space - 10 * (pairs - 1)) / (pairs + 0.6))));
-    body = `<div class="scroll-box" style="--slot-h:${slotH}px;--slot-k:${(slotH / 74).toFixed(3)}">${gridLayoutHtml(b)}</div>`;
+    // Filling the page (grid_fill) as they come, however few; then the size picked by hand.
+    const fit = Math.floor((space - 10 * (pairs - 1)) / (pairs + 0.6));
+    const slotH = Math.round(Math.max(56, Math.min(b.settings.grid_fill !== false ? 400 : 130, fit)) * (+b.settings.grid_size || 100) / 100);
+    // What's in them grows too, though not past what fits across (long names end in …).
+    const k = Math.min(slotH / 74, 1.9);
+    body = `<div class="scroll-box" style="--slot-h:${slotH}px;--slot-k:${k.toFixed(3)}">${gridLayoutHtml(b)}</div>`;
   } else {
     // Long lists go into two columns rather than shrinking past readable.
     const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
@@ -284,7 +288,10 @@ function render(snap) {
     const split = b.rows.length > 20 ? 2 : 1;
     // The starting grid: fewer drivers on screen, bigger name plates.
     const per = b.kind === "grid" ? Math.ceil(Math.max(b.rows.length, Math.min(+b.settings.rows || 1, 40)) / split) : Math.ceil(b.rows.length / split);
-    const rowH = Math.max(30, Math.min(b.kind === "grid" ? 80 : 48, Math.floor(space / per)));
+    // The starting grid: rows fill the page (grid_fill), then the size picked by hand.
+    const gridMax = b.settings.grid_fill !== false ? 150 : 80;
+    const rowH = Math.round(Math.max(30, Math.min(b.kind === "grid" ? gridMax : 48, Math.floor(space / per)))
+      * (b.kind === "grid" ? (+b.settings.grid_size || 100) / 100 : 1));
     // Bigger rows: the fixed-width columns grow with them.
     const grow = rowH / 48;
     if (grow > 1) for (const c of cols) if (/^\d+px$/.test(c[1])) c[1] = `${Math.round(parseInt(c[1], 10) * grow)}px`;

@@ -232,9 +232,13 @@ class StandingsOverlayTests(unittest.TestCase):
         self.run_for(app, 2)
         session = {"SessionTime": "1200.0000 sec", "SessionLaps": "unlimited"}
         frame = replace(app._frame, session_time_remain=0.0, session_state=STATE_RACING)
-        self.assertTrue(app._session_progress(frame, session, [])["time_up"])
-        # Still time on the clock, or the chequered flag out: not the last lap.
+        # The green: the clock reads 0 (or -1) for a moment as iRacing resets it: not the last lap.
+        self.assertFalse(app._session_progress(frame, session, [])["time_up"])
+        self.assertFalse(app._session_progress(replace(frame, session_time_remain=-1.0), session, [])["time_up"])
+        # Still time on the clock: not the last lap; then it runs out.
         self.assertFalse(app._session_progress(replace(frame, session_time_remain=30.0), session, [])["time_up"])
+        self.assertTrue(app._session_progress(frame, session, [])["time_up"])
+        # The chequered flag out: not the last lap.
         self.assertFalse(app._session_progress(replace(frame, session_state=STATE_CHECKERED), session, [])["time_up"])
 
     def test_reveal_in_qualifying_lists_drivers_without_a_time_last(self):
@@ -339,6 +343,85 @@ class ColumnOrderTests(unittest.TestCase):
         s = o.get()["standings"]
         self.assertEqual(s["column_order"], "interval,gap,pos_change,laps,pits,last_lap,best_lap,tyre")
         self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap,tyre")
+
+
+class FinishTests(unittest.TestCase):
+    """The race is over when the leader crosses the line under the chequered
+    flag, not when iRacing puts the flag out (a timed race's clock running
+    out with the leader still on their last lap)."""
+
+    @staticmethod
+    def frame(state, cars):
+        from types import SimpleNamespace
+
+        from apex.sources import TRK_ON_TRACK
+        return SimpleNamespace(session_num=2, session_state=state, surface=[TRK_ON_TRACK] * len(cars),
+                               lap=[lap for lap, _ in cars], pct=[pct for _, pct in cars])
+
+    def test_a_backmarker_crossing_first_hasnt_finished(self):
+        from apex.core import RaceProgress
+        from apex.sources import STATE_CHECKERED, STATE_RACING
+        race = RaceProgress()
+        # Car 0 leads (lap 10, half way round); car 1 is a lap down, nearly at the line.
+        race.update(self.frame(STATE_RACING, [(10, 0.50), (9, 0.97)]))
+        race.update(self.frame(STATE_CHECKERED, [(10, 0.52), (9, 0.99)]))  # the clock's run out
+        race.update(self.frame(STATE_CHECKERED, [(10, 0.54), (10, 0.01)]))  # the backmarker crosses
+        self.assertFalse(race.checkered)
+        self.assertEqual(race.finished, set())
+        race.update(self.frame(STATE_CHECKERED, [(10, 0.99), (10, 0.45)]))
+        race.update(self.frame(STATE_CHECKERED, [(11, 0.01), (10, 0.47)]))  # the leader takes the flag
+        self.assertTrue(race.checkered)
+        self.assertEqual(race.finished, {0})
+        race.update(self.frame(STATE_CHECKERED, [(11, 0.50), (10, 0.99)]))
+        race.update(self.frame(STATE_CHECKERED, [(11, 0.52), (11, 0.01)]))  # and now the backmarker has
+        self.assertEqual(race.finished, {0, 1})
+
+    def test_the_flag_out_as_the_leader_crosses(self):
+        from apex.core import RaceProgress
+        from apex.sources import STATE_CHECKERED, STATE_RACING
+        race = RaceProgress()
+        race.update(self.frame(STATE_RACING, [(9, 0.99), (9, 0.60)]))
+        race.update(self.frame(STATE_CHECKERED, [(10, 0.005), (9, 0.62)]))
+        self.assertTrue(race.checkered)
+        self.assertEqual(race.finished, {0})
+        # Its lap count and lap distance not changing on the same tick: still the leader's flag.
+        race = RaceProgress()
+        race.update(self.frame(STATE_RACING, [(9, 0.99), (9, 0.60)]))
+        race.update(self.frame(STATE_CHECKERED, [(10, 0.995), (9, 0.62)]))
+        self.assertEqual((race.checkered, race.finished), (True, {0}))
+
+    def test_the_tower_header_and_flags_wait_for_the_leader(self):
+        """In the app: the flag out with the leader mid-lap: no chequered
+        header, no finish flags, the header says the leader's on the last lap."""
+        from dataclasses import replace
+
+        from apex.sources import STATE_CHECKERED
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            src = MockSource(seed=4, clock=lambda: clock["t"])
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(1500):
+                clock["t"] += 0.1
+                app.tick()
+            real = src.read
+
+            def flag_out():  # iRacing's chequered state, the race going on
+                return replace(real(), session_state=STATE_CHECKERED)
+
+            src.read = flag_out
+            for _ in range(300):  # 30 s: cars cross the line, the leader (it's lapping) among them
+                clock["t"] += 0.1
+                app.tick()
+                ov = app.build_snapshot()["overlays"]
+                if app._race.checkered:
+                    break
+                self.assertIsNone(ov["since_chequered"])
+                self.assertFalse(any(e.get("finished") for e in ov["standings"]))
+                self.assertFalse(ov["progress"]["finished"])
+            self.assertTrue(app._race.checkered, "the leader crossed the line in 30 s")
+            lead = min(app.build_snapshot()["overlays"]["standings"], key=lambda e: e["pos"])
+            self.assertTrue(lead["finished"])
 
 
 class LeaderIntervalTests(unittest.TestCase):
@@ -477,6 +560,76 @@ class ColumnOpacityTests(unittest.TestCase):
             self.assertEqual((out[0]["pos"], out[0]["last_lap"]), (1, 88.5))
             # Live again: what's on screen.
             self.assertIs(app._hold_live(frame, rows), rows)
+
+    def test_a_long_replay_mid_race_keeps_the_timing_live(self):
+        """Minutes of replay during a race: iRacing's car data is the replay's,
+        but its results go on coming in live as cars cross the line. The
+        order, gaps and laps down follow the live race, timed at the line
+        (each crossing: the one before plus the lap just done), not frozen."""
+        from dataclasses import replace
+
+        clock = {"t": 0.0}
+        src = MockSource(seed=4, clock=lambda: clock["t"])
+
+        class Replayed:  # what iRacing gives during a replay: the replay's car data, live results
+            name = "replayed"
+            frame, info = None, (0, {})
+
+            def connect(self):
+                return True
+
+            def read(self):
+                return self.frame
+
+            def session_info(self):
+                return self.info
+
+        fake = Replayed()
+        with tempfile.TemporaryDirectory() as tmp:
+            live = App(src, dict(DEFAULTS), LeagueStore(tmp + "/a"))
+            app = App(fake, dict(DEFAULTS), LeagueStore(tmp + "/b"))
+            history, start, back = [], 1200, 600  # 0.1 s ticks: the replay 2 min in, 60 s back
+            for step in range(start + 2400):  # 4 minutes of replay (two laps and more)
+                clock["t"] += 0.1
+                live.tick()
+                f = live._frame
+                history.append(f)
+                if step >= start:
+                    old = history[step - back]
+                    f = replace(f, replay_frames_from_end=back * 6, replay_session_time=old.session_time,
+                                replay_session_num=f.session_num, lap=old.lap, laps_completed=old.laps_completed,
+                                pct=old.pct, position=old.position, last_lap=old.last_lap, surface=old.surface,
+                                on_pit=old.on_pit, f2_time=old.f2_time)
+                fake.frame, fake.info = f, src.session_info()
+                app.tick()
+                if step % 5 == 0:
+                    app.build_snapshot()  # as the app does, several times a second
+                if step == start + 300:
+                    early = {r["car_idx"]: r["gap"] for r in app.build_snapshot()["drivers"]}
+            rows = [r for r in app.build_snapshot()["drivers"] if r["pos"]]
+            pct_then = {r["car_idx"]: r["pct"] for r in rows}
+            # As the live race's own line crossings have it.
+            line = {r["car_idx"]: (r["laps_completed"], live.gaps.line_time(r["car_idx"], r["laps_completed"] + 1)) for r in rows}
+            expected = sorted(line, key=lambda c: (-line[c][0], line[c][1]))
+            self.assertEqual([r["car_idx"] for r in sorted(rows, key=lambda r: r["pos"])], expected)
+            lead = expected[0]
+            for r in rows[1:]:
+                if r["laps_down"] == 0 and r["gap"] is not None:
+                    done, t = line[r["car_idx"]]
+                    # (The demo's lap times step in tenths: it runs in 0.1 s ticks. iRacing's are to the 10,000th.)
+                    self.assertAlmostEqual(r["gap"], t - live.gaps.line_time(lead, done + 1), delta=0.15)
+            # Not frozen: the gaps have moved on since early in the replay, and
+            # the cars go on round the lap (the track map, the live timing website).
+            moved = [c for c, g in early.items() if g is not None and c in line and abs(g - next(r["gap"] for r in rows if r["car_idx"] == c) or 0) > 0.05]
+            self.assertGreater(len(moved), len(rows) // 2)
+            for _ in range(10):
+                clock["t"] += 0.1
+                live.tick()
+                fake.frame, fake.info = replace(live._frame, replay_frames_from_end=back * 6, replay_session_time=live._frame.session_time - 60,
+                                                replay_session_num=live._frame.session_num), src.session_info()
+                app.tick()
+            pct_now = {r["car_idx"]: r["pct"] for r in app.build_snapshot()["drivers"] if r["pos"]}
+            self.assertGreater(sum(1 for c in pct_now if pct_now[c] != pct_then.get(c)), len(rows) // 2)
 
     def test_crossing_the_line_doesnt_jump_a_lap(self):
         from apex.core import LineFilter

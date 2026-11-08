@@ -248,6 +248,8 @@ function render() {
   renderLive(s.spectate);
   renderLiveForm(s);
   if (s.data_delay_s != null && document.activeElement !== $("#data-delay")) $("#data-delay").value = s.data_delay_s;
+  const general = s.overlays && s.overlays.settings && s.overlays.settings.general;
+  if (general && document.activeElement !== $("#timing-decimals")) $("#timing-decimals").value = String(general.race_decimals);
   const league = s.league;
   const off = s.officials || { on: false, league: null };
   const lb = $("#league-badge");
@@ -697,7 +699,7 @@ function logStatus(s) {
     live: "● Logging live",
     replay: "● Logging the replay being played",
     paused: "❚❚ Logging paused: you're watching something already logged. It resumes past that point (Go live).",
-    replay_live: "● Replay on screen, the race goes on: incident points and places gained at the line are still logged live (iRacing sends only the replay's car data, so passes on track, offs and contact pick up again back live).",
+    replay_live: "● Replay on screen, the race goes on: the order, gaps and intervals stay the live race's, timed at the line as each car crosses it, and incident points and places gained at the line are still logged live (iRacing sends only the replay's car data, so passes on track, offs and contact pick up again back live).",
     waiting: "Waiting for the session to start…",
   }[s.detection] || "";
 }
@@ -996,6 +998,12 @@ $("#timing-names").addEventListener("change", (e) => {
     renderGridwalk(ui.snap);
   }
 });
+// Decimal places of gaps and intervals: the shared setting (General), for every widget too.
+$("#timing-decimals").addEventListener("change", (e) => {
+  e.target.blur();
+  cmd("overlay_settings", { overlay: "general", values: { race_decimals: +e.target.value } });
+});
+
 $("#timing-nick").addEventListener("change", (e) => {
   settings.showNick = e.target.checked;
   saveSettings();
@@ -1018,7 +1026,7 @@ $("#battle-color").addEventListener("input", (e) => {
 let hotkeyTarget = null;   // {kind: "cam" | "act", id, label} waiting for a key
 
 const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"],
-  ["battle", "Championship battle"], ["pits", "Pit stops"]];
+  ["battle", "Championship battle"], ["pits", "Pit stops"], ["duel", "On-track battle"], ["trackmap", "Track map"]];
 const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
 
 // What a key can do besides cameras: [[section, [[id, label, run]]]], from
@@ -1883,6 +1891,10 @@ function renderChampRules() {
         <label class="ov-field grow">Points (1st, 2nd, 3rd…)<input data-scheme="${i}" data-skey="points" value="${esc((sc.points || []).join(", "))}" placeholder="e.g. 15, 12, 10, 8"></label>
         ${hasOverall ? `<label class="ov-field grow">Overall points (empty: the same)<input data-scheme="${i}" data-skey="overall_points" value="${esc((sc.overall_points || []).join(", "))}"></label>` : ""}
         <button class="btn icon danger" data-scheme-remove="${i}" title="Remove this points system">✕</button>
+        <label class="check scheme-own"><input type="checkbox" data-scheme="${i}" data-skey="own_bonuses" ${sc.own_bonuses ? "checked" : ""}>
+          Its own bonus points <span class="hint">(instead of the bonus points below, for rounds on this system)</span></label>
+        ${sc.own_bonuses ? `<div class="scheme-bonuses">${champ.bonuses.map(([k, label]) => `<label class="ov-field">${esc(label)}
+          <input type="number" step="0.5" data-scheme="${i}" data-skey="bonus" data-sbonus="${k}" value="${(sc.bonuses || {})[k] || 0}"></label>`).join("")}</div>` : ""}
       </div>`).join("")}
       <button class="btn subtle" data-scheme-add>+ Add a points system</button></div>` : ""}
     <label class="ov-field">Fastest-lap bonus only in the top N (0 = anyone)
@@ -1977,8 +1989,19 @@ function champChange(e, final) {
   } else if (d.scheme != null && d.skey) {
     // A custom points system's name or points.
     const sc = c.rules.schemes[+d.scheme];
-    sc[d.skey] = d.skey === "name" ? el.value : el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
-    if (final && d.skey === "name") rerender = true;
+    if (d.skey === "own_bonuses") {
+      // Its own bonus points: starting from the usual ones.
+      if (!final) return;
+      sc.own_bonuses = el.checked;
+      if (el.checked && !sc.bonuses) sc.bonuses = { ...(c.rules.bonuses || {}) };
+      rerender = true;
+    } else if (d.skey === "bonus") {
+      sc.bonuses = sc.bonuses || {};
+      sc.bonuses[d.sbonus] = +el.value || 0;
+    } else {
+      sc[d.skey] = d.skey === "name" ? el.value : el.value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => !isNaN(n) && n >= 0);
+      if (final && d.skey === "name") rerender = true;
+    }
   } else if (d.meeting != null) {
     if (!final) return;
     for (const rd of meetingRounds(+d.meeting)) rd.event = el.value.trim();
@@ -2504,6 +2527,9 @@ const columnOpacity = (cols) => [["col_opacity_on", "A background of its own for
 // [title, fields]. A field is [key, label, kind, opts]; `iff(when, field)`
 // shows it only while when(values) holds (e.g. a timer for a flash that's on).
 const iff = (when, field) => Object.assign(field, { when });
+// A setting kept in another section (shared by several widgets) shown here too:
+// read from and saved to that section.
+const shared = (section, field) => Object.assign(field, { section });
 // Team logos' size, where there are team logos.
 const LOGO_SIZE = iff((v) => "logo_scale" in v, ["logo_scale", "Team logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]);
 const LOOK = ["Size & background", [["scale", "Size", "size"], LOGO_SIZE, ["bg", "Background", "background"]]];
@@ -2531,6 +2557,7 @@ const OVERLAY_FIELDS = {
       ["header_info", "Header shows", "select", [["auto", "Laps or time left (automatic)"], ["laps", "Lap x of y"],
         ["time", "Time left"], ["none", "Nothing"]]],
       ["replay_header", "Watching a replay: REPLAY in the header, on the accent colour", "bool"],
+      ["replay_hide_rows", "Watching a replay: hide the drivers, just the header saying REPLAY (they're back when it's live)", "bool"],
       ["show_series", "Series name (the league's name)", "bool"],
       ["show_track", "Track name", "bool"],
       ["title_race", "Race name (blank = RACE)", "text"],
@@ -2557,6 +2584,8 @@ const OVERLAY_FIELDS = {
     ]],
     ["Columns", [
       ["show_gap", "Gap to leader / pole", "bool"],
+      shared("general", ["race_decimals", "Decimal places: race gaps and intervals (every widget and the Timing Screen)", "number", { min: 0, max: 3 }]),
+      shared("general", ["qual_decimals", "Decimal places: qualifying gaps", "number", { min: 1, max: 3 }]),
       iff((v) => v.show_gap, ["leader_cell", "The leader's gap shows", "select", [["leader", "Leader"], ["lap", "Their current lap (Lap 12)"]]]),
       ["show_interval", "Interval to car ahead", "bool"],
       iff((v) => v.show_interval, ["leader_interval", "The leader's interval shows", "select", [["leader", "Leader"],
@@ -2647,6 +2676,7 @@ const OVERLAY_FIELDS = {
   sponsors: [
     ["Logos", [
       ["sponsor_ids", "Sponsors", "sponsors"],
+      ["anchor_id", "Always shown (the others rotate beside it)", "sponsor"],
       ["stay", "Stay up: not put away with everything else, and not dimmed or hidden under a board (in OBS, put this source above the boards)", "bool"],
       ["layout", "Show", "select", [["rotate", "One at a time"], ["row", "All together"]]],
       iff((v) => v.layout === "rotate", ["interval_s", "Seconds per logo", "number", { min: 1, max: 120, step: 1 }]),
@@ -2705,6 +2735,39 @@ const OVERLAY_FIELDS = {
       ["class_colors", "Class colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"]]],
     ]],
     OVERLAY_LOOK,
+  ],
+  duel: [
+    ["What it shows", [
+      ["auto", "Comes up by itself when the car on camera is in a battle, and goes when it isn't (untick: show and hide it yourself)", "bool"],
+      ["gap_s", "A battle: cars within this many seconds of each other", "number", { min: 0.1, max: 5, step: 0.1 }],
+      iff((v) => v.auto, ["hold_s", "Stays up after the battle breaks up (seconds)", "number", { min: 0, max: 30, step: 0.5 }]),
+      ["ahead", "Most cars ahead of the car on camera", "number", { min: 0, max: 4, step: 1 }],
+      ["behind", "Most cars behind it", "number", { min: 0, max: 4, step: 1 }],
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["title", "Heading (empty: Battle for P3)", "text"],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_number", "Car numbers (in the class colour)", "bool"],
+      ["show_team", "Team names", "bool"],
+      ["show_logo", "Team logos", "bool"],
+      ["show_interval", "Gap to the car ahead", "bool"],
+    ]],
+    OVERLAY_LOOK,
+  ],
+  trackmap: [
+    ["What it shows", [
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["map_size", "Size (px across)", "number", { min: 150, max: 1400, step: 10 }],
+      ["colors", "Each car's dot in", "select", [["main", "Their main class colour"], ["secondary", "Their secondary class colour"]]],
+      ["labels", "On the dots", "select", [["none", "Nothing"], ["number", "Car number"], ["position", "Position"]]],
+      ["dot_size", "Dot size (%)", "number", { min: 40, max: 250, step: 5 }],
+      ["camera", "The car on camera bigger, with a white ring", "bool"],
+      ["track_color", "Track colour", "color"],
+      ["track_width", "Track line thickness (%)", "number", { min: 40, max: 300, step: 10 }],
+      ["start_line", "Start / finish line", "bool"],
+    ]],
+    ["Size & position", [["scale", "Size", "size"], ...OFFSET]],
   ],
   battle: [
     ["What it shows", [
@@ -2865,7 +2928,7 @@ document.addEventListener("toggle", (e) => {
 // One setting, as its input. `section` is the overlay or board it belongs to.
 function fieldHtml(section, values, [k, label, kind, opts], s) {
   const v = values[k];
-  const attrs = `data-key="${k}" data-kind="${kind === "banner" || kind === "class" ? "select" : kind}"`;
+  const attrs = `data-key="${k}" data-kind="${kind === "banner" || kind === "class" || kind === "sponsor" ? "select" : kind}"`;
   if (kind === "note") return `<p class="hint ov-field wide">${esc(label)}</p>`;
   if (kind === "background") return backgroundFields(section, values);
   if (kind === "size") return sizeField(v, values);
@@ -2886,7 +2949,8 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
       data-swatch-img="/api/backgrounds/${encodeURIComponent(values.bg_image)}"></div></div>`;
   }
   if (kind === "class" && values.mode !== "class") return "";
-  const options = kind === "class" ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
+  const options = kind === "sponsor" ? [["", "None"], ...((s.league && s.league.sponsors) || []).map((sp) => [sp.id, sp.name || "Sponsor"])]
+    : kind === "class" ? [["", "Every class"], ...(s.classes || []).map((c) => [c.key, c.name])]
     : kind === "banner" ? [["", "The first of the right shape"], ...((s.league && s.league.banners) || []).map((b, i) =>
       [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
       : opts;
@@ -3085,7 +3149,10 @@ function settingsHtml(section, values, groups, s, allOpen = false) {
   return top + groups.map(([title, fields], i) => {
     const id = `${section}/${title}`;
     const open = sectionsOpen[id] ?? (allOpen || i === 0);
-    const body = fields.filter((f) => !f.when || f.when(values)).map((f) => fieldHtml(section, values, f, s)).join("");
+    const body = fields.filter((f) => !f.when || f.when(values)).map((f) => (f.section
+      ? fieldHtml(f.section, (s.overlays && s.overlays.settings && s.overlays.settings[f.section]) || {}, f, s)
+        .replace(/data-key="/, `data-section="${f.section}" data-key="`)
+      : fieldHtml(section, values, f, s))).join("");
     return `<details class="ov-group" data-group="${esc(id)}" ${open ? "open" : ""}><summary>${esc(title)}</summary>
       <div class="ov-grid">${body}</div></details>`;
   }).join("");
@@ -3113,7 +3180,7 @@ document.addEventListener("change", (e) => {
   const value = fieldValue(el);
   resetForms();
   el.blur();
-  cmd("overlay_settings", { overlay: form.dataset.overlay, values: { [el.dataset.key]: value } });
+  cmd("overlay_settings", { overlay: el.dataset.section || form.dataset.overlay, values: { [el.dataset.key]: value } });
 });
 
 // ---------------------------------------------------------------------------
@@ -3200,6 +3267,8 @@ const BOARD_FIELDS = {
     iff((v) => v.grid_reveal === "rows", ["grid_scroll", "Row by row, once the screen is full", "select",
       [["page", "A new page (the next set of drivers)"], ["scroll", "Scroll: the top row slides up and off as the next comes in"]]]),
     ["rows", "Drivers on screen at once (fewer: bigger name plates; the rest on the next pages)", "number", { min: 1, max: 64 }],
+    ["grid_fill", "Name plates grow to fill the page, however many drivers are on it", "bool"],
+    ["grid_size", "Name plate size (%; bigger or smaller by hand)", "number", { min: 50, max: 250, step: 5 }],
     ["name_format", "Names", "select", NAME_FORMATS],
     ["show_class_pos", "Place in class too (on the overall grid)", "bool"],
     ["show_number", "Car numbers", "bool"], ["show_team", "Team names", "bool"], ["show_logo", "Team logos", "bool"],
@@ -3381,6 +3450,10 @@ const WIDGETS = [
     about: "A card for a car in the pit lane: its time since the pit lane entry and its time in its pit box, ticking; after the exit line, its final times for a few seconds." },
   { key: "battle", name: "Championship battle", page: "battle",
     about: "A few drivers fighting for the championship: their place and points (as if the race ended now), what this race gives them and the points between them. Pick them on the Widgets tab." },
+  { key: "duel", name: "On-track battle", page: "duel",
+    about: "The car on camera and the cars just ahead and behind it, within the gap you pick: \"Battle for P3\", their names and the gaps between them. It can come up by itself whenever there's a battle." },
+  { key: "trackmap", name: "Track map", page: "trackmap",
+    about: "The track's outline with no background and a dot for every car where it is, in its main or secondary class colour (the live timing website's map)." },
   { key: "sponsors", name: "Sponsors", page: "sponsors",
     about: "The active league's sponsor logos, in a corner or along an edge: all together, or one at a time." },
   { key: "gridwalk", name: "Grid walk", page: "gridwalk",
@@ -3437,9 +3510,10 @@ function renderWidgets(s) {
 }
 
 function renderWidgetSettings(s) {
+  renderWsCopy(s);
   const w = WIDGET[wsWidget];
   const values = s.overlays.settings[w.key];
-  const key = JSON.stringify([w.key, values, (s.classes || []).map((c) => [c.key, c.name, c.color]),
+  const key = JSON.stringify([w.key, values, s.overlays.settings.general, (s.classes || []).map((c) => [c.key, c.name, c.color]),
     (s.league && s.league.sponsors) || [], (s.league && s.league.banners) || [], ((s.board_options || {}).groups || []).length]);
   if (key === wsKey || document.activeElement.closest("#ws-form")) return;
   const changed = !wsKey.startsWith(`["${w.key}"`);
@@ -3485,6 +3559,32 @@ function openWidgetSettings(key, section = null) {
   if (ui.snap && ui.snap.overlays) renderWidgetSettings(ui.snap);
   showPage("widget-settings");
 }
+
+// Each league's own widget settings: which league these are, and copying another's.
+let wsCopyKey = "";
+function renderWsCopy(s) {
+  const others = s.overlay_leagues || [];
+  const name = (s.league && s.league.name) || "";
+  const key = JSON.stringify([others, name]);
+  if (key === wsCopyKey) return;
+  wsCopyKey = key;
+  $("#ws-league-note").textContent = name
+    ? `These are ${name}'s widget settings: each league keeps its own, brought in as you pick it.`
+    : "Each league keeps its own widget settings, brought in as you pick it (these are for no league).";
+  $("#ws-copy").hidden = !others.length;
+  $("#ws-copy-league").innerHTML = `<option value="">Copy from another league…</option>${others.map((l) =>
+    `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("")}`;
+}
+$("#ws-copy-btn").addEventListener("click", async () => {
+  const id = $("#ws-copy-league").value;
+  if (!id) return toast("Pick the league to copy from", true);
+  const from = $("#ws-copy-league").selectedOptions[0].textContent;
+  const r = await choose("Copy widget settings", `Every widget's settings from ${from}, in place of these (what's on screen stays as it is).`,
+    [["copy", "Copy", true], ["cancel", "Cancel"]]);
+  if (!r || r.value !== "copy") return;
+  resetForms();
+  cmd("overlay_copy_league", { league: id }, `Widget settings copied from ${from}`);
+});
 
 $("#ws-list").addEventListener("click", (e) => {
   const item = e.target.closest("[data-ws]");

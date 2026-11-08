@@ -75,6 +75,29 @@ class GapTimer:
             for k in range(first, end + 1):
                 passed[k] = t0 + (k / n - p0) / (p - p0) * (now - t0)
 
+    def line_time(self, car, lap):
+        """When ``car`` crossed the line at ``lap`` (progress in whole laps: the
+        point at the start of that lap), or None if it wasn't timed."""
+        passed = self._passed.get(car)
+        k = int(lap) * self.points
+        if passed is None or not 0 <= k < len(passed):
+            return None
+        t = passed[k]
+        return t if t == t else None
+
+    def set_line_time(self, car, lap, t):
+        """Note when ``car`` crossed the line at ``lap`` without seeing it go
+        round: during a replay, from iRacing's results (its last lap time)."""
+        k = int(lap) * self.points
+        if k < 0:
+            return
+        passed = self._passed.get(car)
+        if passed is None:
+            passed = self._passed[car] = array("d")
+        if len(passed) <= k:
+            passed.extend([NONE] * (k + 1 - len(passed) + self.points))
+        passed[k] = t
+
     def gap(self, car, ahead, progress, now):
         """Seconds ``car`` is behind ``ahead``: how long ago ``ahead`` was where
         ``car`` is now (``progress``: laps + lap distance, at time ``now``). None if unknown.

@@ -88,10 +88,12 @@ function goFlash(ov, replay = false) {
   if (race && fin != null && fin >= 0) return ` chequered" style="--go-delay:-${Math.round(fin * 1000)}ms`;
   // The last lap (FINAL LAP, or LAST LAP once a timed race's clock has run
   // out): the header goes white, until the chequered flag takes over.
-  const pr = ov.progress;
-  if (race && !replay && pr && !pr.finished && (pr.time_up || (pr.laps_total && pr.lap >= pr.laps_total))) return " final-lap";
+  // The green flash at the start comes first: nothing at the green is the last lap.
   const style = ongoing(goAt, GO_FLASH_MS * GO_FLASHES);
-  return style ? ` go" style="--go-delay:${style.split(":")[1]}` : "";
+  if (style) return ` go" style="--go-delay:${style.split(":")[1]}`;
+  const pr = ov.progress;
+  if (race && !replay && pr && !pr.finished && (pr.time_up || (pr.laps_total && pr.laps_total > 1 && pr.lap >= pr.laps_total))) return " final-lap";
+  return "";
 }
 
 // The purple stopwatch by the fastest lap's holder: overall, or each class's in "by class".
@@ -548,7 +550,12 @@ function render() {
   }
   const session = snap.session || {};
   // Watching a replay (not live): REPLAY in the header, on the accent colour.
-  const replay = cfg.replay_header !== false && !!snap.replay && snap.replay.live === false;
+  // With replay_hide_rows, the drivers go (the live timing can't follow a
+  // replay) and just the header stays, saying REPLAY, until it's live again.
+  const inReplay = !!snap.replay && snap.replay.live === false;
+  const hideRows = inReplay && !!cfg.replay_hide_rows;
+  if (hideRows) body = "";
+  const replay = inReplay && (cfg.replay_header !== false || hideRows);
   const title = sessionTitle(snap, ov);
   const sub = headerSub(snap, cfg, false);
   const progress = progressText(ov);

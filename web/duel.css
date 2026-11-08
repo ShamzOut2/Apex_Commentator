@@ -1,0 +1,5 @@
+/* On-track battle: the championship battle's look (battle.css), the car on camera marked. */
+.duel { min-width: 400px; }
+.duel .bt-row.cam { box-shadow: inset 5px 0 0 var(--accent); background: rgba(255, 255, 255, calc(.06 * var(--bg-k, 1))); }
+.duel .bt-row .int { font-size: calc(20px * var(--fs, 1)); font-weight: 800; text-align: right; color: var(--muted); }
+.duel .bt-row.close .int { color: var(--ink); }

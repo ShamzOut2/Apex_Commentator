@@ -285,6 +285,19 @@ class ScoringTests(unittest.TestCase):
         norm = ch.normalise_rules(rules)
         self.assertEqual([sc["name"] for sc in norm["schemes"]], ["Sprint", "Feature"])
 
+    def test_a_custom_points_system_with_its_own_bonus_points(self):
+        schemes = [{"id": "sprint", "name": "Sprint", "points": [10, 8], "own_bonuses": True, "bonuses": {"win": 2}},
+                   {"id": "feature", "name": "Feature", "points": [50, 40]}]
+        rules = {"points": [25, 18], "bonuses": {"win": 5}, "custom_schemes": True, "schemes": schemes}
+        rounds = [{"id": "r1", "scheme": "sprint", "results": [res("a", 1, "pro"), res("b", 2, "pro")]},
+                  {"id": "r2", "scheme": "feature", "results": [res("a", 1, "pro"), res("b", 2, "pro")]},
+                  {"id": "r3", "results": [res("a", 1, "pro"), res("b", 2, "pro")]}]
+        rows = {(g["key"], r["driver"]): r for g in ch.standings(profile(rules, rounds))["groups"] for r in g["drivers"]}
+        # The sprint's own win bonus (2); the feature and the usual rounds: the usual one (5).
+        self.assertEqual(rows[("pro", "a")]["points"], (10 + 2) + (50 + 5) + (25 + 5))
+        norm = ch.normalise_rules(rules)["schemes"]
+        self.assertEqual((norm[0]["own_bonuses"], norm[0]["bonuses"]["win"], norm[1]["own_bonuses"]), (True, 2, False))
+
     def test_dropping_a_whole_race_meeting(self):
         rules = {"points": [10, 5], "drop_rounds": 1, "drop_meetings": True}
         rounds = [

@@ -92,6 +92,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/update":
             updater = getattr(self.app, "updater", None)
             return self._send_json(updater.status() if updater else {"enabled": False})
+        if path == "/api/trackmap":  # the track map widget's outline
+            return self._send_json(self.app.trackmap_points() or {"id": None, "points": None})
         if path == "/api/tracks":
             query = parse_qs(urlparse(self.path).query).get("q", [""])[0]
             if query:
@@ -176,6 +178,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_json({"ok": True, "league": league})
             if path.startswith("/api/leagues/") and path.endswith("/duplicate"):
                 league = self.app.leagues.duplicate(path.split("/")[3], body.get("name"))
+                if league and hasattr(self.app.overlays, "copy_league"):  # its widget settings too
+                    self.app.overlays.copy_league(path.split("/")[3], league.get("id"))
                 return self._send_json({"ok": True, "league": league})
             if path.startswith("/api/leagues/") and path.endswith("/remove-team-from"):
                 league = self.app.leagues.remove_team_from(path.split("/")[3], body.get("team"), str(body.get("league") or ""))

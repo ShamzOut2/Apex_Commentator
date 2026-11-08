@@ -155,6 +155,7 @@ DEFAULTS = {
         "name_width": 0,          # the driver name column's width in px (0 = automatic)
         "finish_flag": True,      # race: a waving chequered flag by each driver once they've taken the flag
         "replay_header": True,    # watching a replay: REPLAY in the header, on the accent colour
+        "replay_hide_rows": False,  # watching a replay: just the header (REPLAY), the drivers back when live
         "fl_flash": True,
         "fl_flash_s": 6.0,
         "fl_flash_classes": False,  # also a new fastest lap in each class, not just overall
@@ -170,6 +171,7 @@ DEFAULTS = {
         "background": True,       # a dark panel behind the logos
         "title": "",              # a small caption above them, e.g. "Partners"
         "sponsor_ids": "",        # which sponsors, comma separated ("" = all, "none" = none)
+        "anchor_id": "",          # a sponsor always shown (the others rotate beside it); "" = none
         # Stays up: not put away with everything else (hotkeys, Widgets tab)
         # and not dimmed or hidden while a board is up.
         "stay": False,
@@ -222,6 +224,38 @@ DEFAULTS = {
         "show_change": True,      # during a race: places gained / lost in the championship
         "gap_to": "first",        # the points gap to the first of them ("first") or to the driver above ("ahead")
         **BACKGROUND, **OFFSET,
+    },
+    # An on-track battle: the car on camera and the cars just ahead and behind it,
+    # within gap_s of each other (duel.html). "auto": it comes up by itself
+    # when there's a battle and goes when there isn't (while it's on); off: shown
+    # and hidden by hand, with the cars either side whatever the gap.
+    "duel": {**LOGO,
+        "visible": False,
+        "auto": True,
+        "gap_s": 1.0,             # seconds between cars for a battle
+        "ahead": 1, "behind": 1,  # most cars ahead of / behind the car on camera
+        "place": "top-right",
+        "title": "",              # its heading ("" = Battle for P3)
+        "name_format": "last_initial",
+        "show_number": True, "show_team": False, "show_logo": True,
+        "show_interval": True,    # the gap to the car ahead in the battle
+        "hold_s": 3.0,            # auto: stays up this long after the battle breaks up
+        **BACKGROUND, **OFFSET,
+    },
+    # A track map: the track's outline (no background) and a dot for every car
+    # where it is, in its class colour (trackmap.html).
+    "trackmap": {
+        "visible": False,
+        "place": "top-left",
+        "map_size": 420,          # px across (1920x1080)
+        "colors": "main",         # the dots: the drivers' "main" or "secondary" class colour
+        "labels": "none",         # on the dots: "none", "number" (car number) or "position"
+        "dot_size": 100,          # %
+        "track_color": "#ffffff",
+        "track_width": 100,       # %
+        "camera": True,           # the car on camera bigger, with a ring
+        "start_line": True,
+        "scale": 100, "font_scale": 100, **OFFSET,
     },
     # The grid walk's own settings are with the grid walk; this is just its background.
     "gridwalk": {**LOGO, **BACKGROUND, **OFFSET,
@@ -320,6 +354,8 @@ DEFAULTS = {
         # (A new key, so it starts on "auto" for everyone; grid_from was the old one.)
         "grid_source": "auto", "reverse_top": 0, "reverse_in_class": False,
         "grid_layout": "list",
+        "grid_fill": True,        # the name plates / rows grow to fill the page, however many are on it
+        "grid_size": 100,         # and bigger or smaller than that by hand (%)
         "grid_reveal": "all",     # "all": every driver at once; "rows": the front row, then a row a press (Next row)
         # Row by row, past the drivers on screen: a new "page", or "scroll" (the
         # top row slides up and off as the next one comes in).
@@ -351,7 +387,8 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1, 3), "board_dim": (0, 90), "sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
+LIMITS = {"gap_s": (0.1, 5.0), "ahead": (0, 4), "behind": (0, 4), "dot_size": (40, 250), "map_size": (150, 1400),
+          "track_width": (40, 300), "grid_size": (50, 250), "font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1, 3), "board_dim": (0, 90), "sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
           "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
@@ -360,7 +397,8 @@ CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "s
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS,
-           "map_label": ("abbr", "number", "name", "none")}
+           "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"),
+           "labels": ("none", "number", "position")}
 
 
 def normalise(settings):
@@ -383,7 +421,7 @@ def _value(key, value, default):
             lo, hi = LIMITS.get(key, (value, value))
             return min(max(value, lo), hi)
         value = str(value)[:600 if key in ("drivers", "class_keys") else 200]
-        if key.endswith("bg_color") or key.startswith("accent_") or key.startswith("invalid_"):
+        if key.endswith("bg_color") or key.startswith("accent_") or key.startswith("invalid_") or key == "track_color":
             return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
         if key == "bg_image":
             return value if re.fullmatch(r"(bg-[0-9a-f]{12}\.(png|jpg|webp|svg))?", value) else default
@@ -423,19 +461,99 @@ def column_order(value, known):
 
 
 class OverlaySettings:
+    """Every widget's settings, kept for each league: switching the active
+    league (use_league) saves the settings for the one before and brings in
+    the new one's. A league without settings of its own yet starts from the
+    ones in use. What's on screen (each widget's "visible") stays as it is
+    across a switch. The settings in use are in ``path``; every league's in
+    ``overlays-leagues.json`` beside it ({league id: settings}; "" = no league)."""
+
     def __init__(self, path=None):
         """``path`` None keeps settings in memory only."""
         self.path = Path(path) if path else None
         self._lock = threading.Lock()
         self.settings = normalise({})
+        self.league = None      # whose settings these are (None: not known yet)
+        self.leagues = {}       # league id -> its settings
+        self._leagues_path = self.path.with_name("overlays-leagues.json") if self.path else None
         if self.path:
             try:
                 self.settings = normalise(json.loads(self.path.read_text(encoding="utf-8")))
             except (OSError, ValueError):
                 pass
+            try:
+                saved = json.loads(self._leagues_path.read_text(encoding="utf-8"))
+                self.leagues = {str(k): v for k, v in saved.items() if isinstance(v, dict)} if isinstance(saved, dict) else {}
+            except (OSError, ValueError):
+                pass
 
     def get(self):
         return self.settings
+
+    @staticmethod
+    def _keep_on_screen(new, current):
+        """``new`` with what's on screen now (each widget's "visible")."""
+        out = {section: dict(values) for section, values in new.items()}
+        for section, values in current.items():
+            if "visible" in values and section in out:
+                out[section]["visible"] = values["visible"]
+        return out
+
+    def use_league(self, league_id):
+        """The widget settings for this league (id; None / "" = no league).
+        Returns True when they changed."""
+        league_id = str(league_id or "")
+        with self._lock:
+            if league_id == self.league:
+                return False
+            first = self.league is None
+            if not first:
+                self.leagues[self.league] = self.settings
+            saved = self.leagues.get(league_id)
+            self.league = league_id
+            if first or saved is None:
+                # The app starting (these are the league's, as last used), or a
+                # league with none of its own yet: it gets the ones in use.
+                self.leagues[league_id] = self.settings
+                self._save()
+                return False
+            self.settings = normalise(self._keep_on_screen(saved, self.settings))
+            self.leagues[league_id] = self.settings
+            self._save()
+        return True
+
+    def copy_from(self, league_id):
+        """Every widget's settings from another league's (what's on screen stays)."""
+        with self._lock:
+            saved = self.leagues.get(str(league_id or ""))
+            if saved is None:
+                raise ValueError("That league has no widget settings of its own yet")
+            self.settings = normalise(self._keep_on_screen(saved, self.settings))
+            if self.league is not None:
+                self.leagues[self.league] = self.settings
+            self._save()
+        return self.settings
+
+    def copy_league(self, from_id, to_id):
+        """A new league (a duplicate) starts with the same widget settings."""
+        with self._lock:
+            saved = self.leagues.get(str(from_id or ""))
+            if saved is not None and to_id:
+                self.leagues[str(to_id)] = saved
+                self._save()
+
+    def has_league(self, league_id):
+        return str(league_id or "") in self.leagues
+
+    def _save(self):
+        if not self.path:
+            return
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps(self.settings, indent=2), encoding="utf-8")
+            self._leagues_path.write_text(json.dumps(self.leagues), encoding="utf-8")
+        except OSError as e:
+            print(f"[apex] couldn't save overlay settings: {e}")
 
     def update(self, section, values):
         if section not in DEFAULTS:
@@ -443,11 +561,7 @@ class OverlaySettings:
         with self._lock:
             merged = {**self.settings, section: {**self.settings[section], **(values or {})}}
             self.settings = normalise(merged)
-            if not self.path:
-                return self.settings
-            try:
-                self.path.parent.mkdir(parents=True, exist_ok=True)
-                self.path.write_text(json.dumps(self.settings, indent=2), encoding="utf-8")
-            except OSError as e:
-                print(f"[apex] couldn't save overlay settings: {e}")
+            if self.league is not None:
+                self.leagues[self.league] = self.settings
+            self._save()
         return self.settings

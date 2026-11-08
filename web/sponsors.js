@@ -18,11 +18,14 @@ function chosen(logos, ids) {
 
 function render(snap) {
   const s = snap.overlays && snap.overlays.settings && snap.overlays.settings.sponsors;
-  const logos = chosen((snap.league && snap.league.sponsors) || [], s ? s.sponsor_ids : "");
-  const on = s && logos.length && (s.visible || PREVIEW);
+  const all = (snap.league && snap.league.sponsors) || [];
+  // The anchored sponsor: always there, the others rotating (or in a row) beside it.
+  const anchor = s && s.anchor_id ? all.find((l) => l.id === s.anchor_id) || null : null;
+  const logos = chosen(all, s ? s.sponsor_ids : "").filter((l) => !anchor || l.id !== anchor.id);
+  const on = s && (logos.length || anchor) && (s.visible || PREVIEW);
   setPanels(s);
   setSize(s);
-  const key = JSON.stringify([on, s, logos]);
+  const key = JSON.stringify([on, s, logos, anchor]);
   if (key === shownKey) return;
   shownKey = key;
   clearInterval(timer);
@@ -34,7 +37,7 @@ function render(snap) {
       setTimeout(() => { if (old.isConnected && old.classList.contains("out")) old.remove(); }, 420);
       return;
     }
-    stage.innerHTML = PREVIEW ? `<div class="sp-hint">${logos.length ? "" : "No sponsor logos in the active league"}</div>` : "";
+    stage.innerHTML = PREVIEW ? `<div class="sp-hint">${logos.length || anchor ? "" : "No sponsor logos in the active league"}</div>` : "";
     return;
   }
   const vertical = s.place === "left" || s.place === "right";
@@ -42,7 +45,8 @@ function render(snap) {
   stage.innerHTML = `<div class="sp ${esc(s.place)} ${vertical ? "vertical" : ""} ${rotate ? "rotate" : "row"} ${s.background || s.bg !== "default" ? "panel" : ""} ${s.visible ? "" : "hidden-preview"}"
       style="--sp-h:${s.size}px">
     ${s.title ? `<div class="sp-title">${esc(s.title)}</div>` : ""}
-    <div class="sp-logos">${logos.map((l, i) => `<img class="${i === 0 ? "on" : ""}" src="${esc(l.url)}" alt="${esc(l.name)}">`).join("")}</div>
+    <div class="sp-row">${anchor ? `<img class="sp-anchor" src="${esc(anchor.url)}" alt="${esc(anchor.name)}">` : ""}${logos.length
+      ? `<div class="sp-logos">${logos.map((l, i) => `<img class="${i === 0 ? "on" : ""}" src="${esc(l.url)}" alt="${esc(l.name)}">`).join("")}</div>` : ""}</div>
   </div>`;
   if (rotate) {
     const imgs = stage.querySelectorAll(".sp-logos img");
