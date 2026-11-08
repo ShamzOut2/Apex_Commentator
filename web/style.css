@@ -855,3 +855,10 @@ td.c-tyre { text-align: center; }
 /* Copy settings from another league: what to bring over. */
 .copy-parts { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
 .copy-parts .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+
+/* ---- Live timing tab: the spectators' page, its settings and a preview ---- */
+.live-tab { padding: 14px 16px; }
+.live-tab .live-card { margin: 0 0 12px; }
+.live-frame iframe { width: 1280px; height: 720px; right: auto; bottom: auto; transform-origin: 0 0; }
+.live-frame-off { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0;
+  color: var(--muted); font-size: 13px; text-align: center; padding: 20px; }

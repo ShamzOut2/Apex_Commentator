@@ -37,7 +37,7 @@ OBS dock.
   every driver, sent to iRacing as its admin commands.
 
 The tabs, in order: Home, Hotkeys, League builder, Teams, Championship, Race
-control, Timing Screen, Grid walk, Widgets and Widget Settings.
+control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 
 - **Widgets**: a dashboard of every overlay and board, a card each: big
   **Show** / **Hide** buttons (the card lights up while it's on screen), the
@@ -56,26 +56,19 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.5**
+**Coming in the next update**
 
-### Improvements
+### New features
 
-- Live timing website: cars move smoothly round the track map instead of
-  stepping and catching up, and the page does less work, so it keeps up
-  better on phones.
+- Live timing tab: the spectators' website has a tab of its own, with a live
+  preview and settings for its heading and colour, name style, team names and
+  logos, car numbers, which columns show, the Driver tracker and the map's
+  labels.
 
 ### Fixes
 
-- Timing tower and Timing Screen: the leader's interval shows "Leader"
-  instead of being blank. You can still pick their current lap or nothing in
-  the tower's Widget Settings.
-- Timing tower and Timing Screen: names no longer jump around at the end of
-  a race. Drivers who've finished keep their places as they park or leave,
-  and the cars still racing stay in order round them.
-
-- Timing tower: the fastest lap stopwatch stays with the driver who set it.
-  When they leave it no longer jumps to whoever is quickest of those still
-  there; only a quicker lap moves it.
+- Live timing website: when Cloudflare's tunnel can't start, the link no
+  longer shows Cloudflare's own address as if it were yours.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -166,8 +159,8 @@ the same thing without saying "go to car 23".
 
 ## Live timing website (for spectators)
 
-**Home → Live timing website → Put the live timing online** gives you a link
-to share (Copy). Anyone can open it in their browser, on a PC or a phone:
+**Live timing tab → Put the live timing online** gives you a link to share
+(Copy). Anyone can open it in their browser, on a PC or a phone:
 
 - **Leaderboard**: the running order (overall or a class), gaps, intervals,
   last and best laps, each sector of the lap on now (purple / green / yellow),
@@ -176,6 +169,18 @@ to share (Copy). Anyone can open it in their browser, on a PC or a phone:
   a **head to head** of any two drivers picked from it (the gap between them,
   their last laps, sector by sector, best laps and tyres), and the **track
   map** with every car on it.
+
+**Its look and what it shows** are set in the same tab, with a preview of the
+page beside them (the preview isn't counted as watching):
+
+- **Header**: the heading (empty: the league's name), the league logo, and
+  the colour of the top bar (also used for the drivers picked on the map).
+- **Drivers**: the name style (full name, A. Driver, Driver A., last name,
+  first name, 3 letters or nickname), team names, team logos and car numbers.
+- **Leaderboard columns**: places gained / lost, interval, last lap, best
+  lap, sector times, tyres, laps, and PIT / the finish flag.
+- **Driver tracker**: the tab itself on or off, and the labels on the track
+  map (3 letters, car number, name or none).
 
 The page always has the whole field: every driver with a class, whatever the
 timing tower is set to show (its rows, classes or overall / class mode).

@@ -11,6 +11,20 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- Live timing tab: the spectators' website has a tab of its own, with a live
+  preview and settings for its heading and colour, name style, team names and
+  logos, car numbers, which columns show, the Driver tracker and the map's
+  labels.
+
+### Fixes
+
+- Live timing website: when Cloudflare's tunnel can't start, the link no
+  longer shows Cloudflare's own address as if it were yours.
+
 ## v0.6.5
 
 ### Improvements

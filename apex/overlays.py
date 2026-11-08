@@ -51,6 +51,27 @@ DEFAULTS = {
     # board_dim percent) or "hide" (back when the board goes). Overlays set
     # to stay (the sponsors' stay) are never dimmed or hidden.
     "general": {"race_decimals": 1, "qual_decimals": 3, "board_overlays": "stay", "board_dim": 35},
+    # The live timing website for spectators (spectate.py, web/live/): how it looks
+    # and what it shows. Every driver with a class is on it, whatever the tower shows.
+    "live": {
+        "title": "",                # the page's heading ("" = the league's name)
+        "show_series_logo": True,   # the league logo in the header
+        "accent_color": "#e10600",  # the header bar (and the drivers picked)
+        "name_format": "full",
+        "show_team": True,          # the team name under each driver
+        "show_logo": True,          # the team logo by each driver
+        "show_number": True,        # the car number, in the class colour
+        "show_pos_change": True,    # race: places gained / lost
+        "show_interval": True,      # race: to the car ahead
+        "show_last": True,
+        "show_best": True,
+        "show_sectors": True,
+        "show_tyre": True,
+        "show_laps": True,
+        "show_status": True,        # PIT, and the finish flag
+        "tracker": True,            # the Driver tracker tab (head to head and the track map)
+        "map_label": "abbr",        # the map's car labels: "abbr" (3 letters), "number", "name" or "none"
+    },
     "standings": {**LOGO, 
         "visible": True,
         "mode": "overall",        # "overall" or "class"
@@ -338,7 +359,8 @@ CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "s
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
-           "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS}
+           "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS,
+           "map_label": ("abbr", "number", "name", "none")}
 
 
 def normalise(settings):

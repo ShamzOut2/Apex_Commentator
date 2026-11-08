@@ -65,11 +65,30 @@ function ink(hex) {
   const n = parseInt(m[1], 16);
   return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 > 150 ? "#111" : "#fff";
 }
+// How the page looks and what it shows (the app's Live timing tab).
+const look = () => (data && data.look) || {};
+const shows = (k) => look()[k] !== false;
+let accent = "#e10600";
+function applyLook() {
+  const want = /^#[0-9a-f]{6}$/i.test(look().accent || "") ? look().accent : "#e10600";
+  if (want !== accent || !document.documentElement.style.getPropertyValue("--red")) {
+    accent = want;
+    document.documentElement.style.setProperty("--red", accent);
+    document.documentElement.style.setProperty("--on-red", ink(accent));
+  }
+  const tracker = look().tracker !== false;
+  const tab = document.querySelector('.tab[data-tab="tracker"]');
+  if (tab.hidden === tracker) {
+    tab.hidden = !tracker;
+    if (!tracker && activeTab() === "tab-tracker") document.querySelector('.tab[data-tab="board"]').click();
+  }
+}
 const tyre = (t) => (t === "wet" ? '<span class="tyre wet" title="Wet tyres">W</span>' : t === "dry" ? '<span class="tyre dry" title="Dry tyres">D</span>' : "");
 
 // -- the header ------------------------------------------------------------------------
 
 function renderHeader() {
+  applyLook();
   $("#series").textContent = data.series || "Live timing";
   $("#session").textContent = [data.title, data.kind === "race" ? "" : ""].filter(Boolean).join(" · ") || "";
   const logo = $("#series-logo");
@@ -135,32 +154,29 @@ function sectorsHtml(car, n) {
 function renderBoard() {
   const cars = visible();
   const n = Math.max(1, (data.sectors || []).length);
-  const head = ["<th class=\"r\">Pos</th>", "<th></th>", "<th>#</th>", "<th>Driver</th>",
-    race() ? "<th class=\"r\">Gap</th><th class=\"r wide\">Int</th>" : "<th class=\"r\">Gap</th>",
-    "<th class=\"r wide\">Last</th>", "<th class=\"r\">Best</th>",
-    ...Array.from({ length: n }, (_, i) => `<th class="c wide">S${i + 1}</th>`),
-    "<th class=\"c\">Tyre</th>", "<th class=\"r wide\">Laps</th>", "<th class=\"c\"></th>"].join("");
-  if ($("#board-head").innerHTML !== head) $("#board-head").innerHTML = head;
   const first = race() ? cars[0] : cars.find((c) => c.best);
-  const rows = cars.map((c) => {
-    const cls = classOf(c);
-    const pos = classFilter === "all" ? c.pos : c.cpos;
-    const chg = race() && c.pc ? `<span class="chg ${c.pc > 0 ? "up" : "down"}">${c.pc > 0 ? "▲" : "▼"}${Math.abs(c.pc)}</span>` : "";
-    const status = c.fin ? '<span class="tag fin" title="Finished">F</span>' : c.pit ? '<span class="tag">PIT</span>' : "";
-    return `<tr class="${picks.includes(c.id) ? "pick" : ""} ${c.out && !c.fin ? "out" : ""}" data-car="${c.id}">
-      <td class="pos">${pos ?? ""}</td><td class="chg-cell">${chg}</td>
-      <td><span class="num" style="background:${esc(cls.color)};color:${ink(cls.color)}">${esc(c.num)}</span></td>
-      <td><div class="driver">${c.logo ? `<img src="${img(c.logo)}" alt="">` : ""}<div class="who"><span class="n">${esc(c.name)}</span>${c.team ? `<span class="t">${esc(c.team)}</span>` : ""}</div></div></td>
-      <td class="r time">${gapCell(c, first)}</td>
-      ${race() ? `<td class="r time muted wide">${c.out && !c.fin ? "" : c.int != null && c !== first ? `+${secs(c.int)}` : ""}</td>` : ""}
-      <td class="r time muted wide">${fmtLap(c.last)}</td>
-      <td class="r time ${c.fl ? "fl" : ""}">${fmtLap(c.best)}</td>
-      ${sectorsHtml(c, n)}
-      <td class="c">${tyre(c.tyre)}</td>
-      <td class="r muted wide">${c.laps ?? ""}</td>
-      <td class="c">${status}</td></tr>`;
-  });
-  patch($("#board-rows"), cars.map((c, i) => [String(c.id), rows[i]]));
+  // The columns switched on: [heading, the cell for a car].
+  const cols = [
+    ['<th class="r">Pos</th>', (c) => `<td class="pos">${(classFilter === "all" ? c.pos : c.cpos) ?? ""}</td>`],
+    race() && shows("pos_change") && ["<th></th>", (c) => `<td class="chg-cell">${c.pc ? `<span class="chg ${c.pc > 0 ? "up" : "down"}">${c.pc > 0 ? "▲" : "▼"}${Math.abs(c.pc)}</span>` : ""}</td>`],
+    shows("number") && ["<th>#</th>", (c) => {
+      const color = classOf(c).color;
+      return `<td><span class="num" style="background:${esc(color)};color:${ink(color)}">${esc(c.num)}</span></td>`;
+    }],
+    ["<th>Driver</th>", (c) => `<td><div class="driver ${shows("number") ? "" : "bar"}" style="--cls:${esc(classOf(c).color)}">${c.logo ? `<img src="${img(c.logo)}" alt="">` : ""}<div class="who"><span class="n">${esc(c.name)}</span>${c.team ? `<span class="t">${esc(c.team)}</span>` : ""}</div></div></td>`],
+    ['<th class="r">Gap</th>', (c) => `<td class="r time">${gapCell(c, first)}</td>`],
+    race() && shows("interval") && ['<th class="r wide">Int</th>', (c) => `<td class="r time muted wide">${c.out && !c.fin ? "" : c.int != null && c !== first ? `+${secs(c.int)}` : ""}</td>`],
+    shows("last") && ['<th class="r wide">Last</th>', (c) => `<td class="r time muted wide">${fmtLap(c.last)}</td>`],
+    shows("best") && ['<th class="r">Best</th>', (c) => `<td class="r time ${c.fl ? "fl" : ""}">${fmtLap(c.best)}</td>`],
+    shows("sectors") && [Array.from({ length: n }, (_, i) => `<th class="c wide">S${i + 1}</th>`).join(""), (c) => sectorsHtml(c, n)],
+    shows("tyre") && ['<th class="c">Tyre</th>', (c) => `<td class="c">${tyre(c.tyre)}</td>`],
+    shows("laps") && ['<th class="r wide">Laps</th>', (c) => `<td class="r muted wide">${c.laps ?? ""}</td>`],
+    shows("status") && ['<th class="c"></th>', (c) => `<td class="c">${c.fin ? '<span class="tag fin" title="Finished">F</span>' : c.pit ? '<span class="tag">PIT</span>' : ""}</td>`],
+  ].filter(Boolean);
+  const head = cols.map(([h]) => h).join("");
+  if ($("#board-head").innerHTML !== head) $("#board-head").innerHTML = head;
+  patch($("#board-rows"), cars.map((c) => [String(c.id),
+    `<tr class="${picks.includes(c.id) ? "pick" : ""} ${c.out && !c.fin ? "out" : ""}" data-car="${c.id}">${cols.map(([, cell]) => cell(c)).join("")}</tr>`]));
   if ($("#board-empty").hidden !== cars.length > 0) $("#board-empty").hidden = cars.length > 0;
 }
 
@@ -276,7 +292,7 @@ function fit() {
 const trackPic = document.createElement("canvas");
 let trackKey = "";
 function track(w, h, pad, dpr) {
-  const key = [w, h, dpr, mapId, mapVer, (data.sectors || []).join()].join("|");
+  const key = [w, h, dpr, mapId, mapVer, accent, (data.sectors || []).join()].join("|");
   if (key !== trackKey) {
     trackKey = key;
     trackPic.width = w;
@@ -326,11 +342,13 @@ function drawTrack(w, h, pad, dpr) {
   g.lineWidth = 10 * dpr;
   g.stroke();
   path();
-  g.strokeStyle = "rgba(225, 6, 0, .85)";
+  g.strokeStyle = accent;
+  g.globalAlpha = 0.85;
   g.lineWidth = 3 * dpr;
   g.setLineDash([14 * dpr, 6 * dpr]);
   g.stroke();
   g.setLineDash([]);
+  g.globalAlpha = 1;
   // Sector ends: short lines across the track, labelled; the start / finish line chequered.
   const across = (pct, len) => {
     const [x1, y1] = locate(pct - 0.002, w, h, pad), [x2, y2] = locate(pct + 0.002, w, h, pad);
@@ -373,7 +391,7 @@ function pill(text, x, y, dpr, strong) {
   g.roundRect(left, top, w, h, h / 2);
   g.fill();
   if (strong) {
-    g.fillStyle = "#e10600";
+    g.fillStyle = accent;
     g.fillRect(left + 9 * dpr, top + 7 * dpr, 4 * dpr, h - 14 * dpr);
   }
   g.fillStyle = strong ? "#111" : "#fff";
@@ -434,12 +452,14 @@ function drawMap() {
     m.shown = (((m.shown + wrap(ahead - m.shown) * ease) % 1) + 1) % 1;
     const [x, y] = locate(m.shown, w, h, pad);
     const picked = picks.includes(c.id);
-    const col = picked ? "#e10600" : classOf(c).color || "#fff";
+    const col = picked ? accent : classOf(c).color || "#fff";
     if (picked) {
-      g.fillStyle = "rgba(225, 6, 0, .35)";
+      g.fillStyle = accent;
+      g.globalAlpha = 0.35;
       g.beginPath();
       g.arc(x, y, 24 * dpr, 0, Math.PI * 2);
       g.fill();
+      g.globalAlpha = 1;
     }
     g.fillStyle = col;
     g.strokeStyle = "#0b0b10";
@@ -451,7 +471,9 @@ function drawMap() {
     if (c.pit) {
       g.globalAlpha = 0.5;
     }
-    pill(c.abbr, x, y, dpr, picked);
+    // Its label: as picked in the app (the drivers picked here always have theirs).
+    const label = picked ? c.abbr : { number: `#${c.num}`, name: c.name, none: "" }[look().label] ?? c.abbr;
+    if (label) pill(label, x, y, dpr, picked);
     g.globalAlpha = 1;
   }
 }
@@ -506,7 +528,7 @@ function render() {
 
 let heard = 0;
 function connect() {
-  const feed = new EventSource("feed");
+  const feed = new EventSource(/[?&]preview=1/.test(location.search) ? "feed?preview=1" : "feed");
   feed.onmessage = (m) => {
     heard = Date.now();
     data = JSON.parse(m.data);

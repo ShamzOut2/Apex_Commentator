@@ -1031,6 +1031,27 @@ class App:
         return name, nickname
 
     @staticmethod
+    def _format_name(name, nickname, fmt):
+        """A driver's name in one of the name styles (as the overlays' formatName)."""
+        full = str(name or "").strip()
+        parts = full.split()
+        first = parts[0] if len(parts) > 1 else ""
+        last = " ".join(parts[1:]) if len(parts) > 1 else full
+        if fmt == "initial_last":
+            return f"{first[0]}. {last}" if first else last
+        if fmt == "last_initial":
+            return f"{last} {first[0]}." if first else last
+        if fmt == "last":
+            return last
+        if fmt == "first":
+            return first or last
+        if fmt == "abbrev":
+            return "".join(ch for ch in last if ch.isalpha())[:3].upper()
+        if fmt == "nickname":
+            return str(nickname or "").strip() or full
+        return full
+
+    @staticmethod
     def _unclassed(league, entry, has_main):
         """Whether a driver is left off the overlays (and out of results): with
         a league that has classes (and "Hide drivers with no class" on), a
@@ -2879,6 +2900,7 @@ class App:
             return token
 
         classes = {c["key"]: c for c in snap.get("classes") or []}
+        cfg = self.overlays.get()["live"]
         # Every driver with a class, whatever the tower is set to show (its
         # rows, classes, overall / class): this is the spectators' own timing.
         entries = {r["car_idx"]: self._overlay_entry(r, league) for r in rows if not r.get("hidden")}
@@ -2886,8 +2908,9 @@ class App:
         cars, ahead = [], {}
         for r in placed:
             e = entries[r["car_idx"]]
-            name = e["name"] or strip_class_prefix(r["name"])
-            last_name = name.split()[-1] if name.split() else name
+            full = e["name"] or strip_class_prefix(r["name"])
+            name = self._format_name(full, e["nickname"], cfg["name_format"]) or full
+            last_name = full.split()[-1] if full.split() else full
             gap = r["gap"]
             interval = None
             prev = ahead.get("*")
@@ -2899,7 +2922,7 @@ class App:
             cars.append({
                 "id": r["car_idx"], "pos": r["pos"], "cpos": r["class_pos"], "pc": r.get("pos_change"),
                 "num": r["number"], "name": name, "abbr": re.sub(r"[^A-Za-z]", "", last_name)[:3].upper() or str(r["number"]),
-                "team": e["team"] or "", "logo": image(e["team_logo"]),
+                "team": (e["team"] or "") if cfg["show_team"] else "", "logo": image(e["team_logo"]) if cfg["show_logo"] else None,
                 "cls": r["class_key"], "gap": gap, "int": interval, "down": r.get("laps_down") or 0,
                 "lap": r["lap"], "laps": r["laps_completed"], "last": r["last_lap"], "best": r["best_lap"],
                 "pct": r["pct"], "pit": r["on_pit"], "out": not r["in_world"], "fin": e["finished"], "tyre": r.get("tyre"),
@@ -2916,7 +2939,11 @@ class App:
         track_id = self._session_meta.get("track_id")
         tmap = self.trackmaps.get(track_id) if self.trackmaps and track_id else None
         section = {
-            "series": (league or {}).get("name") or "", "logo": image(logo_url(league["id"], league.get("logo"))) if league else None,
+            "series": cfg["title"].strip() or (league or {}).get("name") or "",
+            "logo": image(logo_url(league["id"], league.get("logo"))) if league and cfg["show_series_logo"] else None,
+            # How the page looks and which columns it has (the Live timing tab's settings).
+            "look": {"accent": cfg["accent_color"], "label": cfg["map_label"], "tracker": cfg["tracker"],
+                     **{k[5:]: cfg[k] for k in cfg if k.startswith("show_") and k not in ("show_team", "show_logo", "show_series_logo")}},
             "title": title, "kind": "race" if is_race else ("qualify" if "qualify" in str(session.get("SessionType", "")).lower() else "practice"),
             "track": self._session_meta.get("track", ""), "config": self._session_meta.get("track_config", ""),
             "state": SESSION_STATES.get(frame.session_state, ""), "flag": flag,
