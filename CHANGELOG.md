@@ -21,6 +21,9 @@ How each version's entry is written:
 
 ### Fixes
 
+- Timing tower and Timing Screen: the leader's interval shows "Leader"
+  instead of being blank. You can still pick their current lap or nothing in
+  the tower's Widget Settings.
 - Timing tower and Timing Screen: names no longer jump around at the end of
   a race. Drivers who've finished keep their places as they park or leave,
   and the cars still racing stay in order round them.

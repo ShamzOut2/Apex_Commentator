@@ -528,7 +528,10 @@ function renderStandings(s) {
     let gap = "", int = "";
     if (race) {
       gap = v.gap == null ? "" : v.r === firstRow ? "Leader" : v.down ? `+${v.down} L` : fmtDelta(v.gap);
-      int = v.int == null ? "" : fmtDelta(v.int);
+      // The leader's interval: as the tower has it (Leader, their lap, or nothing).
+      const lead = (((s.overlays || {}).settings || {}).standings || {}).leader_interval || "leader";
+      int = v.r === firstRow ? (lead === "blank" ? "" : lead === "lap" && r.lap ? `Lap ${r.lap}` : "Leader")
+        : v.int == null ? "" : fmtDelta(v.int);
       // Gone from the session (or out of the car, not finished): OUT instead.
       if ((r.left || (!r.in_world && r.laps_completed > 0)) && v.r !== firstRow) gap = int = '<span class="tag out">OUT</span>';
     } else if (r.best_lap && isFinite(v.fastest)) {
@@ -2517,8 +2520,8 @@ const OVERLAY_FIELDS = {
       ["show_gap", "Gap to leader / pole", "bool"],
       iff((v) => v.show_gap, ["leader_cell", "The leader's gap shows", "select", [["leader", "Leader"], ["lap", "Their current lap (Lap 12)"]]]),
       ["show_interval", "Interval to car ahead", "bool"],
-      iff((v) => v.show_interval, ["interval_leader", "The leader's interval shows", "select", [["blank", "Nothing"], ["leader", "Leader"],
-        ["lap", "Their current lap (Lap 12)"]]]),
+      iff((v) => v.show_interval, ["leader_interval", "The leader's interval shows", "select", [["leader", "Leader"],
+        ["lap", "Their current lap (Lap 12)"], ["blank", "Nothing"]]]),
       iff((v) => v.show_interval, ["close_s", "Interval goes red within (s, 0 = off)", "number", { min: 0, max: 2, step: 0.05 }]),
       ["show_pos_change", "Places gained / lost (race)", "bool"],
       ["show_best_lap", "Best lap", "bool"],

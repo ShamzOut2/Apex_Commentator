@@ -341,6 +341,19 @@ class ColumnOrderTests(unittest.TestCase):
         self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap,tyre")
 
 
+class LeaderIntervalTests(unittest.TestCase):
+    def test_the_leaders_interval_shows_leader_unless_a_lap_was_picked(self):
+        from apex.overlays import normalise
+        # Saved before (nothing was the default, so everyone had it): Leader now.
+        self.assertEqual(normalise({"standings": {"interval_leader": "blank"}})["standings"]["leader_interval"], "leader")
+        self.assertEqual(normalise({})["standings"]["leader_interval"], "leader")
+        # Their lap, picked before: kept.
+        self.assertEqual(normalise({"standings": {"interval_leader": "lap"}})["standings"]["leader_interval"], "lap")
+        # Nothing, picked now: kept.
+        self.assertEqual(normalise({"standings": {"leader_interval": "blank"}})["standings"]["leader_interval"], "blank")
+        self.assertNotIn("interval_leader", normalise({"standings": {"interval_leader": "lap"}})["standings"])
+
+
 class TyreTests(unittest.TestCase):
     def test_tyres_from_the_events_compounds(self):
         import tempfile

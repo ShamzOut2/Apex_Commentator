@@ -66,6 +66,9 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 
 ### Fixes
 
+- Timing tower and Timing Screen: the leader's interval shows "Leader"
+  instead of being blank. You can still pick their current lap or nothing in
+  the tower's Widget Settings.
 - Timing tower and Timing Screen: names no longer jump around at the end of
   a race. Drivers who've finished keep their places as they park or leave,
   and the cars still racing stay in order round them.
@@ -557,9 +560,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     change it.
   - **The leader's gap shows**: "Leader", or the lap they're on ("Lap 12").
     By class, each class leader shows their own lap.
-  - **The leader's interval shows**: nothing (as before), "Leader", or the
-    lap they're on ("Lap 12"); everyone else shows the gap to the car ahead.
-    The full-screen version follows it too.
+  - **The leader's interval shows**: "Leader" (the usual), the lap they're
+    on ("Lap 12"), or nothing; everyone else shows the gap to the car ahead.
+    The full-screen version and the Timing Screen tab follow it too.
   - **Colours**: *Coloured bar by each driver*
     and *Car number background* can each be turned off. The background is in
     the driver's class colour; with it off, just the number shows. Both the
