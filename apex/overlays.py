@@ -84,7 +84,9 @@ DEFAULTS = {
         "show_stripe": True,      # the coloured bar by each driver (class or team colour)
         "show_col_labels": True,  # the column headings (GAP, INT...) under the header
         "leader_cell": "leader",  # race: the leader's gap box shows "leader" (Leader) or "lap" (the lap they're on)
-        "interval_leader": "blank",  # race: the leader's interval box: "blank", "leader" (Leader) or "lap" (the lap they're on)
+        # race: the leader's interval box: "leader" (Leader), "lap" (the lap they're on) or "blank".
+        # (Was "interval_leader", nothing by default: renamed so everyone gets Leader; a lap picked is kept.)
+        "leader_interval": "leader",
         "color_number": True,     # the car number on a background in the class colour (off: just the number)
         "show_gap": True,         # race: gap to the leader; qualifying: gap to pole
         "show_interval": False,   # to the car ahead
@@ -335,7 +337,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "interval_leader": ("blank", "leader", "lap"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
+           "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS}
 
 
@@ -344,6 +346,8 @@ def normalise(settings):
     settings = settings if isinstance(settings, dict) else {}
     for section, defaults in DEFAULTS.items():
         given = settings.get(section) if isinstance(settings.get(section), dict) else {}
+        if section == "standings" and "leader_interval" not in given and given.get("interval_leader") == "lap":
+            given = {**given, "leader_interval": "lap"}
         out[section] = {key: _value(key, given.get(key, default), default) for key, default in defaults.items()}
     return out
 

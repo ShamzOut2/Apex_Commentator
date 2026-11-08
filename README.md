@@ -56,15 +56,26 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.4**
+**v0.6.5**
+
+### Improvements
+
+- Live timing website: cars move smoothly round the track map instead of
+  stepping and catching up, and the page does less work, so it keeps up
+  better on phones.
 
 ### Fixes
 
-- On-screen overlays no longer cover the screen with a dark, blurred
-  background when Windows is in dark mode: Windows 11's frosted backdrop
-  (Mica) is switched off on them, and kept off. The colour key way of
-  making them see-through is only tried after you answer No to "Can you see
-  your screen through the overlay?".
+- Timing tower and Timing Screen: the leader's interval shows "Leader"
+  instead of being blank. You can still pick their current lap or nothing in
+  the tower's Widget Settings.
+- Timing tower and Timing Screen: names no longer jump around at the end of
+  a race. Drivers who've finished keep their places as they park or leave,
+  and the cars still racing stay in order round them.
+
+- Timing tower: the fastest lap stopwatch stays with the driver who set it.
+  When they leave it no longer jumps to whoever is quickest of those still
+  there; only a quicker lap moves it.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -165,6 +176,11 @@ to share (Copy). Anyone can open it in their browser, on a PC or a phone:
   a **head to head** of any two drivers picked from it (the gap between them,
   their last laps, sector by sector, best laps and tyres), and the **track
   map** with every car on it.
+
+The page always has the whole field: every driver with a class, whatever the
+timing tower is set to show (its rows, classes or overall / class mode).
+Drivers the league gives no class (a safety car, say) are left off, as on the
+overlays.
 
 The map is drawn the same way as Apex Overlays': a lap Apex Overlays
 recorded on this PC, else iRacing's own track map for the track (converted to
@@ -544,9 +560,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     change it.
   - **The leader's gap shows**: "Leader", or the lap they're on ("Lap 12").
     By class, each class leader shows their own lap.
-  - **The leader's interval shows**: nothing (as before), "Leader", or the
-    lap they're on ("Lap 12"); everyone else shows the gap to the car ahead.
-    The full-screen version follows it too.
+  - **The leader's interval shows**: "Leader" (the usual), the lap they're
+    on ("Lap 12"), or nothing; everyone else shows the gap to the car ahead.
+    The full-screen version and the Timing Screen tab follow it too.
   - **Colours**: *Coloured bar by each driver*
     and *Car number background* can each be turned off. The background is in
     the driver's class colour; with it off, just the number shows. Both the

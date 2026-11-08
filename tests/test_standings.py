@@ -24,6 +24,31 @@ class StandingsOverlayTests(unittest.TestCase):
             self.t += 0.1
             app.tick()
 
+    def test_fastest_lap_stays_with_its_driver_when_they_leave(self):
+        app, _ = self.app()
+        cfg = dict(app.overlays.get()["standings"], fl_flash=False)
+        frame = type("F", (), {"session_num": 0})()
+
+        def entry(idx, best, cls="A"):
+            return {"car_idx": idx, "number": str(idx), "class_key": cls, "best_lap": best, "laps_completed": 5,
+                    "name": f"D{idx}", "paint": None}
+
+        field = [entry(1, 80.0), entry(2, 81.0), entry(3, 82.0)]
+        app._fastest_laps(field, True, cfg, frame)
+        self.assertEqual([e["car_idx"] for e in field if e["fastest"]], [1])
+        # Car 1 leaves: nobody else gets the stopwatch (car 2's lap is slower).
+        field = [entry(2, 81.0), entry(3, 82.0)]
+        app._fastest_laps(field, True, cfg, frame)
+        self.assertEqual([e["car_idx"] for e in field if e["fastest"] or e["class_fastest"]], [])
+        # On the full screen, which keeps those who left: still car 1's.
+        kept = [entry(1, 80.0), *field]
+        app._mark_fastest(kept)
+        self.assertEqual([e["car_idx"] for e in kept if e["fastest"]], [1])
+        # Someone goes quicker: theirs now.
+        field = [entry(2, 79.5), entry(3, 82.0)]
+        app._fastest_laps(field, True, cfg, frame)
+        self.assertEqual([e["car_idx"] for e in field if e["fastest"]], [2])
+
     def test_fastest_lap_holders_and_flash(self):
         app, source = self.app()
         app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash_s": 1000}})
@@ -316,6 +341,19 @@ class ColumnOrderTests(unittest.TestCase):
         self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap,tyre")
 
 
+class LeaderIntervalTests(unittest.TestCase):
+    def test_the_leaders_interval_shows_leader_unless_a_lap_was_picked(self):
+        from apex.overlays import normalise
+        # Saved before (nothing was the default, so everyone had it): Leader now.
+        self.assertEqual(normalise({"standings": {"interval_leader": "blank"}})["standings"]["leader_interval"], "leader")
+        self.assertEqual(normalise({})["standings"]["leader_interval"], "leader")
+        # Their lap, picked before: kept.
+        self.assertEqual(normalise({"standings": {"interval_leader": "lap"}})["standings"]["leader_interval"], "lap")
+        # Nothing, picked now: kept.
+        self.assertEqual(normalise({"standings": {"leader_interval": "blank"}})["standings"]["leader_interval"], "blank")
+        self.assertNotIn("interval_leader", normalise({"standings": {"interval_leader": "lap"}})["standings"])
+
+
 class TyreTests(unittest.TestCase):
     def test_tyres_from_the_events_compounds(self):
         import tempfile
@@ -503,6 +541,47 @@ class ColumnOpacityTests(unittest.TestCase):
             e = after[car["car_idx"]]
             self.assertEqual((e["pos"], e["in_world"], e["on_pit"], e.get("left", False)), (car["pos"], True, False, False))
             self.assertEqual(e["gap"], car["gap"])
+
+    def test_after_the_flag_no_one_jumps_round_a_finisher(self):
+        """Once a car has finished, the cars ahead of it stay ahead and those
+        behind stay behind: whatever the finishers do on their cool-down lap
+        (park, garage), the order around them doesn't flicker."""
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            src = MockSource(seed=4, clock=lambda: clock["t"], race_laps=2)
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            while not app._race.checkered and clock["t"] < 2000:
+                clock["t"] += 0.1
+                app.tick()
+            fixed = {}  # (finisher, other) -> finisher ahead?
+            flips = []
+            parked = set()
+            for step in range(6000):
+                clock["t"] += 0.1
+                app.tick()
+                done = app._race.finished
+                if step % 5:
+                    continue
+                kept = app._finishers.get(app._frame.session_num, {})
+                for idx in list(kept)[:4]:  # the first finishers park and go to the garage
+                    if idx not in parked:
+                        parked.add(idx)
+                        src.out[idx - 1] = True
+                order = [r["car_idx"] for r in sorted((r for r in app.build_snapshot()["drivers"] if r["pos"] and not r["hidden"]),
+                                                         key=lambda r: r["pos"])]
+                place = {c: i for i, c in enumerate(order)}
+                for x in done:
+                    for y in order:
+                        if x == y or x not in place:
+                            continue
+                        ahead = place[x] < place[y]
+                        was = fixed.setdefault((x, y), ahead)
+                        if was != ahead:
+                            flips.append((step, x, y))
+                            fixed[(x, y)] = ahead
+                if len(done) >= len(order) - 1:
+                    break
+            self.assertEqual(flips, [])
 
     def test_a_car_towed_past_the_line_isnt_given_a_lap(self):
         from apex.core import LineFilter

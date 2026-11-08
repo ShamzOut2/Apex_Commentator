@@ -264,9 +264,9 @@ function leaderText(e, cfg, setting = cfg.leader_cell) {
   return setting === "lap" && e.lap ? `Lap ${e.lap}` : "Leader";
 }
 
-// The same for the interval column (interval_leader): nothing, "Leader" or their lap.
+// The same for the interval column (leader_interval): "Leader", their lap or nothing.
 function leaderInterval(e, cfg) {
-  return cfg.interval_leader === "blank" ? "" : `<span class="lead">${leaderText(e, cfg, cfg.interval_leader)}</span>`;
+  return cfg.leader_interval === "blank" ? "" : `<span class="lead">${leaderText(e, cfg, cfg.leader_interval)}</span>`;
 }
 
 // The bar's class colour: the car number's (class_colors), unless it has its own.
@@ -656,8 +656,8 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     gap: () => (race
       ? `<td class="r ${first ? "lead" : ""}">${first ? leaderText(e, cfg) : isOut(e) ? OUT_TAG : down ? `+${down} L` : gap != null ? `+${secs(gap)}` : ""}</td>`
       : `<td class="r">${first ? "" : gap != null ? `+${secs(gap, false)}` : ""}</td>`),
-    interval: () => (first && race && cfg.interval_leader !== "blank"
-      ? `<td class="r lead">${leaderText(e, cfg, cfg.interval_leader)}</td>`
+    interval: () => (first && race && cfg.leader_interval !== "blank"
+      ? `<td class="r lead">${leaderText(e, cfg, cfg.leader_interval)}</td>`
       : `<td class="r muted">${!first && race && isOut(e) ? OUT_TAG : !first && interval != null ? `+${secs(interval, race)}` : ""}</td>`),
     last_lap: () => `<td class="r muted">${fmtLap(e.last_lap)}</td>`,
     best_lap: () => (race ? `<td class="r">${fmtLap(e.best_lap)}</td>` : `<td class="r lead">${fmtLap(e.best)}</td>`),

@@ -11,6 +11,27 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.6.5
+
+### Improvements
+
+- Live timing website: cars move smoothly round the track map instead of
+  stepping and catching up, and the page does less work, so it keeps up
+  better on phones.
+
+### Fixes
+
+- Timing tower and Timing Screen: the leader's interval shows "Leader"
+  instead of being blank. You can still pick their current lap or nothing in
+  the tower's Widget Settings.
+- Timing tower and Timing Screen: names no longer jump around at the end of
+  a race. Drivers who've finished keep their places as they park or leave,
+  and the cars still racing stay in order round them.
+
+- Timing tower: the fastest lap stopwatch stays with the driver who set it.
+  When they leave it no longer jumps to whoever is quickest of those still
+  there; only a quicker lap moves it.
+
 ## v0.6.4
 
 ### Fixes

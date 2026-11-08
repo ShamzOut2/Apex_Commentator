@@ -9,9 +9,35 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 let data = null;            // the live timing now
 let mapPoints = null;       // the track outline (lap fraction i / n -> [x, y], 0..1), or null: the round map
 let mapId;                  // which outline that is
+let mapVer = 0;             // bumped each time the outline changes (the track is drawn again)
 const picks = [];           // the two drivers compared (car ids)
 let classFilter = "all";
-const shown = new Map();    // car id -> {pct, target, at} for smooth movement on the map
+const motion = new Map();   // car id -> how it moves on the map (see noteMotion)
+
+// Only the rows that changed are rebuilt, and moved where they now are:
+// the rest of the list (logos and all) stays as it is.
+function patch(parent, items) {
+  const old = new Map(Array.from(parent.children, (el) => [el.dataset.key, el]));
+  let prev = null;
+  for (const [key, html] of items) {
+    let el = old.get(key);
+    if (!el || el._html !== html) {
+      const t = document.createElement("template");
+      t.innerHTML = html.trim();
+      const fresh = t.content.firstElementChild;
+      fresh.dataset.key = key;
+      fresh._html = html;
+      if (el) el.replaceWith(fresh);
+      el = fresh;
+    }
+    old.delete(key);
+    const at = prev ? prev.nextElementSibling : parent.firstElementChild;
+    if (at !== el) parent.insertBefore(el, at);
+    prev = el;
+  }
+  old.forEach((el) => el.remove());
+}
+const activeTab = () => document.querySelector(".panel.active")?.id;
 
 // -- formatting --------------------------------------------------------------------
 
@@ -133,13 +159,9 @@ function renderBoard() {
       <td class="c">${tyre(c.tyre)}</td>
       <td class="r muted wide">${c.laps ?? ""}</td>
       <td class="c">${status}</td></tr>`;
-  }).join("");
-  const body = $("#board-rows");
-  if (body.dataset.html !== rows) {
-    body.dataset.html = rows;
-    body.innerHTML = rows;
-  }
-  $("#board-empty").hidden = cars.length > 0;
+  });
+  patch($("#board-rows"), cars.map((c, i) => [String(c.id), rows[i]]));
+  if ($("#board-empty").hidden !== cars.length > 0) $("#board-empty").hidden = cars.length > 0;
 }
 
 $("#board-rows").addEventListener("click", (e) => {
@@ -176,16 +198,13 @@ document.querySelector(".h2h-head").addEventListener("click", (e) => {
 });
 
 function renderPositions() {
-  const html = visible().map((c) => {
+  const cars = visible();
+  const html = cars.map((c) => {
     const pos = classFilter === "all" ? c.pos : c.cpos;
     const mark = race() && c.pc ? `<span class="pn ${c.pc > 0 ? "up" : "down"}">${c.pc > 0 ? "↑" : "↓"}</span>` : `<span class="pn">${pos ?? ""}</span>`;
     return `<li class="${picks.includes(c.id) ? "pick" : ""} ${c.out && !c.fin ? "out" : ""}" data-car="${c.id}" title="${esc(c.name)}">${mark}<span class="bar" style="background:${esc(classOf(c).color)}"></span><span class="ab">${esc(c.abbr)}</span></li>`;
-  }).join("");
-  const list = $("#pos-list");
-  if (list.dataset.html !== html) {
-    list.dataset.html = html;
-    list.innerHTML = html;
-  }
+  });
+  patch($("#pos-list"), cars.map((c, i) => [String(c.id), html[i]]));
 }
 
 function renderH2H() {
@@ -233,17 +252,41 @@ function renderH2H() {
 // -- the track map -----------------------------------------------------------------------
 
 const canvas = $("#map");
-const g = canvas.getContext("2d");
+const screen = canvas.getContext("2d");
+let g = screen;
 
+// The canvas size: kept up to date as it changes (not measured every frame,
+// which made the browser lay the page out again each time).
+let box = { w: 0, h: 0 };
+new ResizeObserver(([e]) => {
+  box = { w: e.contentRect.width, h: e.contentRect.height };
+}).observe(canvas);
 function fit() {
-  const r = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+  const w = Math.max(1, Math.round(box.w * dpr)), h = Math.max(1, Math.round(box.h * dpr));
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
   }
   return dpr;
+}
+
+// The track (outline, sectors, the line) drawn once into a picture of its
+// own, and again only when the size, the outline or the sectors change.
+const trackPic = document.createElement("canvas");
+let trackKey = "";
+function track(w, h, pad, dpr) {
+  const key = [w, h, dpr, mapId, mapVer, (data.sectors || []).join()].join("|");
+  if (key !== trackKey) {
+    trackKey = key;
+    trackPic.width = w;
+    trackPic.height = h;
+    const main = g;
+    g = trackPic.getContext("2d");
+    drawTrack(w, h, pad, dpr);
+    g = main;
+  }
+  return trackPic;
 }
 
 // Where a lap fraction is on screen: on the outline (point i at i / n), else on a circle.
@@ -340,27 +383,56 @@ function pill(text, x, y, dpr, strong) {
   g.textBaseline = "alphabetic";
 }
 
+// Smooth movement: the feed says where each car was a few times a second
+// (and over the internet those updates arrive unevenly). Between them each
+// car carries on at the speed it's been going, timed by the session clock
+// the figures were taken at rather than when they got here, and the small
+// misses are eased out rather than jumped.
+const wrap = (d) => d - Math.round(d);
+function noteMotion() {
+  const clock = data.clock, now = performance.now();
+  const seen = new Set();
+  for (const c of data.cars || []) {
+    if (c.pct == null || (c.out && !c.fin)) continue;
+    seen.add(c.id);
+    const m = motion.get(c.id);
+    if (!m || clock == null || m.clock == null || clock < m.clock || clock - m.clock > 5) {
+      motion.set(c.id, { pct: c.pct, clock, at: now, speed: 0, shown: m ? m.shown : c.pct });
+      continue;
+    }
+    const dt = clock - m.clock;
+    if (dt <= 0) continue;
+    const d = wrap(c.pct - m.pct);
+    // A big jump (to the pits, towed, a replay): no speed from it.
+    const speed = d < -0.002 || d / dt > 0.15 ? 0 : Math.max(0, d / dt);
+    m.speed = m.speed ? m.speed * 0.4 + speed * 0.6 : speed;
+    if (Math.abs(wrap(c.pct - m.shown)) > 0.1) m.shown = c.pct;  // far off (to the pits, a replay): straight there
+    Object.assign(m, { pct: c.pct, clock, at: now });
+  }
+  for (const id of motion.keys()) if (!seen.has(id)) motion.delete(id);
+}
+
+let lastFrame = performance.now();
 function drawMap() {
   requestAnimationFrame(drawMap);
-  if (!data || !$("#tab-tracker").classList.contains("active")) return;
+  const now = performance.now();
+  const step = Math.min(100, now - lastFrame);
+  lastFrame = now;
+  if (!data || activeTab() !== "tab-tracker") return;
   const dpr = fit();
   const w = canvas.width, h = canvas.height;
   const pad = 60 * dpr;
   g.clearRect(0, 0, w, h);
-  drawTrack(w, h, pad, dpr);
-  const now = performance.now();
-  const cars = visible().filter((c) => c.pct != null && !(c.out && !c.fin));
-  // Cars glide to where they are now rather than jumping a step at each update.
+  g.drawImage(track(w, h, pad, dpr), 0, 0);
+  const cars = visible().filter((c) => motion.has(c.id));
   const order = cars.filter((c) => !picks.includes(c.id)).concat(cars.filter((c) => picks.includes(c.id)));
+  const ease = 1 - Math.exp(-step / 120);
   for (const c of order) {
-    const s = shown.get(c.id) || { pct: c.pct };
-    let d = c.pct - s.pct;
-    if (d < -0.5) d += 1;
-    if (d > 0.5) d -= 1;
-    s.pct = (((s.pct + d * Math.min(1, (now - (s.at || now)) / 250 + 0.08)) % 1) + 1) % 1;
-    s.at = now;
-    shown.set(c.id, s);
-    const [x, y] = locate(s.pct, w, h, pad);
+    const m = motion.get(c.id);
+    // Where it should be now: on from the last figure, at most a second on.
+    const ahead = m.pct + m.speed * Math.min(1, (now - m.at) / 1000);
+    m.shown = (((m.shown + wrap(ahead - m.shown) * ease) % 1) + 1) % 1;
+    const [x, y] = locate(m.shown, w, h, pad);
     const picked = picks.includes(c.id);
     const col = picked ? "#e10600" : classOf(c).color || "#fff";
     if (picked) {
@@ -382,7 +454,6 @@ function drawMap() {
     pill(c.abbr, x, y, dpr, picked);
     g.globalAlpha = 1;
   }
-  $("#map-note").textContent = mapPoints ? "" : "Track outline not available: cars shown round the lap";
 }
 requestAnimationFrame(drawMap);
 
@@ -391,13 +462,16 @@ async function loadMap() {
   mapId = data.map;
   if (!mapId) {
     mapPoints = null;
+    mapVer++;
     return;
   }
   try {
     const m = await (await fetch("map.json", { cache: "no-store" })).json();
     mapPoints = m && Array.isArray(m.points) && m.points.length > 50 ? m.points : null;
+    mapVer++;
   } catch (e) {
     mapPoints = null;
+    mapVer++;
     mapId = undefined; // try again on the next update
   }
 }
@@ -407,6 +481,7 @@ async function loadMap() {
 document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === t));
   document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("active", p.id === `tab-${t.dataset.tab}`));
+  render();
   try {
     localStorage.setItem("apex.live.tab", t.dataset.tab);
   } catch (e) { /* not kept */ }
@@ -416,12 +491,17 @@ try {
   if (tab) document.querySelector(`.tab[data-tab="${tab}"]`)?.click();
 } catch (e) { /* first tab */ }
 
+// Only the tab on screen is brought up to date (the other when it's opened).
 function render() {
   if (!data) return;
   renderHeader();
-  renderBoard();
-  renderPositions();
-  renderH2H();
+  if (activeTab() === "tab-board") renderBoard();
+  else {
+    renderPositions();
+    renderH2H();
+  }
+  const note = mapPoints ? "" : "Track outline not available: cars shown round the lap";
+  if ($("#map-note").textContent !== note) $("#map-note").textContent = note;
 }
 
 let heard = 0;
@@ -430,6 +510,7 @@ function connect() {
   feed.onmessage = (m) => {
     heard = Date.now();
     data = JSON.parse(m.data);
+    noteMotion();
     $("#offline").hidden = true;
     $(".live").classList.toggle("off", !data || !data.cars);
     loadMap();
