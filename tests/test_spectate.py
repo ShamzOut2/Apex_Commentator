@@ -46,6 +46,15 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(get(self.base + path)[0], 404, path)
         self.assertEqual(get(self.base + "/feed", "POST")[0], 405)  # nothing can be changed from outside
 
+    def test_framed_only_by_this_pcs_app_and_its_preview_isnt_a_viewer(self):
+        headers = get(self.base + "/")[1]
+        self.assertIn("frame-ancestors http://localhost:* http://127.0.0.1:*;", headers["Content-Security-Policy"])
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        self.server.update({"title": "Race", "cars": []})
+        with opener.open(self.base + "/feed?preview=1", timeout=5) as r:
+            r.readline()
+            self.assertEqual(self.server.viewers, 0)
+
     def test_on_this_pc_only(self):
         self.assertEqual(self.server.host, "127.0.0.1")
         self.assertEqual(self.server._server.server_address[0], "127.0.0.1")
@@ -105,9 +114,40 @@ class FeedTests(unittest.TestCase):
             self.assertIsInstance(snap["spectator"]["clock"], float)
 
 
+    def test_the_live_timing_tabs_settings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=1.5)
+            app.spectators = spectate.SpectatorServer(WEB_DIR / "live", port=0)
+            before = app.build_snapshot()["spectator"]
+            self.assertTrue(any(c["team"] for c in before["cars"]))
+            app.overlays.update("live", {"name_format": "last", "show_team": False, "show_logo": False, "title": "Sunday Cup",
+                                         "show_sectors": False, "tracker": False, "map_label": "number", "accent_color": "#1E90FF"})
+            app._spec = (0.0, None, None, {})
+            section = app.build_snapshot()["spectator"]
+            self.assertEqual(section["series"], "Sunday Cup")
+            first = {c["id"]: c for c in before["cars"]}
+            for car in section["cars"]:
+                self.assertEqual((car["team"], car["logo"]), ("", None))
+                self.assertEqual(car["name"], first[car["id"]]["name"].split()[-1])
+            look = section["look"]
+            self.assertEqual((look["accent"], look["label"], look["tracker"], look["sectors"], look["tyre"]),
+                             ("#1e90ff", "number", False, False, True))
+
+    def test_name_styles(self):
+        from apex.core import App
+        f = App._format_name
+        self.assertEqual(f("Max Verstappen", "", "initial_last"), "M. Verstappen")
+        self.assertEqual(f("Max Verstappen", "", "last_initial"), "Verstappen M.")
+        self.assertEqual(f("Max Verstappen", "", "abbrev"), "VER")
+        self.assertEqual(f("Max Verstappen", "Mad Max", "nickname"), "Mad Max")
+        self.assertEqual(f("Max Verstappen", "", "nickname"), "Max Verstappen")
+        self.assertEqual(f("Senna", "", "first"), "Senna")
+
+
 class TunnelTests(unittest.TestCase):
     def test_quick_link_from_cloudflared(self):
         lines = [b"INF Requesting new quick Tunnel on trycloudflare.com...\n",
+                 b'ERR failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel": EOF\n',
                  b"INF |  https://brave-fox-123.trycloudflare.com  |\n"]
 
         class Proc:
@@ -134,6 +174,12 @@ class TunnelTests(unittest.TestCase):
             self.assertEqual(Proc.cmd[Proc.cmd.index("--url") + 1], "http://127.0.0.1:8191/")
             t.stop()
             self.assertEqual(t.public_url, "")
+
+    def test_cloudflares_own_address_in_an_error_isnt_the_link(self):
+        line = 'ERR failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel": EOF'
+        self.assertIsNone(spectate.QUICK_URL.search(line))
+        self.assertEqual(spectate.QUICK_URL.search("INF |  https://brave-fox-123.trycloudflare.com  |").group(0),
+                         "https://brave-fox-123.trycloudflare.com")
 
     def test_own_tunnel_with_a_token(self):
         t = spectate.Tunnel("bin", "http://127.0.0.1:8191/", token="abc", public_url="https://timing.example.com")

@@ -41,14 +41,15 @@ PAGE_FILES = {"/": ("index.html", "text/html; charset=utf-8"), "/index.html": ("
               "/favicon.png": ("favicon.png", "image/png")}
 IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml"}
 # Every answer: no caching, no address of the page passed on, not framed by
-# other sites, and the page may only load from itself.
+# other sites (only by the app on this PC, for its preview: a page served from
+# the viewer's own machine), and the page may only load from itself.
 SECURITY_HEADERS = {
     "Cache-Control": "no-store",
     "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
     "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-                               "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+                               "script-src 'self'; connect-src 'self'; frame-ancestors http://localhost:* http://127.0.0.1:*; "
+                               "base-uri 'none'; form-action 'none'",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
 }
 
@@ -140,7 +141,8 @@ class SpectatorServer:
                 if path == "/map.json":
                     return self._send(HTTPStatus.OK, "application/json", spec._map[1])
                 if path == "/feed":
-                    return spec._serve_feed(self)
+                    # The app's own preview isn't counted as watching.
+                    return spec._serve_feed(self, counted="preview=1" not in self.path)
                 m = re.fullmatch(r"/img/([0-9a-f]{16})", path)
                 if m:
                     file = spec._images.get(m.group(1))
@@ -164,11 +166,11 @@ class SpectatorServer:
         threading.Thread(target=self._server.serve_forever, name="spectators", daemon=True).start()
         return self
 
-    def _serve_feed(self, handler):
+    def _serve_feed(self, handler, counted=True):
         handler._head(HTTPStatus.OK, "text/event-stream")
         handler.connection.settimeout(60)
         with self._changed:
-            self.viewers += 1
+            self.viewers += counted
         version = -1
         try:
             while not self._stopped.is_set():
@@ -183,7 +185,7 @@ class SpectatorServer:
             pass
         finally:
             with self._changed:
-                self.viewers -= 1
+                self.viewers -= counted
 
     def stop(self):
         self._stopped.set()
@@ -199,7 +201,9 @@ class SpectatorServer:
 # -- the public address: a Cloudflare tunnel ----------------------------------------------
 
 RELEASES = "https://github.com/cloudflare/cloudflared/releases/latest/download/"
-QUICK_URL = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
+# A quick tunnel's link (words with hyphens: brave-fox-123); not Cloudflare's own
+# api.trycloudflare.com, which its error messages name when a tunnel can't start.
+QUICK_URL = re.compile(r"https://(?!api\.)[a-z0-9]+(?:-[a-z0-9]+)+\.trycloudflare\.com\b")
 
 
 def cloudflared_asset():
@@ -278,6 +282,8 @@ class Tunnel:
             try:
                 exe = self.binary()
                 self.status, self.error = "starting", ""
+                if not self.token:
+                    self.public_url = ""  # a quick tunnel started again has a new link
                 flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
                 self._proc = self._popen(self._command(exe), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                          stdin=subprocess.DEVNULL, creationflags=flags)

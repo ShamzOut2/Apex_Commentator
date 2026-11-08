@@ -181,8 +181,33 @@ function renderLive(sp) {
     : `${sp.viewers} watching. ${sp.own ? "Your own address." : "A free link: it changes each time it's turned on."} On this PC only: ${sp.local}`;
   $("#live-detail").classList.toggle("bad", sp.status === "error");
   $("#live-state").textContent = sp.on ? (sp.status === "online" ? `online · ${sp.viewers} watching` : sp.status) : "";
+  $("#home-live-state").textContent = $("#live-state").textContent || "off";
+  // The preview: the page itself, from this PC (not counted as watching).
+  const frame = $("#live-frame");
+  const src = sp.on && sp.local ? `${sp.local}?preview=1` : "";
+  if ((frame.getAttribute("src") || "") !== src) {
+    if (src) frame.setAttribute("src", src);
+    else frame.removeAttribute("src");
+  }
+  $("#live-frame-off").hidden = !!src;
   if (document.activeElement !== $("#live-address") && !$("#live-address").dataset.typed) $("#live-address").value = sp.address || "";
   $("#live-token").placeholder = sp.own ? "Tunnel token (saved: paste a new one to change it)" : "Tunnel token";
+}
+
+// The preview is drawn at a PC's size (1280 x 720) and shrunk to fit.
+new ResizeObserver(([e]) => {
+  $("#live-frame").style.transform = `scale(${e.contentRect.width / 1280})`;
+}).observe(document.querySelector(".live-frame"));
+
+// The page's settings (the "live" settings, saved like a widget's).
+let liveFormKey = "";
+function renderLiveForm(s) {
+  const values = s.overlays && s.overlays.settings && s.overlays.settings.live;
+  if (!values) return;
+  const key = JSON.stringify(values);
+  if (key === liveFormKey || document.activeElement.closest("#live-form")) return;
+  liveFormKey = key;
+  $("#live-form").innerHTML = settingsHtml("live", values, LIVE_FIELDS, s, true);
 }
 
 $("#live-on").addEventListener("change", (e) => {
@@ -221,6 +246,7 @@ function render() {
   $("#status-dot").classList.toggle("on", !!s.connected);
   renderDual(s.remote);
   renderLive(s.spectate);
+  renderLiveForm(s);
   if (s.data_delay_s != null && document.activeElement !== $("#data-delay")) $("#data-delay").value = s.data_delay_s;
   const league = s.league;
   const off = s.officials || { on: false, league: null };
@@ -2455,6 +2481,19 @@ async function importRound(rd) {
 
 const NAME_FORMATS = [["full", "Full name"], ["initial_last", "A. Driver"], ["last_initial", "Driver A."],
   ["last", "Last name"], ["first", "First name"], ["abbrev", "DRI (3 letters)"], ["nickname", "Nickname"]];
+
+// The Live timing tab: how the spectators' page looks and what it shows.
+const LIVE_FIELDS = [
+  ["Header", [["title", "Heading (empty: the league's name)", "text"], ["show_series_logo", "League logo", "bool"],
+    ["accent_color", "Colour of the top bar (and the drivers picked)", "color"]]],
+  ["Drivers", [["name_format", "Names", "select", NAME_FORMATS], ["show_team", "Team name under each driver", "bool"],
+    ["show_logo", "Team logo by each driver", "bool"], ["show_number", "Car number (in the class colour)", "bool"]]],
+  ["Leaderboard columns", [["show_pos_change", "Places gained / lost (race)", "bool"], ["show_interval", "Interval to the car ahead (race)", "bool"],
+    ["show_last", "Last lap", "bool"], ["show_best", "Best lap", "bool"], ["show_sectors", "Sector times of the lap on now", "bool"],
+    ["show_tyre", "Tyres", "bool"], ["show_laps", "Laps", "bool"], ["show_status", "PIT and the finish flag", "bool"]]],
+  ["Driver tracker", [["tracker", "The Driver tracker tab (head to head and track map)", "bool"],
+    ["map_label", "Labels on the track map", "select", [["abbr", "3 letters (VER)"], ["number", "Car number"], ["name", "Name (as above)"], ["none", "None"]]]]],
+];
 
 // Custom opacity per column: a tick box, then a slider for each column.
 const columnOpacity = (cols) => [["col_opacity_on", "A background of its own for each column", "bool"],
