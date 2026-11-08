@@ -56,15 +56,13 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.4**
+**Coming in the next update**
 
 ### Fixes
 
-- On-screen overlays no longer cover the screen with a dark, blurred
-  background when Windows is in dark mode: Windows 11's frosted backdrop
-  (Mica) is switched off on them, and kept off. The colour key way of
-  making them see-through is only tried after you answer No to "Can you see
-  your screen through the overlay?".
+- Timing tower: the fastest lap stopwatch stays with the driver who set it.
+  When they leave it no longer jumps to whoever is quickest of those still
+  there; only a quicker lap moves it.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

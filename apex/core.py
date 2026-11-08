@@ -291,7 +291,7 @@ class App:
         self._chequered = {}       # race session number -> session time the chequered flag came out
         self._last_state = {}      # session number -> session state last seen
         self._fl_session = None    # fastest laps: the session they're for,
-        self._fl_records = {}      # "overall" / class key -> fastest lap so far,
+        self._fl_records = {}      # "overall" / class key -> (fastest lap so far, (car_idx, number) who set it),
         self._fl_flash = None      # and the newest one, for the flash on stream
         self._logged_until = {}    # session num -> race time logged so far
         self._seen_in = {}         # session num -> car_idx -> (place, standings entry): the full-screen timing's leavers
@@ -1091,30 +1091,33 @@ class App:
             t = e.get("best_lap") if is_race else e.get("best")
             return t if t and t > 0 else None
 
-        holders = {}
+        # The session's fastest laps, overall and in each class, and who set
+        # them (car and number): they stay theirs when they leave, rather than
+        # passing to whoever is quickest of those still there; only a quicker
+        # lap takes them.
+        session = (frame.session_num, is_race)
+        fresh = session != self._fl_session
+        if fresh:
+            self._fl_session, self._fl_flash, self._fl_records = session, None, {}
+        records = self._fl_records
+        beaten = []
         for e in standings:
             t = lap_of(e)
-            e["fastest"] = e["class_fastest"] = False
             if t is None:
                 continue
+            who = (e["car_idx"], e["number"])
             for scope in ("overall", e["class_key"]):
-                if scope not in holders or t < holders[scope][0] - 1e-4:
-                    holders[scope] = (t, e)
-        for scope, (_, e) in holders.items():
-            e["fastest" if scope == "overall" else "class_fastest"] = True
+                rec = records.get(scope)
+                if rec is None or t < rec[0] - 1e-4:
+                    records[scope] = (t, who)
+                    if not fresh:  # a new record (or the session's first lap) since it started
+                        beaten.append((scope, t, e))
+        self._mark_fastest(standings)
         # A new fastest lap: flash it. Laps already set when the session (or
         # the app) started aren't news.
-        session = (frame.session_num, is_race)
-        if session != self._fl_session:
-            self._fl_session, self._fl_flash = session, None
-            self._fl_records = {scope: t for scope, (t, _) in holders.items()}
         flashed = False
         # Overall first: a lap that's fastest overall and in its class flashes once, as overall.
-        for scope, (t, e) in sorted(holders.items(), key=lambda kv: kv[0] != "overall"):
-            record = self._fl_records.get(scope)
-            if record is not None and t >= record - 1e-4:
-                continue
-            self._fl_records[scope] = t
+        for scope, t, e in sorted(beaten, key=lambda b: b[0] != "overall"):
             # A race's first laps (standing or rolling start) aren't real fastest laps yet.
             opening = is_race and (e.get("laps_completed") or 0) <= 1
             if not flashed and not opening and (scope == "overall" or cfg["fl_flash_classes"]):
@@ -1129,6 +1132,17 @@ class App:
         if not (cfg["fl_flash"] and f and time.monotonic() - f["at"] < cfg["fl_flash_s"]):
             return None
         return {k: v for k, v in f.items() if k != "at"} | {"id": f"{f['car_idx']}:{f['lap_time']}"}
+
+    def _mark_fastest(self, entries):
+        """``fastest`` / ``class_fastest`` on the entries of the drivers who hold
+        the session's fastest laps (see _fastest_laps): nobody else, even when
+        the holder isn't among them."""
+        records = self._fl_records
+        overall = (records.get("overall") or (None, None))[1]
+        for e in entries:
+            who = (e["car_idx"], e["number"])
+            e["fastest"] = who == overall
+            e["class_fastest"] = who == (records.get(e["class_key"]) or (None, None))[1]
 
     def _session_progress(self, frame, session, rows, mode="auto"):
         """Laps or time left, for the standings header.
@@ -1214,9 +1228,7 @@ class App:
             screen = None  # nobody's left: the same as the tower's (not sent twice)
         if screen is not None:
             _rank(screen, is_race)
-            marks = {e["car_idx"]: (e["fastest"], e["class_fastest"]) for e in standings}
-            for e in screen:
-                e["fastest"], e["class_fastest"] = marks.get(e["car_idx"], (False, False))
+            self._mark_fastest(screen)  # those who've left too: their fastest lap is still theirs
         # The lap tracker: qualifying only (or practice, if asked).
         lap_cfg = settings["laps"]
         active = "qualify" in kind or (lap_cfg["practice"] and "practice" in kind)
@@ -2854,11 +2866,7 @@ class App:
         classes = {c["key"]: c for c in snap.get("classes") or []}
         entries = {r["car_idx"]: self._overlay_entry(r, league) for r in rows if not r.get("hidden")}
         placed = sorted((r for r in rows if r["car_idx"] in entries), key=lambda r: (r["pos"] is None, r["pos"] or 0))
-        cars, ahead, best = [], {}, {}
-        for r in placed:
-            if r["best_lap"]:
-                for k in ("*", r["class_key"]):
-                    best[k] = min(best.get(k, r["best_lap"]), r["best_lap"])
+        cars, ahead = [], {}
         for r in placed:
             e = entries[r["car_idx"]]
             name = e["name"] or strip_class_prefix(r["name"])
@@ -2878,8 +2886,9 @@ class App:
                 "cls": r["class_key"], "gap": gap, "int": interval, "down": r.get("laps_down") or 0,
                 "lap": r["lap"], "laps": r["laps_completed"], "last": r["last_lap"], "best": r["best_lap"],
                 "pct": r["pct"], "pit": r["on_pit"], "out": not r["in_world"], "fin": e["finished"], "tyre": r.get("tyre"),
-                "fl": bool(r["best_lap"]) and r["best_lap"] == best.get("*"),
-                "cfl": bool(r["best_lap"]) and r["best_lap"] == best.get(r["class_key"]),
+                # The session's fastest laps (the tower's): still theirs if they leave.
+                "fl": (r["car_idx"], r["number"]) == (self._fl_records.get("overall") or (None, None))[1],
+                "cfl": (r["car_idx"], r["number"]) == (self._fl_records.get(r["class_key"]) or (None, None))[1],
                 "sec": lap.get("last"), "now": lap.get("now"), "bsec": lap.get("best_sectors") or [],
             })
         progress = snap.get("overlays", {}).get("progress") or {}

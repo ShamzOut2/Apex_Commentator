@@ -11,6 +11,14 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- Timing tower: the fastest lap stopwatch stays with the driver who set it.
+  When they leave it no longer jumps to whoever is quickest of those still
+  there; only a quicker lap moves it.
+
 ## v0.6.4
 
 ### Fixes

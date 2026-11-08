@@ -24,6 +24,31 @@ class StandingsOverlayTests(unittest.TestCase):
             self.t += 0.1
             app.tick()
 
+    def test_fastest_lap_stays_with_its_driver_when_they_leave(self):
+        app, _ = self.app()
+        cfg = dict(app.overlays.get()["standings"], fl_flash=False)
+        frame = type("F", (), {"session_num": 0})()
+
+        def entry(idx, best, cls="A"):
+            return {"car_idx": idx, "number": str(idx), "class_key": cls, "best_lap": best, "laps_completed": 5,
+                    "name": f"D{idx}", "paint": None}
+
+        field = [entry(1, 80.0), entry(2, 81.0), entry(3, 82.0)]
+        app._fastest_laps(field, True, cfg, frame)
+        self.assertEqual([e["car_idx"] for e in field if e["fastest"]], [1])
+        # Car 1 leaves: nobody else gets the stopwatch (car 2's lap is slower).
+        field = [entry(2, 81.0), entry(3, 82.0)]
+        app._fastest_laps(field, True, cfg, frame)
+        self.assertEqual([e["car_idx"] for e in field if e["fastest"] or e["class_fastest"]], [])
+        # On the full screen, which keeps those who left: still car 1's.
+        kept = [entry(1, 80.0), *field]
+        app._mark_fastest(kept)
+        self.assertEqual([e["car_idx"] for e in kept if e["fastest"]], [1])
+        # Someone goes quicker: theirs now.
+        field = [entry(2, 79.5), entry(3, 82.0)]
+        app._fastest_laps(field, True, cfg, frame)
+        self.assertEqual([e["car_idx"] for e in field if e["fastest"]], [2])
+
     def test_fastest_lap_holders_and_flash(self):
         app, source = self.app()
         app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash_s": 1000}})
