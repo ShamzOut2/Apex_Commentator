@@ -83,6 +83,28 @@
           </button>
         </div>
         <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>; the other overlays and boards are in the Widgets tab (their links and every setting in Widget Settings).</p>
+        <div class="updates-card" id="live-card">
+          <div class="row"><h3>Live timing website</h3><span id="live-state" class="upd-status"></span></div>
+          <p class="hint">A live timing page for spectators to open in their browser: the running order, a head-to-head of
+            any two drivers and the track map. It goes out through Cloudflare, so nobody sees this PC's address, and it
+            only shows the timing (names, numbers, teams, classes, places, gaps, laps, sectors, tyres): never iRacing
+            IDs, notes or anything about you, and nothing on it can change the app.</p>
+          <label class="check"><input type="checkbox" id="live-on"> Put the live timing online</label>
+          <div id="live-info" hidden>
+            <p class="obs-url"><span class="obs-kind">Link</span><code id="live-url">Starting…</code>
+              <button class="btn subtle" data-copy="live-url">Copy</button>
+              <a class="btn subtle" id="live-open" href="#" target="_blank" rel="noopener noreferrer">Open ↗</a></p>
+            <p class="hint" id="live-detail"></p>
+          </div>
+          <details class="live-own"><summary>Your own address (optional)</summary>
+            <p class="hint">The free link changes each time. For one that stays the same, set up a Cloudflare tunnel
+              (Cloudflare dashboard → Zero Trust → Networks → Tunnels) pointing at <code>http://localhost:<span id="live-port">8191</span></code>,
+              and paste its token here with the address it has. Leave it empty for the free link.</p>
+            <div class="row"><input id="live-token" type="password" placeholder="Tunnel token" autocomplete="off" aria-label="Cloudflare tunnel token">
+              <input id="live-address" placeholder="https://timing.example.com" aria-label="Its address">
+              <button class="btn" id="live-save">Save</button></div>
+          </details>
+        </div>
         <div class="updates-card" id="dual-card">
           <div class="row"><h3>Dual commentary</h3><span id="dual-state" class="upd-status"></span></div>
           <p class="hint">Commentating with someone on another PC: one app's camera followed by the other's. Whatever

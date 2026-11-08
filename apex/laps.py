@@ -398,6 +398,23 @@ class LapTracker:
 
     # -- output -------------------------------------------------------------
 
+    def summary(self, idx):
+        """A car's laps for the spectators' live timing: its last lap
+        (time, sectors and their colours against the class bests, valid),
+        its best sector times, and the sectors done on the lap it's on."""
+        car = self.cars.get(idx)
+        if car is None:
+            return None
+        last = car.last
+        lap = car.lap
+        return {
+            "last": {"time": last["lap_time"], "sectors": list(last["sectors"]), "valid": last["valid"],
+                     "colours": [c.get("session") for c in last["colours"]]} if last else None,
+            "best_sectors": list(car.best_sectors),
+            "now": {"sectors": list(lap["splits"]), "valid": lap["valid"],
+                    "colours": [c.get("session") for c in lap["colours"]]} if lap else None,
+        }
+
     def best(self, idx):
         car = self.cars.get(idx)
         return car.best_lap if car else None
