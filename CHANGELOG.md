@@ -13,7 +13,31 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- On-track battle widget: the car on camera and the cars just ahead and
+  behind it ("Battle for P3"), with their gaps. It can come up by itself
+  whenever the car on camera is in a battle.
+- Track map widget: the track's outline with no background and a dot for
+  every car, in its main or secondary class colour.
+- Each league keeps its own widget settings, brought in as you pick the
+  league. You can copy another league's in Widget Settings.
+- Sponsors: one sponsor can stay on screen while the others rotate beside it.
+- Custom points systems can have their own bonus points.
+- Timing tower: an option to hide the drivers during a replay, leaving just
+  the header saying REPLAY.
+
+### Improvements
+
+- Starting grid board: the name plates grow to fill the page however many
+  drivers are on it, and can be made bigger or smaller by hand.
+- Decimal places of gaps and intervals can be set from the timing tower's
+  settings and the Timing Screen's toolbar too.
+
 ### Fixes
+
+- Timing tower: the header no longer flashes white (last lap) as a timed race
+  goes green.
 
 - Timing tower: in a timed race, the chequered header and the finish flags by
   drivers' names wait for the leader to cross the line. A car further back

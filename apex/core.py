@@ -307,6 +307,7 @@ class App:
         self._qual_times = {}      # car_idx -> best qualifying lap
         self._green = {}           # race session number -> session time it went green (the header flash)
         self._chequered = {}       # race session number -> session time the chequered flag came out
+        self._clock_ran = set()    # timed race sessions whose clock was seen running down (LAST LAP needs it)
         self._last_state = {}      # session number -> session state last seen
         self._fl_session = None    # fastest laps: the session they're for,
         self._fl_records = {}      # "overall" / class key -> (fastest lap so far, (car_idx, number) who set it),
@@ -658,12 +659,20 @@ class App:
 
     # -- snapshot -----------------------------------------------------------
 
+    def _overlay_league(self):
+        """Every widget's settings follow the league picked (its own set,
+        brought in as it's picked; officials mode keeps the league's)."""
+        if hasattr(self.overlays, "use_league") and self.overlays.use_league(self.leagues.active_id):
+            self._apply_sectors()
+
     def build_snapshot(self):
+        self._overlay_league()
         with self._lock:
             frame = self._frame
             if frame is None:
                 return {
                     "connected": False, "source": self.source.name, "league": self._league_summary(), "officials": self._officials_state(),
+                    "overlay_leagues": self._overlay_leagues(),
                     "version": __version__,
                     "gridwalk": self._gridwalk_snapshot({}, self.leagues.active(), None),
                 "results_auto": {"on": bool(self.settings.get("auto_results", True)), "saved": self._results_notice},
@@ -823,6 +832,7 @@ class App:
                 "remote": self._remote_snapshot(),
                 "spectate": self._spectate_snapshot(),
                 "league": self._league_summary(), "officials": self._officials_state(),
+                "overlay_leagues": self._overlay_leagues(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
                 **self._boards(active_league, lambda source, kind="results": self._board_data(
@@ -830,6 +840,8 @@ class App:
             }
             self._battle_basis = (rows, snap["championship"], frame.cam_car_idx)
             snap["overlays"]["battle"] = self._battle_snapshot(snap["championship"], active_league)
+            snap["overlays"]["duel"] = self._duel_snapshot(snap["overlays"], frame, is_race)
+            snap["overlays"]["trackmap"] = self._trackmap_snapshot(rows, snap, frame, active_league)
             if self.spectators is not None:
                 snap["spectator"] = self._spectator_section(rows, frame, session, active_league, is_race, snap)
             return snap
@@ -965,6 +977,73 @@ class App:
         return {"live": False, "round": None, "groups": groups}
 
     # -- the championship battle overlay (battle.html) ----------------------
+
+    def _duel_snapshot(self, ov, frame, is_race):
+        """The on-track battle (duel.html): the car on camera and the cars just
+        ahead and behind it in its class (overall with one class), each within
+        gap_s of the next, on the same lap, on track. With "auto", a battle
+        found (``active``) brings the widget up and it goes again hold_s after
+        the battle breaks up; by hand, the cars either side whatever the gap."""
+        cfg = self.overlays.get()["duel"]
+        now = frame.timeline()[1]
+        cam = frame.cam_car_idx
+        entries = (ov.get("standings") or []) if is_race else []
+        me = next((e for e in entries if e["car_idx"] == cam), None)
+        rows, active = [], False
+        if me is not None:
+            multi = len({e["class_key"] for e in entries}) > 1
+            pos_k, int_k, down_k = ("class_pos", "class_interval", "class_laps_down") if multi else ("pos", "interval", "laps_down")
+            group = sorted((e for e in entries if not multi or e["class_key"] == me["class_key"]), key=lambda e: e[pos_k] or 999)
+            i = group.index(me)
+
+            def close(a, b):  # b right behind a: in the battle?
+                gap = b.get(int_k)
+                return (gap is not None and gap <= cfg["gap_s"] and (a.get(down_k) or 0) == (b.get(down_k) or 0)
+                        and a["in_world"] and b["in_world"] and not a["on_pit"] and not b["on_pit"])
+
+            lo = i
+            while lo > 0 and i - (lo - 1) <= cfg["ahead"] and (not cfg["auto"] or close(group[lo - 1], group[lo])):
+                lo -= 1
+            hi = i
+            while hi + 1 < len(group) and (hi + 1) - i <= cfg["behind"] and (not cfg["auto"] or close(group[hi], group[hi + 1])):
+                hi += 1
+            picked = group[lo:hi + 1]
+            active = len(picked) > 1 and any(close(a, b) for a, b in zip(picked, picked[1:]))
+            rows = [{**{k: e.get(k) for k in ("car_idx", "name", "nickname", "number", "team", "team_logo", "class_key", "paint")},
+                     "pos": e[pos_k], "interval": e.get(int_k) if j else None, "cam": e["car_idx"] == cam}
+                    for j, e in enumerate(picked)]
+        # Auto: a battle that's just broken up stays up a moment (hold_s), with
+        # the cars as they were, rather than flickering at the edge of the gap.
+        held = getattr(self, "_duel_held", None)
+        if active:
+            self._duel_held = (now, cam, rows)
+        elif cfg["auto"] and held and held[1] == cam and 0 <= now - held[0] <= cfg["hold_s"]:
+            rows, active = held[2], True
+        return {"active": active, "rows": rows, "pos": rows[0]["pos"] if rows else None,
+                "multiclass": len({e["class_key"] for e in entries}) > 1}
+
+    def _trackmap_snapshot(self, rows, snap, frame, league):
+        """The track map widget (trackmap.html): which outline (its points at
+        /api/trackmap) and where each car is, with its class colours."""
+        track_id = self._session_meta.get("track_id")
+        tmap = self.trackmaps.get(track_id) if self.trackmaps and track_id else None
+        colors = {c["key"]: c.get("color") for c in snap.get("classes") or []}
+        cars = []
+        for r in rows:
+            if r.get("hidden") or not r["in_world"] or r["pct"] is None:
+                continue
+            paint = self._paint(r, league) or {}
+            main = paint.get("main") or colors.get(r["class_key"]) or "#ffffff"
+            cars.append({"id": r["car_idx"], "pct": r["pct"], "num": r["number"], "pos": r["pos"], "pit": r["on_pit"],
+                         "main": main, "second": paint.get("secondary") or main})
+        return {"map": tmap["id"] if tmap else None, "cam": frame.cam_car_idx, "cars": cars,
+                "clock": round(frame.timeline()[1], 3)}
+
+    def trackmap_points(self):
+        """The track outline for the track map widget: {id, points} or None."""
+        track_id = self._session_meta.get("track_id")
+        tmap = self.trackmaps.get(track_id) if self.trackmaps and track_id else None
+        return {"id": tmap["id"], "points": tmap["points"]} if tmap else None
 
     def _battle_snapshot(self, champ, active_league):
         """The drivers picked for the battle overlay in the championship picked:
@@ -1203,8 +1282,14 @@ class App:
         lap = min(lead + 1, int(laps_total)) if laps_total else lead + 1
         # A timed session whose clock has run out, the leader not over the line
         # under the flag yet: they're on their last lap (the header says LAST LAP).
+        # Only once the clock's been seen running: as the race goes green iRacing's
+        # clock can read 0 (or -1, "not timed") for a moment while it's reset,
+        # which flashed the header white at the start.
+        num = frame.timeline()[0]
+        if frame.session_state == STATE_RACING and remain is not None and 1.0 < remain < 604000:
+            self._clock_ran.add(num)
         time_up = (bool(time_total) and not finished and frame.session_state in (STATE_RACING, STATE_CHECKERED)
-                   and remain is not None and remain <= 0.05)
+                   and num in self._clock_ran and remain is not None and 0 <= remain <= 0.05)
         return {
             "mode": mode,
             "finished": finished,
@@ -1895,6 +1980,8 @@ class App:
         "driver": ("Driver on camera", "/driver.html"),
         "battle": ("Championship battle", "/battle.html"),
         "pits": ("Pit stops", "/pits.html"),
+        "duel": ("On-track battle", "/duel.html"),
+        "trackmap": ("Track map", "/trackmap.html"),
     }
 
     def _desktop_snapshot(self):
@@ -1941,7 +2028,7 @@ class App:
         return {"method": method}
 
     # What "all of them on my screen" puts up (hotkeys desk:overlays / desk:boards).
-    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits"), "boards": ("board",),
+    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits", "duel", "trackmap"), "boards": ("board",),
                       "gridwalk": ("gridwalk",)}
 
     def cmd_desktop_show_all(self, group="overlays", screen=None):
@@ -2342,7 +2429,7 @@ class App:
             return self.cmd_toggle_all()
         raise CommandError(f"Unknown hotkey '{action}'")
 
-    TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits")
+    TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits", "duel", "trackmap")
 
     def _toggled(self, ov):
         """The overlays everything-off / on takes: not the sponsors set to stay."""
@@ -2722,6 +2809,25 @@ class App:
         self._board_pages = value[0]["pages"] if value[0] else 1
         self._grid_rows_total = (value[0] or {}).get("reveal_total") or 1
         return value
+
+    def cmd_overlay_copy_league(self, league):
+        """Every widget's settings from another league's own (Widget Settings)."""
+        try:
+            settings = self.overlays.copy_from(league)
+        except ValueError as e:
+            raise CommandError(str(e)) from e
+        self._apply_sectors()
+        return {"settings": settings}
+
+    def _overlay_leagues(self):
+        """The leagues with widget settings of their own (to copy from). The
+        league list is read from disk: at most every few seconds."""
+        have = getattr(self.overlays, "leagues", {})
+        now = time.monotonic()
+        cached = getattr(self, "_overlay_leagues_cache", None)
+        if cached is None or now - cached[0] > 5.0:
+            self._overlay_leagues_cache = cached = (now, [{"id": p["id"], "name": p["name"]} for p in self.leagues.list()])
+        return [p for p in cached[1] if p["id"] in have and p["id"] != self.leagues.active_id]
 
     def cmd_overlay_settings(self, overlay, values):
         try:

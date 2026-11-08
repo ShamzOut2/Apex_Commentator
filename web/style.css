@@ -682,6 +682,8 @@ p.hint .desk { margin-left: 6px; }
 /* Custom points systems. */
 .schemes { display: flex; flex-direction: column; gap: 8px; }
 .scheme { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.scheme .scheme-own { flex-basis: 100%; font-size: 13px; }
+.scheme-bonuses { flex-basis: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 12px; }
 .scheme > input { width: 170px; }
 .scheme .grow { flex: 1; min-width: 200px; }
 
@@ -752,6 +754,8 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .ws-item.active { background: var(--accent); color: #111; font-weight: 700; }
 .ws-tools { display: flex; flex-direction: column; gap: 6px; }
 .ws-tools .hint { margin: 0; }
+.ws-copy { display: flex; flex-direction: column; gap: 6px; }
+.ws-copy select { width: 100%; }
 .ws-head h2 { margin: 0 0 4px; }
 .ws-head .hint { margin: 0 0 6px; max-width: 900px; }
 .ws-links .obs-url { margin: 2px 0; }

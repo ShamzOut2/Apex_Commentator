@@ -70,7 +70,8 @@ DEFAULT_RULES = {
     # Custom points systems: named points tables a round can use instead of
     # the usual ones (e.g. "Sprint", "Feature"), on when custom_schemes is ticked.
     "custom_schemes": False,
-    "schemes": [],              # [{"id", "name", "points": [...], "overall_points": [...] ([] = the same)}]
+    "schemes": [],              # [{"id", "name", "points": [...], "overall_points": [...] ([] = the same),
+                                #   "own_bonuses": bool, "bonuses": {...} (with own_bonuses: instead of the usual ones)}]
     "fastest_lap_top": 0,       # fastest-lap bonus only if finishing in the top N (0 = anyone)
     "classified_pct": 75,       # must complete this % of the class winner's laps to score, else DNF (0 = off)
     "dnf_scores": True,         # a DNF still scores the points for where it was classified
@@ -136,7 +137,10 @@ def normalise_rules(rules):
         "drop_meetings": bool(rules.get("drop_meetings")),
         "custom_schemes": bool(rules.get("custom_schemes")),
         "schemes": [{"id": _id(sc.get("id")), "name": str(sc.get("name") or "Points").strip()[:40] or "Points",
-                     "points": parse_points(sc.get("points", [])), "overall_points": parse_points(sc.get("overall_points", []))}
+                     "points": parse_points(sc.get("points", [])), "overall_points": parse_points(sc.get("overall_points", [])),
+                     "own_bonuses": bool(sc.get("own_bonuses")),
+                     "bonuses": {k: _num((sc.get("bonuses") if isinstance(sc.get("bonuses"), dict) else {}).get(k, 0), 0, lo=-100, hi=1000)
+                                 for k in BONUS_KEYS}}
                     for sc in (rules.get("schemes") or []) if isinstance(sc, dict)][:50],
         "fastest_lap_top": _num(rules.get("fastest_lap_top"), 0, lo=0, hi=200, cast=int),
         "classified_pct": _num(rules.get("classified_pct", DEFAULT_RULES["classified_pct"]), 0, lo=0, hi=100),
@@ -280,9 +284,14 @@ def round_rules(rd, rules):
     if not rules.get("custom_schemes") or not rd.get("scheme"):
         return rules
     scheme = next((sc for sc in rules.get("schemes") or [] if sc["id"] == rd["scheme"]), None)
-    if scheme is None or not scheme["points"]:
+    if scheme is None:
         return rules
-    return dict(rules, points=scheme["points"], overall_points=scheme["overall_points"], class_points={})
+    out = dict(rules)
+    if scheme["points"]:
+        out.update(points=scheme["points"], overall_points=scheme["overall_points"], class_points={})
+    if scheme.get("own_bonuses"):
+        out["bonuses"] = dict(scheme.get("bonuses") or {})  # its own bonus points, instead of the usual ones
+    return out
 
 
 def score_round(rd, rules, second=None):

@@ -99,7 +99,7 @@ class HotkeyActionTests(unittest.TestCase):
             self.app.command("desktop_screen", {"tab": "overlays", "screen": 1})
             self.app.command("desktop_screen", {"tab": "boards", "screen": 2})
             self.press("desk:overlays")
-            self.assertEqual(desk.up, {k: 1 for k in ("standings", "laps", "sponsors", "driver", "battle", "pits")})
+            self.assertEqual(desk.up, {k: 1 for k in ("standings", "laps", "sponsors", "driver", "battle", "pits", "duel", "trackmap")})
             self.press("desk:boards")  # on the screen picked for each tab
             self.assertEqual(desk.up["board"], 2)
             self.press("desk:gridwalk")  # the Overlays tab's screen

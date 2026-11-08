@@ -58,7 +58,31 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- On-track battle widget: the car on camera and the cars just ahead and
+  behind it ("Battle for P3"), with their gaps. It can come up by itself
+  whenever the car on camera is in a battle.
+- Track map widget: the track's outline with no background and a dot for
+  every car, in its main or secondary class colour.
+- Each league keeps its own widget settings, brought in as you pick the
+  league. You can copy another league's in Widget Settings.
+- Sponsors: one sponsor can stay on screen while the others rotate beside it.
+- Custom points systems can have their own bonus points.
+- Timing tower: an option to hide the drivers during a replay, leaving just
+  the header saying REPLAY.
+
+### Improvements
+
+- Starting grid board: the name plates grow to fill the page however many
+  drivers are on it, and can be made bigger or smaller by hand.
+- Decimal places of gaps and intervals can be set from the timing tower's
+  settings and the Timing Screen's toolbar too.
+
 ### Fixes
+
+- Timing tower: the header no longer flashes white (last lap) as a timed race
+  goes green.
 
 - Timing tower: in a timed race, the chequered header and the finish flags by
   drivers' names wait for the leader to cross the line. A car further back
@@ -463,7 +487,15 @@ on stream or put on a monitor (open it, then F11).
 **Widget Settings** has each overlay's address for OBS, a **Preview ↗**
 button, a live preview and its settings; the **Widgets** tab turns them on and off. Add each one as a *Browser Source* at 1920×1080 (the
 background is transparent). Settings changed in the tab show on stream
-straight away and are kept in `data/overlays.json`. Each overlay's (and
+straight away and are kept in `data/overlays.json`. **Each league has its
+own**: picking a league in the League builder brings in its widget settings
+(a league that hasn't any yet starts from the ones in use, and a duplicated
+league starts with the original's); what's on screen stays as it is.
+*Copy from another league* (Widget Settings, on the left) brings another
+league's in. Every league's are kept in `data/overlays-leagues.json`.
+**Decimal places** of gaps and intervals (every widget, the boards and the
+Timing Screen) are in *All overlays & boards*, in the timing tower's
+*Columns*, and on the Timing Screen's toolbar (*Decimals*). Each overlay's (and
 board's) settings are in sections that open and close (What it shows,
 Header, Columns, Drivers, Size & background…); settings that only matter
 when another is on, like the fastest lap flash timer, appear once it's on.
@@ -510,7 +542,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   - **Replay**: while you're watching a replay (not live), the tower's
     header is just REPLAY, in the middle, on the accent colour, in black or
     white, whichever reads on that colour (*Watching a replay* in the
-    Header settings turns it off).
+    Header settings turns it off). **Hide the drivers in a replay**: the
+    live timing can't follow a replay, so the drivers can go for it, just
+    the header saying REPLAY left; they come back as soon as it's live.
   - **Last lap**: on the final lap (FINAL LAP, or LAST LAP once a timed
     race's clock has run out) the header (tower and full screen) turns
     white, like the white flag; as the leader takes the chequered flag it
@@ -665,6 +699,24 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   heading, name format, place, size and background can be set. It shows
   once the championship has standings: after the first results, or live
   during a race.
+- **On-track battle** (`/duel.html`): the car on camera and the cars just
+  ahead of and behind it, in the championship battle's style: "Battle for
+  P3" (with the class in a multiclass race), each one's place, car number in
+  its class colour, team logo, name (and team, if you want it) and the gap
+  to the car ahead. **A battle**: cars within a number of seconds of each
+  other (1 by default), on the same lap, in the same class, on track. **Most
+  cars ahead / behind** the car on camera (1 each by default). **Comes up by
+  itself** (the default): while it's switched on, it appears when the car on
+  camera is in a battle and goes when it isn't (it stays a few seconds after
+  the battle breaks up, so it doesn't flicker). Untick it to show and hide it
+  yourself: then it shows the cars either side whatever the gap.
+- **Track map** (`/trackmap.html`): the track's outline with no background
+  (the live timing website's map) and a dot for every car where it is, in
+  its **main or secondary class colour**. The car on camera is bigger, with
+  a white ring; cars in the pit lane are faded. Dots can show the car number
+  or position. Place, size, dot size, track colour and thickness, and the
+  start / finish line can be set. It shows once there's an outline for the
+  track.
 - **Pit stops** (`/pits.html`): a card for a car in the pit lane, with two
   clocks:
   - **Pit lane**: from the moment it crosses the pit lane entry line to the
@@ -713,6 +765,8 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   in the League builder) over the race. Choose a corner or the middle of an
   edge, all together or one at a time (and how long each shows), the size,
   a caption such as "Partners", a dark panel behind, and which sponsors.
+  **Always shown**: one sponsor that stays there, beside the others while
+  they rotate (e.g. the series' title sponsor).
 - **Lap tracker** (`/laps.html`): only in qualifying (practice too, if you
   tick it).
   - The car on camera gets the big tracker. Up to 12 small ones show other
@@ -1018,7 +1072,10 @@ built from the active league:
   overall or the first N of each class: e.g. a final race with the top 8
   reversed. A race meeting's race can set its own (its *Reverse grid* box in
   the rounds), which the board follows for that race. *Layout*: a list, or as the cars line up (two staggered
-  columns). It can show the place in class, car numbers, team names and
+  columns). The name plates (or rows) **grow to fill the page** however
+  many drivers are on it (*Drivers on screen at once*), their names,
+  numbers and badges with them; *Name plate size* makes them bigger or
+  smaller by hand (50–250%). It can show the place in class, car numbers, team names and
   logos, car badges, the qualifying lap and gap, and where they finished
   the previous race. Pick the race on the Widgets tab; the grid rule is in
   its settings, so change it before the race it's for. *Show the drivers*:
@@ -1134,7 +1191,9 @@ standings update from what's saved.
     like, each with a name, its points (1st, 2nd, 3rd…) and, with an overall
     championship, its own overall points (empty: the same). Then pick one for
     each round under *Calendar & results* (*Points*); a round left on *Usual
-    points* uses the class and overall points above.
+    points* uses the class and overall points above. **Its own bonus
+    points**: tick it on a points system to give its rounds bonus points of
+    their own (fastest lap, pole, laps led…) instead of the usual ones below.
   - The fastest-lap bonus can be limited to the top N finishers.
   - **Race distance to score** (75% by default): a driver must complete this
     share of their class winner's laps. Anyone short is a DNF and scores no
@@ -1545,6 +1604,7 @@ web/           the overlay UI (plain HTML/CSS/JS, no build step)
   standings.html, laps.html  standings tower and qualifying lap tracker for OBS
   sponsors.html  sponsor logos for OBS
   driver.html  the driver on camera, for OBS
+  duel.html, trackmap.html  the on-track battle and the track map, for OBS
   common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos
 packaging/     PyInstaller recipe (apex.spec) and Inno Setup installer script
