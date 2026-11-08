@@ -324,6 +324,7 @@ def _show(key, url, title, screen, method="auto"):
         return  # taken down again before it got here
     monitors = webview.screens
     _regions.pop(key, None)  # the new page reports its own
+    _region_logged.discard(key)
     window = webview.create_window(
         title, url, screen=monitors[screen] if 0 <= screen < len(monitors) else None,
         fullscreen=True, frameless=True, on_top=True, focus=False, shadow=False, easy_drag=False,
@@ -408,13 +409,33 @@ def _clip(hwnd, rects):
 
 def set_region(key, rects):
     """The parts of an on-screen overlay's page that show (see _clip)."""
+    first = key not in _region_logged
     _regions[key] = rects
     hwnd = _hwnds.get(_windows.get(key))
+    # For apex.log: what the window is cut to (its first cut, and whenever it's
+    # cut to all of the window: the whole screen covered).
+    if first or rects is None:
+        _region_logged.add(key)
+        print(f"[apex] on-screen overlay '{key}': cut to {_describe(rects)}{'' if hwnd else ' (window not ready yet)'}")
     if hwnd and IS_WINDOWS:
         try:
             _clip(hwnd, rects)
         except Exception as e:
             print(f"[apex] couldn't fit the overlay window to its overlay: {e!r}")
+
+
+_region_logged = set()
+
+
+def _describe(rects):
+    """A window's cut, in words: "the whole window", "nothing" or the boxes' outline."""
+    if rects is None:
+        return "the whole window"
+    if not rects:
+        return "nothing (yet)"
+    x0, y0 = min(r[0] for r in rects), min(r[1] for r in rects)
+    x1, y1 = max(r[0] + r[2] for r in rects), max(r[1] + r[3] for r in rects)
+    return f"{len(rects)} box(es) within {x1 - x0}x{y1 - y0} at {x0},{y0}"
 
 
 def _see_through(key, window, method="auto"):
@@ -441,7 +462,7 @@ def _see_through(key, window, method="auto"):
             hwnd = int(form.Handle.ToInt64())
             _hwnds[window] = hwnd
             _clip(hwnd, _regions.get(key, []))  # nothing shows until the page says where it draws
-            steps.append("clipped")
+            steps.append(f"clipped to {_describe(_regions.get(key, []))}")
             empty = gdi32.CreateRectRgn(0, 0, -1, -1)
             blur = _BlurBehind(DWM_BB_ENABLE | DWM_BB_BLURREGION, True, empty, False)
             result = dwmapi.DwmEnableBlurBehindWindow(hwnd, ctypes.byref(blur))
