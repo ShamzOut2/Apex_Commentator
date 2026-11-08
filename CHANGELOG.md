@@ -15,10 +15,11 @@ How each version's entry is written:
 
 ### Fixes
 
-- On-screen overlays came up with a solid full-screen background on some
-  PCs since v0.6.2: they're made see-through the way they were before
-  again (the other way is only tried after you answer No to "Can you see
-  your screen through the overlay?").
+- On-screen overlays no longer cover the screen with a dark, blurred
+  background when Windows is in dark mode: Windows 11's frosted backdrop
+  (Mica) is switched off on them, and kept off. The colour key way of
+  making them see-through is only tried after you answer No to "Can you see
+  your screen through the overlay?".
 
 ## v0.6.3
 

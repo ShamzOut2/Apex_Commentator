@@ -370,6 +370,48 @@ def _close(key):
 _regions = {}  # overlay page -> the rectangles its page last reported (window pixels; None: all of it)
 
 
+DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_NONE = 38, 1
+
+
+def _no_backdrop(hwnd):
+    """No system backdrop (Mica, acrylic) on the window: True if Windows took it
+    (Windows 11; older versions have no backdrops to switch off)."""
+    value = ctypes.c_int(DWMSBT_NONE)
+    try:
+        return ctypes.windll.dwmapi.DwmSetWindowAttribute(ctypes.c_void_p(hwnd), DWMWA_SYSTEMBACKDROP_TYPE,
+                                                          ctypes.byref(value), ctypes.sizeof(value)) == 0
+    except (AttributeError, OSError):
+        return False
+
+
+def _keep_backdrop_off(form, hwnd, window=None):
+    """pywebview puts the backdrop back whenever a Windows setting changes
+    (SystemEvents.UserPreferenceChanged): off again straight after."""
+    try:
+        from Microsoft.Win32 import SystemEvents, UserPreferenceChangedEventHandler
+        from System import Action
+
+        def changed(sender, e):
+            try:
+                form.BeginInvoke(Action(lambda: _no_backdrop(hwnd)))
+            except Exception:
+                pass
+
+        handler = UserPreferenceChangedEventHandler(changed)
+        SystemEvents.UserPreferenceChanged += handler
+
+        def stop():
+            try:
+                SystemEvents.UserPreferenceChanged -= handler
+            except Exception:
+                pass
+
+        if window is not None:
+            window.events.closed += stop
+    except Exception as e:  # noqa: BLE001 - the first switch-off still holds
+        print(f"[apex] couldn't watch for Windows setting changes: {e!r}")
+
+
 def _win32():
     """user32 / gdi32 / dwmapi with the argument types the calls below need."""
     from ctypes import wintypes
@@ -468,6 +510,12 @@ def _see_through(key, window, method="auto"):
             result = dwmapi.DwmEnableBlurBehindWindow(hwnd, ctypes.byref(blur))
             gdi32.DeleteObject(empty)
             steps.append(f"blur-behind {'on' if result == 0 else f'failed ({result & 0xFFFFFFFF:#x})'}")
+            # pywebview gives every window Windows 11's Mica backdrop when Windows
+            # is in dark mode (a blurred, tinted copy of the wallpaper), and again
+            # whenever a Windows setting changes: on an overlay it fills
+            # everything the page leaves see-through. Off, and kept off.
+            steps.append("backdrop off" if _no_backdrop(hwnd) else "backdrop: not on this Windows")
+            _keep_backdrop_off(form, hwnd, window)
             if transparency_effects_off():
                 steps.append("Windows transparency effects off")  # for apex.log: a likely reason if it comes up solid
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
