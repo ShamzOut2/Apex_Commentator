@@ -11,6 +11,16 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.6.3
+
+### New features
+
+- **Live timing website** for spectators (Home tab): a page anyone can open
+  in their browser with the running order, a head-to-head of any two drivers
+  and a track map with every car on it. It goes out through Cloudflare, so
+  nobody sees your PC's address, and it only shows the timing: never
+  iRacing IDs, notes or anything about you.
+
 ## v0.6.2
 
 ### New features

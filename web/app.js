@@ -165,6 +165,44 @@ $("#follow-stop").addEventListener("click", () => cmd("follow_camera", { on: fal
 $("#follow-code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#follow-start").click(); });
 
 // ---------------------------------------------------------------------------
+// live timing website for spectators (spectate.py)
+// ---------------------------------------------------------------------------
+
+function renderLive(sp) {
+  if (!sp) return;
+  const box = $("#live-on");
+  if (document.activeElement !== box) box.checked = sp.on;
+  $("#live-info").hidden = !sp.on;
+  const url = sp.url || sp.address;
+  $("#live-url").textContent = url || (sp.status === "downloading" ? "Getting Cloudflare's tunnel (first time only)…" : sp.status === "error" ? "Not online yet" : "Starting…");
+  $("#live-open").href = url || sp.local || "#";
+  $("#live-open").hidden = !(url || sp.local);
+  $("#live-detail").textContent = !sp.on ? "" : sp.status === "error" ? `${sp.error || "The tunnel stopped"}: trying again…`
+    : `${sp.viewers} watching. ${sp.own ? "Your own address." : "A free link: it changes each time it's turned on."} On this PC only: ${sp.local}`;
+  $("#live-detail").classList.toggle("bad", sp.status === "error");
+  $("#live-state").textContent = sp.on ? (sp.status === "online" ? `online · ${sp.viewers} watching` : sp.status) : "";
+  if (document.activeElement !== $("#live-address") && !$("#live-address").dataset.typed) $("#live-address").value = sp.address || "";
+  $("#live-token").placeholder = sp.own ? "Tunnel token (saved: paste a new one to change it)" : "Tunnel token";
+}
+
+$("#live-on").addEventListener("change", (e) => {
+  e.target.blur();
+  cmd("spectate", { on: e.target.checked }, e.target.checked ? "Live timing going online…" : "Live timing offline");
+});
+$("#live-address").addEventListener("input", (e) => { e.target.dataset.typed = "1"; });
+$("#live-save").addEventListener("click", async () => {
+  const on = !!(ui.snap && ui.snap.spectate && ui.snap.spectate.on);
+  const token = $("#live-token").value.trim();
+  const params = { on, address: $("#live-address").value.trim() };
+  if (token || !params.address) params.token = token;  // empty address and token: back to the free link
+  const r = await cmd("spectate", params, "Saved");
+  if (r) {
+    $("#live-token").value = "";
+    delete $("#live-address").dataset.typed;
+  }
+});
+
+// ---------------------------------------------------------------------------
 // rendering
 // ---------------------------------------------------------------------------
 
@@ -182,6 +220,7 @@ function render() {
   }
   $("#status-dot").classList.toggle("on", !!s.connected);
   renderDual(s.remote);
+  renderLive(s.spectate);
   if (s.data_delay_s != null && document.activeElement !== $("#data-delay")) $("#data-delay").value = s.data_delay_s;
   const league = s.league;
   const off = s.officials || { on: false, league: null };

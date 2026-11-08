@@ -4,6 +4,7 @@ snapshot the overlay renders, and runs spectate / replay commands.
 
 import json
 import re
+from pathlib import Path
 from collections import deque
 import threading
 import traceback
@@ -23,7 +24,7 @@ from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
 from .settings import UserSettings
 from .tracks import TrackCatalogue
-from . import boards, heats, remote
+from . import boards, heats, remote, spectate
 from .league import driver_key, logo_url, strip_class_prefix
 from .makes import logo_for as make_logo
 from .makes import make_for
@@ -256,6 +257,13 @@ class App:
         # co-commentator, or another app's camera followed.
         self.share = None          # remote.CameraShare
         self.follow = None         # remote.CameraFollow
+        # Live timing for spectators (spectate.py): the page's own server and
+        # the Cloudflare tunnel giving it a public address.
+        self.spectators = None     # spectate.SpectatorServer
+        self.tunnel = None         # spectate.Tunnel
+        self.trackmaps = None      # trackmaps.TrackMaps (set by __main__)
+        self.bin_dir = None        # where cloudflared is kept (set by __main__)
+        self._spec = (0.0, None, None, {})  # (when, the spectator section, track map, images) last made
         self._followed = None      # (when, the host's camera) last followed
         self._follow_free = False  # the co-commentator's Free mode: connected, not following
         self._version = 0
@@ -335,6 +343,10 @@ class App:
 
     def stop(self):
         self._stop.set()
+        if self.tunnel:  # cloudflared doesn't outlive the app
+            self.tunnel.stop()
+        if self.spectators:
+            self.spectators.stop()
 
     def _run(self):
         period = 1.0 / max(1.0, float(self.cfg["poll_hz"]))
@@ -489,11 +501,13 @@ class App:
         self.gaps.set_track(self._track_m)
         # The lap tracker throws out laps no car could do on this track.
         self.laps.track_m = self._track_m if weekend.get("TrackLength") else None
-        self.tracks.remember(weekend.get("TrackID"), weekend.get("TrackDisplayName", ""), weekend.get("TrackConfigName", ""))
+        if self.source.name != "mock":  # the demo's made-up track isn't one for the calendar
+            self.tracks.remember(weekend.get("TrackID"), weekend.get("TrackDisplayName", ""), weekend.get("TrackConfigName", ""))
         sessions = (info.get("SessionInfo") or {}).get("Sessions") or []
         self._session_meta = {
             "track": weekend.get("TrackDisplayName", ""),
             "track_config": weekend.get("TrackConfigName", ""),
+            "track_id": weekend.get("TrackID"),  # its outline for the spectators' map (trackmaps.py)
             "subsession": weekend.get("SubSessionID"),
             "sessions": {s.get("SessionNum"): s for s in sessions},
         }
@@ -640,6 +654,7 @@ class App:
                             "saved": self.settings.get("hotkey_map")},
                     "desktop": self._desktop_snapshot(),
                     "remote": self._remote_snapshot(),
+                "spectate": self._spectate_snapshot(),
                     **self._boards(self.leagues.active(), lambda: None),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
                                  "laps": {"active": False, "camera": None, "trackers": [], "all": [],
@@ -786,6 +801,7 @@ class App:
                 "events": events[-200:],
                 "desktop": self._desktop_snapshot(),
                 "remote": self._remote_snapshot(),
+                "spectate": self._spectate_snapshot(),
                 "league": self._league_summary(), "officials": self._officials_state(),
                 "overlays": self._overlay_snapshot(rows, frame, session, active_league),
                 "championship": self._championship_snapshot(rows, frame, is_race, active_league),
@@ -794,6 +810,8 @@ class App:
             }
             self._battle_basis = (rows, snap["championship"], frame.cam_car_idx)
             snap["overlays"]["battle"] = self._battle_snapshot(snap["championship"], active_league)
+            if self.spectators is not None:
+                snap["spectator"] = self._spectator_section(rows, frame, session, active_league, is_race, snap)
             return snap
 
     # -- championship -------------------------------------------------------
@@ -1673,7 +1691,7 @@ class App:
     # The race as it was data_delay_s ago, rather than as it is (the rest of a
     # snapshot, settings and so on, is as it is now, so a box just ticked
     # doesn't flick back for a moment).
-    DELAYED = ("session", "camera", "replay", "drivers", "detection", "events", "classes", "championship")
+    DELAYED = ("session", "camera", "replay", "drivers", "detection", "events", "classes", "championship", "spectator")
     DELAY_MAX_S = 10.0
 
     def _delay(self, snap):
@@ -1704,6 +1722,11 @@ class App:
 
     def publish(self):
         snap = self._delay(self.build_snapshot())
+        # The spectators' live timing goes to their own server only (with the
+        # same delay as everything else), never to the app's pages.
+        section = snap.pop("spectator", None)
+        if self.spectators is not None and section is not None:
+            self.spectators.update(section, self._spec[2], self._spec[3])
         updater = getattr(self, "updater", None)
         if updater is not None:
             # So the pop-up appears whenever a check finds a new version.
@@ -2759,6 +2782,126 @@ class App:
             if self.follow.last:
                 self._follow_camera(self.follow.last)
         return {"free": self._follow_free}
+
+    # -- live timing for spectators ---------------------------------------------------
+
+    SPECTATOR_HZ = 4.0
+
+    def cmd_spectate(self, on=True, token=None, address=None):
+        """Live timing for spectators on (its server and its public address,
+        see spectate.py) or off. ``token``: a Cloudflare tunnel token for an
+        address of the host's own ("" = a quick link, new each time);
+        ``address``: that address, to show."""
+        if token is not None:
+            self.settings.set("spectate_token", str(token).strip())
+        if address is not None:
+            self.settings.set("spectate_address", str(address).strip())
+        if self.tunnel:
+            self.tunnel.stop()
+            self.tunnel = None
+        if self.spectators:
+            self.spectators.stop()
+            self.spectators = None
+        if not on:
+            return {"on": False}
+        from .paths import WEB_DIR
+        try:
+            self.spectators = spectate.SpectatorServer(WEB_DIR / "live", port=int(self.cfg.get("spectate_port") or spectate.DEFAULT_PORT)).start()
+        except OSError as e:
+            self.spectators = None
+            raise CommandError(f"Couldn't start the live timing page: {e}")
+        self._spec = (0.0, None, None, {})
+        self.publish()  # its first feed straight away
+        self.tunnel = spectate.Tunnel(self.bin_dir or "bin", self.spectators.url, self.settings.get("spectate_token") or "",
+                                      self.settings.get("spectate_address") or "").start()
+        return {"on": True, "local": self.spectators.url}
+
+    def _spectate_snapshot(self):
+        sp, tu = self.spectators, self.tunnel
+        return {"on": bool(sp), "local": sp.url if sp else "", "viewers": sp.viewers if sp else 0,
+                "status": tu.status if tu else "off", "error": tu.error if tu else "",
+                "url": tu.public_url if tu else "", "own": bool(self.settings.get("spectate_token")),
+                "address": self.settings.get("spectate_address") or ""}
+
+    def _spectator_section(self, rows, frame, session, league, is_race, snap):
+        """What spectators see (spectate.py): made field by field from what's
+        safe to show: never iRacing IDs, notes, file paths or anything about
+        the host. At most SPECTATOR_HZ times a second."""
+        now = time.monotonic()
+        made, section, _, _ = self._spec
+        if section is not None and now - made < 1.0 / self.SPECTATOR_HZ:
+            return section
+        import hashlib
+        images = {}
+
+        def image(url):
+            """A logo for the page: an opaque token for one of the league's
+            uploads or the built-in library (the page never sees a path)."""
+            from .paths import WEB_DIR
+            if not url:
+                return None
+            m = re.fullmatch(r"/api/logos/([a-z0-9-]+)/([a-z0-9-]+\.(?:png|jpg|webp|svg))", url)
+            lib = re.fullmatch(r"/logos/([a-z0-9-]+\.svg)", url)
+            path = self.leagues.logo_file(m.group(1), m.group(2)) if m else (WEB_DIR / "logos" / lib.group(1)) if lib else None
+            if not path or not Path(path).is_file():
+                return None
+            token = hashlib.sha256(f"apex-live:{path}".encode()).hexdigest()[:16]
+            images[token] = str(path)
+            return token
+
+        classes = {c["key"]: c for c in snap.get("classes") or []}
+        entries = {r["car_idx"]: self._overlay_entry(r, league) for r in rows if not r.get("hidden")}
+        placed = sorted((r for r in rows if r["car_idx"] in entries), key=lambda r: (r["pos"] is None, r["pos"] or 0))
+        cars, ahead, best = [], {}, {}
+        for r in placed:
+            if r["best_lap"]:
+                for k in ("*", r["class_key"]):
+                    best[k] = min(best.get(k, r["best_lap"]), r["best_lap"])
+        for r in placed:
+            e = entries[r["car_idx"]]
+            name = e["name"] or strip_class_prefix(r["name"])
+            last_name = name.split()[-1] if name.split() else name
+            gap = r["gap"]
+            interval = None
+            prev = ahead.get("*")
+            if is_race and prev is not None and gap is not None and prev["gap"] is not None and not r.get("laps_down"):
+                interval = round(max(0.0, gap - prev["gap"]), 3)
+            if r["pos"] is not None:
+                ahead["*"] = r
+            lap = self.laps.summary(r["car_idx"]) or {}
+            cars.append({
+                "id": r["car_idx"], "pos": r["pos"], "cpos": r["class_pos"], "pc": r.get("pos_change"),
+                "num": r["number"], "name": name, "abbr": re.sub(r"[^A-Za-z]", "", last_name)[:3].upper() or str(r["number"]),
+                "team": e["team"] or "", "logo": image(e["team_logo"]),
+                "cls": r["class_key"], "gap": gap, "int": interval, "down": r.get("laps_down") or 0,
+                "lap": r["lap"], "laps": r["laps_completed"], "last": r["last_lap"], "best": r["best_lap"],
+                "pct": r["pct"], "pit": r["on_pit"], "out": not r["in_world"], "fin": e["finished"], "tyre": r.get("tyre"),
+                "fl": bool(r["best_lap"]) and r["best_lap"] == best.get("*"),
+                "cfl": bool(r["best_lap"]) and r["best_lap"] == best.get(r["class_key"]),
+                "sec": lap.get("last"), "now": lap.get("now"), "bsec": lap.get("best_sectors") or [],
+            })
+        progress = snap.get("overlays", {}).get("progress") or {}
+        flags = frame.session_flags
+        flag = ("chequered" if frame.session_state >= STATE_CHECKERED else "yellow" if flags & CAUTION_FLAGS
+                else "white" if progress.get("laps_total") and progress.get("lap") == progress.get("laps_total") else "green")
+        title = self._race_title(league, frame.session_num, session) if is_race else str(session.get("SessionName") or "Session").strip()
+        track_id = self._session_meta.get("track_id")
+        tmap = self.trackmaps.get(track_id) if self.trackmaps and track_id else None
+        section = {
+            "series": (league or {}).get("name") or "", "logo": image(logo_url(league["id"], league.get("logo"))) if league else None,
+            "title": title, "kind": "race" if is_race else ("qualify" if "qualify" in str(session.get("SessionType", "")).lower() else "practice"),
+            "track": self._session_meta.get("track", ""), "config": self._session_meta.get("track_config", ""),
+            "state": SESSION_STATES.get(frame.session_state, ""), "flag": flag,
+            "progress": {k: progress.get(k) for k in ("mode", "lap", "laps_total", "time_remain", "finished")},
+            "classes": [{"key": k, "name": c.get("name", ""), "color": c.get("color", "")} for k, c in classes.items()
+                        if any(car["cls"] == k for car in cars)],
+            "sectors": [round(x, 4) for x in self.laps.starts],
+            "dec": [self.overlays.get()["general"]["race_decimals"], self.overlays.get()["general"]["qual_decimals"]],
+            "map": tmap["id"] if tmap else None,
+            "cars": cars,
+        }
+        self._spec = (now, section, tmap, images)
+        return section
 
     def _remote_snapshot(self):
         sh, fo = self.share, self.follow

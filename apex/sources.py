@@ -625,6 +625,8 @@ class MockSource:
             info = {
                 "WeekendInfo": {
                     "TrackDisplayName": "Mock Raceway", "TrackConfigName": "Grand Prix",
+                    # Road Atlanta's iRacing ID: the demo's live timing map draws its outline.
+                    "TrackID": 127,
                     "TrackLength": f"{self.TRACK_LENGTH_KM:.2f} km", "EventType": "Race",
                     "SubSessionID": self.subsession_id,
                 },

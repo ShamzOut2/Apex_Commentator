@@ -17,6 +17,7 @@ from .backgrounds import Backgrounds
 from .overlays import OverlaySettings
 from .settings import UserSettings
 from .tracks import TrackCatalogue
+from .trackmaps import TrackMaps
 from .core import App
 from .league import LeagueStore
 from .paths import APP_DIR, FROZEN
@@ -54,6 +55,8 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
     app = App(source, cfg, LeagueStore(cfg["leagues_dir"]))
     app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
     app.settings = UserSettings(ROOT / "data" / "settings.json")
+    app.trackmaps = TrackMaps(ROOT / "data" / "trackmaps")  # the spectators' track map
+    app.bin_dir = ROOT / "data" / "bin"                      # cloudflared, for the spectators' public link
     app.load_gridwalk_settings()
     app.tracks = TrackCatalogue(ROOT / "data" / "tracks.json")
     app.backgrounds = Backgrounds(ROOT / "data" / "backgrounds")

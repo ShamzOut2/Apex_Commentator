@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Live timing</title>
+  <link rel="icon" href="favicon.png">
+  <link rel="stylesheet" href="live.css">
+</head>
+<body>
+  <!-- Live timing for spectators (Apex Commentator, spectate.py): the
+       running order, a head-to-head of two drivers and the track map. -->
+  <header class="top">
+    <div class="brand">
+      <img id="series-logo" class="series-logo" alt="" hidden>
+      <div class="titles"><b id="series">Live timing</b><span id="session">Waiting for the session…</span></div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="board" role="tab">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 13V8M9 2h6" stroke="currentColor" stroke-width="2" fill="none"/></svg>Leaderboard</button>
+      <button class="tab" data-tab="tracker" role="tab">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17c0-6 4-10 9-10 4 0 7 3 7 6s-3 5-6 5H8" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="8" cy="18" r="2" fill="currentColor"/></svg>Driver tracker</button>
+    </nav>
+    <div class="clock"><span id="flag" class="flag"></span><span id="progress"></span></div>
+  </header>
+  <div class="subbar">
+    <span class="live"><span id="live-text">LIVE</span><i id="live-dot"></i></span>
+    <div id="class-chips" class="chips"></div>
+    <span id="track" class="track"></span>
+  </div>
+
+  <main>
+    <section id="tab-board" class="panel active">
+      <div class="table-wrap"><table class="board">
+        <thead><tr id="board-head"></tr></thead>
+        <tbody id="board-rows"></tbody>
+      </table></div>
+      <p id="board-empty" class="empty">No cars yet.</p>
+    </section>
+
+    <section id="tab-tracker" class="panel tracker">
+      <aside class="positions">
+        <div class="pos-head">Position</div>
+        <ol id="pos-list"></ol>
+      </aside>
+      <aside class="h2h">
+        <div class="h2h-head">
+          <div class="pick" data-slot="0"></div>
+          <div class="pick" data-slot="1"></div>
+        </div>
+        <div id="h2h-body" class="h2h-body"></div>
+        <p id="h2h-hint" class="hint">Pick two drivers from the list to compare them.</p>
+      </aside>
+      <div class="map-wrap">
+        <canvas id="map"></canvas>
+        <div class="map-note" id="map-note"></div>
+      </div>
+    </section>
+  </main>
+  <div id="offline" class="offline" hidden>Reconnecting…</div>
+  <script src="live.js"></script>
+</body>
+</html>

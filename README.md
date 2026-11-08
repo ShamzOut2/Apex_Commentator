@@ -56,93 +56,15 @@ control, Timing Screen, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.2**
+**v0.6.3**
 
 ### New features
 
-- League builder: **⇆ Copy settings from…** brings another league's
-  settings into this one in a couple of clicks: points and rules, classes,
-  teams, logo, banners and sponsors, the calendar (without results) and
-  options, each ticked or not. Drivers and results stay as they are.
-
-- **All overlays & boards** in Widget Settings: how many decimal places
-  gaps and intervals show (live race, and qualifying / results), and what
-  the overlays do while a board is up: stay, dim or hide.
-- Every overlay and board has a **Text size** next to its Size, and its
-  background opacity works on the default look too: turn a board's down
-  and the race shows through it.
-- **Tyres**: a small tyre shows what each car is on, white for dry and
-  blue for wet, on the timing tower (and its full screen), the driver card
-  and the Timing Screen.
-- Teams: **Leave out of the team standings**, for a team that shouldn't be
-  in the team championship (its drivers still score for themselves).
-- Sponsors overlay: **Stay up**, so it isn't put away with everything else
-  and isn't dimmed or hidden while a board is up.
-
-### Improvements
-
-- Race log: crashes are spotted and shown as a red **ACCIDENT** (contact
-  followed by a car slowing, spinning or going off, a heavy hit, and every
-  slowdown); iRacing's warning now reads **SLOW DOWN**.
-- Timing Screen: **⏮ Incident / Incident ⏭** step through the incidents in
-  the race log (the first press from live replays the latest one) and pick
-  each in the log.
-- Co-commentator: a **FREE | SYNC** pill in the top bar and on the Timing
-  Screen shows which you're on; click it to switch. **⧉** puts the switch
-  in a small window of its own on top of iRacing, to click without going
-  back to the app.
-- Lap tracker: sectors are compared with the **Session overall best**,
-  **Session class best** or **Session personal best**. Purple beats that;
-  green only when it beats the driver's own best; yellow when it's slower
-  than their own best at all.
-- Lap tracker: when the camera moves, the big tracker changes over to the
-  new driver in place, and there are never more small trackers on screen
-  than set (several laps ending at once no longer swaps them in and out).
-- Starting grid board: fewer **drivers on screen** make bigger name plates;
-  and row by row can **scroll**, the top row sliding up and off as the next
-  one comes in, instead of turning to a new page.
-- Grid walk: it goes in the starting grid board's order, reversed grid
-  included; a car with no picture leaves its grid box empty instead of
-  being drawn.
-- Starting grid board and grid walk: qualifying times and gaps only show
-  when the grid is from qualifying.
-- Watching a replay mid-race: the race log goes on logging live incident
-  points and the places gained at the line (iRacing's results keep coming),
-  and says so; the tower and Timing Screen keep their live order.
-- A driver who leaves the race shows a small **OUT** tag in place of their
-  gap and interval, on the timing tower, its full screen and the Timing
-  Screen.
-
-### Fixes
-
-- Boards: the leader's Gap and Int are no longer empty. Qualifying
-  results: pole's lap. Starting grid: each class pole's lap. Race results:
-  the winner's whole race time or their laps completed (**The winner's Gap
-  and Int show**; their laps where iRacing hasn't given a time), with
-  everyone else's gaps measured from the race times.
-
-- Overlays' and boards' opacity setting now makes the whole overlay or
-  board see-through (its backdrop, panels, rows, class colour boxes, number
-  boxes, stripes, sector bars and borders) while the text stays solid;
-  before, only some parts faded.
-
-- On-screen overlays that came up solid on some PCs (Windows'
-  transparency effects off, for one): answering **No** to "Can you see
-  your screen through the overlay?" now tries another way of making them
-  see-through before giving up.
-- Lap tracker: a lap no car could do (a tow or reset mid-lap) is thrown out
-  instead of becoming an impossible personal best (an 8 s lap) that put
-  every colour wrong.
-- A car towed to the pits (or leaving) mid-race no longer jumps to the top
-  of the timing tower and Timing Screen.
-- After the leader takes the flag, everyone still racing keeps being timed
-  live (places and gaps) until they cross the line themselves.
-- Gaps (and so intervals) show from the very start of the race, instead of
-  0.0 until the second lap.
-- Timing tower: a driver who's taken the chequered flag keeps their place
-  (and gap) from the moment they crossed the line, whatever they do after:
-  pitting, going to the garage or leaving no longer greys them out or moves
-  them.
+- **Live timing website** for spectators (Home tab): a page anyone can open
+  in their browser with the running order, a head-to-head of any two drivers
+  and a track map with every car on it. It goes out through Cloudflare, so
+  nobody sees your PC's address, and it only shows the timing: never
+  iRacing IDs, notes or anything about you.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -230,6 +152,41 @@ the same thing without saying "go to car 23".
   host to let Apex Commentator through the firewall the first time: allow it.
 - Replays follow only within the same iRacing session (both in the same
   event); the driver and camera follow anyway.
+
+## Live timing website (for spectators)
+
+**Home → Live timing website → Put the live timing online** gives you a link
+to share (Copy). Anyone can open it in their browser, on a PC or a phone:
+
+- **Leaderboard**: the running order (overall or a class), gaps, intervals,
+  last and best laps, each sector of the lap on now (purple / green / yellow),
+  tyres, pit stops, and OUT for cars that have left.
+- **Driver tracker**: the position list (arrows for places gained or lost),
+  a **head to head** of any two drivers picked from it (the gap between them,
+  their last laps, sector by sector, best laps and tyres), and the **track
+  map** with every car on it.
+
+The map is drawn the same way as Apex Overlays': a lap Apex Overlays
+recorded on this PC, else iRacing's own track map for the track (converted to
+a line each car's lap distance is placed on; from iRacing's site, or the
+GitHub copy of it), else the outline from Apex Overlays' shared library, else
+a round map. Maps are downloaded once and kept.
+
+**Your privacy.** The page has a small web server of its own, separate from
+the app's, that only this PC can reach. Cloudflare's free tunnel
+(`cloudflared`, downloaded from Cloudflare the first time) connects out
+from this PC and gives it a public `https://….trycloudflare.com` link:
+spectators connect to Cloudflare, never to your PC, so they can't see its
+address. The page only ever gets the timing, picked field by field: names,
+car numbers, teams, classes, places, gaps, laps, sectors, tyres and where each
+car is on the lap. Never iRacing IDs, notes, file paths, your dual
+commentary address or code, or anything else about you, and nothing on the
+page can change the app. It follows the data delay like everything else.
+
+The free link changes each time it's turned on. For one that stays the same,
+set up a tunnel in your Cloudflare account (Zero Trust → Networks → Tunnels)
+pointing at `http://localhost:8191`, and paste its token and address under
+**Your own address**.
 
 ## Timing screen
 
