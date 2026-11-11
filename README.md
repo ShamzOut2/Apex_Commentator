@@ -60,6 +60,10 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 
 ### New features
 
+- Race meetings: set each meeting to a single race, a 2-race heat (heat,
+  feature) or a 3-race heat (heat, consolation, feature). Its rounds then go
+  with those races in order, and their names replace iRacing's race names on
+  stream.
 - A driver changing class mid-season: as for a team change, their points so
   far stay in the class they raced in, or move with them from the race you
   pick.
@@ -1278,9 +1282,21 @@ standings update from what's saved.
     **Reverse grid** on a meeting's race, with *Reverse top* N: that race's grid has
     its first N turned round (the starting grid board shows it so; *Reverse
     the first N of each class* in the board's settings does it per class).
+    **Races in this event** (on the meeting): which race of the iRacing
+    event goes with which of its rounds, and so whose name replaces iRacing's
+    race name on stream (the tower's header, the boards, the live timing
+    website):
+    - *Auto*: by the rounds' names and their order (as before);
+    - *Single race*: R1 is the event's race (the feature, at a heat event);
+    - *2-race heat*: R1 the heat, R2 the feature;
+    - *3-race heat*: R1 the heat, R2 the consolation, R3 the feature.
+    Every heat goes with R1 when iRacing splits a big field into more heats
+    ("Sprint · Heat 2"); a race the format has no round for keeps a name of
+    its own. Picking a heat format adds the rounds it needs, and the line
+    under the meeting shows which race goes with which round.
     **Import every race from session** fills a meeting's races from the race
     sessions of the event you're in, in order (heat 1 into the first race,
-    and so on), including races that already finished: those come from
+    and so on; with a format set, each race into its round), including races that already finished: those come from
     iRacing's results, so their statuses and starting places are worth a
     check. During the event, the live standings count the race in progress
     as the first race without results.

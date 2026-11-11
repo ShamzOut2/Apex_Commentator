@@ -186,6 +186,9 @@ def normalise(champ):
             "id": _id(rd.get("id")),
             "name": str(rd.get("name") or f"Round {len(rounds) + 1}").strip(),
             "event": str(rd.get("event") or "").strip()[:80],     # the race meeting it's a race of
+            # The meeting's format: "single", "heat2" (heat, feature), "heat3" (heat,
+            # consolation, feature) or "" (its races matched by name and order).
+            "format": rd.get("format") if rd.get("format") in ("single", "heat2", "heat3") else "",
             "track": str(rd.get("track") or "").strip(),
             "config": str(rd.get("config") or "").strip()[:80],      # the track's layout
             "track_id": rd.get("track_id") if isinstance(rd.get("track_id"), int) else None,

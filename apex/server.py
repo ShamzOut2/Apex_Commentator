@@ -28,7 +28,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from . import championship, ocr, schedule, transfer
+from . import championship, heats, ocr, schedule, transfer
 from .core import CommandError
 from .makes import catalogue as makes_catalogue
 from .league import LOGO_TYPES, MAX_IMAGE_BYTES, LeagueError, logo_library, profile_from_session
@@ -284,7 +284,20 @@ class Handler(BaseHTTPRequestHandler):
             if not rounds:
                 return self._error("Save the rounds first")
             done, added = [], 0
-            for race, rd in zip(races, rounds):
+            # The meeting's format (if set): each race into its round by kind
+            # (one race a round: a second heat sharing R1 isn't put in).
+            fmt = next((rd.get("format") for rd in rounds if rd.get("format")), "")
+            if fmt:
+                slots = heats.format_slots(fmt, races)
+                pairs, taken = [], set()
+                for race in races:
+                    k = slots.get(race["num"])
+                    if k is not None and k < len(rounds) and k not in taken:
+                        taken.add(k)
+                        pairs.append((race, rounds[k]))
+            else:
+                pairs = list(zip(races, rounds))
+            for race, rd in pairs:
                 results, n = app.session_results(profile, add_missing=True, session_num=race["num"])
                 rd["results"] = championship.apply_distance_rule(results, rules)
                 rd["session"] = app.session_key(race["num"]) or ""

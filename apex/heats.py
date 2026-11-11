@@ -33,6 +33,35 @@ def race_kind(session):
     return "race" if "race" in stype else ""
 
 
+# A race meeting's format (set on its rounds in the Championship tab): which
+# race of the iRacing event goes with which of its rounds, by kind.
+FORMATS = {"single": 1, "heat2": 2, "heat3": 3}
+
+
+def format_slots(fmt, races):
+    """{session number: index of the meeting's round (0 = R1)} for an event's
+    races, by the meeting's format: "heat2" (R1 the heat, R2 the feature),
+    "heat3" (R1 the heat, R2 the consolation, R3 the feature) or "single" (R1
+    the feature, else the event's last race). Every heat goes with R1 (iRacing
+    splits a big field into more heats); races that aren't heats, a
+    consolation or a feature ("Race") go in order. A race the format has no
+    round for isn't in it."""
+    if fmt not in FORMATS or not races:
+        return {}
+    if fmt == "single":
+        main = next((r for r in races if r["kind"] == "feature"), races[-1])
+        return {main["num"]: 0}
+    order = ("heat", "feature") if fmt == "heat2" else ("heat", "consolation", "feature")
+    out = {}
+    for n, race in enumerate(races):
+        if race["kind"] in HEAT_KINDS:
+            if race["kind"] in order:
+                out[race["num"]] = order.index(race["kind"])
+        elif n < FORMATS[fmt]:
+            out[race["num"]] = n
+    return out
+
+
 def _kind_of_name(text):
     text = str(text or "").lower()
     return next((kind for kind, words in WORDS if any(w in text for w in words)), None)
@@ -62,6 +91,15 @@ def match_rounds(races, rounds, today, live_id="", event_key=None):
                 linked[int(num[2])] = i
     pool = _dated(rounds, today) or _meeting_of(rounds, live_id, len(races), set(linked.values()))
     out, free = {}, [i for i in pool if i not in linked.values()]
+    # A meeting with its format set: the races go with its rounds by kind.
+    fmt_at = next((i for i in pool if rounds[i].get("format") in FORMATS), None)
+    if fmt_at is not None:
+        meeting = [i for i in pool if rounds[i].get("event") == rounds[fmt_at].get("event")]
+        for num, k in format_slots(rounds[fmt_at]["format"], races).items():
+            if k < len(meeting):
+                out[num] = meeting[k]
+        out.update({num: linked[num] for num in (r["num"] for r in races) if num in linked})
+        return out
 
     def kind_of(i):
         return _kind_of_name(f"{rounds[i].get('name')} {rounds[i].get('event')}")

@@ -1751,19 +1751,35 @@ function renderChampRounds() {
   $("#champ-rounds").innerHTML = html.join("") || '<p class="hint">No rounds yet.</p>';
 }
 
+// A race meeting's format: which race of the iRacing event goes with which of its rounds.
+const MEETING_FORMATS = [["", "Auto (by name and order)"], ["single", "Single race"], ["heat2", "2-race heat: heat, feature"],
+  ["heat3", "3-race heat: heat, consolation, feature"]];
+const FORMAT_RACES = { single: ["The race (the feature, if it's a heat event)"], heat2: ["Heat (every heat)", "Feature"],
+  heat3: ["Heat (every heat)", "Consolation", "Feature"] };
+
 function meetingHtml(first, last, inner) {
   const c = champData();
   const n = last - first + 1;
+  const fmt = c.rounds[first].format || "";
+  const races = FORMAT_RACES[fmt];
+  // Which round takes which race (its name replaces iRacing's on stream).
+  const map = races ? `<p class="hint meeting-map">${races.map((race, k) => {
+    const rd = c.rounds[first + k];
+    return `${esc(race)} → ${rd ? `<b>R${first + k + 1} · ${esc(rd.name)}</b>` : "<i>no round: add a race</i>"}`;
+  }).join(" &nbsp;·&nbsp; ")}</p>` : "";
   return `<div class="meeting">
     <div class="meeting-head">
       <span class="badge">RACE MEETING</span>
       <input data-meeting="${first}" value="${esc(c.rounds[first].event)}" aria-label="Race meeting name" title="Rename the meeting (empty: its races become separate rounds)">
       <span class="sub">${n} race${n === 1 ? "" : "s"} · round${n === 1 ? "" : "s"} ${first + 1}${n > 1 ? `–${last + 1}` : ""}</span>
+      <label class="meeting-format" title="Which race of the iRacing event goes with which round: each round's name replaces iRacing's race name on stream">Races in this event
+        <select data-meeting-format="${first}">${MEETING_FORMATS.map(([v, l]) => `<option value="${v}" ${fmt === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
       <span class="grow"></span>
       <button class="btn" data-meeting-import="${first}" title="Each race session of the event you're in (heats, then the feature...) into these races, in order">⤓ Import every race from session</button>
       <button class="btn subtle" data-meeting-add="${last}">+ Add a race</button>
       <button class="btn subtle" data-meeting-split="${first}" title="Its races become separate rounds again">Separate rounds</button>
     </div>
+    ${map}
     ${inner}
   </div>`;
 }
@@ -2014,6 +2030,19 @@ function champChange(e, final) {
   } else if (d.meeting != null) {
     if (!final) return;
     for (const rd of meetingRounds(+d.meeting)) rd.event = el.value.trim();
+    rerender = true;
+  } else if (d.meetingFormat != null) {
+    // The meeting's format: on each of its rounds; a heat format adds the rounds it needs.
+    if (!final) return;
+    const first = +d.meetingFormat;
+    const rounds = meetingRounds(first);
+    for (const rd of rounds) rd.format = el.value;
+    const need = { heat2: 2, heat3: 3 }[el.value] || 0;
+    const names = { heat2: ["Heat", "Feature"], heat3: ["Heat", "Consolation", "Feature"] }[el.value] || [];
+    for (let k = rounds.length; k < need; k++) {
+      const last = c.rounds[first + k - 1];
+      c.rounds.splice(first + k, 0, { ...last, id: newId(), name: names[k], results: [], session: "", format: el.value });
+    }
     rerender = true;
   } else if (d.round != null && d.rlen) {
     // Race length: a number and its unit (minutes, hours or laps).

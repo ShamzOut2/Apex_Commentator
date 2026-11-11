@@ -15,6 +15,10 @@ How each version's entry is written:
 
 ### New features
 
+- Race meetings: set each meeting to a single race, a 2-race heat (heat,
+  feature) or a 3-race heat (heat, consolation, feature). Its rounds then go
+  with those races in order, and their names replace iRacing's race names on
+  stream.
 - A driver changing class mid-season: as for a team change, their points so
   far stay in the class they raced in, or move with them from the race you
   pick.

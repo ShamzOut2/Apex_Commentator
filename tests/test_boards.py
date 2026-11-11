@@ -583,6 +583,31 @@ class GridBoardTests(unittest.TestCase):
         self.assertEqual([r["number"] for r in b["rows"]][:5], [number(i) for i in consi[3::-1] + consi[4:5]])
         self.assertEqual(b["title"], "Feature · starting grid")
 
+    def test_a_3_race_heat_meetings_round_names_replace_iracings(self):
+        from datetime import date
+
+        self.app._session_meta["sessions"] = {
+            0: {"SessionNum": 0, "SessionType": "Lone Qualify", "SessionName": "QUALIFY"},
+            1: {"SessionNum": 1, "SessionType": "Race", "SessionName": "HEAT 1"},
+            2: {"SessionNum": 2, "SessionType": "Race", "SessionName": "HEAT 2"},
+            3: {"SessionNum": 3, "SessionType": "Race", "SessionName": "CONSOLATION"},
+            4: {"SessionNum": 4, "SessionType": "Race", "SessionName": "FEATURE"},
+        }
+        league = self.app.leagues.active()
+        rounds = [{"name": n, "event": "Brands", "date": "2026-11-05", "format": "heat3"} for n in ("Sprint", "Redemption", "Grand Final")]
+        self.app.leagues.save(dict(league, championship={"rounds": rounds}))
+        self.app._today = lambda: date(2026, 11, 5)
+        league = self.app.leagues.active()
+        sessions = self.app._session_meta["sessions"]
+        titles = [self.app._race_title(league, n, sessions[n]) for n in (1, 2, 3, 4)]
+        self.assertEqual(titles, ["Sprint · Heat 1", "Sprint · Heat 2", "Redemption", "Grand Final"])
+        # A 2-race heat: the consolation (if iRacing adds one) keeps a name of its own; the feature is R2.
+        rounds = [dict(r, format="heat2") for r in rounds[:2]]
+        self.app.leagues.save(dict(league, championship={"rounds": rounds}))
+        league = self.app.leagues.active()
+        titles = [self.app._race_title(league, n, sessions[n]) for n in (1, 3, 4)]
+        self.assertEqual(titles, ["Sprint · Heat 1", "Consolation", "Redemption"])
+
     def test_two_race_event_second_race_from_the_first(self):
         cars = list(self.app._drivers)
         first = cars[3:] + cars[:3]

@@ -93,6 +93,40 @@ class MatchTests(unittest.TestCase):
         btcs[0] = {"name": "Race 1", "date": day}
         self.assertEqual(heats.match_rounds(races, btcs, DAY), {3: 0, 5: 1, 6: 2})
 
+    def test_a_meetings_format_puts_each_race_in_its_round(self):
+        """A meeting set to a 2- or 3-race heat (or a single race): R1 the
+        heat (every heat), R2 the consolation, the last the feature, whatever
+        the rounds are called and however many heats iRacing makes."""
+        day = "2026-11-05"
+
+        def meeting(fmt, n):
+            return [{"name": f"R{k + 1} name", "event": "Brands", "date": day, "format": fmt} for k in range(n)]
+
+        races = [race(3, "heat"), race(4, "feature")]
+        self.assertEqual(heats.match_rounds(races, meeting("heat2", 2), DAY), {3: 0, 4: 1})
+        races = [race(3, "heat"), race(4, "heat"), race(5, "consolation"), race(6, "feature")]
+        self.assertEqual(heats.match_rounds(races, meeting("heat3", 3), DAY), {3: 0, 4: 0, 5: 1, 6: 2})
+        # A 2-race heat with a consolation iRacing added: no round for it.
+        self.assertEqual(heats.match_rounds(races, meeting("heat2", 2), DAY), {3: 0, 4: 0, 6: 1})
+        # Rounds named for other kinds of race don't change it.
+        named = meeting("heat3", 3)
+        named[0]["name"], named[2]["name"] = "Feature race", "Heat race"
+        self.assertEqual(heats.match_rounds(races, named, DAY), {3: 0, 4: 0, 5: 1, 6: 2})
+        # A single race: the feature.
+        self.assertEqual(heats.match_rounds(races, meeting("single", 1), DAY), {6: 0})
+        # Races that aren't heats (two RACE sessions): in order.
+        two = [race(3, "race"), race(4, "race")]
+        self.assertEqual(heats.match_rounds(two, meeting("heat2", 2), DAY), {3: 0, 4: 1})
+        # Already saved: a race's round stays.
+        saved = meeting("heat3", 3)
+        saved[1] = dict(saved[1], results=[1], session="777:5")
+        self.assertEqual(heats.match_rounds(races, saved, DAY, event_key=777), {3: 0, 4: 0, 5: 1, 6: 2})
+
+    def test_the_format_is_kept(self):
+        from apex import championship
+        rd = championship.normalise({"rounds": [{"name": "A", "format": "heat3"}, {"name": "B", "format": "nonsense"}]})["rounds"]
+        self.assertEqual([r["format"] for r in rd], ["heat3", ""])
+
     def test_titles(self):
         self.assertEqual(heats.round_title(2, "Spa Heat A"), "Spa Heat A")  # just the round's own name
         self.assertEqual(heats.round_title(2, " "), "Round 2")
