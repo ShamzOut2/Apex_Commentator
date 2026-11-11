@@ -308,6 +308,7 @@ class App:
         self._green = {}           # race session number -> session time it went green (the header flash)
         self._chequered = {}       # race session number -> session time the chequered flag came out
         self._clock_ran = set()    # timed race sessions whose clock was seen running down (LAST LAP needs it)
+        self._time_ran_out = set()  # (event, session) whose clock has run out: LAST LAP until the leader finishes
         self._last_state = {}      # session number -> session state last seen
         self._fl_session = None    # fastest laps: the session they're for,
         self._fl_records = {}      # "overall" / class key -> (fastest lap so far, (car_idx, number) who set it),
@@ -615,7 +616,15 @@ class App:
             rd = rd or next((r for r in rounds if r["session"] == self.session_key(races[0]["num"])), None)
             if rd is not None and rd.get("event"):
                 matched = {races[0]["num"]: rounds.index(rd)}
-        return {num: (i + 1, rounds[i]) for num, i in matched.items()}
+        out = {num: (i + 1, rounds[i]) for num, i in matched.items()}
+        # In the log each time it changes: which race went with which round.
+        names = {r["num"]: r["name"] for r in self.race_sessions()}
+        said = tuple(sorted((num, rd["id"]) for num, (_, rd) in out.items()))
+        if said and said != getattr(self, "_meeting_said", None):
+            self._meeting_said = said
+            print("[apex] race meeting: " + ", ".join(f"{names.get(num, num)} -> round {n} '{rd.get('name')}'"
+                                                      for num, (n, rd) in sorted(out.items())))
+        return out
 
     def _meeting_before(self, league, matched):
         """The finishing order ({car_idx: place}) of the race before ``matched``
@@ -642,8 +651,16 @@ class App:
 
     def _round_title(self, league, session_num):
         on = self.overlays.get()["standings"]["round_titles"] != "off"
-        matched = self._meeting(league).get(session_num) if on else None
-        return heats.round_title(matched[0], matched[1]["name"]) if matched else ""
+        meeting = self._meeting(league) if on else {}
+        matched = meeting.get(session_num)
+        if not matched:
+            return ""
+        title = heats.round_title(matched[0], matched[1]["name"])
+        # Several heats in one round (a big field split): each its heat number.
+        shared = sorted(num for num, m in meeting.items() if m[0] == matched[0])
+        if len(shared) > 1:
+            title = f"{title} · Heat {shared.index(session_num) + 1}"
+        return title
 
     def _live_round(self, champ, league, key):
         """The round the race ``key`` (subsession:session) counts as, or None:
@@ -688,7 +705,9 @@ class App:
                     "desktop": self._desktop_snapshot(),
                     "remote": self._remote_snapshot(),
                 "spectate": self._spectate_snapshot(),
-                    **self._boards(self.leagues.active(), lambda: None),
+                    # Not connected: the event as last seen (its saved sessions), no one on track.
+                    **self._boards(self.leagues.active(), lambda source, kind="results": self._board_data(
+                        self.leagues.active() or self._officials_league(), kind, source, [])),
                     "overlays": {"settings": self.overlays.get(), "session_kind": "", "standings": [],
                                  "laps": {"active": False, "camera": None, "trackers": [], "all": [],
                                           "sectors": len(self.laps.starts)}},
@@ -983,39 +1002,43 @@ class App:
     # -- the championship battle overlay (battle.html) ----------------------
 
     def _duel_snapshot(self, ov, frame, is_race):
-        """The on-track battle (duel.html): the car on camera and the cars just
-        ahead and behind it in its class (overall with one class), each within
-        gap_s of the next, on the same lap, on track. With "auto", a battle
-        found (``active``) brings the widget up and it goes again hold_s after
-        the battle breaks up; by hand, the cars either side whatever the gap."""
+        """The on-track battle (duel.html): the driver on camera and the cars
+        within gap_s of them, ahead and behind (at most ``ahead`` / ``behind``
+        of each), in their class or overall (``scope``), on the same lap and
+        on track. With "auto", someone within the gap (``active``) brings it
+        up; it goes hold_s after there's no one."""
         cfg = self.overlays.get()["duel"]
         now = frame.timeline()[1]
         cam = frame.cam_car_idx
         entries = (ov.get("standings") or []) if is_race else []
+        multi = len({e["class_key"] for e in entries}) > 1
+        by_class = multi and cfg["scope"] == "class"
         me = next((e for e in entries if e["car_idx"] == cam), None)
         rows, active = [], False
         if me is not None:
-            multi = len({e["class_key"] for e in entries}) > 1
-            pos_k, int_k, down_k = ("class_pos", "class_interval", "class_laps_down") if multi else ("pos", "interval", "laps_down")
-            group = sorted((e for e in entries if not multi or e["class_key"] == me["class_key"]), key=lambda e: e[pos_k] or 999)
+            pos_k, down_k = ("class_pos", "class_laps_down") if by_class else ("pos", "laps_down")
+            group = sorted((e for e in entries if not by_class or e["class_key"] == me["class_key"]),
+                           key=lambda e: e[pos_k] or 999)
             i = group.index(me)
+            mine = me.get("gap") or 0.0  # seconds behind the leader (the leader: 0)
 
-            def close(a, b):  # b right behind a: in the battle?
-                gap = b.get(int_k)
-                return (gap is not None and gap <= cfg["gap_s"] and (a.get(down_k) or 0) == (b.get(down_k) or 0)
-                        and a["in_world"] and b["in_world"] and not a["on_pit"] and not b["on_pit"])
+            def apart(e):  # seconds between this car and the one on camera, or None (a lap apart, off track)
+                if not (e["in_world"] and me["in_world"]) or e["on_pit"] or (e.get(down_k) or 0) != (me.get(down_k) or 0):
+                    return None
+                return abs((e.get("gap") or 0.0) - mine)
 
-            lo = i
-            while lo > 0 and i - (lo - 1) <= cfg["ahead"] and (not cfg["auto"] or close(group[lo - 1], group[lo])):
-                lo -= 1
-            hi = i
-            while hi + 1 < len(group) and (hi + 1) - i <= cfg["behind"] and (not cfg["auto"] or close(group[hi], group[hi + 1])):
-                hi += 1
-            picked = group[lo:hi + 1]
-            active = len(picked) > 1 and any(close(a, b) for a, b in zip(picked, picked[1:]))
-            rows = [{**{k: e.get(k) for k in ("car_idx", "name", "nickname", "number", "team", "team_logo", "class_key", "paint")},
-                     "pos": e[pos_k], "interval": e.get(int_k) if j else None, "cam": e["car_idx"] == cam}
-                    for j, e in enumerate(picked)]
+            within = lambda e: (a := apart(e)) is not None and a <= cfg["gap_s"]  # noqa: E731
+            ahead = [e for e in reversed(group[:i]) if within(e)][:cfg["ahead"]]
+            behind = [e for e in group[i + 1:] if within(e)][:cfg["behind"]]
+            picked = list(reversed(ahead)) + [me] + behind
+            active = len(picked) > 1 and not me["on_pit"]
+            prev = None
+            for e in picked:
+                rows.append({**{k: e.get(k) for k in ("car_idx", "name", "nickname", "number", "team", "team_logo", "class_key", "paint")},
+                             "pos": e[pos_k], "cam": e["car_idx"] == cam,
+                             "interval": round((e.get("gap") or 0.0) - (prev.get("gap") or 0.0), 3) if prev is not None else None,
+                             "to_cam": round((e.get("gap") or 0.0) - mine, 3)})
+                prev = e
         # Auto: a battle that's just broken up stays up a moment (hold_s), with
         # the cars as they were, rather than flickering at the edge of the gap.
         held = getattr(self, "_duel_held", None)
@@ -1023,8 +1046,7 @@ class App:
             self._duel_held = (now, cam, rows)
         elif cfg["auto"] and held and held[1] == cam and 0 <= now - held[0] <= cfg["hold_s"]:
             rows, active = held[2], True
-        return {"active": active, "rows": rows, "pos": rows[0]["pos"] if rows else None,
-                "multiclass": len({e["class_key"] for e in entries}) > 1}
+        return {"active": active, "rows": rows, "pos": rows[0]["pos"] if rows else None, "multiclass": by_class}
 
     def _trackmap_snapshot(self, rows, snap, frame, league):
         """The track map widget (trackmap.html): which outline (its points at
@@ -1294,6 +1316,13 @@ class App:
             self._clock_ran.add(num)
         time_up = (bool(time_total) and not finished and frame.session_state in (STATE_RACING, STATE_CHECKERED)
                    and num in self._clock_ran and remain is not None and 0 <= remain <= 0.05)
+        # Once it's run out it stays the last lap: iRacing then counts down again
+        # (the time left for everyone to finish), which isn't the race's clock.
+        out_key = (self._session_meta.get("subsession"), num)
+        if time_up:
+            self._time_ran_out.add(out_key)
+        elif out_key in self._time_ran_out and not finished and frame.session_state in (STATE_RACING, STATE_CHECKERED):
+            time_up = True
         return {
             "mode": mode,
             "finished": finished,
@@ -2876,8 +2905,13 @@ class App:
         live = kind in ("qualifying", "grid") or source == "live" or source.startswith("session:")
         if key == self._board_cache[0] and not live:
             return self._board_cache[1]
-        value = (boards.build(active_league, self.board, settings, session_board(source, kind) if live else None),
-                 boards.options(active_league))
+        data = None
+        if live:
+            try:
+                data = session_board(source, kind)
+            except Exception as e:  # noqa: BLE001 - a board with nothing on it, never every update broken
+                self._report(f"{kind} board", e)
+        value = (boards.build(active_league, self.board, settings, data), boards.options(active_league))
         self._board_cache = (key, value)
         self._board_pages = value[0]["pages"] if value[0] else 1
         self._grid_rows_total = (value[0] or {}).get("reveal_total") or 1
@@ -3152,7 +3186,7 @@ class App:
             "title": title, "kind": "race" if is_race else ("qualify" if "qualify" in str(session.get("SessionType", "")).lower() else "practice"),
             "track": self._session_meta.get("track", ""), "config": self._session_meta.get("track_config", ""),
             "state": SESSION_STATES.get(frame.session_state, ""), "flag": flag,
-            "progress": {k: progress.get(k) for k in ("mode", "lap", "laps_total", "time_remain", "finished")},
+            "progress": {k: progress.get(k) for k in ("mode", "lap", "laps_total", "time_remain", "finished", "time_up")},
             "classes": [{"key": k, "name": c.get("name", ""), "color": c.get("color", "")} for k, c in classes.items()
                         if any(car["cls"] == k for car in cars)],
             "sectors": [round(x, 4) for x in self.laps.starts],

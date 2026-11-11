@@ -238,6 +238,8 @@ class StandingsOverlayTests(unittest.TestCase):
         # Still time on the clock: not the last lap; then it runs out.
         self.assertFalse(app._session_progress(replace(frame, session_time_remain=30.0), session, [])["time_up"])
         self.assertTrue(app._session_progress(frame, session, [])["time_up"])
+        # iRacing then counts down again (the time left for everyone to finish): still the last lap.
+        self.assertTrue(app._session_progress(replace(frame, session_time_remain=95.0), session, [])["time_up"])
         # The chequered flag out: not the last lap.
         self.assertFalse(app._session_progress(replace(frame, session_state=STATE_CHECKERED), session, [])["time_up"])
 

@@ -75,7 +75,8 @@ DEFAULT_RULES = {
     "fastest_lap_top": 0,       # fastest-lap bonus only if finishing in the top N (0 = anyone)
     "classified_pct": 75,       # must complete this % of the class winner's laps to score, else DNF (0 = off)
     "dnf_scores": True,         # a DNF still scores the points for where it was classified
-    "team_best": 0,             # team championship: best N drivers per team per round (0 = all)
+    "team_best": 0,             # team championship: best N drivers per team per round (0 = all, added together)
+    "team_meetings": False,     # a race meeting's races as one: the best N over the meeting (their points added up)
     "team_points": "overall",   # "both": teams score their drivers' "overall" or "class" points
 }
 
@@ -146,6 +147,7 @@ def normalise_rules(rules):
         "classified_pct": _num(rules.get("classified_pct", DEFAULT_RULES["classified_pct"]), 0, lo=0, hi=100),
         "dnf_scores": bool(rules.get("dnf_scores", True)),
         "team_best": _num(rules.get("team_best"), 0, lo=0, hi=20, cast=int),
+        "team_meetings": bool(rules.get("team_meetings")),
         "team_points": "class" if rules.get("team_points") == "class" else "overall",
     }
 
@@ -648,24 +650,37 @@ def _team_standings(profile, scored, per_round, rules, penalties):
         return []
     left_out = {str(t.get("name") or "").strip().lower() for t in profile.get("teams") or [] if t.get("no_standings")}
     rounds, wins, by_round = {}, {}, {}
+    # Each round on its own, or (team_meetings) a race meeting's races as one:
+    # the drivers that count are picked on what they scored over the meeting.
+    units = []
     for rd in scored:
-        by_team = {}
-        for r in rd["results"]:
-            # The team they raced for that round (a driver who changed team
-            # mid-season), else the one they're in now.
-            team = (r.get("team") or (roster.get(r["driver"]) or {}).get("team") or "").strip()
-            res = per_round[rd["id"]].get(_team_group(r, rules), {}).get(r["driver"])
-            if team and res and team.lower() not in left_out:
-                by_team.setdefault(team, []).append((res["total"], r["driver"], res["rank"]))
-        for team, entries in by_team.items():
-            entries.sort(key=lambda e: -e[0])
-            counted = entries[:rules["team_best"]] if rules["team_best"] else entries
-            pts = _round(sum(e[0] for e in counted))
-            rounds.setdefault(team, {})[rd["id"]] = pts
-            wins[team] = wins.get(team, 0) + sum(1 for e in entries if e[2] == 1)
-            for total, driver, _ in counted:
-                m = by_round.setdefault(team, {}).setdefault(rd["id"], {})
-                m[driver] = m.get(driver, 0) + total
+        if rules["team_meetings"] and rd.get("event") and units and units[-1][0] == rd["event"]:
+            units[-1][1].append(rd)
+        else:
+            units.append((rd.get("event") if rules["team_meetings"] else None, [rd]))
+    for _, unit in units:
+        per_team = {}  # team -> {driver: {round id: (points, rank)}}
+        for rd in unit:
+            for r in rd["results"]:
+                # The team they raced for that round (a driver who changed team
+                # mid-season), else the one they're in now.
+                team = (r.get("team") or (roster.get(r["driver"]) or {}).get("team") or "").strip()
+                res = per_round[rd["id"]].get(_team_group(r, rules), {}).get(r["driver"])
+                if team and res and team.lower() not in left_out:
+                    per_team.setdefault(team, {}).setdefault(r["driver"], {})[rd["id"]] = (res["total"], res["rank"])
+        for team, drivers in per_team.items():
+            # Best N (by their points over the unit), or all of them added together.
+            ranked_drivers = sorted(drivers, key=lambda d: -sum(p for p, _ in drivers[d].values()))
+            counted = ranked_drivers[:rules["team_best"]] if rules["team_best"] else ranked_drivers
+            for rd in unit:
+                got = [(drivers[d][rd["id"]][0], d) for d in counted if rd["id"] in drivers[d]]
+                if not any(rd["id"] in drivers[d] for d in drivers):
+                    continue
+                rounds.setdefault(team, {})[rd["id"]] = _round(sum(p for p, _ in got))
+                wins[team] = wins.get(team, 0) + sum(1 for d in drivers if rd["id"] in drivers[d] and drivers[d][rd["id"]][1] == 1)
+                for total, driver in got:
+                    m = by_round.setdefault(team, {}).setdefault(rd["id"], {})
+                    m[driver] = m.get(driver, 0) + total
     # Drop rounds: a team's worst rounds don't count (nor what its drivers scored in them).
     totals, members, dropped = {}, {}, {}
     for team, per in rounds.items():

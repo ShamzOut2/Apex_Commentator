@@ -740,6 +740,7 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .wboards { margin-top: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); padding: 10px 12px; }
 .wboards-head { flex-wrap: wrap; gap: 8px; }
 .wboards-head h3 { margin: 0; }
+.wboards-head .desk-end { margin-left: 18px; padding-left: 18px; border-left: 1px solid var(--line); }
 .wboards .board-group { background: var(--panel); }
 
 /* ---- Widget Settings: a widget picked on the left, every setting as label | value ---- */

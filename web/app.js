@@ -1901,8 +1901,12 @@ function renderChampRules() {
       <input type="number" min="0" data-rule="fastest_lap_top" value="${r.fastest_lap_top || 0}"></label>
     <label class="ov-field">Must complete this % of the race (their class winner's laps) to score; anyone short is a DNF with no points (0 = off)
       <input type="number" min="0" max="100" data-rule="classified_pct" value="${r.classified_pct ?? 75}"></label>
-    <label class="ov-field">Team championship: best N drivers per team each round (0 = all)
-      <input type="number" min="0" max="20" data-rule="team_best" value="${r.team_best || 0}"></label>
+    <label class="ov-field">Team championship: each round counts
+      <select data-team-count>${[["all", "All the team's drivers, added together"], ["best", "Its best drivers (the best N)"]].map(([v, l]) =>
+        `<option value="${v}" ${(r.team_best ? "best" : "all") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+    ${r.team_best ? `<label class="ov-field">How many of its drivers count (the best N)
+      <input type="number" min="1" max="20" data-rule="team_best" value="${r.team_best}"></label>` : ""}
+    <label class="ov-field check" title="A race meeting (heats, a sprint and a feature…) counts as one for the teams: each driver's points over the meeting added up, and the team's best N over the meeting count"><input type="checkbox" data-rule="team_meetings" ${r.team_meetings ? "checked" : ""}> Teams: a race meeting counts as one (the best N over the whole meeting)</label>
     ${r.scoring === "both" ? `<label class="ov-field">Team championship counts its drivers'
       <select data-rule="team_points">${[["overall", "Overall points"], ["class", "Class points"]].map(([v, l]) =>
         `<option value="${v}" ${(r.team_points || "overall") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
@@ -1921,7 +1925,7 @@ function champChange(e, final) {
   let rerender = false;
   // Points & rules (and which round is Live) are saved as they're changed:
   // the standings, boards and overlays use them straight away.
-  const isRule = !!(d.champKind || d.rule || d.secondaryScoring || d.classPoints || d.bonus || d.liveRound
+  const isRule = !!(d.champKind || d.rule || d.teamCount != null || d.secondaryScoring || d.classPoints || d.bonus || d.liveRound
     || (d.scheme != null && d.skey));
   if (d.champKind) {
     // Class and / or overall championships (at least one).
@@ -1953,6 +1957,11 @@ function champChange(e, final) {
     }
     else r[d.rule] = el.type === "number" ? +el.value : el.value;
     if (d.rule === "scoring" && final) rerender = true;
+  } else if (d.teamCount != null) {
+    // All the team's drivers (team_best 0), or its best N (2 to start with).
+    if (!final) return;
+    c.rules.team_best = el.value === "best" ? (c.rules.team_best || 2) : 0;
+    rerender = true;
   } else if (d.secondaryScoring) {
     if (!final) return;
     c.rules.secondary_scoring = { ...(c.rules.secondary_scoring || {}), [d.secondaryScoring]: el.value };
@@ -2738,11 +2747,12 @@ const OVERLAY_FIELDS = {
   ],
   duel: [
     ["What it shows", [
-      ["auto", "Comes up by itself when the car on camera is in a battle, and goes when it isn't (untick: show and hide it yourself)", "bool"],
-      ["gap_s", "A battle: cars within this many seconds of each other", "number", { min: 0.1, max: 5, step: 0.1 }],
+      ["auto", "Comes up by itself when someone's within the gap of the driver on camera, and goes when no one is (untick: show and hide it yourself)", "bool"],
+      ["gap_s", "Cars within this many seconds of the driver on camera, ahead and behind", "number", { min: 0.1, max: 30, step: 0.1 }],
+      ["scope", "Cars from", "select", [["class", "Their class only"], ["overall", "Every class (overall)"]]],
       iff((v) => v.auto, ["hold_s", "Stays up after the battle breaks up (seconds)", "number", { min: 0, max: 30, step: 0.5 }]),
-      ["ahead", "Most cars ahead of the car on camera", "number", { min: 0, max: 4, step: 1 }],
-      ["behind", "Most cars behind it", "number", { min: 0, max: 4, step: 1 }],
+      ["ahead", "Most cars ahead of the driver on camera", "number", { min: 0, max: 6, step: 1 }],
+      ["behind", "Most cars behind them", "number", { min: 0, max: 6, step: 1 }],
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
         ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
       ["title", "Heading (empty: Battle for P3)", "text"],
@@ -2750,7 +2760,8 @@ const OVERLAY_FIELDS = {
       ["show_number", "Car numbers (in the class colour)", "bool"],
       ["show_team", "Team names", "bool"],
       ["show_logo", "Team logos", "bool"],
-      ["show_interval", "Gap to the car ahead", "bool"],
+      ["show_interval", "Gaps", "bool"],
+      iff((v) => v.show_interval, ["gap_shown", "Each car's gap", "select", [["ahead", "To the car ahead of it"], ["camera", "To the driver on camera (− ahead, + behind)"]]]),
     ]],
     OVERLAY_LOOK,
   ],
@@ -3683,7 +3694,7 @@ function renderDesktop(s) {
     if (!d.available) return;
     const on = d.on_screen[page];
     el.innerHTML = on != null
-      ? `<span class="desk-on">● On ${several ? `screen ${on + 1}` : "your screen"}</span><button class="btn subtle" data-desk-hide="${page}">Remove</button>`
+      ? `<span class="desk-on">● On ${several ? `screen ${on + 1}` : "your screen"}</span><button class="btn subtle" data-desk-hide="${page}" title="Take it off your own screen (the stream isn't changed)">Off my screen</button>`
       : `<button class="btn" data-desk-show="${page}" title="Put it straight on your screen, over the game">Show on my screen</button>`;
   });
   document.querySelectorAll("[data-desk-tab]").forEach((pick) => {
@@ -4739,6 +4750,35 @@ async function teamSwitch(d, from, to) {
       : `${name}: ${at} race${at > 1 ? "s" : ""} for ${from}, the rest for ${to || "no team"}: save to keep it`);
 }
 
+// A driver moved to another class after racing this season: like a team
+// switch, their points so far stay in the class they raced in, or all go to
+// the new one (each result keeps the class it was raced in).
+async function classSwitch(d, from, to) {
+  if (!from || !to || from === "-" || to === "-" || from === to) return;  // "Auto" or no main class: nothing to move
+  const key = driverKey(d);
+  const races = racesOf(key).filter(({ result }) => result.class_id === from);
+  if (!races.length) return;
+  const name = d.name || "This driver";
+  const [was, now] = [champClassName(from), champClassName(to)];
+  const pickHtml = `<label class="ov-field">First race in ${esc(now)}
+    <select id="switch-from"><option value="">The next race (every race so far stays in ${esc(was)})</option>
+    ${races.map(({ rd, n }) => `<option value="${esc(rd.id)}">${esc(roundLabel(rd, n))}</option>`).join("")}</select></label>`;
+  const pick = await choose(`${name}: ${was} → ${now}`,
+    `${name} has ${races.length} race${races.length > 1 ? "s" : ""} in ${was} this season. In the championships, the races before their first one in ${now} count for ${was}; that one and every race after it for ${now}.`, [
+      ["apply", "Apply", true],
+      ["move", `All their points go to ${now}`],
+    ], pickHtml);
+  if (pick === null) return;
+  const first = pick.value === "apply" ? pick.form.querySelector("#switch-from").value : races[0] && races[0].rd.id;
+  const at = first ? races.findIndex(({ rd }) => rd.id === first) : races.length;
+  races.forEach(({ result }, i) => {
+    if (i >= at) result.class_id = to;
+  });
+  toast(at === 0 ? `${name}'s points all go to ${now}: save to keep it`
+    : at >= races.length ? `${name}'s points so far stay in ${was}: save to keep it`
+      : `${name}: ${at} race${at > 1 ? "s" : ""} in ${was}, the rest in ${now}: save to keep it`);
+}
+
 // A driver's races this season, in round order: [{rd, n (round number), result}].
 function racesOf(key) {
   const c = ui.editing && ui.editing.championship;
@@ -4999,6 +5039,7 @@ $("#roster-rows").addEventListener("input", (e) => {
 // The team a driver was in before it's typed over (for a mid-season switch).
 $("#roster-rows").addEventListener("focusin", (e) => {
   if (e.target.dataset.field === "team") e.target.dataset.was = ui.editing.drivers[+e.target.dataset.row].team || "";
+  if (e.target.dataset.field === "class_id") e.target.dataset.was = ui.editing.drivers[+e.target.dataset.row].class_id || "";
 });
 $("#roster-rows").addEventListener("change", async (e) => {
   if (e.target.dataset.field === "team") {
@@ -5006,6 +5047,12 @@ $("#roster-rows").addEventListener("change", async (e) => {
     await teamSwitch(d, e.target.dataset.was, d.team);
     e.target.dataset.was = d.team || "";
     return renderTeams();
+  }
+  if (e.target.dataset.field === "class_id") {
+    const d = ui.editing.drivers[+e.target.dataset.row];
+    await classSwitch(d, e.target.dataset.was, d.class_id);
+    e.target.dataset.was = d.class_id || "";
+    return;
   }
   if (e.target.dataset.field === "car_make") return renderRoster();  // update the badge
   const input = e.target.closest("[data-photo]");

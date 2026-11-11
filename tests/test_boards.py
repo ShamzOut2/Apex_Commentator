@@ -31,6 +31,23 @@ def league(**extra):
     })
 
 
+class OfflineBoardTests(unittest.TestCase):
+    def test_event_boards_with_no_session_dont_break_anything(self):
+        """Qualifying results or the starting grid put up with iRacing not
+        connected: an empty board, and the app carries on (it raised on every
+        update before, until restarted)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LeagueStore(tmp)
+            store.set_active(store.save({"name": "L", "drivers": []})["id"])
+            app = App(MockSource(seed=1), dict(DEFAULTS), store)  # never ticked: not connected
+            for kind in ("qualifying", "grid", "results"):
+                app.command("board_show", {"kind": kind})
+                snap = app.build_snapshot()
+                self.assertEqual(snap["board"]["kind"], kind)
+            app.command("board_hide", {})
+            self.assertFalse(app.build_snapshot()["connected"])
+
+
 class MakesTests(unittest.TestCase):
     def test_make_from_car_names(self):
         self.assertEqual(make_for("Porsche 911 GT3 R (992)", "porsche992rgt3"), "Porsche")

@@ -508,7 +508,7 @@
           <div class="wcard" data-widget="duel">
             <h4>On-track battle</h4>
             <div class="wbtns"><button class="wbtn" data-wshow="duel">Show</button><button class="wbtn" data-whide="duel">Hide</button></div>
-            <div class="ov-form wq" data-overlay="duel" data-quick="auto,gap_s"></div>
+            <div class="ov-form wq" data-overlay="duel" data-quick="auto,gap_s,scope"></div>
             <div class="wfoot"><span class="desk" data-desk="duel"></span><button class="btn subtle" data-wsettings="duel">⚙ Settings</button></div>
           </div>
           <div class="wcard" data-widget="trackmap">
@@ -548,6 +548,9 @@
           <div class="row wboards-head">
             <h3>Boards</h3>
             <span id="board-onair" class="hint"></span>
+            <!-- Taking the board off stream: by what's on air, well away from the
+                 on-your-screen control at the other end. -->
+            <button id="btn-board-hide" class="wbtn danger slim">Hide board</button>
             <span class="grow"></span>
             <span id="board-pager" class="row" hidden>
               <button id="btn-board-prev" class="btn subtle" title="The board's previous page">◀ Prev</button>
@@ -560,8 +563,7 @@
               <button id="btn-row-next" class="btn" title="Bring in the next row of the grid">Next row ▶</button>
               <button id="btn-row-all" class="btn subtle" title="Bring in every row">Show all</button>
             </span>
-            <span class="desk" data-desk="board"></span>
-            <button id="btn-board-hide" class="wbtn danger slim">Hide board</button>
+            <span class="desk desk-end" data-desk="board"></span>
           </div>
           <div class="boards-layout">
             <div class="board-buttons" id="board-buttons"></div>

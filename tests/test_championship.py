@@ -358,6 +358,24 @@ class ScoringTests(unittest.TestCase):
         teams = ch.standings(profile({"points": [10, 6, 4], "team_best": 1}, rounds, drivers=drivers))["teams"]
         self.assertEqual([(t["team"], t["points"]) for t in teams], [("Red", 10), ("Blue", 6)])
 
+    def test_team_championship_all_drivers_or_best_n_by_round_or_meeting(self):
+        drivers = [{"cust_id": 1, "name": "A", "team": "Red"}, {"cust_id": 2, "name": "B", "team": "Red"},
+                   {"cust_id": 3, "name": "C", "team": "Red"}, {"cust_id": 4, "name": "D", "team": "Blue"}]
+        # A meeting of two races: A wins the heat, B the feature; C third both times.
+        rounds = [{"id": "h", "event": "Night 1", "results": [res("cust:1", 1), res("cust:4", 2), res("cust:3", 3), res("cust:2", 4)]},
+                  {"id": "f", "event": "Night 1", "results": [res("cust:2", 1), res("cust:4", 2), res("cust:3", 3), res("cust:1", 4)]}]
+
+        def red(**rules):
+            teams = ch.standings(profile({"points": [10, 6, 4, 2], **rules}, rounds, drivers=drivers))["teams"]
+            return next((t["points"], [r["points"] for r in t["rounds"]]) for t in teams if t["team"] == "Red")
+
+        self.assertEqual(red(), (32, [16, 16]))                       # all three added together, each race
+        self.assertEqual(red(team_best=1), (20, [10, 10]))            # the best one in each race
+        # A meeting as one: A and B scored 12 each over it, C 8: the best one over the meeting is A (12).
+        self.assertEqual(red(team_best=1, team_meetings=True), (12, [10, 2]))
+        self.assertEqual(red(team_best=2, team_meetings=True), (24, [12, 12]))  # A and B
+        self.assertEqual(red(team_meetings=True), (32, [16, 16]))     # all of them: the same either way
+
     def test_live_projection(self):
         p = profile({"points": [10, 5]}, [{"id": "r1", "results": [res("a", 1), res("b", 2)]}, {"id": "r2"}])
         live = {"id": "r2", "name": "Round 2", "track": "", "date": "", "multiplier": 1, "no_drop": False,

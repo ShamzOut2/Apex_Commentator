@@ -69,9 +69,29 @@ class MatchTests(unittest.TestCase):
                   {"name": "Heat 2", "date": "2026-11-05"}, {"name": "Consi", "date": "2026-11-05"}]
         races = [race(3, "heat"), race(4, "heat"), race(5, "consolation"), race(6, "feature")]
         self.assertEqual(heats.match_rounds(races, rounds, DAY), {3: 1, 4: 2, 5: 3, 6: 0})
-        # Rounds with other names: in order.
+        # Rounds with other names, fewer than the races: every heat in the first
+        # round, the feature the last (no round left for the consolation).
         plain = [{"name": "Race A", "date": "2026-11-05"}, {"name": "Race B", "date": "2026-11-05"}]
-        self.assertEqual(heats.match_rounds(races, plain, DAY), {3: 0, 4: 1})
+        self.assertEqual(heats.match_rounds(races, plain, DAY), {3: 0, 4: 0, 6: 1})
+
+    def test_more_heats_than_the_meeting_has_rounds_for(self):
+        """iRacing splits a big field into more heats (and can add a
+        consolation): the meeting's rounds still go to the right races: the
+        feature always gets its last round (its name, its reverse grid)."""
+        day = "2026-11-05"
+        f4 = [{"name": "Race 1", "date": day}, {"name": "Race 2", "date": day}]
+        races = [race(3, "heat"), race(4, "heat"), race(5, "feature")]
+        self.assertEqual(heats.match_rounds(races, f4, DAY), {3: 0, 4: 0, 5: 1})
+        btcs = [{"name": "Race 1", "date": day}, {"name": "Race 2", "date": day}, {"name": "Race 3", "date": day}]
+        races = [race(3, "heat"), race(4, "heat"), race(5, "consolation"), race(6, "feature")]
+        self.assertEqual(heats.match_rounds(races, btcs, DAY), {3: 0, 4: 0, 5: 1, 6: 2})
+        # Heat 1's results already in Race 1: heat 2 goes with it, the rest as before.
+        btcs[0] = dict(btcs[0], results=[1], session="777:3")
+        self.assertEqual(heats.match_rounds(races, btcs, DAY, event_key=777), {3: 0, 4: 0, 5: 1, 6: 2})
+        # As many rounds as races: one each, in order (as always).
+        races = [race(3, "heat"), race(5, "consolation"), race(6, "feature")]
+        btcs[0] = {"name": "Race 1", "date": day}
+        self.assertEqual(heats.match_rounds(races, btcs, DAY), {3: 0, 5: 1, 6: 2})
 
     def test_titles(self):
         self.assertEqual(heats.round_title(2, "Spa Heat A"), "Spa Heat A")  # just the round's own name

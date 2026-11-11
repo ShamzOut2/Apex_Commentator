@@ -232,8 +232,10 @@ DEFAULTS = {
     "duel": {**LOGO,
         "visible": False,
         "auto": True,
-        "gap_s": 1.0,             # seconds between cars for a battle
-        "ahead": 1, "behind": 1,  # most cars ahead of / behind the car on camera
+        "gap_s": 1.0,             # seconds from the car on camera for a battle
+        "ahead": 2, "behind": 2,  # most cars ahead of / behind it (within gap_s)
+        "scope": "class",         # the cars in its class ("class") or every car ("overall")
+        "gap_shown": "ahead",     # each car's gap: to the car ahead of it ("ahead") or to the car on camera ("camera")
         "place": "top-right",
         "title": "",              # its heading ("" = Battle for P3)
         "name_format": "last_initial",
@@ -387,7 +389,7 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"gap_s": (0.1, 5.0), "ahead": (0, 4), "behind": (0, 4), "dot_size": (40, 250), "map_size": (150, 1400),
+LIMITS = {"gap_s": (0.1, 30.0), "ahead": (0, 6), "behind": (0, 6), "dot_size": (40, 250), "map_size": (150, 1400),
           "track_width": (40, 300), "grid_size": (50, 250), "font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1, 3), "board_dim": (0, 90), "sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
           "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
@@ -397,7 +399,7 @@ CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "s
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS,
-           "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"),
+           "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "gap_shown": ("ahead", "camera"),
            "labels": ("none", "number", "position")}
 
 

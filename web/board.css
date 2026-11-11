@@ -58,12 +58,13 @@
 .bbody { flex: 1; min-height: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 28px; align-content: start; }
 .btable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
 .btable th { text-align: left; font-size: calc(15px * var(--fs, 1)); letter-spacing: .1em; color: var(--muted); font-weight: 700; padding: 0 10px 8px; text-transform: uppercase; white-space: nowrap; }
-.btable td { padding: 0 10px; height: var(--row-h, 42px); font-size: var(--row-font, 22px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The rows' text: sized to the rows, then the board's text size (--fs) on top; taller rows for bigger text. */
+.btable td { padding: 0 10px; height: calc(var(--row-h, 42px) * max(1, var(--fs, 1))); font-size: calc(var(--row-font, 22px) * var(--fs, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .btable tbody tr:nth-child(odd) td { background: rgba(255, 255, 255, calc(.04 * var(--bg-k, 1))); }
 .btable .r { text-align: right; } .btable .c { text-align: center; }
 .btable .p { font-weight: 900; }
 .btable .muted { color: var(--muted); }
-.btable td.pts { font-weight: 900; font-size: calc(var(--row-font, 22px) * 1.12); }
+.btable td.pts { font-weight: 900; font-size: calc(var(--row-font, 22px) * 1.12 * var(--fs, 1)); }
 .btable tr.top3 .p { color: var(--accent-c, var(--accent)); }
 /* Podium: gold, silver and bronze. */
 .btable tr.p1 .p { color: #f2c94c; }
@@ -81,7 +82,7 @@
 .team-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
 .team-stripe { flex: none; width: 6px; height: 1.3em; border-radius: 3px; margin-right: 12px; }
 .board.teams .btable .logo { height: calc(1.5em * var(--logo-k, 1)); width: calc(2.8em * var(--logo-k, 1)); }
-.btable td.team-drivers { font-size: calc(var(--row-font, 22px) * .78); }
+.btable td.team-drivers { font-size: calc(var(--row-font, 22px) * .78 * var(--fs, 1)); }
 .btable .rd { text-align: center; color: var(--muted); }
 .btable .rd.dropped { text-decoration: line-through; opacity: .5; }
 .btable .up { color: var(--green); } .btable .down { color: var(--red); }

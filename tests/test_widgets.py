@@ -10,11 +10,11 @@ from apex.league import LeagueStore
 from apex.sources import MockSource
 
 
-def entry(idx, pos, interval, cls="iracing:GT3", class_pos=None, class_interval=None, down=0):
+def entry(idx, pos, gap, cls="iracing:GT3", class_pos=None, down=0, pit=False):
+    """A tower entry: ``gap`` seconds behind the leader (the leader: None)."""
     return {"car_idx": idx, "name": f"Driver {idx}", "nickname": "", "number": str(idx), "team": "", "team_logo": None,
-            "class_key": cls, "paint": None, "pos": pos, "class_pos": class_pos or pos, "interval": interval,
-            "class_interval": class_interval if class_interval is not None else interval, "laps_down": down,
-            "class_laps_down": down, "in_world": True, "on_pit": False}
+            "class_key": cls, "paint": None, "pos": pos, "class_pos": class_pos or pos, "gap": gap, "laps_down": down,
+            "class_laps_down": down, "in_world": True, "on_pit": pit}
 
 
 def frame(cam, t=100.0):
@@ -29,21 +29,25 @@ class DuelTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def duel(self, entries, cam, t=100.0):
+    def duel(self, entries, cam, t=100.0, **cfg):
+        if cfg:
+            self.app.overlays.update("duel", cfg)
         return self.app._duel_snapshot({"standings": entries}, frame(cam, t), True)
 
-    def test_the_cars_within_the_gap_either_side(self):
-        # 1 -- 3.0 s -- 2 -- 0.6 -- 3 (camera) -- 0.8 -- 4 -- 2.5 -- 5
-        entries = [entry(1, 1, None), entry(2, 2, 3.0), entry(3, 3, 0.6), entry(4, 4, 0.8), entry(5, 5, 2.5)]
-        d = self.duel(entries, 3)
+    def test_the_driver_on_camera_and_the_cars_within_the_gap(self):
+        # Leader, then 4.0 s, 7.5 s (camera), 9.0 s, 11.9 s, 20 s behind.
+        entries = [entry(1, 1, None), entry(2, 2, 4.0), entry(3, 3, 7.5), entry(4, 4, 9.0), entry(5, 5, 11.9), entry(6, 6, 20.0)]
+        d = self.duel(entries, 3, gap_s=5.0)
         self.assertTrue(d["active"])
-        self.assertEqual([r["car_idx"] for r in d["rows"]], [2, 3, 4])
+        self.assertEqual([r["car_idx"] for r in d["rows"]], [2, 3, 4, 5])  # within 5 s of car 3 (not the leader, 7.5 s)
         self.assertEqual(d["pos"], 2)  # Battle for P2
-        self.assertEqual([r["interval"] for r in d["rows"]], [None, 0.6, 0.8])
-        self.assertEqual([r["cam"] for r in d["rows"]], [False, True, False])
-        # One car each side at most (the default), whatever the gap: a train of four shows three.
-        entries = [entry(1, 1, None), entry(2, 2, 0.5), entry(3, 3, 0.5), entry(4, 4, 0.5)]
-        self.assertEqual([r["car_idx"] for r in self.duel(entries, 2)["rows"]], [1, 2, 3])
+        self.assertEqual([r["interval"] for r in d["rows"]], [None, 3.5, 1.5, 2.9])
+        self.assertEqual([r["to_cam"] for r in d["rows"]], [-3.5, 0.0, 1.5, 4.4])
+        self.assertEqual([r["cam"] for r in d["rows"]], [False, True, False, False])
+        # At most N each way.
+        self.assertEqual([r["car_idx"] for r in self.duel(entries, 3, behind=1)["rows"]], [2, 3, 4])
+        # Not within a second of anyone: no battle.
+        self.assertFalse(self.duel(entries, 6, gap_s=1.0, behind=2)["active"])
 
     def test_no_battle_then_it_holds_a_moment_and_goes(self):
         close = [entry(1, 1, None), entry(2, 2, 0.4)]
@@ -53,20 +57,22 @@ class DuelTests(unittest.TestCase):
         self.assertEqual((held["active"], [r["car_idx"] for r in held["rows"]]), (True, [1, 2]))
         self.assertFalse(self.duel(apart, 2, t=110.0)["active"])
 
-    def test_by_hand_it_shows_the_cars_either_side_anyway(self):
-        self.app.overlays.update("duel", {"auto": False})
-        d = self.duel([entry(1, 1, None), entry(2, 2, 4.0), entry(3, 3, 6.0)], 2)
-        self.assertEqual([r["car_idx"] for r in d["rows"]], [1, 2, 3])
-        self.assertFalse(d["active"])
-
-    def test_only_cars_in_the_same_class_on_the_same_lap(self):
-        entries = [entry(1, 1, None, "a", 1), entry(2, 2, 0.3, "b", 1, None), entry(3, 3, 0.4, "a", 2, 0.7)]
-        d = self.duel(entries, 3)  # class a: 1 and 3, 0.7 s apart on track (car 2 of class b between them)
+    def test_its_class_or_overall(self):
+        entries = [entry(1, 1, None, "a", 1), entry(2, 2, 0.3, "b", 1), entry(3, 3, 0.7, "a", 2)]
+        d = self.duel(entries, 3)  # class a: 1 and 3, 0.7 s apart (car 2 of class b between them on track)
         self.assertEqual([r["car_idx"] for r in d["rows"]], [1, 3])
-        self.assertEqual(d["rows"][1]["interval"], 0.7)
+        self.assertEqual([r["pos"] for r in d["rows"]], [1, 2])  # class places
         self.assertTrue(d["multiclass"])
+        d = self.duel(entries, 3, scope="overall")
+        self.assertEqual([r["car_idx"] for r in d["rows"]], [1, 2, 3])
+        self.assertEqual([r["pos"] for r in d["rows"]], [1, 2, 3])
+        self.assertFalse(d["multiclass"])
+
+    def test_not_a_lap_apart_or_in_the_pits(self):
         lapped = [entry(1, 1, None), entry(2, 2, 0.3, down=1)]
         self.assertFalse(self.duel(lapped, 2)["active"])
+        pitting = [entry(1, 1, None), entry(2, 2, 0.3, pit=True), entry(3, 3, 0.9)]
+        self.assertEqual([r["car_idx"] for r in self.duel(pitting, 3)["rows"]], [1, 3])
 
 
 class TrackMapTests(unittest.TestCase):

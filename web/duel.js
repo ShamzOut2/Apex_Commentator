@@ -20,8 +20,11 @@ function rowHtml(r, i, cfg, cls) {
   const cells = [`<span class="pos">P${r.pos ?? "–"}</span>`,
     `<span class="who">${number}${logo}<span class="names"><span class="name">${esc(formatName(r, cfg.name_format))}</span>
       ${cfg.show_team && r.team ? `<span class="team">${esc(r.team)}</span>` : ""}</span></span>`];
-  if (cfg.show_interval) cells.push(`<span class="int">${i && r.interval != null ? `+${secs(r.interval)}` : ""}</span>`);
-  const close = i && r.interval != null && r.interval <= cfg.gap_s;
+  // The gap: to the car ahead of it, or to the driver on camera (− ahead of them, + behind).
+  const toCam = cfg.gap_shown === "camera";
+  const gap = toCam ? (r.cam ? null : r.to_cam) : (i ? r.interval : null);
+  if (cfg.show_interval) cells.push(`<span class="int">${gap != null ? `${gap < 0 ? "−" : "+"}${secs(Math.abs(gap))}` : ""}</span>`);
+  const close = gap != null && Math.abs(gap) <= cfg.gap_s;
   return `<div class="bt-row panel-row ${r.cam ? "cam" : ""} ${close ? "close" : ""}" style="--i:${i}" data-key="${r.car_idx}">${cells.join("")}</div>`;
 }
 
