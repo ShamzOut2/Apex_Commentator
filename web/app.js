@@ -2034,14 +2034,29 @@ function champChange(e, final) {
   } else if (d.meetingFormat != null) {
     // The meeting's format: on each of its rounds; a heat format adds the rounds it needs.
     if (!final) return;
+    // Exactly the rounds the format has: more added (named for their race),
+    // extra ones without results taken away (ones with results stay, said so).
     const first = +d.meetingFormat;
     const rounds = meetingRounds(first);
     for (const rd of rounds) rd.format = el.value;
-    const need = { heat2: 2, heat3: 3 }[el.value] || 0;
-    const names = { heat2: ["Heat", "Feature"], heat3: ["Heat", "Consolation", "Feature"] }[el.value] || [];
-    for (let k = rounds.length; k < need; k++) {
-      const last = c.rounds[first + k - 1];
-      c.rounds.splice(first + k, 0, { ...last, id: newId(), name: names[k], results: [], session: "", format: el.value });
+    const need = { single: 1, heat2: 2, heat3: 3 }[el.value] || 0;
+    const names = { single: ["Race"], heat2: ["Heat", "Feature"], heat3: ["Heat", "Consolation", "Feature"] }[el.value] || [];
+    const DEFAULT_NAMES = ["Race", "Heat", "Consolation", "Feature"];
+    if (need) {
+      for (let k = rounds.length; k < need; k++) {
+        const last = c.rounds[first + k - 1];
+        c.rounds.splice(first + k, 0, { ...last, id: newId(), name: names[k], results: [], session: "", format: el.value });
+      }
+      // A round still called after another race (added for an earlier format): named for its race now.
+      meetingRounds(first).slice(0, need).forEach((rd, k) => {
+        if (DEFAULT_NAMES.includes(rd.name) && !(rd.results || []).length) rd.name = names[k];
+      });
+      const extra = meetingRounds(first).slice(need);
+      const kept = extra.filter((rd) => (rd.results || []).length);
+      for (const rd of extra) if (!kept.includes(rd)) c.rounds.splice(c.rounds.indexOf(rd), 1);
+      if (kept.length) {
+        toast(`${kept.map((rd) => rd.name).join(", ")} ${kept.length > 1 ? "have" : "has"} results, so ${kept.length > 1 ? "they stay" : "it stays"} in the meeting: remove ${kept.length > 1 ? "them" : "it"} by hand if ${kept.length > 1 ? "they're" : "it's"} not needed`);
+      }
     }
     rerender = true;
   } else if (d.round != null && d.rlen) {

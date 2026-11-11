@@ -1292,7 +1292,10 @@ standings update from what's saved.
     - *3-race heat*: R1 the heat, R2 the consolation, R3 the feature.
     Every heat goes with R1 when iRacing splits a big field into more heats
     ("Sprint · Heat 2"); a race the format has no round for keeps a name of
-    its own. Picking a heat format adds the rounds it needs, and the line
+    its own. Picking a format gives that meeting (only that one) exactly the
+    rounds it needs: missing ones added (Heat, Consolation, Feature, to
+    rename), extra ones taken away unless they have results (those stay, and
+    you're told). Rounds you've named yourself keep their names. The line
     under the meeting shows which race goes with which round.
     **Import every race from session** fills a meeting's races from the race
     sessions of the event you're in, in order (heat 1 into the first race,
