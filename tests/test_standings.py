@@ -738,6 +738,41 @@ class ColumnOpacityTests(unittest.TestCase):
                     break
             self.assertEqual(flips, [])
 
+    def test_a_car_towed_to_its_pit_box_doesnt_jump_up_the_order(self):
+        """iRacing counts a car towed to a pit box just past the line as on its
+        next lap (the lap it's on up by one, not the laps it's completed): it
+        mustn't go a lap up the order (to P1)."""
+        from dataclasses import replace
+
+        clock = {"t": 0.0}
+        src = MockSource(seed=4, clock=lambda: clock["t"])
+        with tempfile.TemporaryDirectory() as tmp:
+            app = App(src, dict(DEFAULTS), LeagueStore(tmp))
+            for _ in range(1500):  # a couple of laps in
+                clock["t"] += 0.1
+                app.tick()
+            order = [r["car_idx"] for r in sorted((r for r in app.build_snapshot()["drivers"] if r["pos"]), key=lambda r: r["pos"])]
+            car = order[len(order) // 2]  # one from the middle of the field
+            before = order.index(car)
+            real = src.read
+
+            def towed():
+                f = real()
+                lap, pct, pit = list(f.lap), list(f.pct), list(f.on_pit)
+                lap[car] = f.laps_completed[car] + 2  # "on its next lap", the lap not completed
+                pct[car], pit[car] = 0.03, True       # in its pit box, just past the line
+                return replace(f, lap=lap, pct=pct, on_pit=pit)
+
+            src.read = towed
+            for _ in range(20):
+                clock["t"] += 0.1
+                app.tick()
+            rows = {r["car_idx"]: r for r in app.build_snapshot()["drivers"]}
+            after = sorted((r for r in rows.values() if r["pos"]), key=lambda r: r["pos"])
+            self.assertGreaterEqual([r["car_idx"] for r in after].index(car), before)  # no places gained by the tow
+            self.assertNotEqual(after[0]["car_idx"], car)
+            self.assertEqual(rows[car]["lap"], rows[car]["laps_completed"] + 1)
+
     def test_a_car_towed_past_the_line_isnt_given_a_lap(self):
         from apex.core import LineFilter
 

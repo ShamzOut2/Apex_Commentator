@@ -72,6 +72,9 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 
 ### Fixes
 
+- Timing tower and Timing Screen: a car towed to its pit box no longer jumps
+  to the top. iRacing counts a tow to a pit box just past the line as being
+  on the next lap; the app now goes by the laps the car has completed.
 - Opening the qualifying results or starting grid board with iRacing not
   connected no longer breaks the app until it's restarted.
 - Race meetings: when iRacing splits the field into more heats (or adds a

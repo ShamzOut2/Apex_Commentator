@@ -183,6 +183,17 @@ class LineFilter:
         return p
 
 
+def _laps_as_completed(frame):
+    """The frame with each car's lap (the lap it's on) never more than one
+    past the laps it has completed. iRacing counts a car towed to its pit
+    box just past the line as on its next lap, without the lap completed:
+    taken as it came, the tow put it a lap up (P1 on the tower)."""
+    lap, done = frame.lap, frame.laps_completed
+    fixed = [d + 1 if (lp is not None and d is not None and d >= 0 and lp > d + 1) else lp
+             for lp, d in zip(lap, done)] + list(lap[len(done):])
+    return frame if fixed == list(lap) else replace(frame, lap=fixed)
+
+
 def _lap_time(value):
     return round(value, 3) if value and value > 0 else None
 
@@ -413,6 +424,8 @@ class App:
     def tick(self):
         """Read one frame and update state. Returns False while disconnected."""
         frame = self.source.read() if self.source.connect() else None
+        if frame is not None:
+            frame = _laps_as_completed(frame)
         if frame is None:
             with self._lock:
                 self._results_left()  # left the server: the race as it last stood
