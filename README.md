@@ -56,41 +56,44 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.7**
+**v0.6.8**
 
 ### New features
 
-- On-track battle widget: the car on camera and the cars just ahead and
-  behind it ("Battle for P3"), with their gaps. It can come up by itself
-  whenever the car on camera is in a battle.
-- Track map widget: the track's outline with no background and a dot for
-  every car, in its main or secondary class colour.
-- Each league keeps its own widget settings, brought in as you pick the
-  league. You can copy another league's in Widget Settings.
-- Sponsors: one sponsor can stay on screen while the others rotate beside it.
-- Custom points systems can have their own bonus points.
-- Timing tower: an option to hide the drivers during a replay, leaving just
-  the header saying REPLAY.
-
-### Improvements
-
-- Replays during a race: the tower, Timing Screen, live timing website and
-  widgets keep the live race's order, gaps, intervals and laps down however
-  long you watch, re-timed at the line each time a car crosses it.
-- Starting grid board: the name plates grow to fill the page however many
-  drivers are on it, and can be made bigger or smaller by hand.
-- Decimal places of gaps and intervals can be set from the timing tower's
-  settings and the Timing Screen's toolbar too.
+- Race meetings: set each meeting to a single race, a 2-race heat (heat,
+  feature) or a 3-race heat (heat, consolation, feature). Its rounds then go
+  with those races in order, and their names replace iRacing's race names on
+  stream.
+- A driver changing class mid-season: as for a team change, their points so
+  far stay in the class they raced in, or move with them from the race you
+  pick.
+- Teams championship: a race meeting can count as one (each team's best N
+  over the whole meeting), and the "all drivers added together" or "best N"
+  choice is clearer.
+- On-track battle: the driver you're spectating and every car within the gap
+  you set, ahead and behind; their class only or overall; and gaps to the
+  car ahead or to the driver you're spectating.
 
 ### Fixes
 
-- Timing tower: the header no longer flashes white (last lap) as a timed race
-  goes green.
-
-- Timing tower: in a timed race, the chequered header and the finish flags by
-  drivers' names wait for the leader to cross the line. A car further back
-  crossing first no longer gets a flag: it has a lap more to go. The header
-  says LAST LAP until the leader finishes.
+- Race meetings: when iRacing runs a second heat, it's no longer counted in
+  the live championship as the feature's race, or saved into the feature's
+  round (or a new round) when it ends.
+- Timing tower and Timing Screen: a car towed to its pit box no longer jumps
+  to the top. iRacing counts a tow to a pit box just past the line as being
+  on the next lap; the app now goes by the laps the car has completed.
+- Opening the qualifying results or starting grid board with iRacing not
+  connected no longer breaks the app until it's restarted.
+- Race meetings: when iRacing splits the field into more heats (or adds a
+  consolation), the feature still gets its round: its race name and its
+  reverse grid.
+- Timing tower and live timing website: after a timed race's clock runs out
+  it stays LAST LAP until the leader finishes, rather than going back to a
+  timer when iRacing counts down the time left to finish.
+- Boards: the text size setting now changes the drivers' rows too, not just
+  the heading.
+- Widgets tab: "Hide board" is no longer right next to the on-your-screen
+  button, which is now "Off my screen".
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -651,7 +654,13 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     On the day of a heat event, each race takes the name of the league's
     round for it instead, exactly as it's named in the Championship tab: the
     rounds dated today (Championship → Calendar & results) go with the
-    races in order. *Heat events: name each race as its round is named*
+    races in order. iRacing splits a big field into more heats (and can add
+    a consolation): with fewer rounds than races, every heat goes with the
+    first round ("Race 1 · Heat 2"), the feature always with the meeting's
+    last round, and a consolation the one between, if there is one; a round
+    named "Heat", "Consolation" or "Feature" goes with that race. Which race
+    went with which round is written in `apex.log` as the event comes in.
+    *Heat events: name each race as its round is named*
     turns this off. The live championship and the results saved after each
     race go to that round too. (Just after midnight, the day before still
     counts.)
@@ -716,17 +725,19 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   heading, name format, place, size and background can be set. It shows
   once the championship has standings: after the first results, or live
   during a race.
-- **On-track battle** (`/duel.html`): the car on camera and the cars just
-  ahead of and behind it, in the championship battle's style: "Battle for
-  P3" (with the class in a multiclass race), each one's place, car number in
-  its class colour, team logo, name (and team, if you want it) and the gap
-  to the car ahead. **A battle**: cars within a number of seconds of each
-  other (1 by default), on the same lap, in the same class, on track. **Most
-  cars ahead / behind** the car on camera (1 each by default). **Comes up by
-  itself** (the default): while it's switched on, it appears when the car on
-  camera is in a battle and goes when it isn't (it stays a few seconds after
-  the battle breaks up, so it doesn't flicker). Untick it to show and hide it
-  yourself: then it shows the cars either side whatever the gap.
+- **On-track battle** (`/duel.html`): the driver you're spectating (on
+  camera) and the cars **within a number of seconds of them** (1 by default,
+  e.g. 5 for 5 s), ahead and behind, on the same lap and on track, in the
+  championship battle's style: "Battle for P3", each one's place, car
+  number in its class colour, team logo, name (and team, if you want it)
+  and the gap. **Cars from**: their class only (the default; with the class
+  name in the heading in a multiclass race) or every class (overall
+  places). **Most cars ahead / behind** (2 each by default). **Each car's
+  gap**: to the car ahead of it, or to the driver on camera (− ahead of
+  them, + behind). **Comes up by itself** (the default): while it's
+  switched on, it appears when someone's within the gap and goes when no one
+  is (it stays a few seconds after, so it doesn't flicker). Untick it to show
+  and hide it yourself.
 - **Track map** (`/trackmap.html`): the track's outline with no background
   (the live timing website's map) and a dot for every car where it is, in
   its **main or secondary class colour**. The car on camera is bigger, with
@@ -1216,8 +1227,11 @@ standings update from what's saved.
     share of their class winner's laps. Anyone short is a DNF and scores no
     points or bonuses. 0 turns it off.
   - Whether DNFs score for where they're classified.
-  - **Team championship**: count every driver, or each team's best N per
-    round. With *Both*, teams count their drivers' overall points, or class
+  - **Team championship**: each round counts **all the team's drivers,
+    added together**, or **its best N drivers**. **A race meeting counts as
+    one** (tick it): each driver's points over the meeting (heats, a sprint
+    and a feature…) are added up and the team's best N over the whole meeting
+    count. With *Both*, teams count their drivers' overall points, or class
     points if you choose. Secondary classes never count for teams.
   - **A driver changing team mid-season**: each race result keeps the team
     the driver raced for (saved with the results, from the roster at the
@@ -1230,6 +1244,12 @@ standings update from what's saved.
     done and the team it counts for, to set or correct one by one.
     Finishing order boards show the team they raced for in each round.
     Renaming a team takes its races with it.
+  - **A driver changing class mid-season**: the same. Each race result keeps
+    the class it was raced in. Change their (main) class on the roster after
+    they've raced and the app asks for their **first race in the new class**:
+    the races before it count for the old class, that one and every race
+    after it for the new one (*The next race* keeps every race so far in the
+    old class; **All their points go to** the new class moves the lot).
   - **Bonus points**: pole, fastest lap, led a lap, each lap led, most laps
     led, most places gained, clean race (no incidents), finished, started, and
     race win. Use 0 for bonuses you don't award; negative values take points
@@ -1265,9 +1285,26 @@ standings update from what's saved.
     **Reverse grid** on a meeting's race, with *Reverse top* N: that race's grid has
     its first N turned round (the starting grid board shows it so; *Reverse
     the first N of each class* in the board's settings does it per class).
+    **Races in this event** (on the meeting): which race of the iRacing
+    event goes with which of its rounds, and so whose name replaces iRacing's
+    race name on stream (the tower's header, the boards, the live timing
+    website):
+    - *Auto*: by the rounds' names and their order (as before);
+    - *Single race*: R1 is the event's race (the feature, at a heat event);
+    - *2-race heat*: R1 the heat, R2 the feature;
+    - *3-race heat*: R1 the heat, R2 the consolation, R3 the feature.
+    Every heat goes with R1 when iRacing splits a big field into more heats
+    ("Sprint · Heat 2"; R1's points are the first heat's: the others aren't
+    counted live or saved anywhere else, so add theirs by hand if you score
+    them); a race the format has no round for keeps a name of
+    its own. Picking a format gives that meeting (only that one) exactly the
+    rounds it needs: missing ones added (Heat, Consolation, Feature, to
+    rename), extra ones taken away unless they have results (those stay, and
+    you're told). Rounds you've named yourself keep their names. The line
+    under the meeting shows which race goes with which round.
     **Import every race from session** fills a meeting's races from the race
     sessions of the event you're in, in order (heat 1 into the first race,
-    and so on), including races that already finished: those come from
+    and so on; with a format set, each race into its round), including races that already finished: those come from
     iRacing's results, so their statuses and starting places are worth a
     check. During the event, the live standings count the race in progress
     as the first race without results.

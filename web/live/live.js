@@ -101,6 +101,7 @@ function renderHeader() {
   let text = "";
   if (p.finished) text = "FINISHED";
   else if (p.mode === "laps" && p.laps_total) text = `LAP ${Math.max(p.lap || 0, 0)} / ${p.laps_total}`;
+  else if (p.time_up) text = "LAST LAP";
   else if (p.time_remain != null) text = `${clock(p.time_remain)} LEFT`;
   else if (p.lap) text = `LAP ${p.lap}`;
   $("#progress").textContent = text;

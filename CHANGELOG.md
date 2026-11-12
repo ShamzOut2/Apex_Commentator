@@ -11,6 +11,45 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.6.8
+
+### New features
+
+- Race meetings: set each meeting to a single race, a 2-race heat (heat,
+  feature) or a 3-race heat (heat, consolation, feature). Its rounds then go
+  with those races in order, and their names replace iRacing's race names on
+  stream.
+- A driver changing class mid-season: as for a team change, their points so
+  far stay in the class they raced in, or move with them from the race you
+  pick.
+- Teams championship: a race meeting can count as one (each team's best N
+  over the whole meeting), and the "all drivers added together" or "best N"
+  choice is clearer.
+- On-track battle: the driver you're spectating and every car within the gap
+  you set, ahead and behind; their class only or overall; and gaps to the
+  car ahead or to the driver you're spectating.
+
+### Fixes
+
+- Race meetings: when iRacing runs a second heat, it's no longer counted in
+  the live championship as the feature's race, or saved into the feature's
+  round (or a new round) when it ends.
+- Timing tower and Timing Screen: a car towed to its pit box no longer jumps
+  to the top. iRacing counts a tow to a pit box just past the line as being
+  on the next lap; the app now goes by the laps the car has completed.
+- Opening the qualifying results or starting grid board with iRacing not
+  connected no longer breaks the app until it's restarted.
+- Race meetings: when iRacing splits the field into more heats (or adds a
+  consolation), the feature still gets its round: its race name and its
+  reverse grid.
+- Timing tower and live timing website: after a timed race's clock runs out
+  it stays LAST LAP until the leader finishes, rather than going back to a
+  timer when iRacing counts down the time left to finish.
+- Boards: the text size setting now changes the drivers' rows too, not just
+  the heading.
+- Widgets tab: "Hide board" is no longer right next to the on-your-screen
+  button, which is now "Off my screen".
+
 ## v0.6.7
 
 ### New features

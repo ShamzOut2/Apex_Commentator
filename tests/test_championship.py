@@ -298,6 +298,33 @@ class ScoringTests(unittest.TestCase):
         norm = ch.normalise_rules(rules)["schemes"]
         self.assertEqual((norm[0]["own_bonuses"], norm[0]["bonuses"]["win"], norm[1]["own_bonuses"]), (True, 2, False))
 
+    def test_a_live_race_drops_with_its_meetings_earlier_race(self):
+        """During a race, "if it finished now": the race in progress counts in
+        its race meeting, so the meeting (its earlier race and this one, added
+        up) drops as one, exactly as once its results are saved."""
+        rules = {"points": [10, 5], "drop_rounds": 1, "drop_meetings": True}
+        rounds = [
+            {"id": "a1", "event": "Brands", "results": [res("a", 1), res("b", 2)]},       # a: 10
+            {"id": "a2", "event": "Brands", "results": [res("a", 1), res("b", 2)]},       # a: 10 (Brands 20)
+            {"id": "b1", "event": "Snetterton", "results": [res("a", 2), res("b", 1)]},   # a: 5
+            {"id": "b2", "event": "Snetterton"},                                          # live: a 2nd, 5 (Snetterton 10)
+        ]
+        p = profile(rules, rounds)
+        live = dict(ch.normalise(p["championship"])["rounds"][3], results=[ch.normalise_result(res("b", 1)), ch.normalise_result(res("a", 2))])
+        rows = {r["driver"]: r for g in ch.standings(p, live)["groups"] for r in g["drivers"]}
+        dropped = {s["round"]: s["dropped"] for s in rows["a"]["rounds"]}
+        self.assertEqual(dropped, {"a1": False, "a2": False, "b1": True, "b2": True})  # Snetterton (10) as one
+        self.assertEqual(rows["a"]["points"], 20)
+        # The same as once the live race is saved.
+        saved = profile(rules, rounds[:3] + [dict(rounds[3], results=[res("b", 1), res("a", 2)])])
+        after = {r["driver"]: r for g in ch.standings(saved)["groups"] for r in g["drivers"]}
+        for d in ("a", "b"):
+            self.assertEqual((rows[d]["points"], [s["dropped"] for s in rows[d]["rounds"]]),
+                             (after[d]["points"], [s["dropped"] for s in after[d]["rounds"]]))
+        # And the projection (the live championship) says the same.
+        proj = {r["driver"]: r for g in ch.projection(p, live) for r in g["drivers"]}
+        self.assertEqual((proj["a"]["points"], proj["a"]["points_before"]), (20, 20))
+
     def test_dropping_a_whole_race_meeting(self):
         rules = {"points": [10, 5], "drop_rounds": 1, "drop_meetings": True}
         rounds = [
@@ -357,6 +384,24 @@ class ScoringTests(unittest.TestCase):
         rounds = [{"id": "r1", "results": [res("cust:1", 1), res("cust:3", 2), res("cust:2", 3)]}]
         teams = ch.standings(profile({"points": [10, 6, 4], "team_best": 1}, rounds, drivers=drivers))["teams"]
         self.assertEqual([(t["team"], t["points"]) for t in teams], [("Red", 10), ("Blue", 6)])
+
+    def test_team_championship_all_drivers_or_best_n_by_round_or_meeting(self):
+        drivers = [{"cust_id": 1, "name": "A", "team": "Red"}, {"cust_id": 2, "name": "B", "team": "Red"},
+                   {"cust_id": 3, "name": "C", "team": "Red"}, {"cust_id": 4, "name": "D", "team": "Blue"}]
+        # A meeting of two races: A wins the heat, B the feature; C third both times.
+        rounds = [{"id": "h", "event": "Night 1", "results": [res("cust:1", 1), res("cust:4", 2), res("cust:3", 3), res("cust:2", 4)]},
+                  {"id": "f", "event": "Night 1", "results": [res("cust:2", 1), res("cust:4", 2), res("cust:3", 3), res("cust:1", 4)]}]
+
+        def red(**rules):
+            teams = ch.standings(profile({"points": [10, 6, 4, 2], **rules}, rounds, drivers=drivers))["teams"]
+            return next((t["points"], [r["points"] for r in t["rounds"]]) for t in teams if t["team"] == "Red")
+
+        self.assertEqual(red(), (32, [16, 16]))                       # all three added together, each race
+        self.assertEqual(red(team_best=1), (20, [10, 10]))            # the best one in each race
+        # A meeting as one: A and B scored 12 each over it, C 8: the best one over the meeting is A (12).
+        self.assertEqual(red(team_best=1, team_meetings=True), (12, [10, 2]))
+        self.assertEqual(red(team_best=2, team_meetings=True), (24, [12, 12]))  # A and B
+        self.assertEqual(red(team_meetings=True), (32, [16, 16]))     # all of them: the same either way
 
     def test_live_projection(self):
         p = profile({"points": [10, 5]}, [{"id": "r1", "results": [res("a", 1), res("b", 2)]}, {"id": "r2"}])

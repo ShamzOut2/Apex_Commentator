@@ -31,6 +31,23 @@ def league(**extra):
     })
 
 
+class OfflineBoardTests(unittest.TestCase):
+    def test_event_boards_with_no_session_dont_break_anything(self):
+        """Qualifying results or the starting grid put up with iRacing not
+        connected: an empty board, and the app carries on (it raised on every
+        update before, until restarted)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LeagueStore(tmp)
+            store.set_active(store.save({"name": "L", "drivers": []})["id"])
+            app = App(MockSource(seed=1), dict(DEFAULTS), store)  # never ticked: not connected
+            for kind in ("qualifying", "grid", "results"):
+                app.command("board_show", {"kind": kind})
+                snap = app.build_snapshot()
+                self.assertEqual(snap["board"]["kind"], kind)
+            app.command("board_hide", {})
+            self.assertFalse(app.build_snapshot()["connected"])
+
+
 class MakesTests(unittest.TestCase):
     def test_make_from_car_names(self):
         self.assertEqual(make_for("Porsche 911 GT3 R (992)", "porsche992rgt3"), "Porsche")
@@ -565,6 +582,58 @@ class GridBoardTests(unittest.TestCase):
         b = grid_of(3)
         self.assertEqual([r["number"] for r in b["rows"]][:5], [number(i) for i in consi[3::-1] + consi[4:5]])
         self.assertEqual(b["title"], "Feature · starting grid")
+
+    def test_a_3_race_heat_meetings_round_names_replace_iracings(self):
+        from datetime import date
+
+        self.app._session_meta["sessions"] = {
+            0: {"SessionNum": 0, "SessionType": "Lone Qualify", "SessionName": "QUALIFY"},
+            1: {"SessionNum": 1, "SessionType": "Race", "SessionName": "HEAT 1"},
+            2: {"SessionNum": 2, "SessionType": "Race", "SessionName": "HEAT 2"},
+            3: {"SessionNum": 3, "SessionType": "Race", "SessionName": "CONSOLATION"},
+            4: {"SessionNum": 4, "SessionType": "Race", "SessionName": "FEATURE"},
+        }
+        league = self.app.leagues.active()
+        rounds = [{"name": n, "event": "Brands", "date": "2026-11-05", "format": "heat3"} for n in ("Sprint", "Redemption", "Grand Final")]
+        self.app.leagues.save(dict(league, championship={"rounds": rounds}))
+        self.app._today = lambda: date(2026, 11, 5)
+        league = self.app.leagues.active()
+        sessions = self.app._session_meta["sessions"]
+        titles = [self.app._race_title(league, n, sessions[n]) for n in (1, 2, 3, 4)]
+        self.assertEqual(titles, ["Sprint · Heat 1", "Sprint · Heat 2", "Redemption", "Grand Final"])
+        # A 2-race heat: the consolation (if iRacing adds one) keeps a name of its own; the feature is R2.
+        rounds = [dict(r, format="heat2") for r in rounds[:2]]
+        self.app.leagues.save(dict(league, championship={"rounds": rounds}))
+        league = self.app.leagues.active()
+        titles = [self.app._race_title(league, n, sessions[n]) for n in (1, 3, 4)]
+        self.assertEqual(titles, ["Sprint · Heat 1", "Consolation", "Redemption"])
+
+    def test_a_second_heat_sharing_r1_counts_nowhere_else(self):
+        """Two heats sharing R1 (iRacing split the field): once heat 1's
+        results are in R1, heat 2 isn't counted (live) or saved as the
+        feature's round, or as a new round."""
+        from datetime import date
+
+        from apex import championship as ch
+        self.app._session_meta["sessions"] = {
+            1: {"SessionNum": 1, "SessionType": "Race", "SessionName": "HEAT 1"},
+            2: {"SessionNum": 2, "SessionType": "Race", "SessionName": "HEAT 2"},
+            3: {"SessionNum": 3, "SessionType": "Race", "SessionName": "FEATURE"},
+        }
+        league = self.app.leagues.active()
+        heat1 = self.app.session_key(1)
+        rounds = [{"id": "r1", "name": "Sprint", "event": "Brands", "date": "2026-11-05", "format": "heat2",
+                   "results": [{"driver": "x", "name": "X", "position": 1}], "session": heat1},
+                  {"id": "r2", "name": "Main", "event": "Brands", "date": "2026-11-05", "format": "heat2"}]
+        self.app.leagues.save(dict(league, championship={"rounds": rounds}))
+        self.app._today = lambda: date(2026, 11, 5)
+        league = self.app.leagues.active()
+        champ = ch.normalise(league["championship"])
+        self.assertIsNone(self.app._live_round(champ, league, self.app.session_key(2)))
+        self.assertEqual(self.app._live_round(champ, league, self.app.session_key(3))["id"], "r2")
+        self.app._save_results(league, self.app.session_key(2), [ch.normalise_result({"driver": "y", "name": "Y", "position": 1})], "")
+        saved = ch.normalise(self.app.leagues.active()["championship"])["rounds"]
+        self.assertEqual([(r["id"], len(r["results"])) for r in saved], [("r1", 1), ("r2", 0)])
 
     def test_two_race_event_second_race_from_the_first(self):
         cars = list(self.app._drivers)

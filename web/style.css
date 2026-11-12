@@ -493,6 +493,8 @@ kbd {
 .meeting { border: 1px dashed var(--accent); border-radius: var(--radius); padding: 8px 10px 0; margin-bottom: 10px; }
 .meeting-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .meeting-head input { width: 220px; font-weight: 700; }
+.meeting-format { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.meeting-map { margin: 0 0 8px; }
 .meeting .round-card { margin-left: 14px; }
 /* Building the rounds from a calendar. */
 .build-rounds { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 8px 12px; margin: 6px 0 12px; }
@@ -740,6 +742,7 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .wboards { margin-top: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); padding: 10px 12px; }
 .wboards-head { flex-wrap: wrap; gap: 8px; }
 .wboards-head h3 { margin: 0; }
+.wboards-head .desk-end { margin-left: 18px; padding-left: 18px; border-left: 1px solid var(--line); }
 .wboards .board-group { background: var(--panel); }
 
 /* ---- Widget Settings: a widget picked on the left, every setting as label | value ---- */

@@ -33,6 +33,35 @@ def race_kind(session):
     return "race" if "race" in stype else ""
 
 
+# A race meeting's format (set on its rounds in the Championship tab): which
+# race of the iRacing event goes with which of its rounds, by kind.
+FORMATS = {"single": 1, "heat2": 2, "heat3": 3}
+
+
+def format_slots(fmt, races):
+    """{session number: index of the meeting's round (0 = R1)} for an event's
+    races, by the meeting's format: "heat2" (R1 the heat, R2 the feature),
+    "heat3" (R1 the heat, R2 the consolation, R3 the feature) or "single" (R1
+    the feature, else the event's last race). Every heat goes with R1 (iRacing
+    splits a big field into more heats); races that aren't heats, a
+    consolation or a feature ("Race") go in order. A race the format has no
+    round for isn't in it."""
+    if fmt not in FORMATS or not races:
+        return {}
+    if fmt == "single":
+        main = next((r for r in races if r["kind"] == "feature"), races[-1])
+        return {main["num"]: 0}
+    order = ("heat", "feature") if fmt == "heat2" else ("heat", "consolation", "feature")
+    out = {}
+    for n, race in enumerate(races):
+        if race["kind"] in HEAT_KINDS:
+            if race["kind"] in order:
+                out[race["num"]] = order.index(race["kind"])
+        elif n < FORMATS[fmt]:
+            out[race["num"]] = n
+    return out
+
+
 def _kind_of_name(text):
     text = str(text or "").lower()
     return next((kind for kind, words in WORDS if any(w in text for w in words)), None)
@@ -62,14 +91,72 @@ def match_rounds(races, rounds, today, live_id="", event_key=None):
                 linked[int(num[2])] = i
     pool = _dated(rounds, today) or _meeting_of(rounds, live_id, len(races), set(linked.values()))
     out, free = {}, [i for i in pool if i not in linked.values()]
-    for race in races:
+    # A meeting with its format set: the races go with its rounds by kind.
+    fmt_at = next((i for i in pool if rounds[i].get("format") in FORMATS), None)
+    if fmt_at is not None:
+        meeting = [i for i in pool if rounds[i].get("event") == rounds[fmt_at].get("event")]
+        for num, k in format_slots(rounds[fmt_at]["format"], races).items():
+            if k < len(meeting):
+                out[num] = meeting[k]
+        out.update({num: linked[num] for num in (r["num"] for r in races) if num in linked})
+        return out
+
+    def kind_of(i):
+        return _kind_of_name(f"{rounds[i].get('name')} {rounds[i].get('event')}")
+
+    todo = [r for r in races if r["num"] not in linked]
+    kinds = list(dict.fromkeys(r["kind"] for r in races))
+    if 0 < len(free) < len(todo) and len(kinds) > 1:
+        # Fewer rounds than races (iRacing splits a big field into more heats,
+        # and may add a consolation): a round for each kind of race. Every
+        # heat in the heat round; the feature the meeting's last round; a
+        # consolation the one between, if there is one. A round named for a
+        # kind ("Feature") goes with it.
+        # A kind with a race already in a round (heat 1's results saved): that round.
+        slot = {}
+        for r in races:
+            if r["num"] in linked:
+                slot.setdefault(r["kind"], linked[r["num"]])
+        for k in kinds:
+            if k not in slot:
+                slot[k] = next((i for i in free if kind_of(i) == k and i not in slot.values()), None)
+        rest = [i for i in free if i not in slot.values()]
+        open_kinds = [k for k in kinds if slot[k] is None]
+        if open_kinds and rest:
+            # The race the meeting ends with gets its last round; the first kind
+            # its first round; the ones between, the rounds between (if any left).
+            picks = [None] * len(open_kinds)
+            picks[-1] = rest[-1]
+            if len(open_kinds) > 1 and len(rest) > 1:
+                picks[0] = rest[0]
+                middle = rest[1:-1]
+                for j in range(1, len(open_kinds) - 1):
+                    picks[j] = middle[j - 1] if j - 1 < len(middle) else None
+            for k, i in zip(open_kinds, picks):
+                slot[k] = i
+        for race in races:
+            if race["num"] in linked:
+                out[race["num"]] = linked[race["num"]]
+            elif slot.get(race["kind"]) is not None:
+                out[race["num"]] = slot[race["kind"]]
+        return out
+
+    for k, race in enumerate(races):
         if race["num"] in linked:
             out[race["num"]] = linked[race["num"]]
             continue
         if not free:
             continue
-        same = next((i for i in free if _kind_of_name(f"{rounds[i].get('name')} {rounds[i].get('event')}") == race["kind"]), None)
-        pick = same if same is not None else next((i for i in free if _kind_of_name(rounds[i].get("name")) is None), free[0])
+        # Its own kind's round; else a round that's no kind's (Race 2); else any
+        # round, but never one named for a race still to come (a second heat
+        # mustn't take the Feature round: the feature would have none left).
+        later = {r["kind"] for r in races[k + 1:] if r["num"] not in linked}
+        same = next((i for i in free if kind_of(i) == race["kind"]), None)
+        plain = next((i for i in free if _kind_of_name(rounds[i].get("name")) is None), None)
+        spare = next((i for i in free if kind_of(i) not in later), None)
+        pick = same if same is not None else plain if plain is not None else spare
+        if pick is None:
+            continue
         free.remove(pick)
         out[race["num"]] = pick
     return out
