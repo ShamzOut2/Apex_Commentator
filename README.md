@@ -76,6 +76,9 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 
 ### Fixes
 
+- Race meetings: when iRacing runs a second heat, it's no longer counted in
+  the live championship as the feature's race, or saved into the feature's
+  round (or a new round) when it ends.
 - Timing tower and Timing Screen: a car towed to its pit box no longer jumps
   to the top. iRacing counts a tow to a pit box just past the line as being
   on the next lap; the app now goes by the laps the car has completed.
@@ -1291,7 +1294,9 @@ standings update from what's saved.
     - *2-race heat*: R1 the heat, R2 the feature;
     - *3-race heat*: R1 the heat, R2 the consolation, R3 the feature.
     Every heat goes with R1 when iRacing splits a big field into more heats
-    ("Sprint · Heat 2"); a race the format has no round for keeps a name of
+    ("Sprint · Heat 2"; R1's points are the first heat's: the others aren't
+    counted live or saved anywhere else, so add theirs by hand if you score
+    them); a race the format has no round for keeps a name of
     its own. Picking a format gives that meeting (only that one) exactly the
     rounds it needs: missing ones added (Heat, Consolation, Feature, to
     rename), extra ones taken away unless they have results (those stay, and

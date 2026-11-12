@@ -684,12 +684,29 @@ class App:
             num = int(key.rsplit(":", 1)[1])
         except (IndexError, ValueError):
             num = None
+        if self._round_taken(champ, league, key):
+            return None
         matched = self._meeting(league).get(num)
         if matched:
             rd = next((r for r in champ["rounds"] if r["id"] == matched[1]["id"]), None)
-            if rd is not None and not (rd["results"] and rd["session"]):
+            if rd is not None:
                 return rd
         return championship.live_round_for(champ, key)
+
+    def _round_taken(self, champ, league, key):
+        """The race ``key`` goes with a round of its meeting that another race
+        of the event already has results in (a second heat sharing R1 with
+        the first, iRacing having split the field): it counts nowhere, rather
+        than in the next round without results (the feature's)."""
+        try:
+            num = int(key.rsplit(":", 1)[1])
+        except (AttributeError, IndexError, ValueError):
+            return False
+        matched = self._meeting(league).get(num)
+        if not matched:
+            return False
+        rd = next((r for r in champ["rounds"] if r["id"] == matched[1]["id"]), None)
+        return bool(rd and rd["results"] and rd["session"] and rd["session"] != key)
 
     # -- snapshot -----------------------------------------------------------
 
@@ -3289,6 +3306,9 @@ class App:
         champ = championship.normalise(profile.get("championship"))
         if any(rd["session"] == key for rd in champ["rounds"]):
             return  # imported already (by hand, perhaps corrected): those stand
+        if self._round_taken(champ, profile, key):
+            print(f"[apex] results of {key} not saved: its round already has another race's (a heat sharing it)")
+            return
         rd = self._live_round(champ, profile, key)
         if rd is None:
             rd = {"id": f"r{int(time.time())}", "name": f"Round {len(champ['rounds']) + 1}", "event": "", "track": track,

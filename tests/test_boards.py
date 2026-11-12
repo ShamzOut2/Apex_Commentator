@@ -608,6 +608,33 @@ class GridBoardTests(unittest.TestCase):
         titles = [self.app._race_title(league, n, sessions[n]) for n in (1, 3, 4)]
         self.assertEqual(titles, ["Sprint · Heat 1", "Consolation", "Redemption"])
 
+    def test_a_second_heat_sharing_r1_counts_nowhere_else(self):
+        """Two heats sharing R1 (iRacing split the field): once heat 1's
+        results are in R1, heat 2 isn't counted (live) or saved as the
+        feature's round, or as a new round."""
+        from datetime import date
+
+        from apex import championship as ch
+        self.app._session_meta["sessions"] = {
+            1: {"SessionNum": 1, "SessionType": "Race", "SessionName": "HEAT 1"},
+            2: {"SessionNum": 2, "SessionType": "Race", "SessionName": "HEAT 2"},
+            3: {"SessionNum": 3, "SessionType": "Race", "SessionName": "FEATURE"},
+        }
+        league = self.app.leagues.active()
+        heat1 = self.app.session_key(1)
+        rounds = [{"id": "r1", "name": "Sprint", "event": "Brands", "date": "2026-11-05", "format": "heat2",
+                   "results": [{"driver": "x", "name": "X", "position": 1}], "session": heat1},
+                  {"id": "r2", "name": "Main", "event": "Brands", "date": "2026-11-05", "format": "heat2"}]
+        self.app.leagues.save(dict(league, championship={"rounds": rounds}))
+        self.app._today = lambda: date(2026, 11, 5)
+        league = self.app.leagues.active()
+        champ = ch.normalise(league["championship"])
+        self.assertIsNone(self.app._live_round(champ, league, self.app.session_key(2)))
+        self.assertEqual(self.app._live_round(champ, league, self.app.session_key(3))["id"], "r2")
+        self.app._save_results(league, self.app.session_key(2), [ch.normalise_result({"driver": "y", "name": "Y", "position": 1})], "")
+        saved = ch.normalise(self.app.leagues.active()["championship"])["rounds"]
+        self.assertEqual([(r["id"], len(r["results"])) for r in saved], [("r1", 1), ("r2", 0)])
+
     def test_two_race_event_second_race_from_the_first(self):
         cars = list(self.app._drivers)
         first = cars[3:] + cars[:3]

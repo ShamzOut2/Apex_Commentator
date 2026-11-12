@@ -31,6 +31,9 @@ How each version's entry is written:
 
 ### Fixes
 
+- Race meetings: when iRacing runs a second heat, it's no longer counted in
+  the live championship as the feature's race, or saved into the feature's
+  round (or a new round) when it ends.
 - Timing tower and Timing Screen: a car towed to its pit box no longer jumps
   to the top. iRacing counts a tow to a pit box just past the line as being
   on the next lap; the app now goes by the laps the car has completed.
