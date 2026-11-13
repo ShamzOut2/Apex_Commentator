@@ -281,7 +281,8 @@ class App:
         self._payload = (None, b"")         # (version, the snapshot as JSON): encoded once for every page listening
         self._encode_lock = threading.Lock()
         self._errors = {}                   # poller errors logged: (where, error) -> (when, times since)
-        self._delay_history = deque()       # (when, snapshot) for the data delay (_delay)
+        self._delay_history = deque()       # (when, snapshot, cards) for the data delay (_delay)
+        self._cards = {}                    # every car's driver card in the last snapshot built (_driver_cards)
         # Dual commentary (remote.py): this app's camera shared with a
         # co-commentator, or another app's camera followed.
         self.share = None          # remote.CameraShare
@@ -1403,6 +1404,7 @@ class App:
         is_race = bool(heats.race_kind(session))
         rows = [r for r in rows if not r.get("hidden")]  # no class in the league: on no overlay
         entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
+        self._cards = self._driver_cards(rows, entries, is_race, self._camera_picks)
         # Standings: race order in a race; otherwise fastest clean lap, and
         # only drivers who have set one (blank at the start of qualifying).
         # With "reveal", a race shows just the header (session, laps / time
@@ -1483,7 +1485,7 @@ class App:
             # The flashes on now (several: side by side, or one after another); the newest on its own as before.
             "fastest_flashes": flash, "fastest_flash": flash[-1] if flash else None,
             # The driver on camera, for the "who's this" board (driver.html).
-            "driver": self._camera_driver(frame, rows, entries, is_race, self._camera_picks),
+            "driver": self._cards.get(frame.cam_car_idx),
             # Cars in the pit lane, with their pit lane and pit box times (pits.html).
             "pits": self._pits_snapshot(frame, rows, entries, is_race),
             # "all": every driver, for the full-screen timing page (timed
@@ -1716,16 +1718,16 @@ class App:
         return [e for _, e in out]
 
     @staticmethod
-    def _camera_driver(frame, rows, entries, is_race, picks=0):
-        """Who the camera is on: their overlay details and where they are, or
-        None. ``picks`` counts drivers picked from the app, so the driver board
-        shows again when the same driver is picked again."""
-        idx = frame.cam_car_idx
-        row = next((r for r in rows if r["car_idx"] == idx), None)
-        if row is None or idx not in entries or not row["in_world"]:
-            return None
-        return dict(entries[idx], pos=row["pos"], class_pos=row["class_pos"],
-                    pos_change=row.get("pos_change") if is_race else None, pick=picks)
+    def _driver_cards(rows, entries, is_race, picks=0):
+        """Every car's "who's this" board (driver.html), by car_idx: their
+        overlay details and where they are. Every car's, not just the one on
+        camera, so that as the camera cuts the board can show the new car as
+        it was data_delay_s ago (_card_on_camera). ``picks`` counts drivers
+        picked from the app, so the board shows again when the same driver is
+        picked again."""
+        return {r["car_idx"]: dict(entries[r["car_idx"]], pos=r["pos"], class_pos=r["class_pos"],
+                                   pos_change=r.get("pos_change") if is_race else None, pick=picks)
+                for r in rows if r["in_world"] and r["car_idx"] in entries}
 
     def _pits_snapshot(self, frame, rows, entries, is_race):
         """The pit stops to show (see pits.py): the car on camera first, then
@@ -2020,8 +2022,9 @@ class App:
     DELAYED = ("session", "camera", "replay", "drivers", "detection", "events", "classes", "championship", "spectator")
     DELAY_MAX_S = 10.0
 
-    def _delay(self, snap):
-        """``snap`` with its race data from data_delay_s ago (default 1 s)."""
+    def _delay(self, snap, cards=None):
+        """``snap`` with its race data from data_delay_s ago (default 1 s).
+        ``cards``: every car's driver board in ``snap`` (_driver_cards)."""
         try:
             delay = min(self.DELAY_MAX_S, max(0.0, float(self.settings.get("data_delay_s", 1.0))))
         except (TypeError, ValueError):
@@ -2031,11 +2034,11 @@ class App:
             hist.clear()
             return snap
         now = time.monotonic()
-        hist.append((now, snap))
+        hist.append((now, snap, cards or {}))
         # The newest snapshot at least ``delay`` old (or the oldest there is, just started).
         while len(hist) > 1 and hist[1][0] <= now - delay:
             hist.popleft()
-        old = hist[0][1]
+        _, old, old_cards = hist[0]
         if old is snap or not old.get("connected"):
             return snap
         out = dict(snap)
@@ -2044,10 +2047,27 @@ class App:
                 out[key] = old[key]
         if "overlays" in old and "overlays" in snap:
             out["overlays"] = {**old["overlays"], "settings": snap["overlays"]["settings"]}
+            out["overlays"]["driver"] = self._card_on_camera(snap["overlays"].get("driver"), old["overlays"].get("driver"), old_cards)
         return out
 
+    @staticmethod
+    def _card_on_camera(live, delayed, cards_then):
+        """The driver board follows the camera as it is now, not data_delay_s
+        ago: the picture on stream cuts straight away, so a board a second
+        behind it would name the car before. What it shows of them is from
+        data_delay_s ago, like the rest of the race (``cards_then``: every
+        car's board then), so the delay holds for the board too."""
+        if not live:
+            return None
+        if delayed and (delayed.get("car_idx"), delayed.get("pick")) == (live.get("car_idx"), live.get("pick")):
+            return delayed
+        then = cards_then.get(live.get("car_idx"))
+        # Not out on track a second ago (just joined, say): as they are now.
+        return dict(then, pick=live.get("pick")) if then else live
+
     def publish(self):
-        snap = self._delay(self.build_snapshot())
+        self._cards = {}  # filled in as the overlays are built (none while not connected)
+        snap = self._delay(self.build_snapshot(), self._cards)
         # The spectators' live timing goes to their own server only (with the
         # same delay as everything else), never to the app's pages.
         section = snap.pop("spectator", None)

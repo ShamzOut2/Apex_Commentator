@@ -37,6 +37,8 @@ How each version's entry is written:
 - Timing tower extra drivers: the last set shows only the drivers left, with
   blank rows, instead of wrapping back round (P14 above P4).
 - Gaps no longer jump about after watching replays during a race.
+- The driver on camera board changes with the camera straight away, instead
+  of about two seconds after the cut.
 
 ## v0.6.8
 

@@ -82,6 +82,8 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 - Timing tower extra drivers: the last set shows only the drivers left, with
   blank rows, instead of wrapping back round (P14 above P4).
 - Gaps no longer jump about after watching replays during a race.
+- The driver on camera board changes with the camera straight away, instead
+  of about two seconds after the cut.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -775,7 +777,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   main or the secondary class, as for the standings; a driver without one
   gets no colour: no background behind the position or number, white text.
   - When the camera moves to someone else, the old board slides away and the
-    new one slides up, opening from the middle with a light sweep.
+    new one slides up, opening from the middle with a light sweep. It changes
+    driver as the camera cuts on stream (readable in under a second), while
+    what it shows of them (position, team…) keeps to the *Delay*, like the
+    rest of the race data.
   - **Card stays on screen for**: how many seconds it stays up (1 to 120).
     The time starts again with each new driver: switch to someone else
     before it runs out and their card replaces the last one for the full

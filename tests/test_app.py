@@ -455,3 +455,43 @@ class DataDelayTests(unittest.TestCase):
                 self.assertEqual(app._delay(snap(50))["session"]["time"], 50)  # 0: straight away
                 with self.assertRaises(Exception):
                     app.command("data_delay", {"seconds": "soon"})
+
+    def test_the_driver_card_follows_the_camera_straight_away(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = App(MockSource(seed=3), dict(DEFAULTS), LeagueStore(tmp))
+            now = {"t": 100.0}
+
+            def card(i, car, pick=0):
+                return {"car_idx": car, "pick": pick, "at": i}  # at: the moment it's from
+
+            def snap(i, car, pick=0):
+                return {"connected": True, "session": {"time": i},
+                        "overlays": {"driver": card(i, car, pick), "standings": [i], "settings": {}}}
+
+            def publish(i, car, pick=0):  # as App.publish: the snapshot and every car's card with it
+                return app._delay(snap(i, car, pick), {c: card(i, c, pick) for c in (1, 2)})
+
+            with mock.patch("apex.core.time.monotonic", lambda: now["t"]):
+                seen = []
+                for i in range(30):  # 8 a second: the camera cuts from car 1 to car 2 at 10
+                    seen.append(publish(i, 1 if i < 10 else 2))
+                    now["t"] += 0.125
+                cards = [s["overlays"]["driver"] for s in seen]
+                # The board names the car on camera straight away...
+                self.assertEqual([c["car_idx"] for c in cards[:10]], [1] * 10)
+                self.assertEqual([c["car_idx"] for c in cards[10:]], [2] * 20)
+                # ...but what it shows of them is from a second (8 snapshots) ago, before
+                # the cut and after it, like the rest of the race.
+                self.assertEqual([c["at"] for c in cards[8:]], list(range(22)))
+                self.assertEqual([s["session"]["time"] for s in seen[8:]], list(range(22)))
+                self.assertEqual([s["overlays"]["standings"] for s in seen[8:]], [[i] for i in range(22)])
+                # The same driver picked again in the app: straight away too, still a second late.
+                again = publish(30, 2, pick=1)["overlays"]["driver"]
+                self.assertEqual((again["car_idx"], again["pick"], again["at"]), (2, 1, 22))
+                # A car that wasn't out a second ago: as it is now.
+                late = app._delay(snap(31, 7), {})["overlays"]["driver"]
+                self.assertEqual((late["car_idx"], late["at"]), (7, 31))
+                # Nobody on camera: no board, without waiting either.
+                self.assertIsNone(app._delay({"connected": True, "overlays": {"driver": None, "settings": {}}})["overlays"]["driver"])
