@@ -538,6 +538,16 @@ class GridBoardTests(unittest.TestCase):
         first = self.app._drivers[int(keys[1][4:])]["number"]
         self.assertEqual(b["rows"][0]["number"], first)
 
+    def test_grid_from_current_positions(self):
+        """"Current positions": the order iRacing has the cars in now (its grid
+        as lined up, before the green), with no reverse on top."""
+        frame = self.app._frame
+        b = self.grid(grid_source="current", reverse_top=3, rows=64)
+        now = [self.app._drivers[idx]["number"] for _, idx in sorted((p, idx) for idx, p in enumerate(frame.position)
+                                                                     if idx in self.app._drivers and p)]
+        self.assertEqual(b["grid_from"], "current positions")
+        self.assertEqual([r["number"] for r in b["rows"]][:len(now)], now)
+
     def test_race_meeting_grids_follow_the_race_before(self):
         from datetime import date
 

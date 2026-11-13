@@ -40,8 +40,8 @@ NAME_FORMATS = ("full", "initial_last", "last_initial", "last", "first", "abbrev
 # (each switched on and off with its show_ setting) and the full screen's
 # (a fixed set: Last and Pits in races only). "" for the full screen keeps
 # its usual order, which differs between races and qualifying.
-TOWER_COLUMNS = ("pos_change", "laps", "pits", "last_lap", "best_lap", "gap", "interval", "tyre")
-SCREEN_COLUMNS = ("laps", "gap", "interval", "last_lap", "best_lap", "pits", "tyre")
+TOWER_COLUMNS = ("pos_change", "laps", "pits", "last_lap", "best_lap", "gap", "interval", "tyre", "stint", "make")
+SCREEN_COLUMNS = ("laps", "gap", "interval", "last_lap", "best_lap", "pits", "tyre", "stint", "make")
 ORDERS = {"column_order": TOWER_COLUMNS, "screen_column_order": SCREEN_COLUMNS}
 
 DEFAULTS = {
@@ -50,7 +50,9 @@ DEFAULTS = {
     # while a full-screen board is on screen: "stay" as they are, "dim" (to
     # board_dim percent) or "hide" (back when the board goes). Overlays set
     # to stay (the sponsors' stay) are never dimmed or hidden.
-    "general": {"race_decimals": 1, "qual_decimals": 3, "board_overlays": "stay", "board_dim": 35},
+    "general": {"race_decimals": 1, "qual_decimals": 3, "board_overlays": "stay", "board_dim": 35,
+                # Class, team and accent colours as picked at any opacity (off: they fade with the panels).
+                "solid_colors": True},
     # The live timing website for spectators (spectate.py, web/live/): how it looks
     # and what it shows. Every driver with a class is on it, whatever the tower shows.
     "live": {
@@ -117,6 +119,8 @@ DEFAULTS = {
         "show_last_lap": False,
         "show_laps": False,       # laps completed
         "show_pits": False,       # pit stops made
+        "show_stint": False,      # race: laps in the current stint (since the last pit stop; the full screen too)
+        "show_make": False,       # the car's manufacturer badge (the full screen too)
         "show_tyre": True,        # the tyres on: a white dry tyre or a blue wet one (the full screen too)
         "show_pit_status": True,  # "PIT" while on pit road
         "column_order": ",".join(TOWER_COLUMNS),
@@ -159,6 +163,7 @@ DEFAULTS = {
         "fl_flash": True,
         "fl_flash_s": 6.0,
         "fl_flash_classes": False,  # also a new fastest lap in each class, not just overall
+        "fl_flash_many": "stack",   # several at once: side by side ("stack") or one after another ("queue")
         **BACKGROUND, **OFFSET,
     },
     # Sponsor logos on their own (sponsors.html), over the race.
@@ -172,6 +177,7 @@ DEFAULTS = {
         "title": "",              # a small caption above them, e.g. "Partners"
         "sponsor_ids": "",        # which sponsors, comma separated ("" = all, "none" = none)
         "anchor_id": "",          # a sponsor always shown (the others rotate beside it); "" = none
+        "anchor_side": "first",   # where it goes: "first" (left / top) or "last" (right / bottom)
         # Stays up: not put away with everything else (hotkeys, Widgets tab)
         # and not dimmed or hidden while a board is up.
         "stay": False,
@@ -397,9 +403,9 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
+           "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS,
-           "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "gap_shown": ("ahead", "camera"),
+           "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "anchor_side": ("first", "last"), "fl_flash_many": ("stack", "queue"), "gap_shown": ("ahead", "camera"),
            "labels": ("none", "number", "position")}
 
 

@@ -92,6 +92,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/update":
             updater = getattr(self.app, "updater", None)
             return self._send_json(updater.status() if updater else {"enabled": False})
+        if path == "/api/events":  # the whole race log (the snapshot has the newest)
+            with self.app._lock:
+                events = list(self.app.detector.events)
+            return self._send_json({"events": events})
         if path == "/api/trackmap":  # the track map widget's outline
             return self._send_json(self.app.trackmap_points() or {"id": None, "points": None})
         if path == "/api/tracks":

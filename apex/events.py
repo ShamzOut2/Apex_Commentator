@@ -53,6 +53,7 @@ from .sources import (
     FLAG_DISQUALIFY,
     FLAG_FURLED,
     FLAG_REPAIR,
+    STATE_CHECKERED,
     STATE_RACING,
     TRK_NOT_IN_WORLD,
     TRK_OFF_TRACK,
@@ -110,7 +111,9 @@ class EventDetector:
         self.spin_steer = math.radians(float(cfg.get("spin_steer_deg", 180.0)))
         self.contact_jolt = float(cfg.get("contact_jolt_kph", 20.0)) / 3.6
         self.cooldown_s = float(cfg.get("event_cooldown_s", 8.0))
-        self.max_events = int(cfg.get("max_events", 300))
+        # The whole event's log (an endurance race's thousands of moments are a
+        # few MB): an older config's 300 isn't kept to.
+        self.max_events = max(int(cfg.get("max_events", 50000)), 50000)
         self._ids = itertools.count(1)
         self.events = []
         # Incident counts are only re-baselined by clear(): they must survive
@@ -500,6 +503,8 @@ class EventDetector:
         created = []
         now = frame.session_time
         pos = self._positions(frame, drivers, racing)
+        # Pit stops count from the green: leaving the pit stalls for the grid isn't one.
+        under_way = is_race and frame.session_state in (STATE_RACING, STATE_CHECKERED)
         for idx in drivers:
             # Pit stops.
             on_pit = bool(_at(frame.on_pit, idx, False))
@@ -507,9 +512,9 @@ class EventDetector:
             if pit is None:
                 self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx)}
             elif on_pit != pit["on"]:
-                if is_race and on_pit:
+                if under_way and on_pit:
                     created.append(self._emit("pit_in", idx, frame, drivers, position=pos.get(idx)))
-                elif is_race:
+                elif under_way:
                     created.append(self._emit(
                         "pit_out", idx, frame, drivers, position=pos.get(idx), from_position=pit["pos"],
                         duration=round(now - pit["since"], 1),

@@ -55,7 +55,7 @@ body.panel-image .battle::before {
 /* Colours from variables (class, accent...) at the overlay's opacity too, where
    the browser can mix them (older ones keep them solid). */
 @supports (color: color-mix(in srgb, red 50%, transparent)) {
-  .bt-head { border-bottom:3px solid color-mix(in srgb, var(--grp, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .bt-head { border-bottom:3px solid color-mix(in srgb, var(--grp, var(--accent)) calc(var(--pick-k, 1) * 100%), transparent); }
   .bt-head .live::before { background:color-mix(in srgb, var(--red) calc(var(--bg-k, 1) * 100%), transparent); }
   .bt-row { border-top:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }
 }

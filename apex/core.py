@@ -281,7 +281,8 @@ class App:
         self._payload = (None, b"")         # (version, the snapshot as JSON): encoded once for every page listening
         self._encode_lock = threading.Lock()
         self._errors = {}                   # poller errors logged: (where, error) -> (when, times since)
-        self._delay_history = deque()       # (when, snapshot) for the data delay (_delay)
+        self._delay_history = deque()       # (when, snapshot, cards) for the data delay (_delay)
+        self._cards = {}                    # every car's driver card in the last snapshot built (_driver_cards)
         # Dual commentary (remote.py): this app's camera shared with a
         # co-commentator, or another app's camera followed.
         self.share = None          # remote.CameraShare
@@ -323,7 +324,8 @@ class App:
         self._last_state = {}      # session number -> session state last seen
         self._fl_session = None    # fastest laps: the session they're for,
         self._fl_records = {}      # "overall" / class key -> (fastest lap so far, (car_idx, number) who set it),
-        self._fl_flash = None      # and the newest one, for the flash on stream
+        self._fl_flash = None      # (older single flash; see _fl_flashes)
+        self._fl_flashes = []      # the fastest-lap flashes on stream or waiting: {..., "start", "end"}
         self._logged_until = {}    # session num -> race time logged so far
         self._seen_in = {}         # session num -> car_idx -> (place, standings entry): the full-screen timing's leavers
         self._gone = {}            # car_idx -> driver: drivers who've left the event (gone from iRacing's list)
@@ -517,7 +519,7 @@ class App:
         self._drivers, self._gone = {}, {}  # the last event's drivers aren't this one's leavers
         self._finish_gaps, self._finishers = {}, {}
         self._race = RaceProgress()
-        self._fl_session, self._fl_records, self._fl_flash = None, {}, None
+        self._fl_session, self._fl_records, self._fl_flash, self._fl_flashes = None, {}, None, []
         self._laps_t = self._laps_num = None
         self.laps.reset()
         self.pits.reset()
@@ -758,11 +760,14 @@ class App:
             counts = {}
             last_event = {}
             pit_stops = {}
+            pit_exit_lap = {}  # car -> the lap it was on as it left the pits (its stint started)
             for ev in events:
                 counts[ev["car_idx"]] = counts.get(ev["car_idx"], 0) + 1
                 last_event[ev["car_idx"]] = ev["id"]
-                if ev["type"] == "pit_out":
+                # Pit stops: this race's own (not a heat's before it, or practice's).
+                if ev["type"] == "pit_out" and ev.get("session_num") == frame.session_num:
                     pit_stops[ev["car_idx"]] = pit_stops.get(ev["car_idx"], 0) + 1
+                    pit_exit_lap[ev["car_idx"]] = ev.get("lap") or 0
             classes = {}
             active_league = self.leagues.active()
             rows = []
@@ -800,6 +805,8 @@ class App:
                     "best_lap": _lap_time(_at(frame.best_lap, idx)),
                     "event_count": counts.get(idx, 0),
                     "pit_stops": pit_stops.get(idx, 0),
+                    # The current stint: laps completed since it left the pits (or since the start).
+                    "stint": self._stint(_at(frame.laps_completed, idx, -1), pit_exit_lap.get(idx)) if is_race else None,
                     # iRacing's chequered flag comes and goes (it's waved): the
                     # chequered flag here is the app's own, steady from when
                     # the car crossed the line after the flag.
@@ -880,7 +887,8 @@ class App:
                             "taken": list(self.global_hotkeys.taken) if self.global_hotkeys else [],
                             "saved": self.settings.get("hotkey_map")},
                 "classes": self._ordered_classes(classes),
-                "events": events[-200:],
+                # The newest; the app fetches the rest once (/api/events) and keeps them.
+                "events": events[-200:], "events_total": len(events), "events_first_id": events[0]["id"] if events else None,
                 "desktop": self._desktop_snapshot(),
                 "remote": self._remote_snapshot(),
                 "spectate": self._spectate_snapshot(),
@@ -1254,6 +1262,7 @@ class App:
             # For the full-screen versions.
             "make": r["make"], "make_logo": r["make_logo"],
             "lap": r["lap"], "last_lap": r["last_lap"], "best_lap": r["best_lap"], "pit_stops": r["pit_stops"],
+            "stint": r.get("stint"),
             "laps_completed": r["laps_completed"],
             "laps_down": r.get("laps_down", 0), "class_laps_down": r.get("class_laps_down", 0),
             # Taken the chequered flag (the tower's flag by their name).
@@ -1274,7 +1283,7 @@ class App:
         session = (frame.session_num, is_race)
         fresh = session != self._fl_session
         if fresh:
-            self._fl_session, self._fl_flash, self._fl_records = session, None, {}
+            self._fl_session, self._fl_flash, self._fl_records, self._fl_flashes = session, None, {}, []
         records = self._fl_records
         beaten = []
         for e in standings:
@@ -1291,23 +1300,40 @@ class App:
         self._mark_fastest(standings)
         # A new fastest lap: flash it. Laps already set when the session (or
         # the app) started aren't news.
-        flashed = False
         # Overall first: a lap that's fastest overall and in its class flashes once, as overall.
+        now = time.monotonic()
+        dur = cfg["fl_flash_s"]
+        flashes = [f for f in getattr(self, "_fl_flashes", []) if f["end"] > now]
+        seen_laps = set()
         for scope, t, e in sorted(beaten, key=lambda b: b[0] != "overall"):
             # A race's first laps (standing or rolling start) aren't real fastest laps yet.
             opening = is_race and (e.get("laps_completed") or 0) <= 1
-            if not flashed and not opening and (scope == "overall" or cfg["fl_flash_classes"]):
-                flashed = True
-                # A driver with no main class in the league (an entry's paint is
-                # only there with a league): no class name on the flash.
-                no_main = e.get("paint") is not None and not str(e.get("class_key") or "").startswith("league:")
-                self._fl_flash = {"car_idx": e["car_idx"], "name": e["name"], "nickname": e.get("nickname", ""),
-                                  "number": e["number"], "class_key": "" if no_main else e["class_key"], "lap_time": t,
-                                  "scope": "overall" if scope == "overall" else "class", "at": time.monotonic()}
-        f = self._fl_flash
-        if not (cfg["fl_flash"] and f and time.monotonic() - f["at"] < cfg["fl_flash_s"]):
-            return None
-        return {k: v for k, v in f.items() if k != "at"} | {"id": f"{f['car_idx']}:{f['lap_time']}"}
+            if opening or (e["car_idx"], t) in seen_laps or not (scope == "overall" or cfg["fl_flash_classes"]):
+                continue
+            seen_laps.add((e["car_idx"], t))
+            # A driver with no main class in the league (an entry's paint is
+            # only there with a league): no class name on the flash.
+            no_main = e.get("paint") is not None and not str(e.get("class_key") or "").startswith("league:")
+            flash = {"car_idx": e["car_idx"], "name": e["name"], "nickname": e.get("nickname", ""),
+                     "number": e["number"], "class_key": "" if no_main else e["class_key"], "lap_time": t,
+                     "scope": "overall" if scope == "overall" else "class", "key": scope,
+                     "id": f"{e['car_idx']}:{t}"}
+            # Several at once (different classes): side by side ("stack"), each
+            # for its time; or one after another ("queue"), each in full. A newer
+            # lap of the same scope takes the older one's place.
+            if cfg["fl_flash_many"] == "queue":
+                waiting = [f for f in flashes if f["key"] == scope and f["start"] > now]
+                flashes = [f for f in flashes if f not in waiting]
+                start = max([now] + [f["end"] for f in flashes])
+            else:
+                flashes = [f for f in flashes if f["key"] != scope]
+                start = now
+            flashes.append(dict(flash, start=start, end=start + dur))
+        self._fl_flashes = flashes
+        if not cfg["fl_flash"]:
+            return []
+        return [{k: v for k, v in f.items() if k not in ("start", "end")} for f in sorted(flashes, key=lambda f: f["start"])
+                if f["start"] <= now < f["end"]]
 
     def _mark_fastest(self, entries):
         """``fastest`` / ``class_fastest`` on the entries of the drivers who hold
@@ -1378,6 +1404,7 @@ class App:
         is_race = bool(heats.race_kind(session))
         rows = [r for r in rows if not r.get("hidden")]  # no class in the league: on no overlay
         entries = {r["car_idx"]: self._overlay_entry(r, active_league) for r in rows}
+        self._cards = self._driver_cards(rows, entries, is_race, self._camera_picks)
         # Standings: race order in a race; otherwise fastest clean lap, and
         # only drivers who have set one (blank at the start of qualifying).
         # With "reveal", a race shows just the header (session, laps / time
@@ -1455,9 +1482,10 @@ class App:
             "progress": self._session_progress(frame, session, rows, settings["standings"]["header_info"]),
             "standings": standings,
             "screen_standings": screen,  # the full-screen timing's, with those who left (None: as the tower's)
-            "fastest_flash": flash,
+            # The flashes on now (several: side by side, or one after another); the newest on its own as before.
+            "fastest_flashes": flash, "fastest_flash": flash[-1] if flash else None,
             # The driver on camera, for the "who's this" board (driver.html).
-            "driver": self._camera_driver(frame, rows, entries, is_race, self._camera_picks),
+            "driver": self._cards.get(frame.cam_car_idx),
             # Cars in the pit lane, with their pit lane and pit box times (pits.html).
             "pits": self._pits_snapshot(frame, rows, entries, is_race),
             # "all": every driver, for the full-screen timing page (timed
@@ -1471,6 +1499,15 @@ class App:
         (or it's in cool-down). iRacing's chequered state alone isn't that."""
         return bool(frame) and (frame.session_state >= STATE_COOLDOWN
                                 or (self._race.checkered and self._race.session == frame.session_num))
+
+    @staticmethod
+    def _stint(done, exit_lap):
+        """Laps completed in the current stint: since it left the pits on lap
+        ``exit_lap`` (the lap it was then on: laps done then, one fewer), or
+        all of them with no stop yet. None before it's done a lap."""
+        if done is None or done < 0:
+            return None
+        return max(0, done - (exit_lap - 1)) if exit_lap else done
 
     def _keep_finishers(self, num, rows):
         """Rows in order with every car that's finished at its place as it
@@ -1681,16 +1718,16 @@ class App:
         return [e for _, e in out]
 
     @staticmethod
-    def _camera_driver(frame, rows, entries, is_race, picks=0):
-        """Who the camera is on: their overlay details and where they are, or
-        None. ``picks`` counts drivers picked from the app, so the driver board
-        shows again when the same driver is picked again."""
-        idx = frame.cam_car_idx
-        row = next((r for r in rows if r["car_idx"] == idx), None)
-        if row is None or idx not in entries or not row["in_world"]:
-            return None
-        return dict(entries[idx], pos=row["pos"], class_pos=row["class_pos"],
-                    pos_change=row.get("pos_change") if is_race else None, pick=picks)
+    def _driver_cards(rows, entries, is_race, picks=0):
+        """Every car's "who's this" board (driver.html), by car_idx: their
+        overlay details and where they are. Every car's, not just the one on
+        camera, so that as the camera cuts the board can show the new car as
+        it was data_delay_s ago (_card_on_camera). ``picks`` counts drivers
+        picked from the app, so the board shows again when the same driver is
+        picked again."""
+        return {r["car_idx"]: dict(entries[r["car_idx"]], pos=r["pos"], class_pos=r["class_pos"],
+                                   pos_change=r.get("pos_change") if is_race else None, pick=picks)
+                for r in rows if r["in_world"] and r["car_idx"] in entries}
 
     def _pits_snapshot(self, frame, rows, entries, is_race):
         """The pit stops to show (see pits.py): the car on camera first, then
@@ -1985,8 +2022,9 @@ class App:
     DELAYED = ("session", "camera", "replay", "drivers", "detection", "events", "classes", "championship", "spectator")
     DELAY_MAX_S = 10.0
 
-    def _delay(self, snap):
-        """``snap`` with its race data from data_delay_s ago (default 1 s)."""
+    def _delay(self, snap, cards=None):
+        """``snap`` with its race data from data_delay_s ago (default 1 s).
+        ``cards``: every car's driver board in ``snap`` (_driver_cards)."""
         try:
             delay = min(self.DELAY_MAX_S, max(0.0, float(self.settings.get("data_delay_s", 1.0))))
         except (TypeError, ValueError):
@@ -1996,11 +2034,11 @@ class App:
             hist.clear()
             return snap
         now = time.monotonic()
-        hist.append((now, snap))
+        hist.append((now, snap, cards or {}))
         # The newest snapshot at least ``delay`` old (or the oldest there is, just started).
         while len(hist) > 1 and hist[1][0] <= now - delay:
             hist.popleft()
-        old = hist[0][1]
+        _, old, old_cards = hist[0]
         if old is snap or not old.get("connected"):
             return snap
         out = dict(snap)
@@ -2009,10 +2047,27 @@ class App:
                 out[key] = old[key]
         if "overlays" in old and "overlays" in snap:
             out["overlays"] = {**old["overlays"], "settings": snap["overlays"]["settings"]}
+            out["overlays"]["driver"] = self._card_on_camera(snap["overlays"].get("driver"), old["overlays"].get("driver"), old_cards)
         return out
 
+    @staticmethod
+    def _card_on_camera(live, delayed, cards_then):
+        """The driver board follows the camera as it is now, not data_delay_s
+        ago: the picture on stream cuts straight away, so a board a second
+        behind it would name the car before. What it shows of them is from
+        data_delay_s ago, like the rest of the race (``cards_then``: every
+        car's board then), so the delay holds for the board too."""
+        if not live:
+            return None
+        if delayed and (delayed.get("car_idx"), delayed.get("pick")) == (live.get("car_idx"), live.get("pick")):
+            return delayed
+        then = cards_then.get(live.get("car_idx"))
+        # Not out on track a second ago (just joined, say): as they are now.
+        return dict(then, pick=live.get("pick")) if then else live
+
     def publish(self):
-        snap = self._delay(self.build_snapshot())
+        self._cards = {}  # filled in as the overlays are built (none while not connected)
+        snap = self._delay(self.build_snapshot(), self._cards)
         # The spectators' live timing goes to their own server only (with the
         # same delay as everything else), never to the app's pages.
         section = snap.pop("spectator", None)
@@ -2553,6 +2608,12 @@ class App:
             if rest == "header":
                 now = tower["header_info"] if tower["header_info"] in ("laps", "time") else self._header_mode
                 return self.cmd_overlay_settings("standings", {"header_info": "time" if now == "laps" else "laps"})
+            if rest.startswith("col:"):
+                # A column of the tower (and the full screen) on or off: col:gap -> show_gap.
+                key = f"show_{rest[4:]}"
+                if key not in self.TOWER_COLUMN_KEYS:
+                    raise CommandError(f"Unknown tower column '{rest[4:]}'")
+                return self.cmd_overlay_settings("standings", {key: not tower[key]})
         if kind == "all":
             if rest == "overlays":
                 return self.cmd_toggle_overlays()
@@ -2561,6 +2622,10 @@ class App:
             return self.cmd_toggle_all()
         raise CommandError(f"Unknown hotkey '{action}'")
 
+    # The tower's columns a hotkey can switch on and off (tower:col:<name>).
+    TOWER_COLUMN_KEYS = ("show_pos_change", "show_number", "show_logo", "show_team", "show_gap", "show_interval",
+                         "show_last_lap", "show_best_lap", "show_laps", "show_pits", "show_stint", "show_tyre",
+                         "show_make", "show_pit_status", "show_stripe", "show_fastest_icon")
     TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits", "duel", "trackmap")
 
     def _toggled(self, ov):
@@ -2843,6 +2908,13 @@ class App:
         if how == "previous" and finish:
             order = sorted(finish, key=finish.get) + [i for i in qual if i not in finish]
             note = "previous race"
+        elif how == "current" and frame and num == frame.session_num:
+            # The order iRacing has the cars in now: on the grid before the
+            # green, the grid it's lined them up on (taken as it is: no reverse on top).
+            now = sorted((p, idx) for idx, p in enumerate(frame.position) if idx in drivers and p)
+            if now:
+                order = [idx for _, idx in now] + [i for i in qual if i not in {idx for _, idx in now}]
+                note = "current positions"
         elif how == "gridwalk":
             keys = self.gridwalk.apply_order(self._grid_keys)
             walk = [int(k[4:]) for k in keys if k.startswith("car:") and int(k[4:]) in drivers]
@@ -2871,6 +2943,8 @@ class App:
         n = cfg["reverse_top"]
         if matched and matched[1].get("reverse_grid"):
             n = matched[1].get("reverse_top") or 0
+        if note == "current positions":
+            n = 0
         if n > 0:
             if cfg["reverse_in_class"]:
                 for key in dict.fromkeys(e["class_id"] for e in entries):

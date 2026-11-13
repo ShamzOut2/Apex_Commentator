@@ -869,3 +869,7 @@ td.c-tyre { text-align: center; }
 .live-frame iframe { width: 1280px; height: 720px; right: auto; bottom: auto; transform-origin: 0 0; }
 .live-frame-off { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0;
   color: var(--muted); font-size: 13px; text-align: center; padding: 20px; }
+
+/* Timing Screen: the car's manufacturer badge. */
+.c-make { width: 44px; text-align: center; }
+td.c-make .make-logo { height: 18px; max-width: 36px; object-fit: contain; vertical-align: middle; }

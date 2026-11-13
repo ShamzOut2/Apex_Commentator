@@ -13,11 +13,11 @@ body.panel-image .card::before {
 }
 
 /* Slides up out of the bottom, opening from the middle, with a light sweep. */
-.card.in { animation: card-in .6s cubic-bezier(.2, .9, .25, 1) both; }
+.card.in { animation: card-in .45s cubic-bezier(.2, .9, .25, 1) both; }
 .card.in::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, calc(.28 * var(--bg-k, 1))) 50%, transparent 65%);
-  transform: translateX(-110%); animation: card-sweep .9s .35s ease-out both;
+  transform: translateX(-110%); animation: card-sweep .8s .25s ease-out both;
 }
 @keyframes card-in {
   from { opacity: 0; transform: translateY(46px); clip-path: inset(0 45% 0 45% round 14px); }
@@ -42,7 +42,7 @@ body.panel-image .card::before {
 @keyframes card-sweep-out { to { transform: translateX(-110%); } }
 /* A new driver's card comes in over the one leaving. */
 .card:not(.out) { z-index: 1; }
-.card.in > * { animation: card-content .45s .25s ease both; }
+.card.in > * { animation: card-content .32s .12s ease both; }
 @keyframes card-content { from { opacity: 0; transform: translateY(8px); } }
 
 .pos {
@@ -71,6 +71,6 @@ body.panel-image .card::before {
 /* Colours from variables (class, accent...) at the overlay's opacity too, where
    the browser can mix them (older ones keep them solid). */
 @supports (color: color-mix(in srgb, red 50%, transparent)) {
-  .card { border-bottom:5px solid color-mix(in srgb, var(--cls, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
-  .pos { background:color-mix(in srgb, var(--cls, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .card { border-bottom:5px solid color-mix(in srgb, var(--cls, var(--accent)) calc(var(--pick-k, 1) * 100%), transparent); }
+  .pos { background:color-mix(in srgb, var(--cls, var(--accent)) calc(var(--pick-k, 1) * 100%), transparent); }
 }

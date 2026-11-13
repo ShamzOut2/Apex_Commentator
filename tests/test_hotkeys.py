@@ -50,6 +50,18 @@ class HotkeyActionTests(unittest.TestCase):
         self.press("tower:sponsor")
         self.assertEqual(app.overlays.get()["standings"]["sponsor_bar"], bar)
 
+    def test_a_key_for_each_tower_column(self):
+        app = self.app
+        for col in ("gap", "interval", "logo", "team", "stint", "make", "tyre"):
+            was = app.overlays.get()["standings"][f"show_{col}"]
+            self.press(f"tower:col:{col}")
+            self.assertEqual(app.overlays.get()["standings"][f"show_{col}"], not was, col)
+            self.press(f"tower:col:{col}")
+            self.assertEqual(app.overlays.get()["standings"][f"show_{col}"], was, col)
+        from apex.core import CommandError
+        with self.assertRaises(CommandError):
+            self.press("tower:col:visible")  # only the columns
+
     def test_overlays_boards_and_grid_walk(self):
         app = self.app
         was = app.overlays.get()["laps"]["visible"]

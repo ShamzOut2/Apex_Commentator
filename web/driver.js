@@ -13,9 +13,10 @@ const DEFAULT_CLASS = { key: "", name: "", color: "#8b93a3" };
 const OUT_MS = 680;  // the leaving animation (driver.css .card.out)
 let current = null;  // {key, el, at, html, hidden, timer, hideMs}
 // A new driver on camera takes over the card once they've been on camera
-// this long: as the camera cuts, iRacing can name the car it's leaving again
-// for a moment, which used to slide the last driver's card back in between.
-const SETTLE_MS = 400;
+// this long (two snapshots): as the camera cuts, iRacing can name the car
+// it's leaving again for a moment, which used to slide the last driver's
+// card back in between.
+const SETTLE_MS = 250;
 let pending = null;  // {key, since, timer}: the driver the camera has just moved to
 let lastSnap = null;
 
@@ -82,7 +83,7 @@ function render(snap) {
     el.innerHTML = html;
     slot.appendChild(el);
     // Once it's in, updates (a new position) just swap the numbers.
-    setTimeout(() => el.classList.remove("in"), 1300);
+    setTimeout(() => el.classList.remove("in"), 1100);
     current = { key, el, at: performance.now(), html, hidden: false, timer: null, hideMs: null };
     schedule(cfg);
     return;

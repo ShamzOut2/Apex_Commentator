@@ -270,17 +270,18 @@ class IncidentTests(unittest.TestCase):
         # Entering the pit lane is logged as a pit stop, not as a slowdown.
         self.assertEqual([e["type"] for e in run(self.det, steps)], ["pit_in"])
 
-    def test_max_events_is_respected(self):
-        det = EventDetector(dict(DEFAULTS, max_events=5))
+    def test_the_whole_events_log_is_kept(self):
+        """An endurance race's whole log, even with an older config's 300."""
+        det = EventDetector(dict(DEFAULTS, max_events=300))
         drivers = {1: dict(DRIVERS[1], incidents=0)}
         f = frame(0, {1: (1, 0.1, TRK_ON_TRACK, False)})
         det.update_incidents(f, drivers)
-        for i in range(1, 12):
+        for i in range(1, 1201):
             f.session_time = i * 100
             drivers[1]["incidents"] = i
             det.update_incidents(f, drivers)
-        self.assertEqual(len(det.events), 5)
-        self.assertEqual(det.events[-1]["id"], 11)
+        self.assertEqual(len(det.events), 1200)
+        self.assertEqual((det.events[0]["id"], det.events[-1]["id"]), (1, 1200))
 
 
 
@@ -317,6 +318,13 @@ class RaceEventTests(unittest.TestCase):
         pit_out = events[1]
         self.assertAlmostEqual(pit_out["duration"], 28.0, delta=0.2)
         self.assertEqual((pit_out["from_position"], pit_out["position"]), (1, 3))
+
+    def test_leaving_the_pits_for_the_grid_isnt_a_pit_stop(self):
+        """Before the green, cars go from their pit stalls to the grid: not a
+        stop (watching a replay of it counted one for everyone)."""
+        STATE_PARADE = 3
+        steps = [frame(t, {1: (0, 0.10, TRK_ON_TRACK, t < 1.0)}, state=STATE_PARADE) for t in (0.0, 0.5, 1.0, 1.5)]
+        self.assertEqual([e for e in run(self.det, steps) if e["type"].startswith("pit")], [])
 
     def test_places_lost_after_going_off(self):
         def car(t):
