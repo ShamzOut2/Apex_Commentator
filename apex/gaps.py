@@ -113,10 +113,14 @@ class GapTimer:
         def at(p):
             return theirs[p] if 0 <= p < len(theirs) and theirs[p] == theirs[p] else None  # NaN: not passed
 
-        # A point can be missing (e.g. a lap counter glitch at the line): look a little either side.
-        before = next((p for p in range(k, k - 5, -1) if at(p) is not None), None)
-        after = next((p for p in range(k + 1, k + 6) if at(p) is not None), None)
-        if before is None:
+        # A point can be missing (a lap counter glitch at the line; the stretch
+        # it went round while a replay was on, with nothing timed): the time
+        # there is taken between the nearest points timed either side, up to a
+        # lap away, at its pace across them (rather than no gap, which fell
+        # back to an estimate and made the gaps jump about after each replay).
+        before = next((p for p in range(k, max(-1, k - self.points), -1) if at(p) is not None), None)
+        after = next((p for p in range(k + 1, k + 1 + self.points) if at(p) is not None), None)
+        if before is None or (k - before >= 5 and after is None):
             return None
         t = at(before)
         if after is not None:

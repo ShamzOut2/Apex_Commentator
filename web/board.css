@@ -183,9 +183,9 @@
 /* Colours from variables (class, accent...) at the overlay's opacity too, where
    the browser can mix them (older ones keep them solid). */
 @supports (color: color-mix(in srgb, red 50%, transparent)) {
-  .bhead { border-bottom:3px solid color-mix(in srgb, var(--accent-c, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
-  .btable tr.kept td { border-bottom:2px solid color-mix(in srgb, var(--accent-c, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
-  .round.next { border-left-color:color-mix(in srgb, var(--accent) calc(var(--bg-k, 1) * 100%), transparent); }
-  .round .rn .mult { background:color-mix(in srgb, var(--accent) calc(var(--bg-k, 1) * 100%), transparent); }
-  .gslot .gbox { box-shadow:inset 6px 0 0 color-mix(in srgb, var(--cls) calc(var(--bg-k, 1) * 100%), transparent); }
+  .bhead { border-bottom:3px solid color-mix(in srgb, var(--accent-c, var(--accent)) calc(var(--pick-k, 1) * 100%), transparent); }
+  .btable tr.kept td { border-bottom:2px solid color-mix(in srgb, var(--accent-c, var(--accent)) calc(var(--pick-k, 1) * 100%), transparent); }
+  .round.next { border-left-color:color-mix(in srgb, var(--accent) calc(var(--pick-k, 1) * 100%), transparent); }
+  .round .rn .mult { background:color-mix(in srgb, var(--accent) calc(var(--pick-k, 1) * 100%), transparent); }
+  .gslot .gbox { box-shadow:inset 6px 0 0 color-mix(in srgb, var(--cls) calc(var(--pick-k, 1) * 100%), transparent); }
 }

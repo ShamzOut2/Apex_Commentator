@@ -168,30 +168,38 @@ function placeFinishTabs(entries, cfg) {
   }
 }
 
+// The fastest-lap flashes on now: several side by side (different classes),
+// or one after another (the server times them). Each pill comes in and goes
+// on its own; one ending doesn't cut another short.
 function renderFlash(snap, ov) {
-  const f = snap.connected ? ov.fastest_flash : null;
-  const id = f ? f.id : "";
-  if (id === flashId) return;
-  flashId = id;
-  const old = flashBox.firstElementChild;
-  if (old) {
-    old.classList.add("out");
-    setTimeout(() => old.remove(), 450);
+  const list = snap.connected ? (ov.fastest_flashes || (ov.fastest_flash ? [ov.fastest_flash] : [])) : [];
+  const ids = list.map((f) => f.id).join("|");
+  if (ids === flashId) return;
+  flashId = ids;
+  const want = new Set(list.map((f) => f.id));
+  for (const old of [...flashBox.children]) {
+    if (!want.has(old.dataset.id) && !old.classList.contains("out")) {
+      old.classList.add("out");
+      setTimeout(() => old.remove(), 450);
+    }
   }
-  if (!f) return;
-  const cls = f.scope === "class" && (snap.classes || []).find((c) => c.key === f.class_key);
-  const pill = document.createElement("div");
-  pill.className = "fl-pill";
-  // "NEW FASTEST LAP" first, then who and the time (in the same spot, see standings.css).
-  pill.innerHTML = `${STOPWATCH}<div class="fl-swap">
-      <div class="fl-intro">New fastest lap${cls ? `<span>${esc(cls.name)}</span>` : ""}</div>
-      <div class="fl-text">
-        <div class="fl-cap">Fastest lap${cls ? ` · ${esc(cls.name)}` : ""}</div>
-        <div class="fl-name">${esc(f.name)}</div>
-        <div class="fl-time tnum">${fmtLap(f.lap_time)}</div>
-      </div>
-    </div>`;
-  flashBox.appendChild(pill);
+  for (const f of list) {
+    if (flashBox.querySelector(`.fl-pill[data-id="${CSS.escape(f.id)}"]:not(.out)`)) continue;
+    const cls = f.scope === "class" && (snap.classes || []).find((c) => c.key === f.class_key);
+    const pill = document.createElement("div");
+    pill.className = "fl-pill";
+    pill.dataset.id = f.id;
+    // "NEW FASTEST LAP" first, then who and the time (in the same spot, see standings.css).
+    pill.innerHTML = `${STOPWATCH}<div class="fl-swap">
+        <div class="fl-intro">New fastest lap${cls ? `<span>${esc(cls.name)}</span>` : ""}</div>
+        <div class="fl-text">
+          <div class="fl-cap">Fastest lap${cls ? ` · ${esc(cls.name)}` : ""}</div>
+          <div class="fl-name">${esc(f.name)}</div>
+          <div class="fl-time tnum">${fmtLap(f.lap_time)}</div>
+        </div>
+      </div>`;
+    flashBox.appendChild(pill);
+  }
 }
 
 // Columns after the driver, as the commentator has chosen them:
@@ -201,6 +209,10 @@ function renderFlash(snap, ov) {
 // the start isn't OUT.)
 const isOut = (e) => !!(e.left || (!e.in_world && e.laps_completed > 0));
 const OUT_TAG = '<span class="out-tag">OUT</span>';
+
+// The car's manufacturer badge, and the laps in its current stint (since its last stop).
+const makeBadge = (e) => (e.make_logo ? `<span class="make-badge"><img src="${esc(e.make_logo)}" alt="${esc(e.make || "")}"></span>` : "");
+const stintText = (e) => (e.on_pit ? '<span class="dim">PIT</span>' : e.stint ?? "");
 
 const COLUMNS = [
   ["show_pos_change", "46px", "+/−", (e, race) => {
@@ -222,6 +234,8 @@ const COLUMNS = [
     return gap != null ? `+${secs(gap, race)}` : "";
   }],
   ["show_tyre", "40px", "Tyre", (e) => tyreIcon(e.tyre)],
+  ["show_stint", "52px", "Stint", (e) => stintText(e), (race) => race],
+  ["show_make", "52px", "Car", (e) => makeBadge(e)],
   ["show_interval", "80px", "Int", (e, race, classMode, cfg, green) => {
     const interval = classMode ? e.class_interval : e.interval;
     const first = classMode ? e.class_pos === 1 : e.pos === 1;
@@ -256,9 +270,14 @@ function extraDrivers(entries, cfg) {
   const rest = entries.slice(cfg.rows);
   const sets = Math.ceil(rest.length / n);
   const set = Math.floor(Date.now() / 1000 / cfg.rows_extra_s) % sets;
-  // Always n drivers: a last set that's short is filled from the start of the rest again.
-  return Array.from({ length: n }, (_, k) => rest[(set * n + k) % rest.length]);
+  // A last set that's short shows just the drivers left (blank rows keep its
+  // room: blankRows), never drivers from the start again above them.
+  return rest.slice(set * n, set * n + n);
 }
+
+// Empty rows where a short set of extra drivers leaves room: the tower (and
+// each class's block) stays the same size, so nothing below it moves.
+const blankRows = (cfg, shown) => '<div class="srow blank" aria-hidden="true"></div>'.repeat(Math.max(0, cfg.rows_last - shown));
 
 // What the race leader (each class's, by class) shows where the gap would be:
 // "Leader", or the lap they're on.
@@ -537,7 +556,7 @@ function render() {
       const list = tail.length ? all.slice(0, cfg.rows) : all.slice(0, cfg.rows + cfg.rows_last);
       const cls = classes.get(k) || DEFAULT_CLASS;
       return `<div class="block">${classHeaderHtml(cls, "", rerender)}${rows(list, cls)}${tail.length
-        ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div><div class="extra"${dim}>${rows(tail, cls)}</div>` : ""}</div>`;
+        ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div><div class="extra"${dim}>${rows(tail, cls)}${blankRows(cfg, tail.length)}</div>` : ""}</div>`;
     }).join("");
   } else {
     // More drivers than rows: the top of the order, then (if asked) a few more
@@ -546,7 +565,7 @@ function render() {
     const top = tail.length ? entries.slice(0, cfg.rows) : entries.slice(0, cfg.rows + cfg.rows_last);
     const dim = cfg.rows_extra_opacity < 100 ? ` style="opacity:${cfg.rows_extra_opacity / 100}"` : "";
     body = entries.length
-      ? `<div class="block">${rows(top)}${tail.length ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div><div class="extra"${dim}>${rows(tail)}</div>` : ""}</div>` : "";
+      ? `<div class="block">${rows(top)}${tail.length ? `<div class="srow skip"><span></span><span class="dots">• • •</span></div><div class="extra"${dim}>${rows(tail)}${blankRows(cfg, tail.length)}</div>` : ""}</div>` : "";
   }
   const session = snap.session || {};
   // Watching a replay (not live): REPLAY in the header, on the accent colour.
@@ -670,6 +689,8 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     best_lap: () => (race ? `<td class="r">${fmtLap(e.best_lap)}</td>` : `<td class="r lead">${fmtLap(e.best)}</td>`),
     pits: () => `<td class="r muted">${e.pit_stops || ""}</td>`,
     tyre: () => `<td class="c">${tyreIcon(e.tyre)}</td>`,
+    stint: () => `<td class="r muted">${stintText(e)}</td>`,
+    make: () => `<td class="c">${makeBadge(e)}</td>`,
   };
   cells.push(...screenColumns(cfg, race, compact).map((k) => cell[k]().replace("<td", `<td data-opcol="${k}"`)));
   const moved = moveOf(e.car_idx);
@@ -680,14 +701,15 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
 // (cfg.screen_column_order; "" = the usual order, which differs between races
 // and qualifying). Last lap and pit stops are race only; split into narrow
 // columns, the least needed go.
-const SCREEN_LABELS = { laps: "Laps", gap: "Gap", interval: "Int", last_lap: "Last", best_lap: "Best", pits: "Pits", tyre: "Tyre" };
+const SCREEN_LABELS = { laps: "Laps", gap: "Gap", interval: "Int", last_lap: "Last", best_lap: "Best", pits: "Pits", tyre: "Tyre", stint: "Stint", make: "Car" };
 
 function screenColumns(cfg, race, compact) {
   const order = cfg.screen_column_order ? cfg.screen_column_order.split(",")
-    : race ? ["laps", "gap", "interval", "last_lap", "best_lap", "pits", "tyre"] : ["best_lap", "gap", "interval", "laps", "tyre"];
+    : race ? ["laps", "gap", "interval", "last_lap", "best_lap", "pits", "stint", "tyre", "make"] : ["best_lap", "gap", "interval", "laps", "tyre", "make"];
   const keep = race ? (k) => !compact || (k !== "last_lap" && k !== "pits") : (k) => k !== "last_lap" && k !== "pits" && (!compact || k !== "laps");
-  const tyre = (k) => k !== "tyre" || cfg.show_tyre;
-  return order.filter((k) => SCREEN_LABELS[k] && keep(k) && tyre(k));
+  // Tyres, the stint (races) and the car badge: when switched on.
+  const shown = (k) => (k === "tyre" ? cfg.show_tyre : k === "make" ? cfg.show_make : k === "stint" ? cfg.show_stint && race : true);
+  return order.filter((k) => SCREEN_LABELS[k] && keep(k) && shown(k));
 }
 
 // The full screen's team columns, in order: the logo (also when two tables

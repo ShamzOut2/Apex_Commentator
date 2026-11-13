@@ -71,6 +71,6 @@ body.panel-image .card::before {
 /* Colours from variables (class, accent...) at the overlay's opacity too, where
    the browser can mix them (older ones keep them solid). */
 @supports (color: color-mix(in srgb, red 50%, transparent)) {
-  .card { border-bottom:5px solid color-mix(in srgb, var(--cls, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
-  .pos { background:color-mix(in srgb, var(--cls, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .card { border-bottom:5px solid color-mix(in srgb, var(--cls, var(--accent)) calc(var(--pick-k, 1) * 100%), transparent); }
+  .pos { background:color-mix(in srgb, var(--cls, var(--accent)) calc(var(--pick-k, 1) * 100%), transparent); }
 }

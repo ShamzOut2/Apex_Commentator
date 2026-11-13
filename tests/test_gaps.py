@@ -59,6 +59,20 @@ class GapTimerTests(unittest.TestCase):
         timer.update(0, early, {1: (150.0 + early * 50.0) / TRACK_M, 2: early * 50.0 / TRACK_M})
         self.assertAlmostEqual(timer.gap(2, 1, p[2], self.now), 3.0, delta=0.05)
 
+    def test_gaps_across_what_wasnt_timed_during_a_replay(self):
+        """Nothing timed for a while (a replay was on screen): back live, a
+        car where the leader went round unseen still has its gap, taken across
+        the stretch at the leader's pace, not none (which fell back to an
+        estimate and made the gaps jump about for a lap after each replay)."""
+        timer = GapTimer()
+        timer.set_track(TRACK_M)
+        cars = {1: (1000.0, 50.0), 2: (0.0, 50.0)}  # car 2 20 s behind
+        self.drive(timer, 30, 0.1, cars)
+        # 40 s of replay: no timing at all.
+        p = self.drive(timer, 15, 0.1, {car: (m0 + v * 70, v) for car, (m0, v) in cars.items()}, start=70.0)
+        # Car 2 (4250 m) is now where car 1 went round during the replay (at 65 s: nothing timed there).
+        self.assertAlmostEqual(timer.gap(2, 1, p[2], self.now), 20.0, delta=0.3)
+
     def test_a_stopped_car_keeps_losing_time(self):
         timer = GapTimer()
         timer.set_track(TRACK_M)

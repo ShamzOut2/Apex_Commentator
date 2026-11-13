@@ -68,12 +68,49 @@ class StandingsOverlayTests(unittest.TestCase):
         flash = ov["fastest_flash"]
         self.assertIsNotNone(flash)
         self.assertEqual((flash["car_idx"], flash["lap_time"], flash["scope"]), (holders[0]["car_idx"], best, "overall"))
-        app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash_s": 3}})
-        app._fl_flash["at"] -= 4
+        self.assertEqual(ov["fastest_flashes"][-1]["id"], flash["id"])
+        # Its time up: gone.
+        for f in app._fl_flashes:
+            f["start"] -= 2000
+            f["end"] -= 2000
         self.assertIsNone(app.build_snapshot()["overlays"]["fastest_flash"])
-        app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash": False, "fl_flash_s": 30}})
-        app._fl_flash["at"] += 4
+        # Switched off: none.
+        for f in app._fl_flashes:
+            f["start"] += 2000
+            f["end"] += 2000
+        app.command("overlay_settings", {"overlay": "standings", "values": {"fl_flash": False}})
         self.assertIsNone(app.build_snapshot()["overlays"]["fastest_flash"])
+
+    def test_fastest_lap_flashes_side_by_side_or_one_after_another(self):
+        """New fastest laps in different classes close together: each flashes in
+        full, side by side or one after another; a newer one in the same class
+        takes its place."""
+        app, _ = self.app()
+        self.run_for(app, 1)
+        app.overlays.update("standings", {"fl_flash_classes": True, "fl_flash_s": 6})
+        entries = [{"car_idx": i, "number": str(i), "name": f"D{i}", "class_key": k, "best_lap": 90.0, "laps_completed": 5}
+                   for i, k in ((1, "gt3"), (2, "gt4"))]
+        frame = app._frame
+        app._fastest_laps(entries, True, app.overlays.get()["standings"], frame)  # the session's first laps: no flash
+        entries[0]["best_lap"] = 89.0  # GT3 (and overall)
+        shown = app._fastest_laps(entries, True, app.overlays.get()["standings"], frame)
+        self.assertEqual([f["key"] for f in shown], ["overall"])
+        entries[1]["best_lap"] = 89.5  # GT4's, a moment later
+        shown = app._fastest_laps(entries, True, app.overlays.get()["standings"], frame)
+        self.assertEqual([f["key"] for f in shown], ["overall", "gt4"])  # side by side, the first not cut short
+        entries[1]["best_lap"] = 89.4  # GT4 again: in place of its last
+        shown = app._fastest_laps(entries, True, app.overlays.get()["standings"], frame)
+        self.assertEqual([(f["key"], f["lap_time"]) for f in shown], [("overall", 89.0), ("gt4", 89.4)])
+        # One after another: the second waits for the first to finish.
+        app.overlays.update("standings", {"fl_flash_many": "queue"})
+        app._fl_flashes = []
+        entries[0]["best_lap"] = 88.0
+        app._fastest_laps(entries, True, app.overlays.get()["standings"], frame)
+        entries[1]["best_lap"] = 88.5
+        shown = app._fastest_laps(entries, True, app.overlays.get()["standings"], frame)
+        self.assertEqual([f["key"] for f in shown], ["overall"])
+        waiting = [f for f in app._fl_flashes if f["key"] == "gt4"][0]
+        self.assertAlmostEqual(waiting["start"], app._fl_flashes[0]["end"], places=3)
 
     def test_no_class_name_on_the_flash_for_a_driver_without_a_main_class(self):
         from apex.league import profile_from_session
@@ -339,12 +376,12 @@ class ColumnOrderTests(unittest.TestCase):
     def test_orders_keep_every_column_once(self):
         from apex.overlays import OverlaySettings
         o = OverlaySettings()
-        self.assertEqual(o.get()["standings"]["column_order"], "pos_change,laps,pits,last_lap,best_lap,gap,interval,tyre")
+        self.assertEqual(o.get()["standings"]["column_order"], "pos_change,laps,pits,last_lap,best_lap,gap,interval,tyre,stint,make")
         self.assertEqual(o.get()["standings"]["screen_column_order"], "")  # the usual order for the session
         o.update("standings", {"column_order": "interval,gap,nonsense,gap", "screen_column_order": "pits,best_lap"})
         s = o.get()["standings"]
-        self.assertEqual(s["column_order"], "interval,gap,pos_change,laps,pits,last_lap,best_lap,tyre")
-        self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap,tyre")
+        self.assertEqual(s["column_order"], "interval,gap,pos_change,laps,pits,last_lap,best_lap,tyre,stint,make")
+        self.assertEqual(s["screen_column_order"], "pits,best_lap,laps,gap,interval,last_lap,tyre,stint,make")
 
 
 class FinishTests(unittest.TestCase):
@@ -437,6 +474,36 @@ class LeaderIntervalTests(unittest.TestCase):
         # Nothing, picked now: kept.
         self.assertEqual(normalise({"standings": {"leader_interval": "blank"}})["standings"]["leader_interval"], "blank")
         self.assertNotIn("interval_leader", normalise({"standings": {"interval_leader": "lap"}})["standings"])
+
+
+class StintTests(unittest.TestCase):
+    def test_laps_since_the_last_pit_stop(self):
+        f = App._stint
+        self.assertEqual(f(12, None), 12)   # no stop yet: every lap so far
+        self.assertEqual(f(12, 8), 5)       # out of the pits on lap 8 (7 done then): 5 since
+        self.assertEqual(f(7, 8), 0)        # just out
+        self.assertIsNone(f(-1, None))      # not started
+
+    def test_in_the_snapshot_after_a_stop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            clock = {"t": 0.0}
+            app = App(MockSource(seed=4, clock=lambda: clock["t"]), dict(DEFAULTS), LeagueStore(tmp))
+            stopped = None
+            for _ in range(6000):
+                clock["t"] += 0.1
+                app.tick()
+                outs = [e for e in app.detector.events if e["type"] == "pit_out"]
+                if outs:
+                    stopped = outs[0]
+                    break
+            self.assertIsNotNone(stopped, "a car pitted in ten minutes of the demo")
+            for _ in range(10):
+                clock["t"] += 0.1
+                app.tick()
+            row = next(r for r in app.build_snapshot()["drivers"] if r["car_idx"] == stopped["car_idx"])
+            self.assertEqual(row["pit_stops"], 1)
+            self.assertEqual(row["stint"], max(0, row["laps_completed"] - (stopped["lap"] - 1)))
+            self.assertLessEqual(row["stint"], 1)
 
 
 class TyreTests(unittest.TestCase):

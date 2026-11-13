@@ -46,7 +46,7 @@ body.panel-image .pit-card::before {
 /* Colours from variables (class, accent...) at the overlay's opacity too, where
    the browser can mix them (older ones keep them solid). */
 @supports (color: color-mix(in srgb, red 50%, transparent)) {
-  .pit-card { border-left:6px solid color-mix(in srgb, var(--cls, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
+  .pit-card { border-left:6px solid color-mix(in srgb, var(--cls, var(--accent)) calc(var(--pick-k, 1) * 100%), transparent); }
   .pit-tag { background:color-mix(in srgb, var(--yellow) calc(var(--bg-k, 1) * 100%), transparent); }
   .pit-tag.out { background:color-mix(in srgb, var(--green) calc(var(--bg-k, 1) * 100%), transparent); }
   .pit-times { border-top:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }

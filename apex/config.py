@@ -46,7 +46,7 @@ DEFAULTS = {
     # within 0.12 s, suddenly stops closing (the jolt of a hit).
     "contact_jolt_kph": 20.0,
     "event_cooldown_s": 8.0,      # min seconds between incidents of the same kind per car
-    "max_events": 300,
+    "max_events": 50000,
     "leagues_dir": "data/leagues",
     # Updates: check GitHub for new releases and offer them in the app.
     "update_check": True,

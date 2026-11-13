@@ -618,6 +618,8 @@ function setPanels(cfg) {
   // Every box, border and colour block of the overlay at this opacity (the
   // stylesheets and bgc() use --bg-k); the text stays as it is.
   st.setProperty("--bg-k", String(op));
+  // Class / team / accent colours in the stylesheets: as picked, or fading too.
+  st.setProperty("--pick-k", GENERAL.solid_colors === false ? String(op) : "1");
   const image = mode === "image" && cfg.bg_image;
   document.body.classList.toggle("custom-panels", mode === "color" || !!image);
   document.body.classList.toggle("panel-image", !!image);
@@ -725,7 +727,7 @@ function followSnapshots(onSnap) {
 
 // For every overlay and board (Widget Settings, General): decimal places of
 // gaps and intervals, and what overlays do while a board is up.
-let GENERAL = { race_decimals: 1, qual_decimals: 3, board_overlays: "stay", board_dim: 35 };
+let GENERAL = { race_decimals: 1, qual_decimals: 3, board_overlays: "stay", board_dim: 35, solid_colors: true };
 const PAGE = location.pathname.replace(/^.*\//, "").replace(/\.html$/, "");
 const FULL_SCREEN = new URLSearchParams(location.search).has("screen");
 const DIMMED_PAGES = ["standings", "laps", "driver", "pits", "battle", "sponsors", "duel", "trackmap"];
@@ -764,6 +766,10 @@ function tyreIcon(t) {
 function bgc(color) {
   const c = String(color || "").trim();
   let m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c);
+  // A colour picked (a class's, a team's, the accent: "#rrggbb") stays as it
+  // was picked, whatever the opacity (General: solid_colors); the panels and
+  // their shades (rgba) fade.
+  if (m && GENERAL.solid_colors !== false) return c;
   if (m) {
     const h = m[1].length === 3 ? m[1].replace(/./g, "$&$&") : m[1];
     return `rgba(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)}, calc(1 * var(--bg-k, 1)))`;

@@ -355,7 +355,7 @@ function renderHome(s) {
   const drivers = (s.drivers || []).length;
   const battles = s.connected ? findBattles(s, s.drivers || []).size : 0;
   $("#tile-timing").textContent = s.connected
-    ? `${drivers} drivers · ${(s.events || []).length} logged${battles ? ` · ${battles} in battles` : ""}`
+    ? `${drivers} drivers · ${s.events_total ?? (s.events || []).length} logged${battles ? ` · ${battles} in battles` : ""}`
     : "Offline";
   const league = s.league;
   $("#tile-teams").textContent = league ? `${league.teams} teams in ${league.name}` : "No league active";
@@ -579,6 +579,7 @@ function renderStandings(s) {
       [r.class_pos ? `<span class="cls-pos" style="border-color:${esc(color)}">${r.class_pos}</span>` : ""],
       [changeCell(inClass ? r.class_pos_change : r.pos_change), "c-chg"],
       [`<span class="num" style="border-left-color:${esc(color)}">${esc(r.number)}</span>`],
+      [r.make_logo ? `<img class="make-logo" src="${esc(r.make_logo)}" alt="${esc(r.make || "")}" title="${esc(r.make || "")}">` : "", "c-make"],
       [`<span class="name">${esc(timingName(r.name))}</span>${settings.showNick && lg && lg.nickname && !sameButClassTag(r.name, lg.nickname) ? `<span class="nick">“${esc(lg.nickname)}”</span>` : ""}` +
         `${team ? `<span class="sub">${esc(team)}</span>` : ""} ${status}${r.hidden ? ' <span class="tag out" title="No class in the league: left off the overlays and out of the results">NO CLASS</span>' : ""}`, "driver-cell"],
       [String(r.lap ?? "")],
@@ -588,6 +589,7 @@ function renderStandings(s) {
       [fmtLap(r.last_lap), "c-time col-wide"],
       [fmtLap(r.best_lap), `c-time col-wide ${v.fastestLap ? "best" : ""}`],
       [r.pit_stops ? String(r.pit_stops) : "", "col-wide"],
+      [r.on_pit ? "PIT" : r.stint != null ? String(r.stint) : "", "c-num"],
       [tyreIcon(r.tyre), "c-tyre"],
       [flag],
       [(r.penalties || []).map((p) => `<span class="pen">⚑ ${esc(p)}</span>`).join(" ")],
@@ -706,8 +708,35 @@ function logStatus(s) {
 
 let logKey = "";
 
+// The whole race log: the snapshot brings the newest (and their updates); the
+// rest are fetched once (/api/events) and kept here. A new event (iRacing
+// session) starts it afresh.
+const logStore = new Map();
+let logFirst;
+let logFetching = false;
+const LOG_PAGE = 300;
+let logShown = LOG_PAGE;  // the newest this many on the page; "Show older" brings in more
+
+function logEvents(s) {
+  if (s.events_first_id !== logFirst) {
+    logStore.clear();
+    logFirst = s.events_first_id;
+    logShown = LOG_PAGE;
+  }
+  for (const e of s.events || []) logStore.set(e.id, e);
+  if ((s.events_total || 0) > logStore.size && !logFetching) {
+    logFetching = true;
+    api("/api/events").then((r) => {
+      for (const e of r.events || []) if (!logStore.has(e.id)) logStore.set(e.id, e);
+      logKey = "";
+      if (ui.snap) renderLog(ui.snap);
+    }).catch(() => {}).finally(() => { logFetching = false; });
+  }
+  return [...logStore.values()];
+}
+
 function renderLog(s) {
-  const all = s.events || [];
+  const all = logEvents(s);
   $("#log-status").textContent = logStatus(s);
   $("#log-status").className = `log-status ${s.detection === "replay_live" ? "replay" : s.detection || ""}`;
   const types = LOG_GROUPS[ui.logFilter] || (ui.logFilter === "all" ? null : [ui.logFilter]);
@@ -715,10 +744,12 @@ function renderLog(s) {
   const shown = all.filter((e) => (!types || types.includes(e.type)) && !hidden.has(logKind(e)))
     .sort((a, b) => b.session_num - a.session_num || b.session_time - a.session_time || b.id - a.id);
   $("#log-empty").hidden = shown.length > 0;
-  const key = JSON.stringify([shown, ui.selectedEvent, settings.logPreroll, settings.logHidden]);
+  const page = shown.slice(0, logShown);
+  const key = JSON.stringify([page, shown.length, ui.selectedEvent, settings.logPreroll, settings.logHidden]);
   if (key === logKey) return;
   logKey = key;
-  $("#race-log").innerHTML = shown.map((ev) => {
+  const older = shown.length - page.length;
+  $("#race-log").innerHTML = page.map((ev) => {
     const selected = ev.id === ui.selectedEvent;
     const accident = isAccident(ev);
     const cls = accident ? "kind accident" : ev.incidents ? "kind has-points" : `kind ${ev.spin ? "spin" : ev.type}`;
@@ -736,8 +767,15 @@ function renderLog(s) {
         <button class="btn icon" data-watch="${ev.car_idx}" title="Watch ${esc(ev.driver)} live">👁</button>
       </div>` : ""}
     </li>`;
-  }).join("");
+  }).join("") + (older ? `<li class="log-more"><button class="btn subtle" data-log-more>Show older (${older} more)</button></li>` : "");
 }
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("[data-log-more]")) return;
+  logShown += LOG_PAGE;
+  logKey = "";
+  if (ui.snap) renderLog(ui.snap);
+});
 
 // ---------------------------------------------------------------------------
 // grid walk
@@ -760,7 +798,7 @@ function renderGridwalk(s) {
   }
   const sources = {
     qualifying: "Grid order from qualifying, as the starting grid board (reversed as set there).", "qualifying session": "Grid order from the qualifying session.",
-    "current positions": "Grid order from current positions (no qualifying results yet).",
+    "current positions": "Grid order from the cars' current positions (as iRacing has them lined up).",
     "car number": "No qualifying results yet: ordered by car number.", manual: "Grid order set by hand.",
     "previous race": "Grid order from the race before's finish, as the starting grid board (reversed as set there).",
     "iRacing's grid": "Grid order: iRacing's grid for the race (no qualifying).",
@@ -911,7 +949,7 @@ document.addEventListener("click", (e) => {
   }
   const watchBtn = e.target.closest("[data-watch]");
   if (watchBtn) return cmd("watch", { car_idx: +watchBtn.dataset.watch });
-  const logLine = e.target.closest("#race-log li");
+  const logLine = e.target.closest("#race-log li:not(.log-more)");
   if (logLine) {
     const id = +logLine.dataset.event;
     ui.selectedEvent = ui.selectedEvent === id ? null : id;
@@ -1025,6 +1063,10 @@ $("#battle-color").addEventListener("input", (e) => {
 
 let hotkeyTarget = null;   // {kind: "cam" | "act", id, label} waiting for a key
 
+const TOWER_COLUMN_HOTKEYS = [["pos_change", "Places gained / lost"], ["number", "Car number"], ["logo", "Team logo"],
+  ["team", "Team name"], ["gap", "Gap"], ["interval", "Interval"], ["last_lap", "Last lap"], ["best_lap", "Best lap"],
+  ["laps", "Laps"], ["pits", "Pit stops"], ["stint", "Current stint"], ["tyre", "Tyres"], ["make", "Car manufacturer"],
+  ["pit_status", "PIT badge"], ["stripe", "Coloured bar"], ["fastest_icon", "Fastest lap stopwatch"]];
 const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"],
   ["battle", "Championship battle"], ["pits", "Pit stops"], ["duel", "On-track battle"], ["trackmap", "Track map"]];
 const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
@@ -1067,6 +1109,9 @@ function hotkeyActions(s = ui.snap || {}) {
         ov.standings && ov.standings.mode === "class" ? "Tower: overall" : "Tower: by class")],
       ["tower:header", "Header: laps left / time left", () => cmd("hotkey", { action: "tower:header" }, "Tower header changed")],
     ]],
+    // Each column of the tower (and the full screen) on and off.
+    ["Timing tower columns (on / off)", TOWER_COLUMN_HOTKEYS.map(([k, label]) => [`tower:col:${k}`, label,
+      () => cmd("hotkey", { action: `tower:col:${k}` }, `${label} ${ov.standings && ov.standings[`show_${k}`] ? "off" : "on"}`)])],
     ["Grid walk", [
       ["gw:toggle", "On / off (starts from P1)", () => (s.gridwalk && s.gridwalk.visible
         ? cmd("gridwalk_hide", {}, "Grid walk off") : cmd("gridwalk_start", { index: 0 }, "Grid walk on"))],
@@ -2651,11 +2696,15 @@ const OVERLAY_FIELDS = {
       ["show_pits", "Pit stops", "bool"],
       ["show_pit_status", "PIT badge on pit road", "bool"],
       ["show_tyre", "Tyres: a white dry tyre or a blue wet one (the full screen too)", "bool"],
+      ["show_stint", "Current stint: laps since their last pit stop (races; the full screen too)", "bool"],
+      ["show_make", "Car manufacturer badge (the full screen too)", "bool"],
       ["column_order", "Column order on the tower", "order", [["pos_change", "+/−", "show_pos_change"], ["laps", "Laps", "show_laps"],
         ["pits", "Pit stops", "show_pits"], ["last_lap", "Last lap", "show_last_lap"], ["best_lap", "Best lap", "show_best_lap"],
-        ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"], ["tyre", "Tyres", "show_tyre"]]],
+        ["gap", "Gap", "show_gap"], ["interval", "Interval", "show_interval"], ["tyre", "Tyres", "show_tyre"],
+        ["stint", "Stint", "show_stint"], ["make", "Car", "show_make"]]],
       ["screen_column_order", "Column order on the full screen", "order", [["laps", "Laps"], ["gap", "Gap"], ["interval", "Interval"],
-        ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"], ["tyre", "Tyres"]]],
+        ["last_lap", "Last lap (races)"], ["best_lap", "Best lap"], ["pits", "Pit stops (races)"], ["tyre", "Tyres"],
+        ["stint", "Stint (races)"], ["make", "Car"]]],
       ["screen_keep_left", "Keep drivers who leave the session in the list, where they were (tower and full screen; greyed out)", "bool"],
       ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["logo", "Team logo"], ["name", "Driver"], ["team", "Team name"],
         ["pos_change", "+/−"], ["laps", "Laps"], ["pits", "Pit stops"], ["last_lap", "Last lap"], ["best_lap", "Best lap"], ["gap", "Gap"],
@@ -2683,6 +2732,8 @@ const OVERLAY_FIELDS = {
       ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
       iff((v) => v.fl_flash, ["fl_flash_s", "Flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }]),
       iff((v) => v.fl_flash, ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"]),
+      iff((v) => v.fl_flash, ["fl_flash_many", "Several at once (different classes)", "select", [["stack", "Side by side, each for its time"],
+        ["queue", "One after another, each in full"]]]),
     ]],
     ["Size, position & background", [
       ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
@@ -2720,6 +2771,9 @@ const OVERLAY_FIELDS = {
       ["race_decimals", "Decimal places: live race gaps and intervals (tower, timing screen, Timing tab)", "number", { min: 0, max: 3 }],
       ["qual_decimals", "Decimal places: qualifying, the lap tracker, the grid and results boards", "number", { min: 1, max: 3 }],
     ]],
+    ["Colours", [
+      ["solid_colors", "Class, team and accent colours stay as picked whatever a widget's opacity (untick: they fade with the panels)", "bool"],
+    ]],
     ["While a board is on screen", [
       ["board_overlays", "The overlays", "select", [["stay", "Stay as they are"], ["dim", "Dim"], ["hide", "Hide (back when the board goes)"]]],
       iff((v) => v.board_overlays === "dim", ["board_dim", "Dimmed to (% opacity)", "number", { min: 0, max: 90, step: 5 }]),
@@ -2730,6 +2784,7 @@ const OVERLAY_FIELDS = {
     ["Logos", [
       ["sponsor_ids", "Sponsors", "sponsors"],
       ["anchor_id", "Always shown (the others rotate beside it)", "sponsor"],
+      iff((v) => !!v.anchor_id, ["anchor_side", "Where it goes", "select", [["first", "First (left, or top)"], ["last", "Last (right, or bottom)"]]]),
       ["stay", "Stay up: not put away with everything else, and not dimmed or hidden under a board (in OBS, put this source above the boards)", "bool"],
       ["layout", "Show", "select", [["rotate", "One at a time"], ["row", "All together"]]],
       iff((v) => v.layout === "rotate", ["interval_s", "Seconds per logo", "number", { min: 1, max: 120, step: 1 }]),
@@ -3313,7 +3368,8 @@ const BOARD_FIELDS = {
       ["car", "Car badge"], ["laps", "Laps"], ["best", "Best lap"], ["gap", "Gap"], ["interval", "Interval"]])],
   board_grid: [["grid_source", "The grid from", "select", [["auto", "Automatic (heats from qualifying, the consolation from the heat before it, the feature from the consolation)"],
       ["qualifying", "Qualifying (its order)"], ["previous", "The previous race's finish"],
-      ["gridwalk", "The grid walk's order (as set by hand on the Grid walk tab)"]]],
+      ["gridwalk", "The grid walk's order (as set by hand on the Grid walk tab)"],
+      ["current", "Current positions: the order iRacing has the cars in now (on the grid, before the green: its grid as lined up; no reverse on top)"]]],
     ["reverse_top", "Reverse grid: the first N turned round (0 = none; a race meeting's round can set its own)", "number", { min: 0, max: 64 }],
     iff((v) => v.reverse_top > 0, ["reverse_in_class", "Reverse the first N of each class (not overall)", "bool"]),
     ["grid_layout", "Layout", "select", [["list", "A list"], ["grid", "As the cars line up (two staggered columns)"]]],

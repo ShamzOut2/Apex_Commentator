@@ -56,44 +56,32 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.8**
+**Coming in the next update**
 
 ### New features
 
-- Race meetings: set each meeting to a single race, a 2-race heat (heat,
-  feature) or a 3-race heat (heat, consolation, feature). Its rounds then go
-  with those races in order, and their names replace iRacing's race names on
-  stream.
-- A driver changing class mid-season: as for a team change, their points so
-  far stay in the class they raced in, or move with them from the race you
-  pick.
-- Teams championship: a race meeting can count as one (each team's best N
-  over the whole meeting), and the "all drivers added together" or "best N"
-  choice is clearer.
-- On-track battle: the driver you're spectating and every car within the gap
-  you set, ahead and behind; their class only or overall; and gaps to the
-  car ahead or to the driver you're spectating.
+- Car manufacturer logos: a Car column on the timing tower, the full-screen
+  standings and the Timing Screen.
+- Current stint: a Stint column with the laps each car has done since it
+  last pitted (PIT while on pit road).
+- Hotkeys to show or hide each timing tower and standings column.
+- Starting grid: a "Current positions" grid source, for the order the cars
+  are lined up in on the grid.
+- Sponsors: the pinned logo can sit on the right instead of the left.
+- Several fastest laps close together: show them side by side, or one after
+  another, instead of the newest cutting off the last.
+- Colours: class, group and accent colours stay solid on see-through panels
+  (General settings, on by default).
 
 ### Fixes
 
-- Race meetings: when iRacing runs a second heat, it's no longer counted in
-  the live championship as the feature's race, or saved into the feature's
-  round (or a new round) when it ends.
-- Timing tower and Timing Screen: a car towed to its pit box no longer jumps
-  to the top. iRacing counts a tow to a pit box just past the line as being
-  on the next lap; the app now goes by the laps the car has completed.
-- Opening the qualifying results or starting grid board with iRacing not
-  connected no longer breaks the app until it's restarted.
-- Race meetings: when iRacing splits the field into more heats (or adds a
-  consolation), the feature still gets its round: its race name and its
-  reverse grid.
-- Timing tower and live timing website: after a timed race's clock runs out
-  it stays LAST LAP until the leader finishes, rather than going back to a
-  timer when iRacing counts down the time left to finish.
-- Boards: the text size setting now changes the drivers' rows too, not just
-  the heading.
-- Widgets tab: "Hide board" is no longer right next to the on-your-screen
-  button, which is now "Off my screen".
+- The race log now keeps every incident of the whole event, not just the
+  last 300.
+- Pit stop counts: leaving the pit stalls for the grid, and stops from an
+  earlier session, no longer count.
+- Timing tower extra drivers: the last set shows only the drivers left, with
+  blank rows, instead of wrapping back round (P14 above P4).
+- Gaps no longer jump about after watching replays during a race.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -246,7 +234,8 @@ shows something else. Camera hotkeys work in whichever window has focus.
   leader (timed by the app: how long ago the leader was where the car is
   now, so it updates continuously, keeps step with the order and keeps
   counting while a car is slow or stopped; "+1 L" for lapped cars), interval
-  to the car ahead, last and best lap, pit stops, flag
+  to the car ahead, last and best lap, pit stops, current stint (laps since
+  the last stop, PIT on pit road), the car's manufacturer logo, flag
   (yellow, blue, white, chequered), penalties (black flag, DQ, meatball,
   warning) and incident points. **Click any driver** to put the camera on
   them. The class chips show one class at a time, with gaps and places within
@@ -279,7 +268,9 @@ shows something else. Camera hotkeys work in whichever window has focus.
   a line**, then pick how far back to start the replay: −5 s, −10 s and so
   on up to −30 s. The camera follows that driver. The line above the log shows
   whether logging is running: it logs live races and saved replays you play,
-  and pauses while you rewind over something already logged.
+  and pauses while you rewind over something already logged. It keeps the
+  whole event: the newest 300 lines show, and *Show older* at the bottom
+  brings in more.
 - **Cameras**: one button per iRacing camera, plus Ahead, Behind, Leader,
   Exciting and Incident cam. *⌨ Hotkeys* sets a key for each camera; out of
   the box, 1–9 are the first nine cameras.
@@ -590,7 +581,13 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     - places gained or lost since the start;
     - best lap and last lap;
     - laps completed and pit stops;
+    - **current stint**: laps since the car last pitted (laps since the
+      start until its first stop; PIT while on pit road), races only;
+    - **car**: the manufacturer's logo (from the car iRacing has them in);
     - a PIT badge on pit road.
+
+    Each column also has a hotkey (Hotkeys tab, *Timing tower columns*) that
+    shows or hides it on the tower and the full-screen standings.
 
     Small labels head the columns, and the tower widens to fit them.
   - Choose the name style, how many drivers, and whether to show car numbers,
@@ -686,8 +683,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     - **The last ones**: always the last few, last place included.
 
     *Extra drivers' opacity* dims them (10–100%). 0 extra drivers turns it
-    off. A set always fills every extra row: when the rest of the field
-    doesn't divide evenly, the last set carries on from the top of it.
+    off. When the rest of the field doesn't divide evenly, the last set
+    shows only the drivers left, with blank rows below them, so the tower
+    (and in By class, each class's block) stays the same height and never
+    shows a driver out of order.
     **Max drivers** and **Extra drivers** are set separately for *Overall*
     and *By class*, and the tower uses the pair for the mode it's in.
   - **Close racing**: with the *Interval* column on, a driver within 0.15 s
@@ -706,8 +705,11 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     pill appears at the top middle of the screen with a stopwatch. It says
     "NEW FASTEST LAP" for about two seconds, then shows the driver and the lap
     time. Set how many seconds it stays (3 or more). It can also flash each
-    class's new fastest lap. Races skip the first lap; laps set before the
-    app connected don't flash.
+    class's new fastest lap. *Several at once* sets what happens when
+    another fastest lap comes in while one is showing: **side by side** (the
+    new one joins it, and a newer lap in the same class replaces that
+    class's) or **one after another** (each waits its turn, in full). Races
+    skip the first lap; laps set before the app connected don't flash.
 - **Championship battle** (`/battle.html`): a few drivers fighting for the
   championship, in a small table in a corner (or along an edge). Pick the
   championship (Overall or any class, secondary classes too) and up to six
@@ -794,7 +796,8 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   edge, all together or one at a time (and how long each shows), the size,
   a caption such as "Partners", a dark panel behind, and which sponsors.
   **Always shown**: one sponsor that stays there, beside the others while
-  they rotate (e.g. the series' title sponsor).
+  they rotate (e.g. the series' title sponsor), first (left, or top) or
+  last (right, or bottom), as *Where it goes* sets.
 - **Lap tracker** (`/laps.html`): only in qualifying (practice too, if you
   tick it).
   - The car on camera gets the big tracker. Up to 12 small ones show other
@@ -946,7 +949,11 @@ The choices:
 - **Custom image**: upload a picture (PNG, JPG, WebP or SVG, up to 8 MB) or
   pick one uploaded before.
 
-Colour and image both have an **Opacity** slider (0–100%).
+Colour and image both have an **Opacity** slider (0–100%). Class, group
+and accent colours (the car number's background, the coloured bar…) stay
+solid however see-through the panel is, so a class's gold looks the gold
+set in the League builder; untick it (Widget Settings → All overlays & boards
+→ *Colours*) to have them fade with the panel.
 
 What it colours depends on what it is:
 - **On an overlay** (the standings tower, lap trackers, sponsors panel, the
@@ -1093,7 +1100,9 @@ built from the active league:
   race before's finish from the results saved to the league. With no
   qualifying in the event, the race about to start uses the grid iRacing has
   lined up. It's right for each race without changing it; or qualifying, the previous
-  race's finish, or the grid walk's order (fix it by hand on the Grid walk
+  race's finish, **current positions** (the order the cars are in right
+  now, e.g. lined up on the grid in the countdown, with no reverse added
+  on top), or the grid walk's order (fix it by hand on the Grid walk
   tab) whenever it isn't. Its title is the race's name as the tower's header
   gives it (the round's name, or the names set for heats, the consolation
   and the feature). **Reverse grid**: the first N turned round (0 = none),

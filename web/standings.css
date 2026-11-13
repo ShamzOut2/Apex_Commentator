@@ -31,6 +31,8 @@
   height: 38px; padding-right: 12px; border-top: 1px solid var(--line); font-size: calc(18px * var(--fs, 1));
   transition: background .3s;
 }
+/* Room kept for extra drivers not there in a short last set (nothing shown). */
+.srow.blank { visibility: hidden; }
 .srow .p { text-align: center; font-weight: 900; font-size: calc(19px * var(--fs, 1)); }
 /* A background per column (setColumnOpacity): the columns make the panel, so
    the rows have none of their own and the columns touch. */
@@ -72,7 +74,7 @@ body.col-bg .srow.shead > span:last-child { padding-right: 12px; }
 .fl-icon .stopwatch { width: 1em; height: 1em; }
 
 /* A new fastest lap: a purple pill at the top middle of the screen. */
-.fl-flash { position: absolute; left: 0; right: 0; top: 40px; display: flex; justify-content: center; pointer-events: none; z-index: 5; }
+.fl-flash { position: absolute; left: 0; right: 0; top: 40px; display: flex; justify-content: center; gap: 16px; pointer-events: none; z-index: 5; }
 .fl-pill {
   display: flex; align-items: center; gap: 16px; padding: 12px 34px 12px 22px; border-radius: 999px;
   background: linear-gradient(135deg, rgba(138, 43, 226, calc(1 * var(--bg-k, 1))), rgba(106, 27, 184, calc(1 * var(--bg-k, 1)))); color: #fff; box-shadow: 0 8px 28px rgba(60, 0, 110, calc(.45 * var(--bg-k, 1)));
@@ -247,3 +249,7 @@ body.screen .fl-flash { top: 14px; }
   .fin-tab { border-top:1px solid color-mix(in srgb, var(--line) calc(var(--bg-k, 1) * 100%), transparent); }
   .tower-head.replay { background:color-mix(in srgb, var(--head-accent, var(--accent)) calc(var(--bg-k, 1) * 100%), transparent); }
 }
+
+/* The car's manufacturer badge column (tower and full screen). */
+.make-badge { display: inline-flex; align-items: center; justify-content: center; height: 1.25em; width: 2.2em; vertical-align: middle; }
+.make-badge img { max-height: 100%; max-width: 100%; object-fit: contain; }

@@ -10,6 +10,9 @@
 /* The anchored logo, always there, beside the others (stacked above them on the left / right). */
 .sp-row { display: flex; align-items: center; gap: 20px; }
 .sp.vertical .sp-row { flex-direction: column; gap: 14px; }
+/* The pinned logo after the others (right, or below). */
+.sp-row.anchor-last { flex-direction: row-reverse; }
+.sp.vertical .sp-row.anchor-last { flex-direction: column-reverse; }
 .sp-anchor { height: var(--sp-h); max-width: calc(var(--sp-h) * 3.2); object-fit: contain; }
 .sp.vertical .sp-anchor { height: auto; max-height: var(--sp-h); width: auto; max-width: calc(var(--sp-h) * 2.4); }
 .sp-logos img { height: var(--sp-h); max-width: calc(var(--sp-h) * 3.2); object-fit: contain; }

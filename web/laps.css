@@ -150,7 +150,7 @@
 /* Colours from variables (class, accent...) at the overlay's opacity too, where
    the browser can mix them (older ones keep them solid). */
 @supports (color: color-mix(in srgb, red 50%, transparent)) {
-  .tracker { border-top:4px solid color-mix(in srgb, var(--cls, #8b93a3) calc(var(--bg-k, 1) * 100%), transparent); }
+  .tracker { border-top:4px solid color-mix(in srgb, var(--cls, #8b93a3) calc(var(--pick-k, 1) * 100%), transparent); }
   .tk-top .badge { background:color-mix(in srgb, var(--red) calc(var(--bg-k, 1) * 100%), transparent); }
   .sector i.purple { background:color-mix(in srgb, var(--purple) calc(var(--bg-k, 1) * 100%), transparent); }
   .sector i.green { background:color-mix(in srgb, var(--green) calc(var(--bg-k, 1) * 100%), transparent); }

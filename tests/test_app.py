@@ -247,6 +247,20 @@ class ServerTests(unittest.TestCase):
         except urllib.error.HTTPError as e:
             return e.code, json.load(e)
 
+    def test_the_whole_race_log_by_request(self):
+        """The snapshot has the newest of the race log; the whole of it on request."""
+        with self.app._lock:
+            for i in range(250):
+                self.app.detector.events.append({"id": 10_000 + i, "type": "incident", "car_idx": 1, "session_num": 0,
+                                                 "session_time": float(i), "lap": 1, "incidents": 1})
+        snap = self.app.build_snapshot()
+        self.assertEqual(len(snap["events"]), 200)
+        self.assertEqual(snap["events_total"], len(self.app.detector.events))
+        status, r = self.request("/api/events")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(r["events"]), snap["events_total"])
+        self.assertEqual(r["events"][0]["id"], snap["events_first_id"])
+
     def test_points_rules_apply_as_soon_as_theyre_changed(self):
         """Drop rounds (and every other rule) count straight away: the
         standings, boards and overlays don't wait for the championship's Save."""

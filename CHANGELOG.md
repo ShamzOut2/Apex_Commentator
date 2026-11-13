@@ -11,6 +11,33 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- Car manufacturer logos: a Car column on the timing tower, the full-screen
+  standings and the Timing Screen.
+- Current stint: a Stint column with the laps each car has done since it
+  last pitted (PIT while on pit road).
+- Hotkeys to show or hide each timing tower and standings column.
+- Starting grid: a "Current positions" grid source, for the order the cars
+  are lined up in on the grid.
+- Sponsors: the pinned logo can sit on the right instead of the left.
+- Several fastest laps close together: show them side by side, or one after
+  another, instead of the newest cutting off the last.
+- Colours: class, group and accent colours stay solid on see-through panels
+  (General settings, on by default).
+
+### Fixes
+
+- The race log now keeps every incident of the whole event, not just the
+  last 300.
+- Pit stop counts: leaving the pit stalls for the grid, and stops from an
+  earlier session, no longer count.
+- Timing tower extra drivers: the last set shows only the drivers left, with
+  blank rows, instead of wrapping back round (P14 above P4).
+- Gaps no longer jump about after watching replays during a race.
+
 ## v0.6.8
 
 ### New features
