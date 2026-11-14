@@ -197,10 +197,14 @@
                 <select id="timing-decimals"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
               <label class="toggle" title="The league's nickname by the name"><input type="checkbox" id="timing-nick"> Nicknames</label>
               <label class="toggle" title="Drivers who leave the session stay in the list, marked LEFT"><input type="checkbox" id="timing-left"> Drivers who left</label>
+              <span class="seg" id="timing-cols" title="One list, or the field in two lists side by side (all on one page; Last, Best and Pit hide to fit)">
+                <button type="button" data-cols="1">1 list</button><button type="button" data-cols="2">2 lists</button></span>
             </div>
           </div>
-          <div class="table-scroll">
-            <table class="grid standings">
+          <div class="table-wrap">
+          <div class="table-scroll" id="standings-scroll">
+            <div class="std-lists" id="std-lists">
+            <table class="grid standings" id="standings-table">
               <thead>
                 <tr>
                   <th class="c-pos" title="Overall position">Pos</th><th class="c-pos" title="Position in class">Cls</th>
@@ -214,7 +218,12 @@
               </thead>
               <tbody id="standings-rows"></tbody>
             </table>
+            </div>
             <p id="standings-empty" class="empty">No drivers yet. Start iRacing and join or spectate a session.</p>
+          </div>
+          <!-- A battle (within the gap set) scrolled out of sight: up here or down there. -->
+          <button type="button" class="battle-hint up" id="battle-up" hidden></button>
+          <button type="button" class="battle-hint down" id="battle-down" hidden></button>
           </div>
         </div>
 
@@ -295,10 +304,13 @@
           <div class="booth">
             <h3 class="section-title">Car pictures</h3>
             <p class="hint">Point the app at the folder of car pictures you've made for the grid walk. Name each picture
-              <code>iRacingID.Carname</code>, e.g. <code>123456.Porsche 911 GT3 R (992).png</code> (PNG, JPG or WebP;
+              <code>iRacingID.Carname</code>, e.g. <code>123456.Porsche 911 GT3 R (992).png</code>, with the driver's
+              class tag first if you like: <code>PA.123456.Porsche 911 GT3 R (992).png</code> (PNG, JPG or WebP;
               a see-through background looks best, the car pointing right). Each driver is matched by their iRacing ID
               and the car they're in, so the right car and livery show for the right person; a driver with only one
-              picture gets it whatever the car. New pictures dropped in the folder show up by themselves.</p>
+              picture gets it whatever the car. The class tag only picks between a driver's pictures (the one matching
+              the tag in brackets in their name, "(PA) Sam Driver"); otherwise it's ignored. New pictures dropped in the
+              folder show up by themselves.</p>
             <div class="row pb-folder">
               <label class="grow">Folder
                 <input id="gw-folder" placeholder="e.g. C:\Users\you\Pictures\Grid walk" aria-label="Car pictures folder"></label>

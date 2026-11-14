@@ -11,6 +11,27 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.7.0
+
+### New features
+
+- Timing Screen: a pill at the top or bottom of the list when a battle is
+  scrolled out of sight; click it to go there.
+- Timing Screen: 1 list or 2 lists side by side, to fit a big field on one
+  page.
+- Team championship: drop rounds can apply to the drivers only, with every
+  round counting for the teams.
+- Grid walk car pictures can have the driver's class tag in front
+  (`PA.123456.Car name.png`), matched to the tag in brackets in their name.
+
+### Fixes
+
+- Starting grid: the grid iRacing sets for a race (a reverse grid
+  included), from the race's session starting, before anyone has joined the
+  track, with nothing to set; before that, worked out as before.
+- A race meeting's races show only their round's own name, never with
+  "Heat 1" added, and keep it after the race.
+
 ## v0.6.9
 
 ### New features

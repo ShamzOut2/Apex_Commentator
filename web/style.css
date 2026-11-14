@@ -291,7 +291,8 @@ kbd {
 }
 .standings-pane, .log-pane { display: flex; flex-direction: column; min-height: 0; }
 .table-scroll, .race-log { flex: 1; min-height: 0; overflow: auto; }
-.battle-settings { display: flex; gap: 12px; align-items: center; }
+.battle-settings { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 12px; align-items: center; min-width: 0; }
+.standings-pane .toolbar { flex-wrap: wrap; gap: 6px 12px; }
 .battle-settings label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .battle-settings input[type="number"] { width: 64px; }
 .battle-settings input[type="color"] { width: 36px; height: 26px; padding: 2px; }
@@ -303,6 +304,33 @@ kbd {
 .standings tr.gone td { opacity: .45; }
 /* Within the battle gap of the car ahead: the interval lit up, steady, in the colour picked (just that cell). */
 .standings td.battle-cell { background: var(--battle); color: #fff; font-weight: 700; border-radius: 4px; }
+/* The field in one list, or two side by side (the second half on the right). */
+.table-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.std-lists > .std-second { display: none; }
+/* Two lists: never overlapping (each at least as wide as it needs; the page
+   scrolls sideways if they don't fit), one line a driver (no team or nickname). */
+.standings-pane.two-lists .std-lists { display: grid; grid-template-columns: repeat(2, minmax(max-content, 1fr)); gap: 14px; align-items: start; }
+.standings-pane.two-lists .std-lists > .std-second { display: table; }
+.standings-pane.two-lists .col-wide, .standings-pane.two-lists .driver-cell .sub,
+.standings-pane.two-lists .driver-cell .nick { display: none; }
+.standings-pane.two-lists .driver-cell { white-space: nowrap; }
+.standings-pane.two-lists .grid th, .standings-pane.two-lists .grid td { padding-left: 4px; padding-right: 4px; }
+.standings-pane.two-lists .grid td { padding-top: 2px; padding-bottom: 2px; }
+.standings-pane.two-lists .c-flag, .standings-pane.two-lists .c-chg { width: auto; }
+.timing-body.two-lists { grid-template-columns: minmax(0, 4fr) minmax(260px, 1fr); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; padding: 4px 9px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.active { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+/* A battle scrolled out of sight: a pill at that edge of the list; click to go to it. */
+.battle-hint {
+  position: absolute; left: 50%; transform: translateX(-50%); z-index: 3; border: 0; border-radius: 999px;
+  padding: 4px 12px; background: var(--battle); color: #fff; font: inherit; font-size: 12px; font-weight: 700;
+  cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, .45); white-space: nowrap;
+}
+.battle-hint.up { top: 34px; }
+.battle-hint.down { bottom: 10px; }
+.battle-hint[hidden] { display: none; }
 .c-chg { width: 46px; }
 .c-flag { width: 86px; }
 .chg { font-size: 12px; font-weight: 700; }
@@ -578,7 +606,7 @@ a.btn { color: inherit; text-decoration: none; }
 .image-slot-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
 /* Timing table: a driver joining the list fades in (rows slide via flipRows). */
-#standings-rows tr.row-enter { animation: row-enter .35s ease both; }
+#standings-rows tr.row-enter, #standings-rows-2 tr.row-enter { animation: row-enter .35s ease both; }
 @keyframes row-enter { from { opacity: 0; } }
 
 /* "Show on my screen" next to each overlay's OBS link. */
