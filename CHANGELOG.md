@@ -13,6 +13,12 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- Font for every overlay and board (Widget Settings → All overlays & boards):
+  the 20 fonts from Apex Overlays, bundled, and Bahnschrift. The text is
+  sized to fit, so nothing changes size with the font.
+
 ### Improvements
 
 - Replay bar: an Open folder button for the replay data check's files.

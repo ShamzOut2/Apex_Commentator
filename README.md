@@ -58,6 +58,12 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- Font for every overlay and board (Widget Settings → All overlays & boards):
+  the 20 fonts from Apex Overlays, bundled, and Bahnschrift. The text is
+  sized to fit, so nothing changes size with the font.
+
 ### Improvements
 
 - Replay bar: an Open folder button for the replay data check's files.
@@ -943,6 +949,29 @@ images inside them). **.csv** files open in Excel or Google Sheets; round
 results and the roster can be edited there and imported back. Classes are
 matched by name, so a league with the same class names picks results up
 directly.
+
+## Font
+
+**Font** (Widget Settings → All overlays & boards → *Font*): the font every
+overlay and board uses (the grid walk too). *Standard* is the usual one
+(Segoe UI on Windows); the others are the fonts from Apex Overlays, bundled
+with the app (no download, the same on every PC): Barlow Condensed,
+Rajdhani, Oswald, Titillium Web, Chakra Petch, Saira Semi Condensed, Roboto
+Condensed, Exo 2, Inter, Montserrat, Teko, Kanit, Orbitron, Sora, Space
+Grotesk, Archivo Narrow, Big Shoulders Display, IBM Plex Sans Condensed,
+Fira Sans Condensed and Antonio; and Bahnschrift Condensed, which comes with
+Windows.
+
+Fonts come in different sizes and widths, so the text is sized to take the
+room the standard font's does: each font is measured (how wide typical
+overlay text is, how tall its letters are) and drawn bigger or smaller to
+match, the tighter of the two, with its lines spaced as the standard font's.
+Columns, rows, number chips, badges and the overlays and boards themselves
+keep their sizes; a wide font (Orbitron) is drawn smaller to fit, a small
+one (Teko) bigger. A very narrow font can't be made bigger than its letters'
+height allows, so with the tower's width on automatic it comes out a little
+narrower (set a width to keep it the same). Each widget's *Text size* still
+makes its text bigger or smaller on top.
 
 ## Size
 

@@ -8,7 +8,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
-body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+body { font-family: var(--font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif); font-stretch: var(--font-stretch, normal); line-height: var(--lh, normal); color: var(--ink); }
 body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 70%); }
 
 /* Fixed 1920x1080 stage, scaled to fit the window (fitStage in common.js). */
@@ -75,7 +75,7 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 }
 .road .box { position: absolute; border: 9px solid rgba(242, 242, 242, .93); border-left: none; border-radius: 2px; }
 .road .slot-num {
-  position: absolute; font: 900 italic 66px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  position: absolute; font: 900 italic calc(66px * var(--ff, 1))/1 var(--font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
   color: rgba(242, 242, 242, .9); letter-spacing: -.02em; display: flex; flex-direction: column; align-items: flex-start;
 }
 .road .slot-num small { font-size: calc(30px * var(--fs, 1)); font-weight: 800; letter-spacing: 0; margin-top: 2px; }
@@ -91,7 +91,7 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 .wall .ads { position: absolute; left: 0; right: 0; top: 7px; bottom: 5px; display: flex; gap: 0; }
 .wall .ads span {
   flex: none; width: 270px; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap;
-  background: #14171c; color: #fff; font: 900 18px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #14171c; color: #fff; font: 900 calc(18px * var(--ff, 1))/1 var(--font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
   letter-spacing: .08em; text-transform: uppercase; border-right: 2px solid #3a3f47;
 }
 .wall .ads span.alt { background: var(--accent); color: #111; }

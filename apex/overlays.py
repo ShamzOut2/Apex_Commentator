@@ -20,6 +20,12 @@ OFFSET = {"offset_x": 0, "offset_y": 0}
 # board that shows them).
 LOGO = {"logo_scale": 100}
 # font_scale: its text alone bigger or smaller (percent), the boxes as they are.
+# The fonts on offer for every overlay and board (ids; web/common.js FONTS has
+# their names, web/fonts/overlay the bundled ones).
+FONTS = ("standard", "bahnschrift", "barlow-condensed", "rajdhani", "oswald", "titillium-web", "chakra-petch",
+         "saira-semi-condensed", "roboto-condensed", "exo-2", "inter", "montserrat", "teko", "kanit", "orbitron",
+         "sora", "space-grotesk", "archivo-narrow", "big-shoulders-display", "ibm-plex-sans-condensed",
+         "fira-sans-condensed", "antonio")
 BACKGROUND = {"bg": "default", "bg_color": "#0b0d12", "bg_image": "", "bg_opacity": 100, "scale": 100, "font_scale": 100}
 
 # Overlays and boards with columns can dim each column on its own:
@@ -52,7 +58,10 @@ DEFAULTS = {
     # to stay (the sponsors' stay) are never dimmed or hidden.
     "general": {"race_decimals": 1, "qual_decimals": 3, "board_overlays": "stay", "board_dim": 35,
                 # Class, team and accent colours as picked at any opacity (off: they fade with the panels).
-                "solid_colors": True},
+                "solid_colors": True,
+                # The font every overlay and board uses (FONTS; web/fonts/overlay), its text
+                # sized to take the room the standard font does (common.js fontFit).
+                "font": "standard"},
     # The live timing website for spectators (spectate.py, web/live/): how it looks
     # and what it shows. Every driver with a class is on it, whatever the tower shows.
     "live": {
@@ -406,6 +415,7 @@ CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "s
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS,
+           "font": FONTS,
            "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "anchor_side": ("first", "last"), "fl_flash_many": ("stack", "queue"), "gap_shown": ("ahead", "camera"),
            "labels": ("none", "number", "position")}
 

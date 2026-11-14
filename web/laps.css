@@ -57,7 +57,7 @@
 .tracker.small { width: var(--small-w, 290px); }
 
 .tk-top { display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px; min-width: 0; }
-.tk-top .pos { font-weight: 900; font-size: calc(18px * var(--fs, 1)); min-width: 2.2em; }
+.tk-top .pos { font-weight: 900; font-size: calc(18px * var(--fs, 1)); min-width: calc(2.2em / var(--ff, 1)); }
 .tk-top .num { height: 24px; font-size: calc(15px * var(--fs, 1)); }
 .tk-top .team-logo { width: calc(28px * var(--logo-k, 1)); height: calc(24px * var(--logo-k, 1)); }
 .tk-top .who { min-width: 0; display: flex; flex-direction: column; line-height: 1.1; flex: 1; }

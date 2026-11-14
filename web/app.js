@@ -2871,6 +2871,10 @@ const OVERLAY_FIELDS = {
       ["race_decimals", "Decimal places: live race gaps and intervals (tower, timing screen, Timing tab)", "number", { min: 0, max: 3 }],
       ["qual_decimals", "Decimal places: qualifying, the lap tracker, the grid and results boards", "number", { min: 1, max: 3 }],
     ]],
+    ["Font", [
+      ["font", "The font every overlay and board uses (its text sized to fit the same room, so nothing changes size)", "select",
+        Object.entries(FONTS).map(([id, [name]]) => [id, name])],
+    ]],
     ["Colours", [
       ["solid_colors", "Class, team and accent colours stay as picked whatever a widget's opacity (untick: they fade with the panels)", "bool"],
     ]],
@@ -3651,7 +3655,7 @@ loadBackgrounds();
 // ``screen``: it has a full-screen version too.
 const WIDGETS = [
   { key: "general", name: "All overlays & boards", page: "standings", general: true,
-    about: "Settings for every overlay and board: how many decimal places gaps and intervals show, and what the overlays do while a full-screen board is up." },
+    about: "Settings for every overlay and board: the font, how many decimal places gaps and intervals show, colours, and what the overlays do while a full-screen board is up." },
   { key: "standings", name: "Timing tower", page: "standings", screen: true,
     about: "Race: running order and gap to the leader. Qualifying and practice: fastest clean lap. The full-screen version is a timing screen of its own, with every driver." },
   { key: "laps", name: "Lap tracker", page: "laps", screen: true,

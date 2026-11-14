@@ -71,7 +71,7 @@ body.col-bg .srow.shead > span:last-child { padding-right: 12px; }
 
 /* Fastest lap: a purple stopwatch by the holder's name. */
 .fl-icon { display: inline-flex; vertical-align: -3px; margin-left: 7px; color: #b26bff; }
-.fl-icon .stopwatch { width: 1em; height: 1em; }
+.fl-icon .stopwatch { width: calc(1em / var(--ff, 1)); height: calc(1em / var(--ff, 1)); }
 
 /* A new fastest lap: a purple pill at the top middle of the screen. */
 .fl-flash { position: absolute; left: 0; right: 0; top: 40px; display: flex; justify-content: center; gap: 16px; pointer-events: none; z-index: 5; }
@@ -120,7 +120,7 @@ body.screen .fl-flash { top: 14px; }
 /* A finished driver's chequered flag: it pops up off its pole as they cross
    the line, then the cloth keeps waving from the pole. */
 .fin-flag { display: inline-flex; vertical-align: -4px; margin-left: 8px; }
-.fin-flag .fin-svg { width: 1.15em; height: 1.06em; overflow: visible; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .5)); }
+.fin-flag .fin-svg { width: calc(1.15em / var(--ff, 1)); height: calc(1.06em / var(--ff, 1)); overflow: visible; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .5)); }
 .fin-flag .fin-cloth { transform-box: fill-box; transform-origin: 0 50%; animation: fin-wave 1.1s ease-in-out infinite; animation-delay: var(--wave-delay, 0s); }
 @keyframes fin-wave {
   0%, 100% { transform: skewY(0deg) scaleX(1); }
@@ -251,5 +251,5 @@ body.screen .fl-flash { top: 14px; }
 }
 
 /* The car's manufacturer badge column (tower and full screen). */
-.make-badge { display: inline-flex; align-items: center; justify-content: center; height: 1.25em; width: 2.2em; vertical-align: middle; }
+.make-badge { display: inline-flex; align-items: center; justify-content: center; height: calc(1.25em / var(--ff, 1)); width: calc(2.2em / var(--ff, 1)); vertical-align: middle; }
 .make-badge img { max-height: 100%; max-width: 100%; object-fit: contain; }

@@ -59,7 +59,7 @@
 .btable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
 .btable th { text-align: left; font-size: calc(15px * var(--fs, 1)); letter-spacing: .1em; color: var(--muted); font-weight: 700; padding: 0 10px 8px; text-transform: uppercase; white-space: nowrap; }
 /* The rows' text: sized to the rows, then the board's text size (--fs) on top; taller rows for bigger text. */
-.btable td { padding: 0 10px; height: calc(var(--row-h, 42px) * max(1, var(--fs, 1))); font-size: calc(var(--row-font, 22px) * var(--fs, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btable td { padding: 0 10px; height: calc(var(--row-h, 42px) * max(1, var(--fs-user, var(--fs, 1)))); font-size: calc(var(--row-font, 22px) * var(--fs, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .btable tbody tr:nth-child(odd) td { background: rgba(255, 255, 255, calc(.04 * var(--bg-k, 1))); }
 .btable .r { text-align: right; } .btable .c { text-align: center; }
 .btable .p { font-weight: 900; }
@@ -73,14 +73,14 @@
 .btable .lead { color: var(--ink); font-weight: 800; }
 /* The leader kept at the top of the next pages: a line under them. */
 .btable tr.kept td { border-bottom: 2px solid var(--accent-c, var(--accent)); }
-.btable .num { font-size: .8em; height: 1.45em; background: rgba(255, 255, 255, calc(1 * var(--bg-k, 1))); color: #111; }
+.btable .num { font-size: .8em; height: calc(1.45em / var(--ff, 1)); background: rgba(255, 255, 255, calc(1 * var(--bg-k, 1))); color: #111; }
 .btable .logo { height: calc(1.3em * var(--logo-k, 1)); width: calc(2.6em * var(--logo-k, 1)); object-fit: contain; vertical-align: middle; }
-.make { display: inline-flex; align-items: center; justify-content: center; height: 1.6em; width: 3.4em; vertical-align: -.4em; padding: 2px 4px; }
+.make { display: inline-flex; align-items: center; justify-content: center; height: calc(1.6em / var(--ff, 1)); width: calc(3.4em / var(--ff, 1)); vertical-align: -.4em; padding: 2px 4px; }
 .make img { max-height: 100%; max-width: 100%; object-fit: contain; }
 .make-name { margin-left: 8px; }
 .team-cell { display: inline-flex; align-items: center; max-width: 100%; vertical-align: middle; }
 .team-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
-.team-stripe { flex: none; width: 6px; height: 1.3em; border-radius: 3px; margin-right: 12px; }
+.team-stripe { flex: none; width: 6px; height: calc(1.3em / var(--ff, 1)); border-radius: 3px; margin-right: 12px; }
 .board.teams .btable .logo { height: calc(1.5em * var(--logo-k, 1)); width: calc(2.8em * var(--logo-k, 1)); }
 .btable td.team-drivers { font-size: calc(var(--row-font, 22px) * .78 * var(--fs, 1)); }
 .btable .rd { text-align: center; color: var(--muted); }
@@ -138,8 +138,8 @@
 .gslot .gname { min-width: 0; flex: 1; display: flex; flex-direction: column; }
 /* The car number and the car's badge grow with the slot too (they're sized in em). */
 .gslot .gbox { font-size: calc(22px * var(--fs, 1) * var(--slot-k, 1)); }
-.gslot .num { height: 1.45em; font-size: .9em; }
-.gslot .make { height: 1.5em; width: 2.6em; }
+.gslot .num { height: calc(1.45em / var(--ff, 1)); font-size: .9em; }
+.gslot .make { height: calc(1.5em / var(--ff, 1)); width: calc(2.6em / var(--ff, 1)); }
 .gslot .gname b { font-size: calc(26px * var(--fs, 1) * var(--slot-k, 1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gslot .gname span { font-size: calc(16px * var(--fs, 1) * var(--slot-k, 1)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gslot .logo { height: calc(36px * var(--logo-k, 1) * var(--slot-k, 1)); width: calc(60px * var(--logo-k, 1) * var(--slot-k, 1)); object-fit: contain; }
