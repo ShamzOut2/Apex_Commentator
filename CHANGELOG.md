@@ -21,6 +21,9 @@ How each version's entry is written:
 
 ### Improvements
 
+- Update pop-up: a few versions behind, it shows every version's changes
+  since yours (and how many), even when GitHub's list of releases can't be
+  had just then.
 - Replay bar: an Open folder button for the replay data check's files.
 - On-track battle: a car joins or leaves the list once it's been within (or
   outside) the gap for a moment (1.5 s to start with, 0–3 s), so it no

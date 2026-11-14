@@ -66,6 +66,9 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 
 ### Improvements
 
+- Update pop-up: a few versions behind, it shows every version's changes
+  since yours (and how many), even when GitHub's list of releases can't be
+  had just then.
 - Replay bar: an Open folder button for the replay data check's files.
 - On-track battle: a car joins or leaves the list once it's been within (or
   outside) the gap for a moment (1.5 s to start with, 0–3 s), so it no
@@ -1639,7 +1642,11 @@ GitHub releases. The **Updates** panel on the Home page shows:
 - **Check now**, **Install update** and **Release page** buttons.
 
 When a newer version is out, the control panel also pops up with its release
-notes:
+notes. A few versions behind, it shows every one of them since yours, newest
+first ("3 updates since your version"), from GitHub's list of releases, or,
+if that can't be had just then (GitHub limits how often it's asked), from
+the changelog that comes with the newest release; if neither can, the newest
+version's notes, and the app asks again within half an hour:
 
 - **Update now** installs the release and restarts the app. The Windows app
   runs the new installer silently, then reopens. A copy run from source

@@ -5477,6 +5477,10 @@ function showUpdate(status, force = false) {
   if (!force && (update.dismissed || status.skipped)) return;
   $("#update-current").textContent = `v${status.current}`;
   $("#update-latest").textContent = `v${status.latest.version}`;
+  // Several versions behind: what's changed in each of them, newest first.
+  const behind = status.latest.behind || 0;
+  $("#update-behind").hidden = behind < 2;
+  $("#update-behind").textContent = behind > 1 ? `${behind} updates since your version: what's new in each, newest first.` : "";
   $("#update-notes").innerHTML = notesHtml(status.latest.notes || "");
   $("#update-hint").innerHTML = status.git_checkout
     ? "This copy is a git checkout: run <code>git pull</code> to update, then restart."

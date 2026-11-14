@@ -41,7 +41,9 @@ import zipfile
 from pathlib import Path
 
 API = "https://api.github.com"
+RAW = "https://raw.githubusercontent.com"
 CHECK_EVERY_S = 6 * 3600
+NOTES_RETRY_S = 1800  # sooner when the notes of versions skipped couldn't be fetched
 MAX_ARCHIVE_BYTES = 50 * 1024 * 1024
 MAX_INSTALLER_BYTES = 300 * 1024 * 1024
 INSTALLER_RE = re.compile(r"^ApexCommentator-Setup-.*\.exe$", re.IGNORECASE)
@@ -91,6 +93,7 @@ class Updater:
         self.error = None
         self.installing = False
         self.installed = None     # version installed and awaiting restart
+        self.notes_complete = True  # the pop-up's notes cover every version since this one
         # Packaged app: update by running the release's installer.
         self.installer_mode = installer_mode
         self._launch = launcher or _launch_detached
@@ -145,21 +148,58 @@ class Updater:
         }
 
     def _notes_since(self, latest):
-        """What's new since this copy's version: the newest release's notes, or
-        (when versions were skipped) every newer release's, newest first."""
-        try:
-            releases = self._get_json(f"{API}/repos/{self.repo}/releases?per_page=30")
-        except (urllib.error.URLError, OSError, ValueError):
-            return latest["notes"]  # the newest one's notes will do
+        """What's new since this copy's version: (notes, versions newer than
+        it). The newest release's notes, or (when versions were skipped) every
+        newer one's, newest first: from GitHub's list of releases, else from
+        the changelog that came with the newest release (every version's notes,
+        from GitHub's file host: there when the list isn't, rate-limited, say).
+        Neither to be had: the newest one's notes, and another try sooner."""
         mine, newest = parse_version(self.current) or (0, 0, 0), parse_version(latest["version"])
-        newer = sorted(
-            ((parse_version(r.get("tag_name")), r.get("body") or "") for r in releases
-             if isinstance(r, dict) and not r.get("draft") and not r.get("prerelease")
-             and parse_version(r.get("tag_name")) and mine < parse_version(r.get("tag_name")) <= newest),
-            reverse=True)
+        newer = self._released_since(mine, newest)
+        if newer is None:
+            newer = self._changelog_since(latest["tag"], mine, newest)
+        self.notes_complete = newer is not None
+        if not newer:
+            return latest["notes"], None
         if len(newer) < 2:
-            return latest["notes"]
-        return "\n\n".join(f"## v{'.'.join(map(str, v))}\n\n{body.strip()}" for v, body in newer)
+            return latest["notes"] or newer[0][1], 1
+        return "\n\n".join(f"## v{'.'.join(map(str, v))}\n\n{body.strip()}" for v, body in newer), len(newer)
+
+    def _released_since(self, mine, newest):
+        """[(version, notes)] of the releases after ``mine`` up to ``newest``,
+        newest first, from GitHub's list of releases (two pages: 60 of them);
+        None if it couldn't be had."""
+        out = []
+        try:
+            for page in (1, 2):
+                releases = self._get_json(f"{API}/repos/{self.repo}/releases?per_page=30&page={page}")
+                if not isinstance(releases, list):
+                    return None
+                out += [(parse_version(r.get("tag_name")), r.get("body") or "") for r in releases
+                        if isinstance(r, dict) and not r.get("draft") and not r.get("prerelease")
+                        and parse_version(r.get("tag_name")) and mine < parse_version(r.get("tag_name")) <= newest]
+                if len(releases) < 30 or any(parse_version(r.get("tag_name")) and parse_version(r.get("tag_name")) <= mine
+                                             for r in releases if isinstance(r, dict)):
+                    break  # back as far as this copy's version (or the last page)
+        except (urllib.error.URLError, OSError, ValueError):
+            return None
+        return sorted(dict(out).items(), reverse=True)
+
+    def _changelog_since(self, tag, mine, newest):
+        """[(version, notes)] after ``mine`` up to ``newest`` from CHANGELOG.md as
+        it is in the release ``tag``, newest first; None if it couldn't be had."""
+        from .changelog import sections
+        try:
+            with self._get(f"{RAW}/{self.repo}/{tag}/CHANGELOG.md", accept="text/plain") as resp:
+                text = resp.read(2_000_000).decode("utf-8", "replace")
+        except (urllib.error.URLError, OSError, ValueError):
+            return None
+        out = {}
+        for title, body in sections(text):
+            v = parse_version(title.strip("[] "))
+            if v and mine < v <= newest:
+                out.setdefault(v, body)
+        return sorted(out.items(), reverse=True) if out else None
 
     def check(self):
         """Ask GitHub for the newest version. Never raises; errors go in ``error``."""
@@ -168,7 +208,7 @@ class Updater:
         try:
             latest = self._newest_release()
             if latest and parse_version(latest["version"]) > (parse_version(self.current) or (0, 0, 0)):
-                latest["notes"] = self._notes_since(latest)
+                latest["notes"], latest["behind"] = self._notes_since(latest)
             with self._lock:
                 self.latest, self.error = latest, None
         except urllib.error.HTTPError as e:
@@ -211,7 +251,7 @@ class Updater:
         def loop():
             while True:
                 self.check()
-                time.sleep(CHECK_EVERY_S)
+                time.sleep(CHECK_EVERY_S if self.notes_complete and not self.error else NOTES_RETRY_S)
 
         threading.Thread(target=loop, name="updater", daemon=True).start()
 
@@ -234,7 +274,8 @@ class Updater:
         return {
             "enabled": self.enabled,
             "current": self.current,
-            "latest": latest and {k: latest[k] for k in ("version", "tag", "notes", "url", "published_at")},
+            "latest": latest and {**{k: latest[k] for k in ("version", "tag", "notes", "url", "published_at")},
+                                  "behind": latest.get("behind")},  # versions since this one (None: not known)
             "available": available,
             "skipped": available and self._skipped() == latest["version"],
             "can_install": available and self._can_install(latest),
