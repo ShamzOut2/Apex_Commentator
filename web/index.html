@@ -304,10 +304,13 @@
           <div class="booth">
             <h3 class="section-title">Car pictures</h3>
             <p class="hint">Point the app at the folder of car pictures you've made for the grid walk. Name each picture
-              <code>iRacingID.Carname</code>, e.g. <code>123456.Porsche 911 GT3 R (992).png</code> (PNG, JPG or WebP;
+              <code>iRacingID.Carname</code>, e.g. <code>123456.Porsche 911 GT3 R (992).png</code>, with the driver's
+              class tag first if you like: <code>PA.123456.Porsche 911 GT3 R (992).png</code> (PNG, JPG or WebP;
               a see-through background looks best, the car pointing right). Each driver is matched by their iRacing ID
               and the car they're in, so the right car and livery show for the right person; a driver with only one
-              picture gets it whatever the car. New pictures dropped in the folder show up by themselves.</p>
+              picture gets it whatever the car. The class tag only picks between a driver's pictures (the one matching
+              the tag in brackets in their name, "(PA) Sam Driver"); otherwise it's ignored. New pictures dropped in the
+              folder show up by themselves.</p>
             <div class="row pb-folder">
               <label class="grow">Folder
                 <input id="gw-folder" placeholder="e.g. C:\Users\you\Pictures\Grid walk" aria-label="Car pictures folder"></label>

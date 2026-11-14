@@ -671,6 +671,12 @@ class GridBoardTests(unittest.TestCase):
         self.app.command("board_show", {"kind": "grid", "group": "", "round": "session:2"})
         b = self.app.build_snapshot()["board"]
         self.assertEqual((b["grid_from"], [r["number"] for r in b["rows"]]), ("previous race", [number(i) for i in first]))
+        # No results list from iRacing for race 1 (yet): how it finished as the app saw it.
+        del self.app._session_meta["sessions"][1]["ResultsPositions"]
+        seen = cars[::-1]
+        self.app._race_order[(self.app._session_meta.get("subsession"), 1)] = seen
+        b = self.app.build_snapshot()["board"]
+        self.assertEqual((b["grid_from"], [r["number"] for r in b["rows"]]), ("previous race", [number(i) for i in seen]))
 
     def test_a_meetings_race_run_as_an_event_of_its_own(self):
         """Race 2 of a meeting in a new iRacing event (one race in it): its
@@ -753,10 +759,20 @@ class GridBoardTests(unittest.TestCase):
             b = self.app.build_snapshot()["board"]
             return [r["number"] for r in b["rows"]], b["grid_from"]
 
-        # Nobody on the grid yet: can't tell (iRacing's order may still be the last
-        # session's), so the grid as worked out.
+        # Nobody on the grid yet, nothing known of the session before: can't tell
+        # (iRacing's order may still be the last session's), so the grid as worked out.
         self.lined_up(STATE_GET_IN_CAR, [], positions=cars)
         self.assertNotEqual(board()[1], "iRacing's grid")
+        # The session before left iRacing's order as ``cars``: still that, the grid as
+        # worked out; changed (iRacing's grid for this race), that, nobody out yet.
+        self.app._lineups.clear()
+        self.app._order_key, self.app._order_last = ("before", -1), list(cars)
+        self.lined_up(STATE_GET_IN_CAR, [], positions=cars)
+        self.assertNotEqual(board()[1], "iRacing's grid")
+        self.lined_up(STATE_GET_IN_CAR, [], positions=grid + cars[:-8])
+        rows, source = board()
+        self.assertEqual((rows[:8], source), ([number(i) for i in grid], "iRacing's grid"))
+        self.app._lineups.clear()
         # On the grid, iRacing's running order still the last session's: as they sit
         # there, nose to tail (across the line), nothing reversed on top.
         self.lined_up(STATE_GET_IN_CAR, grid, positions=cars)

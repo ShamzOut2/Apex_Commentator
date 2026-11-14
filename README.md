@@ -66,12 +66,14 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   page.
 - Team championship: drop rounds can apply to the drivers only, with every
   round counting for the teams.
+- Grid walk car pictures can have the driver's class tag in front
+  (`PA.123456.Car name.png`), matched to the tag in brackets in their name.
 
 ### Fixes
 
-- Starting grid: the grid iRacing lines a race up on (a reverse grid
-  included) once it has, with nothing to set; before that, worked out as
-  before.
+- Starting grid: the grid iRacing sets for a race (a reverse grid
+  included), from the race's session starting, before anyone has joined the
+  track, with nothing to set; before that, worked out as before.
 - A race meeting's races show only their round's own name, never with
   "Heat 1" added, and keep it after the race.
 
@@ -449,7 +451,13 @@ and *Nickname under the name* can be turned off.
   - the **iRacing ID** is the driver's customer ID;
   - the **car name** is the car they're driving: iRacing's name for it
     (`Porsche 911 GT3 R (992)`), its short name (`Porsche 911 GT3 R`) or its
-    folder name (`porsche992rgt3`) all work, in any case.
+    folder name (`porsche992rgt3`) all work, in any case;
+  - the driver's **class tag** can go first if you like:
+    `PA.123456.Porsche 911 GT3 R (992).png`. It's only used to choose
+    between a driver's pictures: the one whose tag is the one in brackets
+    in their name (as set in the League builder, e.g. "(PA) Sam Driver", else
+    their iRacing name) first. A tag that isn't theirs, or none in their
+    name, is ignored, so pictures with or without a tag both work.
   Each driver in the session is matched by ID and the car they're in, so a
   driver with a picture for each of several cars gets the right one; a
   driver with only one picture gets it whatever the car. Pictures with a
@@ -1097,19 +1105,24 @@ built from the active league:
   the next one; or any race you pick), worked out from the session before
   anyone has loaded in, Overall or a class. *The grid from*:
   **Automatic** (as it starts): **iRacing's own grid**, once iRacing has
-  lined the race up: from the race's session starting (the cars sitting on
-  the grid in the countdown), exactly as iRacing set it, a reverse grid
-  included, so there's nothing to set (no *Reverse grid* on top). The app
-  takes the race's results list if iRacing has filled it in, else iRacing's
-  running order once it agrees with where the cars sit on the grid, else
-  the cars in the order they're lined up, nose to tail; at the green it's
-  kept as it was, and written in `apex.log` (car numbers, pole first).
-  Before iRacing has lined the race up (the board shown during the race
-  before, say), it's worked out: the first race (and every heat) from
+  set it: from the race's session starting, before anyone has joined the
+  track too, exactly as iRacing set it, a reverse grid included, so there's
+  nothing to set (no *Reverse grid* on top). The app takes the race's
+  results list if iRacing has filled it in; else, with nobody on the grid
+  yet, iRacing's running order once it has changed from how the session
+  before left it (until then it can still be the last session's); else
+  iRacing's order if it agrees with where the cars sit on the grid, else
+  the cars in the order they're lined up, nose to tail. At the green it's
+  kept as it was. `apex.log` says what iRacing's order was as the race's
+  session started (new, or the same as the last session's) and the grid at
+  the green (car numbers, pole first).
+  Before iRacing has set it (the board shown during the race before, or
+  iRacing's order not changed yet), it's worked out: the first race (and every heat) from
   qualifying, and every race after it from the finishing order of the race
   before: a heat meeting's consolation from the heat before it and its
   feature from the consolation, a two-race round's second race from the
-  first. A meeting's race run as an iRacing event of its own takes the
+  first (as iRacing's results list has it, else as the app saw it finish).
+  A meeting's race run as an iRacing event of its own takes the
   race before's finish from the results saved to the league. On iRacing's
   grid after a race, *Finished* shows where each driver finished it.
   Or qualifying, the previous race's finish, **iRacing's grid** (as

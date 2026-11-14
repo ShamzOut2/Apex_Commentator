@@ -16,7 +16,7 @@ from urllib.parse import quote
 from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
-from .thumbnails import Thumbnails
+from .thumbnails import Thumbnails, name_tags
 from .pits import PitTracker
 from .backgrounds import Backgrounds
 from .gaps import GapTimer
@@ -320,6 +320,10 @@ class App:
         self._grid_cache = (None, [])   # (what it depends on, the race on screen's grid): _race_grid
         self._lineups = {}              # (subsession, race session): the grid iRacing lined it up on (_watch_grid)
         self._lineups_said = set()      # the ones written in the log
+        self._order_key, self._order_last = None, []  # the session last seen live, iRacing's order then (_watch_grid)
+        self._order_before = {}         # (subsession, session): iRacing's order as the session before left it
+        self._order_said = set()
+        self._race_order = {}           # (subsession, race session): its order as it last stood (how it finished)
         self._finish_gaps = {}           # race session -> car_idx -> its gap to the winner as it finished
         self._finishers = {}             # race session -> car_idx -> its place, gap and laps as it finished
         self._grid_source = ""
@@ -1786,50 +1790,87 @@ class App:
             self._grid_cache = (key, [e["car_idx"] for e in data["rows"]])
         return self._grid_cache[1]
 
+    def _iracing_order(self, frame):
+        """iRacing's running order now (CarIdxPosition): [car_idx], first place first."""
+        drivers = self._drivers
+        return list(dict.fromkeys(idx for _, idx in sorted((p, idx) for idx, p in enumerate(frame.position)
+                                                            if idx in drivers and p and p > 0)))
+
     def _watch_grid(self, frame):
         """The grid iRacing lines a race up on, kept for the starting grid board
         (and the places gained): from the race's session starting until the
         green, then as it was at the green. Live only (a replay's cars are
-        the replay's), and once the cars are on the grid (sitting there, in
-        the countdown and warm-up: on the parade laps only if nothing was seen
-        before, as cars shuffle there)."""
-        if not frame.is_live or not self._is_race(frame):
+        the replay's). On the parade laps only if nothing was seen before
+        (cars shuffle there). Also kept: iRacing's order as each session
+        started (as the last one left it) and each race's order as it ended."""
+        if not frame.is_live:
             return
         key = (self._session_meta.get("subsession"), frame.session_num)
+        order = self._iracing_order(frame)
+        if key != self._order_key:
+            # A new session: iRacing's order as the last one left it (it can stay
+            # until the new session's is in).
+            self._order_before[key] = self._order_last
+            self._order_key = key
+        self._order_last = order
+        if not self._is_race(frame):
+            return
         state = frame.session_state
         if state >= STATE_RACING:
+            if order:
+                self._race_order[key] = order  # at the end: how it finished, as the app saw it
             if key in self._lineups and key not in self._lineups_said:
                 self._lineups_said.add(key)
-                numbers = [(self._drivers.get(i) or {}).get("number", "?") for i in self._lineups[key]]
-                print(f"[apex] starting grid of session {frame.session_num} as iRacing lined it up: "
-                      + " ".join(f"#{n}" for n in numbers))
+                print(f"[apex] starting grid of session {frame.session_num} as iRacing lined it up: {self._numbers(self._lineups[key])}")
             return
         if state not in (STATE_GET_IN_CAR, STATE_WARMUP, STATE_PARADE_LAPS) or (state == STATE_PARADE_LAPS and key in self._lineups):
             return
-        order = self._lineup_now(frame)
-        if order:
-            self._lineups[key] = order
+        if key not in self._order_said:
+            self._order_said.add(key)
+            same = order == self._before_order(key, frame.session_num)
+            print(f"[apex] session {frame.session_num} before the start: iRacing's order "
+                  f"{'the same as the last session' if same else 'new'}: {self._numbers(order) or '(none yet)'}")
+        lined = self._lineup_now(frame, key)
+        if lined:
+            self._lineups[key] = lined
 
-    def _lineup_now(self, frame):
+    def _numbers(self, order):
+        return " ".join(f"#{(self._drivers.get(i) or {}).get('number', '?')}" for i in order)
+
+    def _before_order(self, key, num):
+        """iRacing's order as the session before ``num`` left it: as seen, else
+        that session's results list (the app started during this one); None
+        if it isn't known."""
+        before = self._order_before.get(key)
+        if before:
+            return before
+        prev = self._session_meta.get("sessions", {}).get(num - 1, {}) if isinstance(num, int) else {}
+        res = sorted((r for r in prev.get("ResultsPositions") or [] if isinstance(r, dict) and (r.get("Position") or 0) > 0),
+                     key=lambda r: r["Position"])
+        return [r.get("CarIdx") for r in res if r.get("CarIdx") in self._drivers] or None
+
+    def _lineup_now(self, frame, key=None):
         """The race's grid as iRacing has it now ([car_idx], or [] while it can't
         be told): the race's own results list if iRacing has filled it in;
-        else its running order (CarIdxPosition), once it agrees with where the
-        cars sit on the grid (it can still be the last session's order); else
-        the cars on the grid in the order they're lined up, nose to tail, then
-        the ones not out yet in iRacing's order."""
+        else, with nobody on the grid yet, iRacing's running order once it's
+        changed from how the last session left it (until then it can be the
+        last session's); else its running order if it agrees with where the
+        cars sit on the grid; else the cars on the grid in the order they're
+        lined up, nose to tail, then the ones not out yet in iRacing's order."""
         drivers = self._drivers
         session = self._session_meta.get("sessions", {}).get(frame.session_num, {})
         listed = sorted((r for r in session.get("ResultsPositions") or [] if isinstance(r, dict)
                          and (r.get("Position") or 0) > 0 and r.get("CarIdx") in drivers), key=lambda r: r["Position"])
         if len(listed) >= 2:
             return list(dict.fromkeys(r["CarIdx"] for r in listed))
-        ranked = list(dict.fromkeys(idx for _, idx in sorted((p, idx) for idx, p in enumerate(frame.position)
-                                                              if idx in drivers and p and p > 0)))
+        ranked = self._iracing_order(frame)
         placed = [(_at(frame.pct, idx, -1.0), idx) for idx in drivers
                   if _at(frame.surface, idx, TRK_NOT_IN_WORLD) == TRK_ON_TRACK and not _at(frame.on_pit, idx, False)
                   and _at(frame.pct, idx, -1.0) >= 0]
         if len(placed) < 2:
-            return []  # nobody on the grid yet: can't tell (iRacing's order may be the last session's)
+            # Nobody on the grid yet: iRacing's order, once it's the new race's.
+            before = self._before_order(key or (self._session_meta.get("subsession"), frame.session_num), frame.session_num)
+            return ranked if len(ranked) >= 2 and before is not None and ranked != before else []
         rank = {idx: i for i, idx in enumerate(ranked)}
         # Level (side by side): iRacing's order between them.
         placed.sort(key=lambda x: (x[0], -rank.get(x[1], len(rank))))
@@ -2037,12 +2078,15 @@ class App:
         self._walk_grid_cache = (time.monotonic(), key, found)
         return found
 
-    def _thumb_for(self, d):
-        """The thumbnails folder's picture for this driver in their car (a file name), or None."""
-        return self.thumbnails.match(d.get("cust_id"), (d.get("car_name"), d.get("car"), d.get("car_path")))
+    def _thumb_for(self, d, league=None):
+        """The thumbnails folder's picture for this driver in their car (a file
+        name), or None. The class tag in brackets in their name (as set in the
+        league, else iRacing's) picks between pictures with tags in front."""
+        return self.thumbnails.match(d.get("cust_id"), (d.get("car_name"), d.get("car"), d.get("car_path")),
+                                     name_tags((league or {}).get("name"), d.get("name")))
 
-    def _thumb_url(self, d):
-        name = self._thumb_for(d)
+    def _thumb_url(self, d, league=None):
+        name = self._thumb_for(d, league)
         return f"/api/thumbs/{quote(name)}?v={self.thumbnails.version(name)}" if name else None
 
     def cmd_gridwalk_folder(self, folder=""):
@@ -2075,8 +2119,10 @@ class App:
             "make": league.get("car_make") or d.get("make", ""),
             "make_logo": make_logo(league.get("car_make") or d.get("make", "")),
             # The picture from the thumbnails folder (by iRacing ID and car), else the league's car photo.
-            "car_image": self._thumb_url(d) or (logo_url(pid, league.get("car_image")) if pid and league.get("car_image") else None),
-            "has_thumb": bool(self._thumb_for(d)),
+            "car_image": self._thumb_url(d, league) or (logo_url(pid, league.get("car_image")) if pid and league.get("car_image") else None),
+            "has_thumb": bool(self._thumb_for(d, league)),
+            # The class tag in brackets in their name ("PA"), for a picture's name.
+            "class_tag": next(iter(name_tags(league.get("name"), d.get("name"))), ""),
             "car_design": d.get("car_design"),
             "class_key": class_key,
             "in_session": in_session,
@@ -2967,6 +3013,10 @@ class App:
             res = sorted((r for r in sessions[prev].get("ResultsPositions") or [] if isinstance(r, dict)),
                          key=lambda r: r.get("Position") or 10_000)
             finish = {r.get("CarIdx"): i for i, r in enumerate(res, start=1) if r.get("CarIdx") in drivers}
+            if not finish:
+                # No results list from iRacing (yet): how it finished as the app saw it.
+                seen = self._race_order.get((self._session_meta.get("subsession"), prev)) or []
+                finish = {idx: i for i, idx in enumerate((i for i in seen if i in drivers), start=1)}
         if not finish and prev is None:
             finish = self._meeting_before(league, matched)
         how = cfg["grid_source"]

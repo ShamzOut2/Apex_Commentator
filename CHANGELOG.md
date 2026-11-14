@@ -21,12 +21,14 @@ How each version's entry is written:
   page.
 - Team championship: drop rounds can apply to the drivers only, with every
   round counting for the teams.
+- Grid walk car pictures can have the driver's class tag in front
+  (`PA.123456.Car name.png`), matched to the tag in brackets in their name.
 
 ### Fixes
 
-- Starting grid: the grid iRacing lines a race up on (a reverse grid
-  included) once it has, with nothing to set; before that, worked out as
-  before.
+- Starting grid: the grid iRacing sets for a race (a reverse grid
+  included), from the race's session starting, before anyone has joined the
+  track, with nothing to set; before that, worked out as before.
 - A race meeting's races show only their round's own name, never with
   "Heat 1" added, and keep it after the race.
 

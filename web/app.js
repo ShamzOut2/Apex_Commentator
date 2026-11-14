@@ -898,7 +898,7 @@ function renderGridwalk(s) {
     const status = !e.in_session ? '<span class="tag out">NOT IN SESSION</span>'
       : !e.in_world ? '<span class="tag out">NOT ON TRACK</span>' : "";
     // No picture in the folder: what it should be called.
-    const want = e.cust_id ? `${e.cust_id}.${e.car_name || "Car name"}.png` : "";
+    const want = e.cust_id ? `${e.class_tag ? `${e.class_tag}.` : ""}${e.cust_id}.${e.car_name || "Car name"}.png` : "";
     const pic = e.has_thumb ? '<span class="tag ok" title="Car picture found">✓ Picture</span>'
       : `<span class="tag" title="${want ? `No picture: name it ${esc(want)}` : "No iRacing ID to match a picture"}">No picture</span>`;
     return `<tr class="${onScreen ? "on-screen" : ""}">
