@@ -162,3 +162,8 @@ main { flex: 1; min-height: 0; position: relative; }
 
 /* Car number column switched off: the class colour by the name instead. */
 .driver.bar { border-left: 4px solid var(--cls, transparent); padding-left: 8px; }
+
+/* An Apex Labs tool: a quiet line along the bottom. */
+.made-by { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 6px; height: 24px;
+  padding: 0 14px; font-size: 11px; color: rgba(255, 255, 255, .45); }
+.made-by img { height: 14px; width: auto; opacity: .8; }

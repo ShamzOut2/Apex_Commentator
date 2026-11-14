@@ -1,6 +1,19 @@
+<p>
+  <img src="web/brand/apex-commentator-icon.svg" alt="" width="72" height="72">
+</p>
+
 # Apex Commentator
 
-A lightweight iRacing overlay suite for commentators. It runs a small local web
+<p>
+  <a href="https://github.com/ShamzOut2/Apex_Commentator">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="web/brand/apex-labs-logo-on-dark.svg">
+      <img src="web/brand/apex-labs-logo-on-light.svg" alt="Apex Labs" height="40">
+    </picture>
+  </a>
+</p>
+
+An Apex Labs tool. A lightweight iRacing overlay suite for commentators. It runs a small local web
 app next to iRacing. Open it in a browser on a second monitor, or add it as an
 OBS dock.
 

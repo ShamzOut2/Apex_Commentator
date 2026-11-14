@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Apex Commentator</title>
+  <link rel="icon" type="image/svg+xml" href="brand/apex-commentator-icon.svg">
   <link rel="icon" href="favicon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span id="status-dot" class="dot"></span>Apex</div>
+    <div class="brand"><span id="status-dot" class="dot"></span><img class="brand-icon" src="brand/apex-commentator-icon.svg" alt="">Apex Commentator</div>
     <div id="session-line" class="session-line">Waiting for iRacing…</div>
     <div class="topbar-right">
       <button id="update-badge" class="badge update" hidden title="A new version is available">Update available</button>
@@ -44,7 +45,8 @@
   <main id="main">
     <section id="tab-home" class="panel">
       <div class="home">
-        <h1 class="home-title">Apex Commentator <span id="home-version" class="count"></span></h1>
+        <h1 class="home-title"><img class="home-icon" src="brand/apex-commentator-icon.svg" alt="">Apex Commentator <span id="home-version" class="count"></span>
+          <a class="by-labs" href="https://github.com/ShamzOut2/Apex_Commentator" target="_blank" rel="noopener" title="Apex Commentator is an Apex Labs tool">by <img src="brand/apex-labs-logo-on-dark.svg" alt="Apex Labs"></a></h1>
         <p id="home-session" class="hint"></p>
         <div class="tiles">
           <button class="tile" data-goto="hotkeys">
@@ -831,7 +833,7 @@
 
   <div id="update-modal" class="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="update-title">
-      <h2 id="update-title">Update available</h2>
+      <h2 id="update-title" class="update-title"><img src="brand/apex-commentator-icon.svg" alt="">Update available<img class="update-labs" src="brand/apex-labs-mark-on-dark.svg" alt="Apex Labs" title="Apex Labs"></h2>
       <p class="update-versions"><span id="update-current"></span> → <b id="update-latest"></b></p>
       <p id="update-behind" class="update-behind" hidden></p>
       <div id="update-notes" class="update-notes"></div>

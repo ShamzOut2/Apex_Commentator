@@ -45,6 +45,9 @@ class ServerTests(unittest.TestCase):
                      "/img/../../config.json", "/img/0123456789abcdef"):
             self.assertEqual(get(self.base + path)[0], 404, path)
         self.assertEqual(get(self.base + "/feed", "POST")[0], 405)  # nothing can be changed from outside
+        status, headers, body = get(self.base + "/apex-labs.svg")  # the Apex Labs logo in its footer
+        self.assertEqual((status, headers["Content-Type"]), (200, "image/svg+xml"))
+        self.assertIn(b"Apex Labs", body)
 
     def test_framed_only_by_this_pcs_app_and_its_preview_isnt_a_viewer(self):
         headers = get(self.base + "/")[1]
