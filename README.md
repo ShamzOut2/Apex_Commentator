@@ -69,28 +69,13 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.2**
-
-### New features
-
-- Font for every overlay and board (Widget Settings → All overlays & boards):
-  the 20 fonts from Apex Overlays, bundled, and Bahnschrift. The text is
-  sized to fit, so nothing changes size with the font.
+**Coming in the next update**
 
 ### Improvements
 
-- Update pop-up: a few versions behind, it shows every version's changes
-  since yours (and how many), even when GitHub's list of releases can't be
-  had just then.
-- Replay bar: an Open folder button for the replay data check's files.
-- On-track battle: a car joins or leaves the list once it's been within (or
-  outside) the gap for a moment (1.5 s to start with, 0–3 s), so it no
-  longer flashes in and out at the edge of the gap.
-
-### Fixes
-
-- Gaps and intervals on the tower and Timing Screen no longer jump about
-  with iRacing's patchy position updates for other cars.
+- Apex Commentator is now an Apex Labs tool: a new app icon (taskbar, window,
+  shortcuts and installer, and the browser tab), and the Apex Labs logo on
+  the Home page, the update pop-up and the live timing website.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

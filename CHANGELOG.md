@@ -11,6 +11,14 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- Apex Commentator is now an Apex Labs tool: a new app icon (taskbar, window,
+  shortcuts and installer, and the browser tab), and the Apex Labs logo on
+  the Home page, the update pop-up and the live timing website.
+
 ## v0.7.2
 
 ### New features
