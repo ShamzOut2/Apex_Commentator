@@ -1640,6 +1640,18 @@ class App:
             print(f"[apex] replay data check: stopped ({self.replay_check.rows} rows in {self.replay_check.path})")
         return self._replay_data_state()
 
+    def cmd_replay_check_folder(self):
+        """Open the replay data check's folder in the file manager (on the PC the
+        app runs on), the latest file picked out."""
+        from .desktop import reveal
+        check = self.replay_check
+        check.folder.mkdir(parents=True, exist_ok=True)
+        latest = check.path if check.path and check.path.exists() else max(
+            check.folder.glob("replay-check-*.csv"), key=lambda p: p.stat().st_mtime, default=None)
+        if not reveal(latest or check.folder):
+            raise CommandError(f"Couldn't open the folder: {check.folder}")
+        return {"folder": str(check.folder)}
+
     def _hold_live(self, live, rows):
         """The standings while a replay is on screen during a race: the live
         race's, not the replay's. iRacing's car data (where each car is) is

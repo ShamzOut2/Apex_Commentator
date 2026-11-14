@@ -317,6 +317,7 @@ function renderReplayData(s) {
   btn.classList.toggle("on-air", !!rd.check.on);
   btn.dataset.on = rd.check.on ? "1" : "";
 }
+$("#replay-check-folder").addEventListener("click", () => cmd("replay_check_folder", {}, (r) => `Opened ${r.folder}`));
 $("#replay-car-data").addEventListener("change", (e) => cmd("replay_car_data", { mode: e.target.value }, "Replay data set"));
 $("#replay-check").addEventListener("click", async (e) => {
   const on = !e.currentTarget.dataset.on;

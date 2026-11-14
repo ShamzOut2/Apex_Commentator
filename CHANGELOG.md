@@ -11,6 +11,12 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- Replay bar: an Open folder button for the replay data check's files.
+
 ## v0.7.1
 
 ### New features

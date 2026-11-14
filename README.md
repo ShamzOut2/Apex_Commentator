@@ -56,15 +56,11 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.1**
+**Coming in the next update**
 
-### New features
+### Improvements
 
-- Replays: when iRacing's car data stays live during a replay (the app finds
-  out when a replay is paused mid-race, or set it on the replay bar), gaps,
-  intervals, places and the race log go on live during replays.
-- Record check (replay bar): what iRacing sends, once a second, saved to a
-  file, to see what stays live during a replay.
+- Replay bar: an Open folder button for the replay data check's files.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -258,7 +254,8 @@ shows something else. Camera hotkeys work in whichever window has focus.
   time, the replay speed, the car on camera, and for every car its place,
   class place, lap, laps done, lap distance, gap (F2Time), estimated time,
   last lap, pit road and track surface) goes into a CSV file in
-  `data/checks` (one row a second) until you stop it: the test for what
+  `data/checks` (in the installed app: `%APPDATA%\Apex Commentator\data\checks`;
+  **📂 Open folder** opens it, the latest file picked out) until you stop it: the test for what
   stays live during a replay (is SessionTime advancing, IsReplayPlaying
   true, are places and flags still changing, is the replay frame moving on?).
 - **Drivers who left**: a driver who leaves the session (gone from
