@@ -56,15 +56,28 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.1**
+**v0.7.2**
 
 ### New features
 
-- Replays: when iRacing's car data stays live during a replay (the app finds
-  out when a replay is paused mid-race, or set it on the replay bar), gaps,
-  intervals, places and the race log go on live during replays.
-- Record check (replay bar): what iRacing sends, once a second, saved to a
-  file, to see what stays live during a replay.
+- Font for every overlay and board (Widget Settings → All overlays & boards):
+  the 20 fonts from Apex Overlays, bundled, and Bahnschrift. The text is
+  sized to fit, so nothing changes size with the font.
+
+### Improvements
+
+- Update pop-up: a few versions behind, it shows every version's changes
+  since yours (and how many), even when GitHub's list of releases can't be
+  had just then.
+- Replay bar: an Open folder button for the replay data check's files.
+- On-track battle: a car joins or leaves the list once it's been within (or
+  outside) the gap for a moment (1.5 s to start with, 0–3 s), so it no
+  longer flashes in and out at the edge of the gap.
+
+### Fixes
+
+- Gaps and intervals on the tower and Timing Screen no longer jump about
+  with iRacing's patchy position updates for other cars.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -216,7 +229,11 @@ shows something else. Camera hotkeys work in whichever window has focus.
   when a class is picked), car number, driver and team, lap, gap to the
   leader (timed by the app: how long ago the leader was where the car is
   now, so it updates continuously, keeps step with the order and keeps
-  counting while a car is slow or stopped; "+1 L" for lapped cars), interval
+  counting while a car is slow or stopped; "+1 L" for lapped cars; iRacing
+  sends other cars' positions a few times a second and now and then puts
+  one back a few metres, so each car is carried on at its pace between them
+  and those little corrections are let be, and the gaps, intervals and the
+  order stay steady rather than jumping about with them), interval
   to the car ahead, last and best lap, pit stops, current stint (laps since
   the last stop, PIT on pit road), the car's manufacturer logo, flag
   (yellow, blue, white, chequered), penalties (black flag, DQ, meatball,
@@ -258,7 +275,8 @@ shows something else. Camera hotkeys work in whichever window has focus.
   time, the replay speed, the car on camera, and for every car its place,
   class place, lap, laps done, lap distance, gap (F2Time), estimated time,
   last lap, pit road and track surface) goes into a CSV file in
-  `data/checks` (one row a second) until you stop it: the test for what
+  `data/checks` (in the installed app: `%APPDATA%\Apex Commentator\data\checks`;
+  **📂 Open folder** opens it, the latest file picked out) until you stop it: the test for what
   stays live during a replay (is SessionTime advancing, IsReplayPlaying
   true, are places and flags still changing, is the replay frame moving on?).
 - **Drivers who left**: a driver who leaves the session (gone from
@@ -751,7 +769,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   name in the heading in a multiclass race) or every class (overall
   places). **Most cars ahead / behind** (2 each by default). **Each car's
   gap**: to the car ahead of it, or to the driver on camera (− ahead of
-  them, + behind). **Comes up by itself** (the default): while it's
+  them, + behind). **A car joins or leaves** once it's been within (or
+  outside) the gap for a moment (1.5 s by default, 0–3 s; 0: at once), so
+  one right at the edge of the gap doesn't flash in and out; a new driver on
+  camera starts afresh. **Comes up by itself** (the default): while it's
   switched on, it appears when someone's within the gap and goes when no one
   is (it stays a few seconds after, so it doesn't flicker). Untick it to show
   and hide it yourself.
@@ -931,6 +952,29 @@ images inside them). **.csv** files open in Excel or Google Sheets; round
 results and the roster can be edited there and imported back. Classes are
 matched by name, so a league with the same class names picks results up
 directly.
+
+## Font
+
+**Font** (Widget Settings → All overlays & boards → *Font*): the font every
+overlay and board uses (the grid walk too). *Standard* is the usual one
+(Segoe UI on Windows); the others are the fonts from Apex Overlays, bundled
+with the app (no download, the same on every PC): Barlow Condensed,
+Rajdhani, Oswald, Titillium Web, Chakra Petch, Saira Semi Condensed, Roboto
+Condensed, Exo 2, Inter, Montserrat, Teko, Kanit, Orbitron, Sora, Space
+Grotesk, Archivo Narrow, Big Shoulders Display, IBM Plex Sans Condensed,
+Fira Sans Condensed and Antonio; and Bahnschrift Condensed, which comes with
+Windows.
+
+Fonts come in different sizes and widths, so the text is sized to take the
+room the standard font's does: each font is measured (how wide typical
+overlay text is, how tall its letters are) and drawn bigger or smaller to
+match, the tighter of the two, with its lines spaced as the standard font's.
+Columns, rows, number chips, badges and the overlays and boards themselves
+keep their sizes; a wide font (Orbitron) is drawn smaller to fit, a small
+one (Teko) bigger. A very narrow font can't be made bigger than its letters'
+height allows, so with the tower's width on automatic it comes out a little
+narrower (set a width to keep it the same). Each widget's *Text size* still
+makes its text bigger or smaller on top.
 
 ## Size
 
@@ -1598,7 +1642,11 @@ GitHub releases. The **Updates** panel on the Home page shows:
 - **Check now**, **Install update** and **Release page** buttons.
 
 When a newer version is out, the control panel also pops up with its release
-notes:
+notes. A few versions behind, it shows every one of them since yours, newest
+first ("3 updates since your version"), from GitHub's list of releases, or,
+if that can't be had just then (GitHub limits how often it's asked), from
+the changelog that comes with the newest release; if neither can, the newest
+version's notes, and the app asks again within half an hour:
 
 - **Update now** installs the release and restarts the app. The Windows app
   runs the new installer silently, then reopens. A copy run from source

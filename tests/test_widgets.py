@@ -57,6 +57,32 @@ class DuelTests(unittest.TestCase):
         self.assertEqual((held["active"], [r["car_idx"] for r in held["rows"]]), (True, [1, 2]))
         self.assertFalse(self.duel(apart, 2, t=110.0)["active"])
 
+    def test_a_car_at_the_edge_of_the_gap_doesnt_flash_in_and_out(self):
+        # Car 3 on camera; car 4 hovers at the edge of the 1 s gap, in and out every half second.
+        def at(t, gap4):
+            return self.duel([entry(1, 1, None), entry(2, 2, 4.0), entry(3, 3, 6.0), entry(4, 4, gap4)], 3, t=t,
+                             gap_s=1.0, settle_s=1.5, auto=False)
+        self.assertEqual([r["car_idx"] for r in at(100.0, 8.0)["rows"]], [3])  # 2 s behind: not in it
+        listed = []
+        for k in range(8):  # 4 s: in, out, in, out… never for 1.5 s at a time
+            t = 100.5 + k * 0.5
+            listed.append(4 in [r["car_idx"] for r in at(t, 6.9 if k % 2 == 0 else 7.1)["rows"]])
+        self.assertEqual(listed, [False] * 8)
+        # Within it for good: in once it's been 1.5 s.
+        joined = [4 in [r["car_idx"] for r in at(105.0 + k * 0.5, 6.8)["rows"]] for k in range(5)]
+        self.assertEqual(joined, [False, False, False, True, True])
+        # Dropping back: out once it's been outside 1.5 s (a blip outside doesn't count).
+        self.assertIn(4, [r["car_idx"] for r in at(107.5, 7.4)["rows"]])
+        self.assertIn(4, [r["car_idx"] for r in at(108.0, 6.8)["rows"]])
+        gone = [4 in [r["car_idx"] for r in at(108.5 + k * 0.5, 7.6)["rows"]] for k in range(5)]
+        self.assertEqual(gone, [True, True, True, False, False])
+        # A new driver on camera: as it is, straight away.
+        self.assertEqual([r["car_idx"] for r in self.duel([entry(1, 1, None), entry(2, 2, 4.0), entry(3, 3, 6.0),
+                                                           entry(4, 4, 6.5)], 4, t=111.0)["rows"]], [3, 4])
+        # 0: at once, as before.
+        self.assertIn(4, [r["car_idx"] for r in self.duel([entry(1, 1, None), entry(2, 2, 4.0), entry(3, 3, 6.0),
+                                                           entry(4, 4, 6.5)], 3, t=111.5, settle_s=0)["rows"]])
+
     def test_its_class_or_overall(self):
         entries = [entry(1, 1, None, "a", 1), entry(2, 2, 0.3, "b", 1), entry(3, 3, 0.7, "a", 2)]
         d = self.duel(entries, 3)  # class a: 1 and 3, 0.7 s apart (car 2 of class b between them on track)

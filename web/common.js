@@ -727,7 +727,95 @@ function followSnapshots(onSnap) {
 
 // For every overlay and board (Widget Settings, General): decimal places of
 // gaps and intervals, and what overlays do while a board is up.
-let GENERAL = { race_decimals: 1, qual_decimals: 3, board_overlays: "stay", board_dim: 35, solid_colors: true };
+let GENERAL = { race_decimals: 1, qual_decimals: 3, board_overlays: "stay", board_dim: 35, solid_colors: true, font: "standard" };
+
+// The fonts for every overlay and board (General: Font): [name, CSS family, stretch].
+// The bundled ones are in web/fonts/overlay (SIL Open Font License), as in Apex Overlays.
+const STANDARD_FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+const FONTS = {
+  standard: ["Standard (Segoe UI)", STANDARD_FONT],
+  bahnschrift: ["Bahnschrift Condensed (Windows)", `"Bahnschrift", ${STANDARD_FONT}`, "condensed"],
+  "barlow-condensed": ["Barlow Condensed (condensed, sporty)", `"Barlow Condensed", ${STANDARD_FONT}`],
+  rajdhani: ["Rajdhani (square, technical)", `"Rajdhani", ${STANDARD_FONT}`],
+  oswald: ["Oswald (tall and bold)", `"Oswald", ${STANDARD_FONT}`],
+  "titillium-web": ["Titillium Web (wide and clean)", `"Titillium Web", ${STANDARD_FONT}`],
+  "chakra-petch": ["Chakra Petch (angular, futuristic)", `"Chakra Petch", ${STANDARD_FONT}`],
+  "saira-semi-condensed": ["Saira Semi Condensed (rounded racing)", `"Saira Semi Condensed", ${STANDARD_FONT}`],
+  "roboto-condensed": ["Roboto Condensed (neutral, very readable)", `"Roboto Condensed", ${STANDARD_FONT}`],
+  "exo-2": ["Exo 2 (modern geometric)", `"Exo 2", ${STANDARD_FONT}`],
+  inter: ["Inter (crisp, readable when small)", `"Inter", ${STANDARD_FONT}`],
+  montserrat: ["Montserrat (wide and confident)", `"Montserrat", ${STANDARD_FONT}`],
+  teko: ["Teko (very condensed, tall)", `"Teko", ${STANDARD_FONT}`],
+  kanit: ["Kanit (rounded, punchy)", `"Kanit", ${STANDARD_FONT}`],
+  orbitron: ["Orbitron (wide sci-fi display)", `"Orbitron", ${STANDARD_FONT}`],
+  sora: ["Sora (soft geometric)", `"Sora", ${STANDARD_FONT}`],
+  "space-grotesk": ["Space Grotesk (grotesk with character)", `"Space Grotesk", ${STANDARD_FONT}`],
+  "archivo-narrow": ["Archivo Narrow (narrow, neutral)", `"Archivo Narrow", ${STANDARD_FONT}`],
+  "big-shoulders-display": ["Big Shoulders Display (condensed industrial)", `"Big Shoulders Display", ${STANDARD_FONT}`],
+  "ibm-plex-sans-condensed": ["IBM Plex Sans Condensed (engineering feel)", `"IBM Plex Sans Condensed", ${STANDARD_FONT}`],
+  "fira-sans-condensed": ["Fira Sans Condensed (humanist, compact)", `"Fira Sans Condensed", ${STANDARD_FONT}`],
+  antonio: ["Antonio (tall scoreboard style)", `"Antonio", ${STANDARD_FONT}`],
+};
+
+// How much bigger or smaller a font's text is drawn so it takes the room the
+// standard font's does: the overlays and boards keep their sizes (columns,
+// rows, widths) whatever the font. Measured once each font has loaded: the
+// width of typical overlay text and how tall its letters are, the tighter of
+// the two (a wide font is made smaller to fit the columns; a small one bigger,
+// as far as its letters fit the rows). Its lines are spaced as the standard
+// font's (lineHeight), so a font with tall line spacing doesn't make rows
+// taller either. {size, line} ({1, null} until it's loaded).
+const fontFits = {};
+function fontFit(id) {
+  if (!FONTS[id] || id === "standard") return { size: 1, line: null };
+  if (fontFits[id] != null) return fontFits[id];
+  fontFits[id] = { size: 1, line: null };
+  const [, family, stretch] = FONTS[id];
+  const first = family.split(",")[0];
+  const loading = document.fonts && id !== "bahnschrift"
+    ? Promise.all([400, 600, 700, 800].map((w) => document.fonts.load(`${w} 40px ${first}`))) : Promise.resolve();
+  loading.then(() => { fontFits[id] = measureFit(family, stretch); }).catch(() => {});
+  return 1;
+}
+
+function measureFit(family, stretch) {
+  const c = document.createElement("canvas").getContext("2d");
+  const sample = "P12 Hamilton L. VERSTAPPEN Norris 1:23.456 +12.345 GAP INT LAP 14 / 30 Leader";
+  const size = (fam, st) => {
+    c.font = `${st === "condensed" ? "condensed " : ""}700 100px ${fam}`;
+    const m = c.measureText(sample);
+    const g = c.measureText("HQgjpy0189");  // capitals, digits and descenders: how tall the letters are
+    return { w: m.width, h: (g.actualBoundingBoxAscent || 0) + (g.actualBoundingBoxDescent || 0) || null,
+             line: ((m.fontBoundingBoxAscent || 0) + (m.fontBoundingBoxDescent || 0)) / 100 || null };
+  };
+  const std = size(STANDARD_FONT), mine = size(family, stretch);
+  if (!mine.w || !std.w) return { size: 1, line: null };
+  let k = std.w / mine.w;
+  if (std.h && mine.h) k = Math.min(k, std.h / mine.h);
+  k = Math.round(Math.min(1.5, Math.max(0.6, k)) * 1000) / 1000;
+  // The standard font's line spacing, as a multiple of this font's size (its text k times as big).
+  return { size: k, line: std.line ? Math.round((std.line / k) * 1000) / 1000 : null };
+}
+
+// The font picked (General: Font) on this page, its text sized to fit (--ff;
+// --fs, the text size the CSS uses, carries it too).
+function applyFont() {
+  const id = FONTS[GENERAL.font] ? GENERAL.font : "standard";
+  const [, family, stretch] = FONTS[id];
+  const style = document.body.style;
+  if (id === "standard") {
+    style.removeProperty("--font");
+    style.removeProperty("--font-stretch");
+  } else {
+    style.setProperty("--font", family);
+    style.setProperty("--font-stretch", stretch || "normal");
+  }
+  const fit = fontFit(id);
+  style.setProperty("--ff", String(fit.size));
+  if (fit.line) style.setProperty("--lh", String(fit.line));
+  else style.removeProperty("--lh");
+  return fit.size;
+}
 const PAGE = location.pathname.replace(/^.*\//, "").replace(/\.html$/, "");
 const FULL_SCREEN = new URLSearchParams(location.search).has("screen");
 const DIMMED_PAGES = ["standings", "laps", "driver", "pits", "battle", "sponsors", "duel", "trackmap"];
@@ -744,7 +832,11 @@ function pageLook(snap) {
   // The text size of this page's widget (font_scale, %): CSS sizes text by --fs.
   const own = PAGE === "board" ? (snap.board && snap.board.settings) || fontFrom : st[PAGE];
   if (own) fontFrom = own;
-  document.body.style.setProperty("--fs", String(((own && own.font_scale) || 100) / 100));
+  // --fs-user: the text size set alone (what rows grow with), --fs with the font's fit too.
+  const fit = applyFont();
+  const userFs = ((own && own.font_scale) || 100) / 100;
+  document.body.style.setProperty("--fs-user", String(userFs));
+  document.body.style.setProperty("--fs", String(userFs * fit));
   // An overlay while a full-screen board is up: as it is, dimmed or hidden
   // (the sponsors set to stay: always as they are).
   if (!DIMMED_PAGES.includes(PAGE) || FULL_SCREEN || document.body.classList.contains("preview")) return;

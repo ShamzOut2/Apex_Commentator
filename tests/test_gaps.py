@@ -82,6 +82,33 @@ class GapTimerTests(unittest.TestCase):
             timer.update(0, self.now + i * 0.1, {1: p[1] + i * 5.0 / TRACK_M, 2: stopped_at})
         self.assertAlmostEqual(timer.gap(2, 1, stopped_at, self.now + 5.0), 7.0, delta=0.05)
 
+    def test_steady_with_iracings_patchy_positions(self):
+        """iRacing sends other cars' positions every few frames (the same
+        distance again in between) and now and then puts one back a little:
+        the gap stays steady and right, not jumping with each."""
+        import random
+        rnd = random.Random(3)
+        timer = GapTimer()
+        timer.set_track(TRACK_M)
+        cars = {1: (300.0, 50.0), 2: (200.0, 50.0)}  # 2.0 s apart
+        shown, t, gaps, off = {}, 0.0, [], {}
+        for i in range(30 * 60):  # a minute at 30 frames a second
+            t = i / 30
+            true = {car: (m0 + v * t) / TRACK_M for car, (m0, v) in cars.items()}
+            for car, p in true.items():
+                if i % 3 == 0 or car not in shown:  # a new position every third frame
+                    # Now and then one a little behind (8 m), the next one right again.
+                    off[car] = not off.get(car) and rnd.random() < 0.15
+                    shown[car] = p - (8.0 / TRACK_M if off[car] else 0.0)
+            timer.update(0, t, dict(shown))
+            if t > 20:
+                gaps.append(timer.gap(2, 1, timer.position(2, shown[2], t), t))
+        self.assertTrue(all(abs(g - 2.0) < 0.1 for g in gaps), (min(gaps), max(gaps)))
+        self.assertLess(max(abs(a - b) for a, b in zip(gaps, gaps[1:])), 0.1)
+        # Put back a little doesn't count as being there again later: car 1 got to
+        # 1000 m at 14 s (the first time stands), so 2 s before 16 s.
+        self.assertAlmostEqual(timer.gap(2, 1, 1000.0 / TRACK_M, 16.0), 2.0, delta=0.05)
+
     def test_tows_and_sessions_start_afresh(self):
         timer = GapTimer()
         timer.set_track(TRACK_M)

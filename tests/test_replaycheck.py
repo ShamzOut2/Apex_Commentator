@@ -68,6 +68,24 @@ class CheckTests(unittest.TestCase):
             self.assertEqual((row["CarIdxPosition"], row["CarIdxOnPitRoad"]), ("[2, 1]", "[0, 1]"))  # cars 0 and 2
 
 
+class FolderTests(unittest.TestCase):
+    def test_open_the_folder_at_the_latest_file(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as data:
+            app = App(MockSource(seed=7, clock=FakeClock()), dict(DEFAULTS), LeagueStore(tmp))
+            app.replay_check = ReplayCheck(f"{data}/checks")
+            with mock.patch("apex.desktop.reveal", return_value=True) as reveal:
+                self.assertEqual(app.command("replay_check_folder", {}), {"folder": f"{data}/checks"})
+                self.assertEqual(str(reveal.call_args[0][0]), f"{data}/checks")  # nothing in it yet: the folder
+                path = app.replay_check.start()
+                app.replay_check.stop()
+                app.command("replay_check_folder", {})
+                self.assertEqual(reveal.call_args[0][0], path)  # the latest file, picked out
+            with mock.patch("apex.desktop.reveal", return_value=False):
+                with self.assertRaises(Exception):
+                    app.command("replay_check_folder", {})
+
+
 class LiveInReplayTests(unittest.TestCase):
     """iRacing's car data live during replays: the race timed live underneath
     (gaps, intervals, places), the same as without the replay."""

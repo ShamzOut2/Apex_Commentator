@@ -317,6 +317,7 @@ function renderReplayData(s) {
   btn.classList.toggle("on-air", !!rd.check.on);
   btn.dataset.on = rd.check.on ? "1" : "";
 }
+$("#replay-check-folder").addEventListener("click", () => cmd("replay_check_folder", {}, (r) => `Opened ${r.folder}`));
 $("#replay-car-data").addEventListener("change", (e) => cmd("replay_car_data", { mode: e.target.value }, "Replay data set"));
 $("#replay-check").addEventListener("click", async (e) => {
   const on = !e.currentTarget.dataset.on;
@@ -2870,6 +2871,10 @@ const OVERLAY_FIELDS = {
       ["race_decimals", "Decimal places: live race gaps and intervals (tower, timing screen, Timing tab)", "number", { min: 0, max: 3 }],
       ["qual_decimals", "Decimal places: qualifying, the lap tracker, the grid and results boards", "number", { min: 1, max: 3 }],
     ]],
+    ["Font", [
+      ["font", "The font every overlay and board uses (its text sized to fit the same room, so nothing changes size)", "select",
+        Object.entries(FONTS).map(([id, [name]]) => [id, name])],
+    ]],
     ["Colours", [
       ["solid_colors", "Class, team and accent colours stay as picked whatever a widget's opacity (untick: they fade with the panels)", "bool"],
     ]],
@@ -2947,6 +2952,7 @@ const OVERLAY_FIELDS = {
     ["What it shows", [
       ["auto", "Comes up by itself when someone's within the gap of the driver on camera, and goes when no one is (untick: show and hide it yourself)", "bool"],
       ["gap_s", "Cars within this many seconds of the driver on camera, ahead and behind", "number", { min: 0.1, max: 30, step: 0.1 }],
+      ["settle_s", "A car joins (or leaves) once it's been within (or outside) that gap this long (seconds; 0 = at once)", "number", { min: 0, max: 3, step: 0.5 }],
       ["scope", "Cars from", "select", [["class", "Their class only"], ["overall", "Every class (overall)"]]],
       iff((v) => v.auto, ["hold_s", "Stays up after the battle breaks up (seconds)", "number", { min: 0, max: 30, step: 0.5 }]),
       ["ahead", "Most cars ahead of the driver on camera", "number", { min: 0, max: 6, step: 1 }],
@@ -3649,7 +3655,7 @@ loadBackgrounds();
 // ``screen``: it has a full-screen version too.
 const WIDGETS = [
   { key: "general", name: "All overlays & boards", page: "standings", general: true,
-    about: "Settings for every overlay and board: how many decimal places gaps and intervals show, and what the overlays do while a full-screen board is up." },
+    about: "Settings for every overlay and board: the font, how many decimal places gaps and intervals show, colours, and what the overlays do while a full-screen board is up." },
   { key: "standings", name: "Timing tower", page: "standings", screen: true,
     about: "Race: running order and gap to the leader. Qualifying and practice: fastest clean lap. The full-screen version is a timing screen of its own, with every driver." },
   { key: "laps", name: "Lap tracker", page: "laps", screen: true,
@@ -5471,6 +5477,10 @@ function showUpdate(status, force = false) {
   if (!force && (update.dismissed || status.skipped)) return;
   $("#update-current").textContent = `v${status.current}`;
   $("#update-latest").textContent = `v${status.latest.version}`;
+  // Several versions behind: what's changed in each of them, newest first.
+  const behind = status.latest.behind || 0;
+  $("#update-behind").hidden = behind < 2;
+  $("#update-behind").textContent = behind > 1 ? `${behind} updates since your version: what's new in each, newest first.` : "";
   $("#update-notes").innerHTML = notesHtml(status.latest.notes || "");
   $("#update-hint").innerHTML = status.git_checkout
     ? "This copy is a git checkout: run <code>git pull</code> to update, then restart."

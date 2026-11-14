@@ -398,9 +398,10 @@ kbd {
 .modal h2 { margin: 0 0 6px; font-size: 20px; }
 .update-versions { margin: 0 0 12px; color: var(--muted); }
 .update-versions b { color: var(--text); }
+.update-behind { margin: -6px 0 10px; color: var(--muted); font-size: 13px; }
 .update-notes {
-  max-height: 360px; overflow: auto; font-size: 13px; line-height: 1.45;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px;
+  max-height: min(56vh, 520px); overflow: auto; font-size: 13px; line-height: 1.45;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px;
 }
 .update-notes:empty { display: none; }
 .update-notes h3.notes-ver { margin: 14px 0 4px; font-size: 15px; color: var(--accent); }

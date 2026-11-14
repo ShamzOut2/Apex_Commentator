@@ -247,6 +247,26 @@ class ServerTests(unittest.TestCase):
         except urllib.error.HTTPError as e:
             return e.code, json.load(e)
 
+    def test_the_overlay_fonts_are_served(self):
+        """Every font the font setting offers is bundled, and served as a font."""
+        import re
+        from apex.overlays import FONTS, normalise
+        from apex.paths import WEB_DIR
+        css = (WEB_DIR / "fonts" / "overlay" / "fonts.css").read_text()
+        files = re.findall(r"url\('([^']+)'\)", css)
+        self.assertTrue(files)
+        self.assertTrue(all((WEB_DIR / "fonts" / "overlay" / f).is_file() for f in files))
+        families = set(re.findall(r"font-family: '([^']+)'", css))
+        bundled = {f for f in FONTS if f not in ("standard", "bahnschrift")}
+        self.assertEqual(len(families), len(bundled))
+        common = (WEB_DIR / "common.js").read_text()
+        for font in FONTS:  # each with its name and family in the overlays' list
+            self.assertIn(f'"{font}"' if "-" in font else f"{font}:", common)
+        with urllib.request.urlopen(f"{self.base}/fonts/overlay/{files[0]}", timeout=5) as r:
+            self.assertEqual(r.headers["Content-Type"], "font/woff2")
+        self.assertEqual(normalise({"general": {"font": "teko"}})["general"]["font"], "teko")
+        self.assertEqual(normalise({"general": {"font": "Comic Sans"}})["general"]["font"], "standard")
+
     def test_the_whole_race_log_by_request(self):
         """The snapshot has the newest of the race log; the whole of it on request."""
         with self.app._lock:

@@ -37,7 +37,8 @@ from .updater import UpdateError, request_restart
 
 MAX_BODY = 2 * 1024 * 1024
 # Explicit types: the Windows registry sometimes maps .js to text/plain.
-CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml"}
+CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml",
+                 ".woff2": "font/woff2"}
 
 
 class Handler(BaseHTTPRequestHandler):

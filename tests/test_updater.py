@@ -26,8 +26,9 @@ def archive(version, extra=None, top="ShamzOut2-Apex_Commentator-abc123"):
 class FakeGitHub:
     """Stands in for urllib.request.urlopen."""
 
-    def __init__(self, release=None, tags=(), zip_bytes=b"", fail=None, releases=None):
+    def __init__(self, release=None, tags=(), zip_bytes=b"", fail=None, releases=None, changelog=None):
         self.release, self.tags, self.zip_bytes, self.fail = release, list(tags), zip_bytes, fail
+        self.changelog = changelog  # CHANGELOG.md at the release's tag (None: not there)
         self.releases = releases if releases is not None else ([release] if release else [])
         self.requests = []
 
@@ -44,6 +45,10 @@ class FakeGitHub:
             return io.BytesIO(json.dumps(self.releases).encode())
         if "/tags" in url:
             return io.BytesIO(json.dumps([{"name": t} for t in self.tags]).encode())
+        if url.startswith("https://raw.githubusercontent.com/") and url.endswith("/CHANGELOG.md"):
+            if self.changelog is None:
+                raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+            return io.BytesIO(self.changelog.encode())
         if "zipball" in url or url.endswith(".exe"):
             return io.BytesIO(self.zip_bytes)
         raise AssertionError(url)
@@ -129,6 +134,27 @@ class UpdaterTests(unittest.TestCase):
                     dict(RELEASE, tag_name="v0.1.0", body="- already have this")]
         s = self.updater(FakeGitHub(release=releases[0], releases=releases)).check()
         self.assertEqual(s["latest"]["notes"], "## v0.3.0\n\n### Fixes\n\n- C\n\n## v0.2.0\n\n### New features\n\n- B")
+        self.assertEqual(s["latest"]["behind"], 2)  # two versions since this one (0.1.0)
+
+    def test_skipped_versions_notes_from_the_changelog_if_the_release_list_fails(self):
+        """GitHub's list of releases not to be had (rate-limited, say): every
+        skipped version's notes from the changelog in the newest release."""
+        changelog = ("# Changelog\n\nIntro.\n\n## Unreleased\n\n- not out yet\n\n## v0.3.0\n\n### Fixes\n\n- C\n\n"
+                     "## v0.2.0\n\n### New features\n\n- B\n\n## v0.1.0\n\n- already have this\n")
+        gh = FakeGitHub(release=dict(RELEASE, tag_name="v0.3.0", body="### Fixes\n\n- C"), changelog=changelog)
+        real = gh.__call__
+
+        def no_list(req, timeout=None):
+            if "/releases?" in req.full_url:
+                raise urllib.error.HTTPError(req.full_url, 403, "rate limit exceeded", {}, None)
+            return real(req, timeout)
+
+        u = self.updater(no_list)
+        s = u.check()
+        self.assertEqual(s["latest"]["notes"], "## v0.3.0\n\n### Fixes\n\n- C\n\n## v0.2.0\n\n### New features\n\n- B")
+        self.assertEqual(s["latest"]["behind"], 2)
+        self.assertTrue(u.notes_complete)
+        self.assertTrue(any("/v0.3.0/CHANGELOG.md" in r for r in gh.requests))  # the release's own changelog
 
     def test_notes_still_shown_if_the_release_list_fails(self):
         gh = FakeGitHub(release=RELEASE)
@@ -140,7 +166,9 @@ class UpdaterTests(unittest.TestCase):
                 raise urllib.error.URLError("hiccup")
             return real(req, timeout)
 
-        self.assertEqual(self.updater(flaky).check()["latest"]["notes"], "- New stuff")
+        u = self.updater(flaky)
+        self.assertEqual(u.check()["latest"]["notes"], "- New stuff")  # no changelog either: the newest one's notes
+        self.assertFalse(u.notes_complete)  # tried again sooner
 
     def test_same_or_older_is_not_offered(self):
         self.assertFalse(self.updater(FakeGitHub(release=dict(RELEASE, tag_name="v0.1.0"))).check()["available"])
