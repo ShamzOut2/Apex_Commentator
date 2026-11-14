@@ -15,6 +15,7 @@ from . import __version__, desktop
 from .config import ROOT, load_config
 from .backgrounds import Backgrounds
 from .overlays import OverlaySettings
+from .replaycheck import ReplayCheck
 from .settings import UserSettings
 from .tracks import TrackCatalogue
 from .trackmaps import TrackMaps
@@ -55,6 +56,7 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
     app = App(source, cfg, LeagueStore(cfg["leagues_dir"]))
     app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
     app.settings = UserSettings(ROOT / "data" / "settings.json")
+    app.replay_check = ReplayCheck(ROOT / "data" / "checks")      # the replay data check's files
     app.trackmaps = TrackMaps(ROOT / "data" / "trackmaps")  # the spectators' track map
     app.bin_dir = ROOT / "data" / "bin"                      # cloudflared, for the spectators' public link
     app.load_gridwalk_settings()

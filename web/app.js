@@ -300,7 +300,29 @@ function render() {
   renderCamButtons(s.camera);
   renderStandings(s);
   renderLog(s);
+  renderReplayData(s);
 }
+
+// What iRacing sends for the cars during a replay (set, or found by the app),
+// and the replay data check (a file, a row a second).
+function renderReplayData(s) {
+  const rd = s.replay_data;
+  if (!rd) return;
+  const sel = $("#replay-car-data");
+  if (document.activeElement !== sel && sel.value !== rd.mode) sel.value = rd.mode;
+  const found = { live: "live during replays", replay: "the replay's: timed at the line" }[rd.found];
+  $("#replay-found").textContent = rd.mode === "auto" ? (found ? `found: ${found}` : "not known yet: pause a replay mid-race") : "";
+  const btn = $("#replay-check");
+  btn.textContent = rd.check.on ? `■ Stop check (${rd.check.rows} s)` : "● Record check";
+  btn.classList.toggle("on-air", !!rd.check.on);
+  btn.dataset.on = rd.check.on ? "1" : "";
+}
+$("#replay-car-data").addEventListener("change", (e) => cmd("replay_car_data", { mode: e.target.value }, "Replay data set"));
+$("#replay-check").addEventListener("click", async (e) => {
+  const on = !e.currentTarget.dataset.on;
+  const r = await cmd("replay_check", { on });
+  if (r && r.check) toast(on ? `Recording the replay data check: ${r.check.file}` : `Replay data check saved: ${r.check.file} (${r.check.rows} rows)`);
+});
 
 // -- pages ----------------------------------------------------------------------
 
