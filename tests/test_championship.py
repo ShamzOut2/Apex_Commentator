@@ -560,6 +560,16 @@ class TeamAndMakeDropTests(unittest.TestCase):
         self.assertEqual(sum(d["points"] for d in teams["Red"]["drivers"]), 30)
         makes = {m["make"]: m["points"] for m in ch.make_standings(profile, "gt3")}
         self.assertEqual(makes, {"Ferrari": 30, "BMW": 25})
+        # The teams counting every round, the drop rounds for the drivers only.
+        profile["championship"]["rules"]["team_drops"] = False
+        table = ch.standings(profile)
+        teams = {t["team"]: t for t in table["teams"]}
+        self.assertEqual((teams["Red"]["points"], teams["Blue"]["points"]), (37, 32))
+        self.assertEqual([r["dropped"] for r in teams["Red"]["rounds"]], [False] * 3)
+        self.assertEqual(sum(d["points"] for d in teams["Red"]["drivers"]), 37)
+        d1 = next(d for g in table["groups"] for d in g["drivers"] if d["driver"] == "cust:1")
+        self.assertEqual(d1["points"], 20)  # 10 + 4 + 10, the 4 dropped
+        del profile["championship"]["rules"]["team_drops"]
         # No drop rounds: everything counts.
         profile["championship"]["rules"]["drop_rounds"] = 0
         self.assertEqual({m["make"]: m["points"] for m in ch.make_standings(profile, "gt3")}, {"Ferrari": 37, "BMW": 32})

@@ -77,6 +77,7 @@ DEFAULT_RULES = {
     "dnf_scores": True,         # a DNF still scores the points for where it was classified
     "team_best": 0,             # team championship: best N drivers per team per round (0 = all, added together)
     "team_meetings": False,     # a race meeting's races as one: the best N over the meeting (their points added up)
+    "team_drops": True,         # the drop rounds apply to the teams too (off: every round counts for them)
     "team_points": "overall",   # "both": teams score their drivers' "overall" or "class" points
 }
 
@@ -148,6 +149,7 @@ def normalise_rules(rules):
         "dnf_scores": bool(rules.get("dnf_scores", True)),
         "team_best": _num(rules.get("team_best"), 0, lo=0, hi=20, cast=int),
         "team_meetings": bool(rules.get("team_meetings")),
+        "team_drops": bool(rules.get("team_drops", True)),
         "team_points": "class" if rules.get("team_points") == "class" else "overall",
     }
 
@@ -684,10 +686,11 @@ def _team_standings(profile, scored, per_round, rules, penalties):
                 for total, driver in got:
                     m = by_round.setdefault(team, {}).setdefault(rd["id"], {})
                     m[driver] = m.get(driver, 0) + total
-    # Drop rounds: a team's worst rounds don't count (nor what its drivers scored in them).
+    # Drop rounds: a team's worst rounds don't count (nor what its drivers scored
+    # in them), unless the teams count every round (team_drops off).
     totals, members, dropped = {}, {}, {}
     for team, per in rounds.items():
-        dropped[team] = _dropped(scored, per, rules)
+        dropped[team] = _dropped(scored, per, rules) if rules["team_drops"] else set()
         totals[team] = sum(p for rid, p in per.items() if rid not in dropped[team])
         for rid, scores in by_round.get(team, {}).items():
             if rid in dropped[team]:

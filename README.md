@@ -56,34 +56,24 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.6.9**
+**Coming in the next update**
 
 ### New features
 
-- Car manufacturer logos: a Car column on the timing tower, the full-screen
-  standings and the Timing Screen.
-- Current stint: a Stint column with the laps each car has done since it
-  last pitted (PIT while on pit road).
-- Hotkeys to show or hide each timing tower and standings column.
-- Starting grid: a "Current positions" grid source, for the order the cars
-  are lined up in on the grid.
-- Sponsors: the pinned logo can sit on the right instead of the left.
-- Several fastest laps close together: show them side by side, or one after
-  another, instead of the newest cutting off the last.
-- Colours: class, group and accent colours stay solid on see-through panels
-  (General settings, on by default).
+- Timing Screen: a pill at the top or bottom of the list when a battle is
+  scrolled out of sight; click it to go there.
+- Timing Screen: 1 list or 2 lists side by side, to fit a big field on one
+  page.
+- Team championship: drop rounds can apply to the drivers only, with every
+  round counting for the teams.
 
 ### Fixes
 
-- The race log now keeps every incident of the whole event, not just the
-  last 300.
-- Pit stop counts: leaving the pit stalls for the grid, and stops from an
-  earlier session, no longer count.
-- Timing tower extra drivers: the last set shows only the drivers left, with
-  blank rows, instead of wrapping back round (P14 above P4).
-- Gaps no longer jump about after watching replays during a race.
-- The driver on camera board changes with the camera straight away, instead
-  of about two seconds after the cut.
+- Starting grid: the grid iRacing lines a race up on (a reverse grid
+  included) once it has, with nothing to set; before that, worked out as
+  before.
+- A race meeting's races show only their round's own name, never with
+  "Heat 1" added, and keep it after the race.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -245,6 +235,13 @@ shows something else. Camera hotkeys work in whichever window has focus.
 - **Battles**: a driver within the battle gap of the car ahead (0.15 s by
   default) has their interval cell lit up, steadily, in the colour you pick
   (just that cell, not the whole line), not the car they're closing on. Both settings sit above the standings.
+  A battle scrolled out of sight (a big field) puts a pill in that colour at
+  the top or bottom edge of the list, "▼ 2 battles below · P23" (the nearest
+  one's place): click it to scroll to it.
+- **1 list / 2 lists** (above the standings, kept for this PC): the field in
+  one list, or in two side by side (the first half on the left), so a big
+  field fits on one page. Two lists leave out Last, Best and Pit, and the
+  team and nickname under the name, to fit.
 - **Names**: the name style in the list (full name, D. Price, Price D., last
   name), and **Nicknames** by the names on or off. Next to the battle
   settings, kept for this PC.
@@ -651,11 +648,13 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     name*, *Consolation race name* and *Feature race name* replace iRacing's
     names for those (several heats keep their number: "Qualifying Heat 2").
     On the day of a heat event, each race takes the name of the league's
-    round for it instead, exactly as it's named in the Championship tab: the
+    round for it instead, exactly as it's named in the Championship tab and
+    nothing else (no "Heat 1" or "Feature" added), and keeps it for the rest
+    of the event, after the race too: the
     rounds dated today (Championship → Calendar & results) go with the
     races in order. iRacing splits a big field into more heats (and can add
     a consolation): with fewer rounds than races, every heat goes with the
-    first round ("Race 1 · Heat 2"), the feature always with the meeting's
+    first round (each heat named as it is), the feature always with the meeting's
     last round, and a consolation the one between, if there is one; a round
     named "Heat", "Consolation" or "Feature" goes with that race. Which race
     went with which round is written in `apex.log` as the event comes in.
@@ -1097,20 +1096,29 @@ built from the active league:
 - **Starting grid**: the grid for a race of the event (the race on now, else
   the next one; or any race you pick), worked out from the session before
   anyone has loaded in, Overall or a class. *The grid from*:
-  **Automatic** (as it starts): the first race (and every heat) from
+  **Automatic** (as it starts): **iRacing's own grid**, once iRacing has
+  lined the race up: from the race's session starting (the cars sitting on
+  the grid in the countdown), exactly as iRacing set it, a reverse grid
+  included, so there's nothing to set (no *Reverse grid* on top). The app
+  takes the race's results list if iRacing has filled it in, else iRacing's
+  running order once it agrees with where the cars sit on the grid, else
+  the cars in the order they're lined up, nose to tail; at the green it's
+  kept as it was, and written in `apex.log` (car numbers, pole first).
+  Before iRacing has lined the race up (the board shown during the race
+  before, say), it's worked out: the first race (and every heat) from
   qualifying, and every race after it from the finishing order of the race
   before: a heat meeting's consolation from the heat before it and its
   feature from the consolation, a two-race round's second race from the
   first. A meeting's race run as an iRacing event of its own takes the
-  race before's finish from the results saved to the league. With no
-  qualifying in the event, the race about to start uses the grid iRacing has
-  lined up. It's right for each race without changing it; or qualifying, the previous
-  race's finish, **current positions** (the order the cars are in right
-  now, e.g. lined up on the grid in the countdown, with no reverse added
-  on top), or the grid walk's order (fix it by hand on the Grid walk
-  tab) whenever it isn't. Its title is the race's name as the tower's header
+  race before's finish from the results saved to the league. On iRacing's
+  grid after a race, *Finished* shows where each driver finished it.
+  Or qualifying, the previous race's finish, **iRacing's grid** (as
+  Automatic once it's lined up; before that, the order iRacing has the cars
+  in now), or the grid walk's order (fix it by hand on the Grid walk
+  tab). Its title is the race's name as the tower's header
   gives it (the round's name, or the names set for heats, the consolation
-  and the feature). **Reverse grid**: the first N turned round (0 = none),
+  and the feature). **Reverse grid** (on a grid the app works out, not on
+  iRacing's): the first N turned round (0 = none),
   overall or the first N of each class: e.g. a final race with the top 8
   reversed. A race meeting's race can set its own (its *Reverse grid* box in
   the rounds), which the board follows for that race. *Layout*: a list, or as the cars line up (two staggered
@@ -1246,7 +1254,10 @@ standings update from what's saved.
     one** (tick it): each driver's points over the meeting (heats, a sprint
     and a feature…) are added up and the team's best N over the whole meeting
     count. With *Both*, teams count their drivers' overall points, or class
-    points if you choose. Secondary classes never count for teams.
+    points if you choose. Secondary classes never count for teams. With
+    drop rounds set, a team's worst rounds drop too, unless you untick
+    **Teams: drop rounds apply to the teams too**: then every round counts
+    for the teams, and the drop rounds are the drivers' only.
   - **A driver changing team mid-season**: each race result keeps the team
     the driver raced for (saved with the results, from the roster at the
     time). Change their team (League builder or Teams) after they've raced

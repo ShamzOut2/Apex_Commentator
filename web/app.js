@@ -53,7 +53,7 @@ const ui = {
 const SETTINGS_KEY = "apex.timing";
 const settings = Object.assign(
   { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null, actionKeys: {},
-    nameFormat: "full", showNick: true, keepLeft: true, logHidden: [] },
+    nameFormat: "full", showNick: true, keepLeft: true, logHidden: [], timingCols: 1 },
   (() => {
     try {
       return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
@@ -273,7 +273,9 @@ function render() {
     $("#replay-badge").textContent = "—";
     $("#replay-badge").className = "badge";
     $("#standings-rows").innerHTML = "";
+    secondList().innerHTML = "";
     rowEls.clear();
+    updateBattleHints();
     $("#standings-empty").hidden = false;
     $("#log-status").textContent = "";
     return;
@@ -594,9 +596,8 @@ function renderStandings(s) {
       [flag],
       [(r.penalties || []).map((p) => `<span class="pen">⚑ ${esc(p)}</span>`).join(" ")],
       [r.incidents == null ? "" : r.incidents + "x"],
-    ], { "data-car": String(r.car_idx), title: `Click to watch ${r.name}` });
+    ], { "data-car": String(r.car_idx), "data-pos": String(r.pos ?? ""), title: `Click to watch ${r.name}` });
   });
-  const body = $("#standings-rows");
   const keep = new Set(ordered);
   for (const [key, tr] of rowEls) {
     if (!keep.has(tr)) {
@@ -604,13 +605,88 @@ function renderStandings(s) {
       rowEls.delete(key);
     }
   }
+  // One list, or two side by side: the first half of the field on the left.
+  const half = settings.timingCols === 2 ? Math.ceil(ordered.length / 2) : ordered.length;
+  const lists = [[$("#standings-rows"), ordered.slice(0, half)], [secondList(), ordered.slice(half)]];
   // Drivers changing places slide past each other.
-  flipRows(body, "tr[data-car]", () => {
-    ordered.forEach((tr, i) => {
-      if (body.children[i] !== tr) body.insertBefore(tr, body.children[i] || null);
-    });
+  flipRows($("#std-lists"), "tr[data-car]", () => {
+    for (const [body, rows] of lists) {
+      rows.forEach((tr, i) => {
+        if (body.children[i] !== tr) body.insertBefore(tr, body.children[i] || null);
+      });
+    }
   }, 350, (el) => el.dataset.car);
+  updateBattleHints();
 }
+
+// The second list (two lists side by side): the same headings, the second half
+// of the field. Made the first time it's wanted.
+function secondList() {
+  let body = document.getElementById("standings-rows-2");
+  if (!body) {
+    const first = $("#standings-table");
+    const table = document.createElement("table");
+    table.className = `${first.className} std-second`;
+    table.appendChild(first.tHead.cloneNode(true));
+    body = table.appendChild(document.createElement("tbody"));
+    body.id = "standings-rows-2";
+    $("#std-lists").appendChild(table);
+  }
+  return body;
+}
+
+// A battle (a driver within the battle gap of the car ahead) scrolled out of
+// sight: a pill at the top or bottom of the list says so (the nearest one's
+// place, and how many); click it to go there.
+function updateBattleHints() {
+  const box = $("#standings-scroll");
+  const view = box.getBoundingClientRect();
+  const head = ($("#standings-table").tHead || {}).offsetHeight || 0;
+  const above = [], below = [];
+  for (const tr of box.querySelectorAll("tr.battle")) {
+    const at = tr.getBoundingClientRect();
+    if (at.bottom <= view.top + head + 4) above.push(tr);
+    else if (at.top >= view.bottom - 4) below.push(tr);
+  }
+  hint($("#battle-up"), above[above.length - 1], above.length, "▲", "above");
+  hint($("#battle-down"), below[0], below.length, "▼", "below");
+}
+
+function hint(el, nearest, count, arrow, where) {
+  el.hidden = !count;
+  if (!count) return;
+  const pos = nearest.dataset.pos ? ` · P${nearest.dataset.pos}` : "";
+  const text = `${arrow} ${count === 1 ? "Battle" : `${count} battles`} ${where}${pos}`;
+  if (el.textContent !== text) el.textContent = text;
+  el.dataset.car = nearest.dataset.car;
+}
+
+$("#standings-scroll").addEventListener("scroll", updateBattleHints, { passive: true });
+window.addEventListener("resize", updateBattleHints);
+for (const id of ["#battle-up", "#battle-down"]) {
+  $(id).addEventListener("click", (e) => {
+    e.stopPropagation();
+    const tr = rowEls.get(`d${e.currentTarget.dataset.car}`);
+    if (tr) tr.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+}
+
+// One list or two side by side (kept for this PC).
+function applyTimingCols() {
+  const dual = settings.timingCols === 2;
+  $(".standings-pane").classList.toggle("two-lists", dual);
+  $(".timing-body").classList.toggle("two-lists", dual);
+  document.querySelectorAll("#timing-cols [data-cols]").forEach((b) => b.classList.toggle("active", +b.dataset.cols === (dual ? 2 : 1)));
+}
+$("#timing-cols").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-cols]");
+  if (!b) return;
+  settings.timingCols = +b.dataset.cols === 2 ? 2 : 1;
+  saveSettings();
+  applyTimingCols();
+  if (ui.snap && ui.snap.connected) renderStandings(ui.snap);
+});
+applyTimingCols();
 
 // -- race log -------------------------------------------------------------------
 
@@ -801,7 +877,7 @@ function renderGridwalk(s) {
     "current positions": "Grid order from the cars' current positions (as iRacing has them lined up).",
     "car number": "No qualifying results yet: ordered by car number.", manual: "Grid order set by hand.",
     "previous race": "Grid order from the race before's finish, as the starting grid board (reversed as set there).",
-    "iRacing's grid": "Grid order: iRacing's grid for the race (no qualifying).",
+    "iRacing's grid": "Grid order: the grid iRacing has lined the race up on (reverse grids included).",
   };
   $("#gw-source").textContent = entries.length ? sources[g.source] || "" : "";
   $("#gw-reset-order").hidden = !g.manual_order;
@@ -958,7 +1034,7 @@ document.addEventListener("click", (e) => {
   }
 
   // Standings: click a driver to put the camera on them.
-  const row = e.target.closest("#standings-rows tr[data-car]");
+  const row = e.target.closest("#standings-rows tr[data-car], #standings-rows-2 tr[data-car]");
   if (row) return cmd("watch", { car_idx: +row.dataset.car });
 
   const btn = e.target.closest("button[data-cmd]");
@@ -1968,6 +2044,7 @@ function renderChampRules() {
     ${r.team_best ? `<label class="ov-field">How many of its drivers count (the best N)
       <input type="number" min="1" max="20" data-rule="team_best" value="${r.team_best}"></label>` : ""}
     <label class="ov-field check" title="A race meeting (heats, a sprint and a feature…) counts as one for the teams: each driver's points over the meeting added up, and the team's best N over the meeting count"><input type="checkbox" data-rule="team_meetings" ${r.team_meetings ? "checked" : ""}> Teams: a race meeting counts as one (the best N over the whole meeting)</label>
+    ${r.drop_rounds > 0 ? `<label class="ov-field check" title="Off: every round counts for the teams, the drop rounds only for the drivers"><input type="checkbox" data-rule="team_drops" ${r.team_drops !== false ? "checked" : ""}> Teams: drop rounds apply to the teams too (untick: every round counts for them)</label>` : ""}
     ${r.scoring === "both" ? `<label class="ov-field">Team championship counts its drivers'
       <select data-rule="team_points">${[["overall", "Overall points"], ["class", "Class points"]].map(([v, l]) =>
         `<option value="${v}" ${(r.team_points || "overall") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
@@ -2017,7 +2094,7 @@ function champChange(e, final) {
       }
     }
     else r[d.rule] = el.type === "number" ? +el.value : el.value;
-    if (d.rule === "scoring" && final) rerender = true;
+    if ((d.rule === "scoring" || d.rule === "drop_rounds") && final) rerender = true;  // drop rounds: the teams' box comes and goes
   } else if (d.teamCount != null) {
     // All the team's drivers (team_best 0), or its best N (2 to start with).
     if (!final) return;
@@ -3366,11 +3443,11 @@ const BOARD_FIELDS = {
     ["show_interval", "Interval to the car ahead", "bool"], ["show_laps", "Laps", "bool"],
     ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
       ["car", "Car badge"], ["laps", "Laps"], ["best", "Best lap"], ["gap", "Gap"], ["interval", "Interval"]])],
-  board_grid: [["grid_source", "The grid from", "select", [["auto", "Automatic (heats from qualifying, the consolation from the heat before it, the feature from the consolation)"],
+  board_grid: [["grid_source", "The grid from", "select", [["auto", "Automatic: iRacing's own grid once it has lined the race up (reverse grids included); before that, heats from qualifying, every race after from the race before's finish"],
       ["qualifying", "Qualifying (its order)"], ["previous", "The previous race's finish"],
       ["gridwalk", "The grid walk's order (as set by hand on the Grid walk tab)"],
-      ["current", "Current positions: the order iRacing has the cars in now (on the grid, before the green: its grid as lined up; no reverse on top)"]]],
-    ["reverse_top", "Reverse grid: the first N turned round (0 = none; a race meeting's round can set its own)", "number", { min: 0, max: 64 }],
+      ["current", "iRacing's grid: as it has lined the race up (else the order it has the cars in now)"]]],
+    ["reverse_top", "Reverse grid: the first N turned round (0 = none; a race meeting's round can set its own). Not on iRacing's own grid: that's reversed already, if the race is", "number", { min: 0, max: 64 }],
     iff((v) => v.reverse_top > 0, ["reverse_in_class", "Reverse the first N of each class (not overall)", "bool"]),
     ["grid_layout", "Layout", "select", [["list", "A list"], ["grid", "As the cars line up (two staggered columns)"]]],
     ["grid_reveal", "Show the drivers", "select", [["all", "All at once (each comes in in turn)"],

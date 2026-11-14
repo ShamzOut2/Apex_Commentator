@@ -610,13 +610,23 @@ class GridBoardTests(unittest.TestCase):
         league = self.app.leagues.active()
         sessions = self.app._session_meta["sessions"]
         titles = [self.app._race_title(league, n, sessions[n]) for n in (1, 2, 3, 4)]
-        self.assertEqual(titles, ["Sprint · Heat 1", "Sprint · Heat 2", "Redemption", "Grand Final"])
+        # Only the round's own name: never iRacing's "Heat 1" added, two heats sharing R1 included.
+        self.assertEqual(titles, ["Sprint", "Sprint", "Redemption", "Grand Final"])
         # A 2-race heat: the consolation (if iRacing adds one) keeps a name of its own; the feature is R2.
         rounds = [dict(r, format="heat2") for r in rounds[:2]]
         self.app.leagues.save(dict(league, championship={"rounds": rounds}))
         league = self.app.leagues.active()
         titles = [self.app._race_title(league, n, sessions[n]) for n in (1, 3, 4)]
-        self.assertEqual(titles, ["Sprint · Heat 1", "Consolation", "Redemption"])
+        self.assertEqual(titles, ["Sprint", "Consolation", "Redemption"])
+        # Once named, a race keeps its round's name for the event: it doesn't go back
+        # to iRacing's "Heat 1" when it no longer matches a round (its race over, say)...
+        from unittest import mock
+        with mock.patch.object(self.app, "_meeting", lambda lg: {}):
+            self.assertEqual(self.app._race_title(league, 1, sessions[1]), "Sprint")
+        self.assertEqual(self.app._race_title(None, 1, sessions[1]), "Heat 1")  # no league: iRacing's
+        # ...but not once the round's gone.
+        self.app.leagues.save(dict(league, championship={"rounds": []}))
+        self.assertEqual(self.app._race_title(self.app.leagues.active(), 1, sessions[1]), "Heat 1")
 
     def test_a_second_heat_sharing_r1_counts_nowhere_else(self):
         """Two heats sharing R1 (iRacing split the field): once heat 1's
@@ -703,6 +713,76 @@ class GridBoardTests(unittest.TestCase):
         listed = [r["number"] for r in sorted(snap["drivers"], key=lambda r: r["pos"]) if not r["hidden"]]
         self.assertEqual(listed[:len(grid)], grid)
         self.assertEqual([r["start_pos"] for r in sorted(snap["drivers"], key=lambda r: r["pos"])][:5], [1, 2, 3, 4, 5])
+
+    def lined_up(self, state, order, positions=None, results=None, live=True, before=0):
+        """The race on now as iRacing lines it up: ``order`` (car_idx, pole first)
+        sitting on the grid across the start line, ``positions`` iRacing's running
+        order (CarIdxPosition: car_idx in order), ``before`` cars not out yet."""
+        from dataclasses import replace
+
+        from apex.sources import TRK_IN_PIT_STALL, TRK_ON_TRACK
+
+        frame = self.app._frame
+        n = max(len(frame.pct), max(self.app._drivers) + 1)
+        pct, surface, on_pit, pos = [0.5] * n, [TRK_IN_PIT_STALL] * n, [True] * n, [0] * n
+        for k, idx in enumerate(order):  # nose to tail, 1% of a lap apart, the front three past the line
+            pct[idx], surface[idx], on_pit[idx] = (0.025 - 0.01 * k) % 1.0, TRK_ON_TRACK, False
+        for k, idx in enumerate(positions or []):
+            pos[idx] = k + 1
+        if results is not None:
+            self.app._session_meta["sessions"][frame.session_num]["ResultsPositions"] = [
+                {"Position": k + 1, "CarIdx": idx} for k, idx in enumerate(results)]
+        frame = replace(frame, session_state=state, pct=pct, surface=surface, on_pit=on_pit, position=pos,
+                        replay_frames_from_end=0 if live else 5000)
+        with self.app._lock:
+            self.app._frame = frame
+            self.app._watch_grid(frame)
+
+    def test_the_grid_iracing_lined_the_race_up_on(self):
+        STATE_GET_IN_CAR, STATE_PARADE, STATE_RACING = 1, 3, 4
+        num = self.app._frame.session_num
+        self.app._session_meta["sessions"][num].pop("ResultsPositions", None)
+        cars = sorted(self.app._drivers)
+        number = lambda idx: self.app._drivers[idx]["number"]  # noqa: E731
+        # A reverse grid iRacing set, its order unlike qualifying's.
+        grid = cars[::-1][:8]
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 4}})
+
+        def board():
+            self.app.command("board_show", {"kind": "grid", "group": "", "round": f"session:{num}"})
+            b = self.app.build_snapshot()["board"]
+            return [r["number"] for r in b["rows"]], b["grid_from"]
+
+        # Nobody on the grid yet: can't tell (iRacing's order may still be the last
+        # session's), so the grid as worked out.
+        self.lined_up(STATE_GET_IN_CAR, [], positions=cars)
+        self.assertNotEqual(board()[1], "iRacing's grid")
+        # On the grid, iRacing's running order still the last session's: as they sit
+        # there, nose to tail (across the line), nothing reversed on top.
+        self.lined_up(STATE_GET_IN_CAR, grid, positions=cars)
+        rows, source = board()
+        self.assertEqual((rows[:8], source), ([number(i) for i in grid], "iRacing's grid"))
+        # iRacing's order agreeing with where the cars sit: its order, the ones not
+        # out yet in their places too.
+        late = grid[3]
+        self.lined_up(STATE_GET_IN_CAR, [i for i in grid if i != late], positions=grid + cars[:-8])
+        self.assertEqual(board()[0][:8], [number(i) for i in grid])
+        # The race's own results list, once iRacing has filled it in: that.
+        listed = grid[1:] + grid[:1]
+        self.lined_up(STATE_GET_IN_CAR, grid, positions=cars, results=listed)
+        self.assertEqual(board()[0][:8], [number(i) for i in listed])
+        self.app._session_meta["sessions"][num].pop("ResultsPositions", None)
+        self.lined_up(STATE_GET_IN_CAR, grid, positions=cars)
+        # Parade laps: as it was before (cars shuffle there); a replay: not the race's.
+        self.lined_up(STATE_PARADE, grid[::-1], positions=cars)
+        self.lined_up(STATE_GET_IN_CAR, grid[::-1], positions=cars, live=False)
+        self.assertEqual(board()[0][:8], [number(i) for i in grid])
+        # The green: kept as it was, for the board and the places gained.
+        self.lined_up(STATE_RACING, cars, positions=cars)
+        self.assertEqual(board()[0][:8], [number(i) for i in grid])
+        snap = self.app.build_snapshot()
+        start = {r["number"]: r["start_pos"] for r in snap["drivers"]}
+        self.assertEqual([start[number(i)] for i in grid], list(range(1, 9)))
 
     def test_qualifying_board_has_no_session_without_qualifying(self):
         self.app.command("board_show", {"kind": "qualifying", "group": "", "round": "latest"})
