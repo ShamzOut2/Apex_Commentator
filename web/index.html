@@ -267,6 +267,14 @@
           <span class="media-sep" aria-hidden="true"></span>
           <button class="btn live-btn" id="btn-live" title="Back to live (L)">● LIVE</button>
         </div>
+        <div class="group replay-data">
+          <label class="label" title="What iRacing sends for the cars while a replay is on screen during a race. Live: gaps and intervals stay live during replays. The replay's: they're timed at the line, lap by lap. Auto: the app finds out by itself (pause a replay mid-race for a few seconds)">Replay data
+            <select id="replay-car-data" aria-label="Replay data">
+              <option value="auto">Auto</option><option value="live">Live</option><option value="replay">The replay's</option>
+            </select></label>
+          <span id="replay-found" class="replay-found"></span>
+          <button class="btn subtle" id="replay-check" title="Once a second, write what iRacing sends (session time, replay frame, positions, flags, gaps…) to a file, to see what stays live during a replay">● Record check</button>
+        </div>
       </div>
     </section>
 

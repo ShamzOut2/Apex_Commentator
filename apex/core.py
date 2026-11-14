@@ -16,6 +16,8 @@ from urllib.parse import quote
 from . import __version__, championship
 from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
+from .paths import USER_DIR
+from .replaycheck import ReplayCheck, ReplayProbe
 from .thumbnails import Thumbnails, name_tags
 from .pits import PitTracker
 from .backgrounds import Backgrounds
@@ -320,6 +322,9 @@ class App:
         self._grid_cache = (None, [])   # (what it depends on, the race on screen's grid): _race_grid
         self._lineups = {}              # (subsession, race session): the grid iRacing lined it up on (_watch_grid)
         self._lineups_said = set()      # the ones written in the log
+        # What iRacing sends during a replay (replaycheck.py): found by itself, and the check that logs it.
+        self._probe = ReplayProbe()
+        self.replay_check = ReplayCheck(USER_DIR / "data" / "checks")
         self._order_key, self._order_last = None, []  # the session last seen live, iRacing's order then (_watch_grid)
         self._order_before = {}         # (subsession, session): iRacing's order as the session before left it
         self._order_said = set()
@@ -452,6 +457,7 @@ class App:
                 self._info_update = update
                 self.detector.update_incidents(frame, self._drivers)
             self._frame = frame
+            self._probe_replay(frame)
             self._detect(frame)
             self._watch_grid(frame)
             self._auto_results(frame)
@@ -465,6 +471,11 @@ class App:
         logs normally. Events are stamped with that timeline, which is what
         replay seeking uses.
         """
+        # A replay on screen with iRacing's car data live (_replay_cars_live): the
+        # race is followed live underneath, as if it were on screen.
+        cars_live = self._replay_cars_live(frame)
+        if cars_live:
+            frame = self._as_live(frame)
         num, t = frame.timeline()
         # The lap tracker times whatever's on screen: live, or a replay of
         # time already seen (it starts again by itself when the replay
@@ -510,7 +521,7 @@ class App:
         # while the race goes on live: the replay's moments are logged, the
         # standings stay the live race's (_hold_live).
         racing = not frame.is_live and frame.session_state in (STATE_RACING, STATE_CHECKERED) and self._is_race(frame)
-        self.detection = "live" if frame.is_live else "replay_live" if racing else "replay"
+        self.detection = "replay_live" if cars_live else "live" if frame.is_live else "replay_live" if racing else "replay"
 
     def _apply_sectors(self):
         """Time the lap in the sectors the overlay shows (a no-op when unchanged)."""
@@ -769,6 +780,8 @@ class App:
             # The session on screen: in a replay, the one being replayed (a race
             # watched once the server has moved on to the next session, say).
             live_frame = frame
+            if self._replay_cars_live(frame):
+                frame = self._as_live(frame)  # iRacing's car data is the live race's: shown live
             screen_num = frame.timeline()[0]
             if screen_num != frame.session_num and screen_num in self._session_meta.get("sessions", {}):
                 frame = replace(frame, session_num=screen_num)
@@ -895,10 +908,11 @@ class App:
                 },
                 "camera": {"car_idx": frame.cam_car_idx, "group": frame.cam_group, "groups": self._camera_groups},
                 "replay": {
-                    "live": frame.is_live,
-                    "session_time": round(frame.replay_session_time, 1),
-                    "speed": frame.replay_speed,
+                    "live": live_frame.is_live,
+                    "session_time": round(live_frame.replay_session_time, 1),
+                    "speed": live_frame.replay_speed,
                 },
+                "replay_data": self._replay_data_state(),
                 "drivers": rows,
                 "detection": self.detection,
                 "gridwalk": self._gridwalk_snapshot(classes, active_league, frame),
@@ -1569,6 +1583,63 @@ class App:
                 place += 1
                 r["pos"] = place
 
+    def _probe_replay(self, frame):
+        """Watch what iRacing sends while a replay is paused during a race (the
+        replay's cars or the live race's), noted once found (and kept)."""
+        racing = self._is_race(frame) and frame.session_state in (STATE_RACING, STATE_CHECKERED)
+        was = self._probe.verdict
+        found = self._probe.update(frame, racing)
+        if found and found != was:
+            if self.settings.get("replay_cars_found") != found:
+                self.settings.set("replay_cars_found", found)
+            print(f"[apex] during replays iRacing's car data is {'the live race' if found == 'live' else 'the replay'}"
+                  f" (seen with the replay paused): gaps and intervals {'live' if found == 'live' else 'timed at the line'} during replays")
+        if self.replay_check.on:
+            self.replay_check.write(frame, self._drivers)
+
+    def _replay_cars_found(self):
+        """What iRacing's car data is during replays: "live", "replay" or None
+        (not known), as set (Timing Screen), else as found."""
+        mode = self.settings.get("replay_car_data") or "auto"
+        if mode in ("live", "replay"):
+            return mode
+        return self._probe.verdict or self.settings.get("replay_cars_found")
+
+    def _replay_cars_live(self, frame):
+        """A replay on screen during a race, with iRacing's car data (where each
+        car is) the live race's: the race is then timed live underneath."""
+        return (not frame.is_live and self._replay_cars_found() == "live" and self._is_race(frame)
+                and frame.session_state in (STATE_RACING, STATE_CHECKERED))
+
+    @staticmethod
+    def _as_live(frame):
+        """``frame`` as the live race: its own session and clock, not the replay's."""
+        return replace(frame, replay_frames_from_end=0, replay_session_time=frame.session_time,
+                       replay_session_num=frame.session_num)
+
+    def _replay_data_state(self):
+        check = self.replay_check
+        return {"mode": self.settings.get("replay_car_data") or "auto", "found": self._replay_cars_found(),
+                "seen": self._probe.verdict,
+                "check": {"on": check.on, "file": str(check.path) if check.path else "", "rows": check.rows}}
+
+    def cmd_replay_car_data(self, mode="auto"):
+        """During replays iRacing's car data is: found by itself ("auto"), the live race's or the replay's."""
+        if mode not in ("auto", "live", "replay"):
+            raise CommandError("Pick auto, live or replay")
+        self.settings.set("replay_car_data", mode)
+        return self._replay_data_state()
+
+    def cmd_replay_check(self, on=True):
+        """The replay data check: once a second, what iRacing sends, to a CSV file."""
+        if on:
+            path = self.replay_check.start(self._drivers)
+            print(f"[apex] replay data check: writing {path}")
+        else:
+            self.replay_check.stop()
+            print(f"[apex] replay data check: stopped ({self.replay_check.rows} rows in {self.replay_check.path})")
+        return self._replay_data_state()
+
     def _hold_live(self, live, rows):
         """The standings while a replay is on screen during a race: the live
         race's, not the replay's. iRacing's car data (where each car is) is
@@ -1581,7 +1652,7 @@ class App:
         each car is put round the lap at its pace (the track map, the live
         timing website). Live: noted for then."""
         num = live.session_num
-        if live.is_live:
+        if live.is_live or self._replay_cars_live(live):  # live, or iRacing's car data live in the replay
             self._live_rows = (self._session_meta.get("subsession"), num, rows)
             self._held_order = (num, [r["car_idx"] for r in sorted((r for r in rows if r["pos"] is not None), key=lambda r: r["pos"])])
             return rows
@@ -2260,7 +2331,7 @@ class App:
             # click on screen: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay", "share_", "follow_", "sync_")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay", "share_", "follow_", "sync_", "replay_car_data", "replay_check")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)

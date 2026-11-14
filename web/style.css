@@ -901,3 +901,8 @@ td.c-tyre { text-align: center; }
 /* Timing Screen: the car's manufacturer badge. */
 .c-make { width: 44px; text-align: center; }
 td.c-make .make-logo { height: 18px; max-width: 36px; object-fit: contain; vertical-align: middle; }
+
+/* Replay data (the media bar): what iRacing sends for the cars during a replay, and the check. */
+.media-bar .replay-data { gap: 8px; }
+.media-bar .replay-data label { display: inline-flex; align-items: center; gap: 6px; }
+.replay-found { color: var(--muted); font-size: 12px; white-space: nowrap; }

@@ -56,26 +56,15 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.0**
+**Coming in the next update**
 
 ### New features
 
-- Timing Screen: a pill at the top or bottom of the list when a battle is
-  scrolled out of sight; click it to go there.
-- Timing Screen: 1 list or 2 lists side by side, to fit a big field on one
-  page.
-- Team championship: drop rounds can apply to the drivers only, with every
-  round counting for the teams.
-- Grid walk car pictures can have the driver's class tag in front
-  (`PA.123456.Car name.png`), matched to the tag in brackets in their name.
-
-### Fixes
-
-- Starting grid: the grid iRacing sets for a race (a reverse grid
-  included), from the race's session starting, before anyone has joined the
-  track, with nothing to set; before that, worked out as before.
-- A race meeting's races show only their round's own name, never with
-  "Heat 1" added, and keep it after the race.
+- Replays: when iRacing's car data stays live during a replay (the app finds
+  out when a replay is paused mid-race, or set it on the replay bar), gaps,
+  intervals, places and the race log go on live during replays.
+- Record check (replay bar): what iRacing sends, once a second, saved to a
+  file, to see what stays live during a replay.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -252,9 +241,26 @@ shows something else. Camera hotkeys work in whichever window has focus.
   change still apply straight away.
 - **Replays**: while a replay is on screen during a race, the standings (the
   tower, the full screen, this list and the live championship standings)
-  stay on the live race: iRacing's car data is the replay's then, so the
-  live order as it last stood is kept and brought up to date as each car
-  crosses the line.
+  stay on the live race. How depends on what iRacing sends for the cars
+  during a replay (**Replay data**, on the replay bar):
+  - **Live**: iRacing's car data is still the live race's, so everything
+    (gaps, intervals, places, the race log) goes on live, exactly as
+    without the replay.
+  - **The replay's**: iRacing's car data is the replay's, so the live order
+    as it last stood is kept and brought up to date as each car crosses the
+    line (gaps and intervals timed at the line, lap by lap).
+  - **Auto** (to start with): the app finds out by itself. Pause a replay
+    mid-race for a few seconds: cars still moving round the lap mean live,
+    cars standing still the replay's. It says what it found next to the
+    box, writes it in `apex.log` and remembers it.
+- **Record check** (replay bar): once a second, what iRacing sends (session
+  time and number, state, flags, IsReplayPlaying, the replay frame and
+  time, the replay speed, the car on camera, and for every car its place,
+  class place, lap, laps done, lap distance, gap (F2Time), estimated time,
+  last lap, pit road and track surface) goes into a CSV file in
+  `data/checks` (one row a second) until you stop it: the test for what
+  stays live during a replay (is SessionTime advancing, IsReplayPlaying
+  true, are places and flags still changing, is the replay frame moving on?).
 - **Drivers who left**: a driver who leaves the session (gone from
   iRacing's list) stays in the standings for the rest of the event, marked
   LEFT; untick it to drop them. The flag column's chequered flag is steady

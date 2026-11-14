@@ -79,6 +79,8 @@ class Frame:
     replay_session_time: float = 0.0
     replay_session_num: int = 0
     replay_speed: int = 1
+    is_replay_playing: bool = False     # IsReplayPlaying
+    replay_frame_num: int = 0           # ReplayFrameNum
     session_time_remain: float = -1.0   # huge or -1 when the session isn't timed
     session_laps_remain: int = -1       # 32767 or -1 when it isn't lap-limited
     lap: list = field(default_factory=list)
@@ -89,6 +91,7 @@ class Frame:
     on_pit: list = field(default_factory=list)
     surface: list = field(default_factory=list)
     f2_time: list = field(default_factory=list)
+    est_time: list = field(default_factory=list)   # CarIdxEstTime: iRacing's estimate of the time round the lap to here
     last_lap: list = field(default_factory=list)
     best_lap: list = field(default_factory=list)
     car_flags: list = field(default_factory=list)
@@ -169,6 +172,8 @@ class IRacingSource:
                 replay_session_time=v("ReplaySessionTime", 0.0),
                 replay_session_num=v("ReplaySessionNum", 0),
                 replay_speed=v("ReplayPlaySpeed", 1),
+                is_replay_playing=bool(v("IsReplayPlaying", False)),
+                replay_frame_num=v("ReplayFrameNum", 0),
                 session_time_remain=v("SessionTimeRemain", -1.0),
                 session_laps_remain=v("SessionLapsRemainEx", -1),
                 lap=v("CarIdxLap", []),
@@ -179,6 +184,7 @@ class IRacingSource:
                 on_pit=v("CarIdxOnPitRoad", []),
                 surface=v("CarIdxTrackSurface", []),
                 f2_time=v("CarIdxF2Time", []),
+                est_time=v("CarIdxEstTime", []),
                 last_lap=v("CarIdxLastLapTime", []),
                 best_lap=v("CarIdxBestLapTime", []),
                 car_flags=v("CarIdxSessionFlags", []),
@@ -615,6 +621,8 @@ class MockSource:
                 replay_session_time=t if live else self.replay_time,
                 replay_session_num=0,
                 replay_speed=self.replay_speed,
+                is_replay_playing=not live,
+                replay_frame_num=int((t if live else self.replay_time) * 60),
                 session_time_remain=max(0.0, 1200.0 - t) if self.session_kind == "qualify" else 604800.0,
                 session_laps_remain=max(0, self.race_laps - max(self.mock_laps)) if self.race_laps else 32767,
                 lap=lap, laps_completed=laps_completed, pct=pct, position=position, class_position=list(position),

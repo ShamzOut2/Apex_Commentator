@@ -11,6 +11,16 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- Replays: when iRacing's car data stays live during a replay (the app finds
+  out when a replay is paused mid-race, or set it on the replay bar), gaps,
+  intervals, places and the race log go on live during replays.
+- Record check (replay bar): what iRacing sends, once a second, saved to a
+  file, to see what stays live during a replay.
+
 ## v0.7.0
 
 ### New features
