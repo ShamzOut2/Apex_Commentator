@@ -21,6 +21,14 @@ POINT_SPACING_M = 10.0
 MIN_POINTS, MAX_POINTS = 100, 1000
 MAX_STEP_LAPS = 0.05   # a bigger jump in one sample is a tow / reset: no times for it
 TIME_JUMP_S = 2.0      # a bigger jump in time (a replay skip): no times across it
+# iRacing sends other cars' positions a few times a second, not every frame:
+# in between, the same distance again. Up to this long, that's a car whose
+# next position hasn't come in yet (not one that's stopped): it's put on at
+# its pace, and its next move is spread over the whole time since it last moved.
+STALE_S = 0.5
+# A step back this small is iRacing correcting where it had put a car (not a
+# car going backwards): it's let be, the car taken as where it had got to.
+JITTER_LAPS = 0.02
 NONE = float("nan")
 
 
@@ -31,7 +39,8 @@ class GapTimer:
 
     def reset(self):
         self._passed = {}     # car -> array of session times by point number (lap * points + point); NaN: not passed
-        self._last = {}       # car -> (time, progress in laps)
+        self._last = {}       # car -> (time, progress in laps): when it last moved on, and where to
+        self._pace = {}       # car -> laps a second, lately
         self._prev_time = None
         self._session = None
 
@@ -50,20 +59,32 @@ class GapTimer:
             self.reset()
             self._session = session
         elif self._prev_time is not None and (now < self._prev_time or now - self._prev_time > TIME_JUMP_S):
-            self._last = {}  # a jump (a replay skip): just don't interpolate across it
+            self._last, self._pace = {}, {}  # a jump (a replay skip): just don't interpolate across it
         self._prev_time = now
         n = self.points
         for car, p in progress.items():
             if p is None or p < 0:
                 self._last.pop(car, None)
+                self._pace.pop(car, None)
                 continue
             last = self._last.get(car)
-            self._last[car] = (now, p)
             if last is None:
+                self._last[car] = (now, p)
                 continue
             t0, p0 = last
-            if p <= p0 or p - p0 > MAX_STEP_LAPS or now <= t0:
+            if now <= t0:
+                continue
+            if p == p0 and now - t0 < STALE_S:
+                continue  # its next position not in yet: still timed from when it last moved
+            if p < p0 and p0 - p < JITTER_LAPS:
+                continue  # iRacing correcting where it had it: as far as it had got
+            self._last[car] = (now, p)
+            if p <= p0 or p - p0 > MAX_STEP_LAPS:
+                self._pace.pop(car, None)
                 continue  # stopped, backwards, or teleported
+            pace = (p - p0) / (now - t0)
+            was = self._pace.get(car)
+            self._pace[car] = pace if was is None else was + (pace - was) * 0.3
             first, end = math.floor(p0 * n) + 1, math.floor(p * n)
             if end < first:
                 continue
@@ -73,7 +94,22 @@ class GapTimer:
             if len(passed) <= end:
                 passed.extend([NONE] * (end + 1 - len(passed) + n))  # room for the rest of this lap and the next
             for k in range(first, end + 1):
-                passed[k] = t0 + (k / n - p0) / (p - p0) * (now - t0)
+                if passed[k] != passed[k]:  # the first time it got there (not again after being put back)
+                    passed[k] = t0 + (k / n - p0) / (p - p0) * (now - t0)
+
+    def position(self, car, progress, now):
+        """Where ``car`` is now, for its gap: ``progress`` as iRacing has it,
+        but not behind where it had got to (iRacing correcting a little), and,
+        while its next position hasn't come in yet, put on at its pace."""
+        last = self._last.get(car)
+        if last is None or progress is None or progress < 0:
+            return progress
+        t0, p0 = last
+        if progress < p0 and p0 - progress < JITTER_LAPS:
+            progress = p0
+        if progress == p0 and 0 < now - t0 < STALE_S and car in self._pace:
+            progress = p0 + self._pace[car] * (now - t0)
+        return progress
 
     def line_time(self, car, lap):
         """When ``car`` crossed the line at ``lap`` (progress in whole laps: the

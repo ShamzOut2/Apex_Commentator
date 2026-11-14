@@ -2948,6 +2948,7 @@ const OVERLAY_FIELDS = {
     ["What it shows", [
       ["auto", "Comes up by itself when someone's within the gap of the driver on camera, and goes when no one is (untick: show and hide it yourself)", "bool"],
       ["gap_s", "Cars within this many seconds of the driver on camera, ahead and behind", "number", { min: 0.1, max: 30, step: 0.1 }],
+      ["settle_s", "A car joins (or leaves) once it's been within (or outside) that gap this long (seconds; 0 = at once)", "number", { min: 0, max: 3, step: 0.5 }],
       ["scope", "Cars from", "select", [["class", "Their class only"], ["overall", "Every class (overall)"]]],
       iff((v) => v.auto, ["hold_s", "Stays up after the battle breaks up (seconds)", "number", { min: 0, max: 30, step: 0.5 }]),
       ["ahead", "Most cars ahead of the driver on camera", "number", { min: 0, max: 6, step: 1 }],

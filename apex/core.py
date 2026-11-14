@@ -322,6 +322,7 @@ class App:
         self._grid_cache = (None, [])   # (what it depends on, the race on screen's grid): _race_grid
         self._lineups = {}              # (subsession, race session): the grid iRacing lined it up on (_watch_grid)
         self._lineups_said = set()      # the ones written in the log
+        self._duel_members = None       # the on-track battle's cars, settled (_duel_settle)
         # What iRacing sends during a replay (replaycheck.py): found by itself, and the check that logs it.
         self._probe = ReplayProbe()
         self.replay_check = ReplayCheck(USER_DIR / "data" / "checks")
@@ -849,7 +850,9 @@ class App:
                                 | (FLAG_CHECKERED if self._race.checkered and idx in self._race.finished else 0)),
                     "left": idx in self._gone and idx not in self._drivers,
                     "last_event_id": last_event.get(idx),
-                    "progress": self._line(frame.timeline(), idx, (lap + pct) if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1),
+                    # Where it is round the race, without iRacing's hiccup at the line, or its
+                    # little corrections and the frames its next position isn't in yet (gaps.py).
+                    "progress": self.gaps.position(idx, self._line(frame.timeline(), idx, (lap + pct) if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1), frame.timeline()[1]),
                 })
                 rows.append(row)
             # A race's starting grid, as the starting grid board has it
@@ -1102,8 +1105,9 @@ class App:
                 return abs((e.get("gap") or 0.0) - mine)
 
             within = lambda e: (a := apart(e)) is not None and a <= cfg["gap_s"]  # noqa: E731
-            ahead = [e for e in reversed(group[:i]) if within(e)][:cfg["ahead"]]
-            behind = [e for e in group[i + 1:] if within(e)][:cfg["behind"]]
+            listed = self._duel_settle((cam, cfg["scope"], cfg["gap_s"]), now, group, me, within, cfg["settle_s"])
+            ahead = [e for e in reversed(group[:i]) if e["car_idx"] in listed][:cfg["ahead"]]
+            behind = [e for e in group[i + 1:] if e["car_idx"] in listed][:cfg["behind"]]
             picked = list(reversed(ahead)) + [me] + behind
             active = len(picked) > 1 and not me["on_pit"]
             prev = None
@@ -1121,6 +1125,37 @@ class App:
         elif cfg["auto"] and held and held[1] == cam and 0 <= now - held[0] <= cfg["hold_s"]:
             rows, active = held[2], True
         return {"active": active, "rows": rows, "pos": rows[0]["pos"] if rows else None, "multiclass": by_class}
+
+    def _duel_settle(self, key, now, group, me, within, settle_s):
+        """The cars in the on-track battle (car_idx): each joins once it's been
+        within the gap for ``settle_s`` and leaves once it's been outside it
+        that long, so a car right at the edge of the gap doesn't flash in and
+        out. A new driver on camera, the settings changed (``key``: the car on
+        camera, class or overall, the gap) or the race time going back (a
+        replay) start afresh: the cars within the gap straight away."""
+        st = self._duel_members
+        if st is None or st["key"] != key or now < st["t"] or now - st["t"] > 5.0:
+            st = self._duel_members = {"key": key, "t": now, "in": {}, "since": {}}
+            fresh = True
+        else:
+            fresh = False
+        st["t"] = now
+        for e in group:
+            if e is me:
+                continue
+            idx, raw = e["car_idx"], within(e)
+            if fresh or settle_s <= 0:
+                st["in"][idx] = raw
+                st["since"].pop(idx, None)
+                continue
+            if st["in"].get(idx, False) == raw:
+                st["since"].pop(idx, None)  # back as it was: the clock starts again next time
+                continue
+            since = st["since"].setdefault(idx, now)
+            if now - since >= settle_s:
+                st["in"][idx] = raw
+                del st["since"][idx]
+        return {idx for idx, on in st["in"].items() if on}
 
     def _trackmap_snapshot(self, rows, snap, frame, league):
         """The track map widget (trackmap.html): which outline (its points at
@@ -2005,7 +2040,7 @@ class App:
             if r["progress"] < 0:
                 r["gap"] = None  # in the garage: no gap
                 continue
-            gap = self.gaps.gap(r["car_idx"], leader["car_idx"], r["progress"], now)
+            gap = self.gaps.gap(r["car_idx"], leader["car_idx"], self.gaps.position(r["car_idx"], r["progress"], now), now)
             if gap is None and leader["progress"] >= r["progress"] >= 0:
                 # Not timed yet (the first moments of the race, before the
                 # leader has been where this car is): the distance behind the

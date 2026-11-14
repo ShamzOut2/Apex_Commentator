@@ -61,6 +61,14 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ### Improvements
 
 - Replay bar: an Open folder button for the replay data check's files.
+- On-track battle: a car joins or leaves the list once it's been within (or
+  outside) the gap for a moment (1.5 s to start with, 0–3 s), so it no
+  longer flashes in and out at the edge of the gap.
+
+### Fixes
+
+- Gaps and intervals on the tower and Timing Screen no longer jump about
+  with iRacing's patchy position updates for other cars.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -212,7 +220,11 @@ shows something else. Camera hotkeys work in whichever window has focus.
   when a class is picked), car number, driver and team, lap, gap to the
   leader (timed by the app: how long ago the leader was where the car is
   now, so it updates continuously, keeps step with the order and keeps
-  counting while a car is slow or stopped; "+1 L" for lapped cars), interval
+  counting while a car is slow or stopped; "+1 L" for lapped cars; iRacing
+  sends other cars' positions a few times a second and now and then puts
+  one back a few metres, so each car is carried on at its pace between them
+  and those little corrections are let be, and the gaps, intervals and the
+  order stay steady rather than jumping about with them), interval
   to the car ahead, last and best lap, pit stops, current stint (laps since
   the last stop, PIT on pit road), the car's manufacturer logo, flag
   (yellow, blue, white, chequered), penalties (black flag, DQ, meatball,
@@ -748,7 +760,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   name in the heading in a multiclass race) or every class (overall
   places). **Most cars ahead / behind** (2 each by default). **Each car's
   gap**: to the car ahead of it, or to the driver on camera (− ahead of
-  them, + behind). **Comes up by itself** (the default): while it's
+  them, + behind). **A car joins or leaves** once it's been within (or
+  outside) the gap for a moment (1.5 s by default, 0–3 s; 0: at once), so
+  one right at the edge of the gap doesn't flash in and out; a new driver on
+  camera starts afresh. **Comes up by itself** (the default): while it's
   switched on, it appears when someone's within the gap and goes when no one
   is (it stays a few seconds after, so it doesn't flicker). Untick it to show
   and hide it yourself.

@@ -16,6 +16,14 @@ How each version's entry is written:
 ### Improvements
 
 - Replay bar: an Open folder button for the replay data check's files.
+- On-track battle: a car joins or leaves the list once it's been within (or
+  outside) the gap for a moment (1.5 s to start with, 0–3 s), so it no
+  longer flashes in and out at the edge of the gap.
+
+### Fixes
+
+- Gaps and intervals on the tower and Timing Screen no longer jump about
+  with iRacing's patchy position updates for other cars.
 
 ## v0.7.1
 
