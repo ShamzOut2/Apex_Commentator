@@ -1,6 +1,7 @@
 import csv
 import tempfile
 import unittest
+from pathlib import Path
 from dataclasses import replace
 
 from apex.config import DEFAULTS
@@ -73,10 +74,11 @@ class FolderTests(unittest.TestCase):
         from unittest import mock
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as data:
             app = App(MockSource(seed=7, clock=FakeClock()), dict(DEFAULTS), LeagueStore(tmp))
-            app.replay_check = ReplayCheck(f"{data}/checks")
+            app.replay_check = ReplayCheck(Path(data) / "checks")
+            folder = Path(data) / "checks"
             with mock.patch("apex.desktop.reveal", return_value=True) as reveal:
-                self.assertEqual(app.command("replay_check_folder", {}), {"folder": f"{data}/checks"})
-                self.assertEqual(str(reveal.call_args[0][0]), f"{data}/checks")  # nothing in it yet: the folder
+                self.assertEqual(app.command("replay_check_folder", {}), {"folder": str(folder)})
+                self.assertEqual(Path(reveal.call_args[0][0]), folder)  # nothing in it yet: the folder
                 path = app.replay_check.start()
                 app.replay_check.stop()
                 app.command("replay_check_folder", {})
