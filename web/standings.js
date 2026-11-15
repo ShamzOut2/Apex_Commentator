@@ -704,8 +704,8 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   const gap = classMode ? e.class_gap : e.gap;
   const interval = classMode ? e.class_interval : e.interval;
   const first = pos === 1;
-  const moved = classMode ? e.class_pos_change : e.pos_change;  // by class: places gained in the class
-  const change = race && moved ? `<span class="${moved > 0 ? "up" : "down"}">${moved > 0 ? "▲" : "▼"}${Math.abs(moved)}</span>` : "";
+  const gained = classMode ? e.class_pos_change : e.pos_change;  // by class: places gained in the class
+  const change = race && gained ? `<span class="${gained > 0 ? "up" : "down"}">${gained > 0 ? "▲" : "▼"}${Math.abs(gained)}</span>` : "";
   // The team logo and the team name: columns of their own, in the order picked.
   const teamCells = screenTeamParts(cfg, compact).map((p) => (p === "logo"
     ? `<td class="lg c" data-opcol="logo">${teamLogoOf(e, cfg) ? `<img src="${esc(teamLogoOf(e, cfg))}" alt="">` : ""}</td>`
