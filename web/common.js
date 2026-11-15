@@ -530,7 +530,7 @@ const DESK_PARTS = {
   "/pits.html": ".pit-card",
   "/duel.html": ".battle:not(.out)",
   "/trackmap.html": ".tmap:not(.out)",
-  "/lights.html": ".lights",
+  "/lights.html": ".lights .lt-frame",
   "/flags.html": ".flag",
 };
 

@@ -73,8 +73,8 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 
 ### New features
 
-- Starting lights overlay: red lights that come up only as a race is about
-  to start, light one by one, and go out at the green (from iRacing's start
+- Starting lights overlay: a start-light gantry of red LED lamps that comes
+  up only as a race is about to start, light one by one, and go out at the green (from iRacing's start
   lights, the leader's run to the line, or a Count down hotkey).
 - Flag overlay: hidden until a sector goes yellow, then a waving yellow flag
   for "Sector 1", "Sectors 1 & 2" or "All Sectors", with hotkeys for each
@@ -808,8 +808,11 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   switched on, it appears when someone's within the gap and goes when no one
   is (it stays a few seconds after, so it doesn't flicker). Untick it to show
   and hide it yourself.
-- **Starting lights** (`/lights.html`): a row of red lights (5 by default,
-  3–8) that only comes up as a race is about to start. The lights come on
+- **Starting lights** (`/lights.html`): a start-light gantry (a steel truss,
+  two posts down to a black housing, and for each light a column of two
+  hooded LED lamps; nothing behind it but a black outline round the whole
+  thing) that only comes up as a race is about to start (5 lights by
+  default, 3–8). The lights come on
   one by one, a step apart (1 s by default), stay lit, and go out at the
   green, with "LIGHTS OUT", then it goes (3 s by default). *The lights count
   down from*: **iRacing's start lights** at a standing start (Ready starts

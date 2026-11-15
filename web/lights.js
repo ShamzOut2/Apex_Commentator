@@ -11,16 +11,44 @@ const PREVIEW = new URLSearchParams(location.search).has("preview");
 let box = null;
 let shownKey = "";
 
+// The gantry the lights hang from: a lattice truss of steel tubes, ``w`` px wide.
+function trussSvg(w) {
+  const h = 70, bays = Math.max(4, Math.round(w / 64)), bay = w / bays;
+  const lattice = [];
+  for (let i = 0; i < bays; i++) {
+    const x = i * bay;
+    lattice.push(`<line x1="${x.toFixed(1)}" y1="14" x2="${(x + bay).toFixed(1)}" y2="56"/><line x1="${(x + bay).toFixed(1)}" y1="14" x2="${x.toFixed(1)}" y2="56"/>`);
+    if (i) lattice.push(`<line x1="${x.toFixed(1)}" y1="14" x2="${x.toFixed(1)}" y2="56"/>`);
+  }
+  return `<svg class="lt-truss" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+    <defs><linearGradient id="lt-tube" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8d939c"/>
+      <stop offset=".35" stop-color="#4a4e55"/><stop offset=".7" stop-color="#202226"/><stop offset="1" stop-color="#0d0e10"/></linearGradient></defs>
+    <g class="lattice">${lattice.join("")}</g>
+    <rect x="0" y="8" width="${w}" height="11" rx="5.5" fill="url(#lt-tube)"/>
+    <rect x="0" y="51" width="${w}" height="11" rx="5.5" fill="url(#lt-tube)"/></svg>`;
+}
+
+// One lamp: a bezel, the hood over its top, and a face of LEDs.
+const LAMP = '<span class="lt-lamp"><span class="lt-face"></span></span>';
+
 function draw(l, cfg) {
   setPanels(cfg);
   setSize(cfg);
-  const key = [cfg.place, l.lights, cfg.visible].join("|");
+  const key = [cfg.place, l.lights, cfg.visible, cfg.show_text].join("|");
   if (!box || key !== shownKey) {
     leave();
     shownKey = key;
-    const pods = Array.from({ length: l.lights }, () => '<div class="lt-pod"><span class="lt-lamp"></span><span class="lt-lamp"></span></div>').join("");
+    // The housing: a column of two lamps for each light, 128 px apart, 30 px in from its edges.
+    const boxW = l.lights * 128 - 18 + 60;
+    const pods = Array.from({ length: l.lights }, () => `<div class="lt-pod">${LAMP}${LAMP}</div>`).join("");
     stage.insertAdjacentHTML("beforeend", `<div class="lights panel-in ${esc(cfg.place)} ${cfg.visible ? "" : "hidden-preview"}">
-      <div class="lt-row">${pods}</div>${cfg.show_text ? '<div class="lt-text"></div>' : ""}</div>`);
+      <div class="lt-frame">
+        ${trussSvg(boxW + 120)}
+        <div class="lt-mounts" style="width:${boxW}px"><span></span><span></span></div>
+        <div class="lt-box" style="width:${boxW}px"><div class="lt-row">${pods}</div>
+          <i class="bolt tl"></i><i class="bolt tr"></i><i class="bolt bl"></i><i class="bolt br"></i></div>
+        ${cfg.show_text ? '<div class="lt-text"></div>' : ""}
+      </div></div>`);
     box = stage.lastElementChild;
     const el = box;
     setTimeout(() => el.classList.remove("panel-in"), 500);

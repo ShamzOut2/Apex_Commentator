@@ -15,8 +15,8 @@ How each version's entry is written:
 
 ### New features
 
-- Starting lights overlay: red lights that come up only as a race is about
-  to start, light one by one, and go out at the green (from iRacing's start
+- Starting lights overlay: a start-light gantry of red LED lamps that comes
+  up only as a race is about to start, light one by one, and go out at the green (from iRacing's start
   lights, the leader's run to the line, or a Count down hotkey).
 - Flag overlay: hidden until a sector goes yellow, then a waving yellow flag
   for "Sector 1", "Sectors 1 & 2" or "All Sectors", with hotkeys for each
