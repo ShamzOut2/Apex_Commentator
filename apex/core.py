@@ -19,7 +19,7 @@ from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
 from .paths import USER_DIR
 from .replaycheck import ReplayCheck, ReplayProbe
 from .sectorflags import SectorFlags
-from .startlights import StartLights
+from .startlights import StartLights, is_green, START_GO, START_READY, START_SET, ONE_LAP_TO_GREEN
 from .thumbnails import Thumbnails, name_tags
 from .pits import PitTracker
 from .backgrounds import Backgrounds
@@ -213,6 +213,7 @@ class TowWatch:
 
     JUMP = 0.06        # laps further on in one update than any car drives: put there
     TOP_SPEED = 110.0  # m/s: over a longer gap between updates, as far as a car could go
+    AWAY_S = 1.5       # out of the world at least this long (not a moment's blip in iRacing's data)
 
     def __init__(self):
         self.reset()
@@ -221,26 +222,34 @@ class TowWatch:
         self._key, self._last, self.towed = key, {}, {}
 
     def update(self, key, racing, t, cars, track_m):
-        """``cars``: {car: (laps + distance or -1, laps completed, in the world)}."""
+        """``cars``: {car: (laps + distance or -1, laps completed, in the world, in the pits)}.
+
+        Only a car that turns up in the pits counts: a tow or reset puts it in
+        its pit box. A car that blinks out of iRacing's data for a moment, or
+        seems to jump on track (its position held back by lag, then caught
+        up), is still driving, and keeps its gap."""
         if key != self._key:
             self.reset(key)
         if not racing:
             self._last = {}
             return
-        for idx, (p, done, in_world) in cars.items():
+        for idx, car in cars.items():
+            p, done, in_world = car[:3]
+            in_pits = car[3] if len(car) > 3 else True
             last = self._last.get(idx)
             if p is None or p < 0 or not in_world:
-                if last is not None:
-                    self._last[idx] = (last[0], last[1], last[2], False)  # gone from the track for now
+                if last is not None and last[3]:
+                    self._last[idx] = (last[0], last[1], last[2], False, t)  # gone from the track since t
                 continue
             if last is not None:
-                lt, lp, _, was_there = last
+                lt, lp, _, was_there, gone_at = last
                 reach = self.JUMP + max(0.0, t - lt) * self.TOP_SPEED / max(500.0, track_m or 4000.0)
-                if not was_there or p - lp > reach:
+                away = not was_there and t - gone_at >= self.AWAY_S
+                if in_pits and (away or (was_there and p - lp > reach)):
                     self.towed.setdefault(idx, done)
                 elif idx in self.towed and done > self.towed[idx]:
                     del self.towed[idx]  # over the line again under its own power: as it is
-            self._last[idx] = (t, p, done, True)
+            self._last[idx] = (t, p, done, True, None)
 
 
 def _lap_time(value):
@@ -371,6 +380,9 @@ class App:
         self._lights = StartLights()     # the starting lights overlay (_watch_start)
         self._flags = SectorFlags()      # the flag overlay: yellow sectors (_watch_start)
         self._lights_now = None
+        self._pace_idx = None            # the pace car's CarIdx (session info), if there is one
+        self._pace_out = None            # the session the pace car's been out on track in
+        self._start_seen = None          # what was last logged about the start (_watch_start)
         self._flags_now = None
         self._duel_members = None       # the on-track battle's cars, settled (_duel_settle)
         # What iRacing sends during a replay (replaycheck.py): found by itself, and the check that logs it.
@@ -638,6 +650,8 @@ class App:
         ]
         drivers = {}
         for d in (info.get("DriverInfo") or {}).get("Drivers") or []:
+            if d.get("CarIsPaceCar"):
+                self._pace_idx = d.get("CarIdx")  # watched for the starting lights (it pits on the last pace lap)
             if d.get("IsSpectator") or d.get("CarIsPaceCar"):
                 continue
             if str(d.get("UserName", "")).lower() == "pace car":
@@ -1438,7 +1452,8 @@ class App:
             "finished": self._race.checkered and r["car_idx"] in self._race.finished,
             # A flag iRacing is showing them for a penalty, the most serious:
             # "dq", "black", "meatball" (repairs) or "warning" (slow down), else None.
-            "penalty": r.get("flag") if r.get("flag") in PENALTY_NAMES else None,
+            # (None for a car that's out: not in the car, or gone from the session.)
+            "penalty": r.get("flag") if r.get("flag") in PENALTY_NAMES and r["in_world"] else None,
         }
 
     def _fastest_laps(self, standings, is_race, cfg, frame):
@@ -1594,7 +1609,8 @@ class App:
             for r in rows:
                 if r["pos"] is not None and (not reveal or lap_done(r)):
                     standings.append(dict(entries[r["car_idx"]], pos=r["pos"], class_pos=r["class_pos"],
-                                          time=r["gap"], pos_change=r["pos_change"]))
+                                          time=r["gap"], pos_change=r["pos_change"],
+                                          class_pos_change=r.get("class_pos_change")))
         else:
             official = self._official_best(session)
             timed, untimed = [], []
@@ -2019,7 +2035,9 @@ class App:
         racing = self._is_race(frame) and frame.session_state in (STATE_RACING, STATE_CHECKERED)
         num, t = frame.timeline()
         cars = {idx: (self._line((num, t), idx, _progress(frame, idx)), _at(frame.laps_completed, idx, -1),
-                      _at(frame.surface, idx, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD) for idx in self._drivers}
+                      _at(frame.surface, idx, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD,
+                      bool(_at(frame.on_pit, idx, False)) or _at(frame.surface, idx, -1) == TRK_IN_PIT_STALL)
+                for idx in self._drivers}
         was = set(self._tows.towed)
         self._tows.update((self._session_meta.get("subsession"), num), racing, t, cars, self._track_m)
         for idx in set(self._tows.towed) - was:
@@ -2041,9 +2059,24 @@ class App:
             ahead = [p for p in (_progress(frame, idx) for idx in self._drivers
                                  if _at(frame.surface, idx, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD) if p is not None and p >= 0]
             leader = max(ahead) if ahead else None
+        # A rolling start's last pace lap: the pace car has pulled into the pits
+        # (or out of the world), while the field's still behind it.
+        # Only once it's been out on track leading them (a pace car parked, or
+        # not out at all, isn't one pulling in).
+        pace = self._pace_idx
+        final_lap = False
+        if pace is not None and race and frame.is_live and frame.session_state < STATE_CHECKERED:
+            surface = _at(frame.surface, pace, TRK_NOT_IN_WORLD)
+            pitting = bool(_at(frame.on_pit, pace, False)) or surface in (TRK_NOT_IN_WORLD, TRK_IN_PIT_STALL)
+            if surface == TRK_ON_TRACK and not pitting:
+                self._pace_out = key
+            final_lap = pitting and self._pace_out == key
+        was = self._lights_now
         self._lights_now = self._lights.update(
-            key, t, race=race and frame.is_live, started=frame.session_state >= STATE_RACING, flags=frame.session_flags,
-            leader=leader, auto=cfg["start_from"], lights=cfg["lights"], step=cfg["step_s"], out_s=cfg["out_s"])
+            key, t, race=race and frame.is_live, state=frame.session_state, flags=frame.session_flags,
+            leader=leader, final_lap=final_lap, auto=cfg["start_from"], lights=cfg["lights"], step=cfg["step_s"],
+            out_s=cfg["out_s"])
+        self._log_start(key, frame, race, final_lap, was)
         fcfg = ov["flags"]
         starts = self._flag_sectors(fcfg["flag_sectors"])
         cars = {idx: (_at(frame.pct, idx, -1), _at(frame.surface, idx, TRK_NOT_IN_WORLD), bool(_at(frame.on_pit, idx, False)))
@@ -2052,6 +2085,28 @@ class App:
             key, t, starts=starts, cars=cars, track_m=self._track_m, auto=fcfg["auto"] and frame.is_live,
             caution=bool(frame.session_flags & CAUTION_FLAGS),
             racing=frame.session_state in (STATE_RACING, STATE_CHECKERED), hold_s=fcfg["hold_s"], clear_s=fcfg["clear_s"])
+
+    def _log_start(self, key, frame, race, final_lap, was):
+        """apex.log: what iRacing says before a race's start (its session state,
+        start / pace-lap / caution flags, the pace car), each time it changes,
+        until the green; and when the lights start and go out: to see why they
+        did or didn't."""
+        if not race or not frame.is_live:
+            return
+        flags = frame.session_flags
+        if self._start_seen != ("green", key):
+            green = is_green(frame.session_state, flags)
+            sig = (key, frame.session_state, flags & (START_READY | START_SET | START_GO | ONE_LAP_TO_GREEN | CAUTION_FLAGS), final_lap)
+            if sig != self._start_seen:
+                pace = "in the pits" if final_lap else ("out" if self._pace_idx is not None else "none")
+                print(f"[apex] start: session state {frame.session_state}, flags 0x{flags:08x}, pace car {pace}"
+                      f"{' - green' if green else ''}")
+            self._start_seen = ("green", key) if green else sig
+        now = self._lights_now
+        if now and not now["out"] and not was:
+            print(f"[apex] starting lights: counting down ({self._lights.source or '?'})")
+        elif now and now["out"] and not (was and was["out"]):
+            print("[apex] starting lights: lights out (green)")
 
     def _flag_sectors(self, count):
         """The flag overlay's sectors: the track's split points merged into

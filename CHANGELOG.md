@@ -25,6 +25,17 @@ How each version's entry is written:
 - Sponsor logo sizes: a size for each sponsor in the League builder (used
   everywhere it shows), and a sponsor logo size on every board.
 
+### Fixes
+
+- Starting lights now come up for rolling starts (counting down as the
+  leader heads for the line once the pace car pulls in).
+- Gaps no longer go blank for a while on the timing tower and screen when
+  iRacing's data for a car blips out for a moment.
+- Timing tower by class: places gained / lost are within the class.
+- Penalty flags aren't shown for drivers who are out or have left.
+- Timing tower in qualifying: the header shows before anyone has set a lap
+  with "fill in as drivers complete a lap" off, as in a race.
+
 ## v0.7.4
 
 ### New features

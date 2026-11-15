@@ -83,6 +83,17 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 - Sponsor logo sizes: a size for each sponsor in the League builder (used
   everywhere it shows), and a sponsor logo size on every board.
 
+### Fixes
+
+- Starting lights now come up for rolling starts (counting down as the
+  leader heads for the line once the pace car pulls in).
+- Gaps no longer go blank for a while on the timing tower and screen when
+  iRacing's data for a car blips out for a moment.
+- Timing tower by class: places gained / lost are within the class.
+- Penalty flags aren't shown for drivers who are out or have left.
+- Timing tower in qualifying: the header shows before anyone has set a lap
+  with "fill in as drivers complete a lap" off, as in a race.
+
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
 
@@ -811,11 +822,15 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   green (no text, just the lights), then it goes (3 s by default). *The lights count
   down from*: **iRacing's start lights** at a standing start (Ready starts
   the count, Set has them all lit, Go is lights out) or, at a rolling start,
-  **the leader's run to the line** on the lap to the green (a light for each
-  second it's away, from its speed); iRacing's start lights only; or the
+  **the leader's run to the line** on the last pace lap, once the pace car
+  has pulled into the pits (or iRacing shows "one lap to green"): a light for
+  each second it's away, from its speed; iRacing's start lights only; or the
   **Count down** button / hotkey only (which works with any of them: a light
   a step from the press, held lit until the green). **On / Off**: off, it
-  never shows. Not in replays, and not when the app starts mid-race.
+  never shows. Not in replays, not at restarts after a caution, and not when
+  the app starts mid-race. `apex.log` notes what iRacing says before each
+  race's start (its session state and flags, the pace car) and when the
+  lights start and go out, should they not come up as they should.
 - **Flags** (`/flags.html`): not on screen until a sector goes yellow. Then a
   waving yellow flag naming them: **Sector 1**, **Sectors 1 & 2**,
   **Sectors 1, 2 & 4**, or **All Sectors** once every one is yellow; a strip

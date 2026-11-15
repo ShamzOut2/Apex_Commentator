@@ -114,7 +114,9 @@ function fastestIcon(e, cfg, classMode) {
 // flag, DQ, meatball, slow down), else the chequered flag once they've
 // finished the race; null for none, or one switched off in the settings.
 function flagKind(e, cfg) {
-  if (e.penalty && cfg.penalty_flags !== false) return e.penalty;
+  // No penalty flag for a driver who's out (not in the car) or has left the session.
+  const out = e.in_world === false || e.left;
+  if (e.penalty && cfg.penalty_flags !== false && !out) return e.penalty;
   return e.finished && cfg.finish_flag !== false ? "finish" : null;
 }
 // When that flag came out (for its pop): -1e9 when it's not the one noted.
@@ -249,9 +251,11 @@ const makeBadge = (e) => (e.make_logo ? `<span class="make-badge"><img src="${es
 const stintText = (e) => (e.on_pit ? '<span class="dim">PIT</span>' : e.stint ?? "");
 
 const COLUMNS = [
-  ["show_pos_change", "46px", "+/−", (e, race) => {
-    if (!race || !e.pos_change) return race ? '<span class="dim">–</span>' : "";
-    return `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>`;
+  ["show_pos_change", "46px", "+/−", (e, race, classMode) => {
+    // By class: places gained or lost in the class (from its place on the class's grid).
+    const change = classMode ? e.class_pos_change : e.pos_change;
+    if (!race || !change) return race ? '<span class="dim">–</span>' : "";
+    return `<span class="${change > 0 ? "up" : "down"}">${change > 0 ? "▲" : "▼"}${Math.abs(change)}</span>`;
   }, (race) => race],
   ["show_laps", "44px", "Laps", (e) => e.laps_completed ?? ""],
   ["show_pits", "40px", "Pit", (e) => e.pit_stops || ""],
@@ -616,9 +620,9 @@ function render() {
   const sub = headerSub(snap, cfg, false);
   const progress = progressText(ov);
   const sponsor = sponsorLogo(snap, cfg);
-  // Hidden until someone qualifies for a row, unless "reveal" is on: then
-  // the header shows from the start and drivers join as they cross the line.
-  const visible = snap.connected && cfg.visible && (entries.length > 0 || cfg.reveal);
+  // The header shows from the start of every session (qualifying with nobody
+  // timed yet too); drivers join below it as they set a time / cross the line.
+  const visible = snap.connected && cfg.visible;
   // The header (with the column labels) is one panel; the drivers follow it,
   // joined on (overall) or as a separate panel per class, evenly spaced.
   if (replay) tower.style.setProperty("--replay-ink", inkOn(accentColor()));
@@ -700,7 +704,8 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   const gap = classMode ? e.class_gap : e.gap;
   const interval = classMode ? e.class_interval : e.interval;
   const first = pos === 1;
-  const change = race && e.pos_change ? `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>` : "";
+  const moved = classMode ? e.class_pos_change : e.pos_change;  // by class: places gained in the class
+  const change = race && moved ? `<span class="${moved > 0 ? "up" : "down"}">${moved > 0 ? "▲" : "▼"}${Math.abs(moved)}</span>` : "";
   // The team logo and the team name: columns of their own, in the order picked.
   const teamCells = screenTeamParts(cfg, compact).map((p) => (p === "logo"
     ? `<td class="lg c" data-opcol="logo">${teamLogoOf(e, cfg) ? `<img src="${esc(teamLogoOf(e, cfg))}" alt="">` : ""}</td>`

@@ -60,22 +60,42 @@ class TowTests(unittest.TestCase):
     def test_back_to_normal_over_the_line(self):
         w = TowWatch()
         key = ("sub", 2)
-        w.update(key, True, 10.0, {1: (5.30, 5, True)}, 4000)
-        w.update(key, True, 10.1, {1: (5.31, 5, True)}, 4000)
+        w.update(key, True, 10.0, {1: (5.30, 5, True, False)}, 4000)
+        w.update(key, True, 10.1, {1: (5.31, 5, True, False)}, 4000)
         self.assertEqual(w.towed, {})  # driving: nothing
-        w.update(key, True, 10.2, {1: (-1, 5, False)}, 4000)  # gone (being towed)
-        w.update(key, True, 15.0, {1: (6.95, 6, True)}, 4000)  # in its box, iRacing a lap on
+        w.update(key, True, 10.2, {1: (-1, 5, False, False)}, 4000)  # gone (being towed)
+        w.update(key, True, 15.0, {1: (6.95, 6, True, True)}, 4000)  # in its box, iRacing a lap on
         self.assertEqual(w.towed, {1: 6})
-        w.update(key, True, 40.0, {1: (6.98, 6, True)}, 4000)  # out of the box
+        w.update(key, True, 40.0, {1: (6.98, 6, True, True)}, 4000)  # out of the box
         self.assertIn(1, w.towed)
-        w.update(key, True, 41.0, {1: (7.01, 7, True)}, 4000)  # over the line under its own power
+        w.update(key, True, 41.0, {1: (7.01, 7, True, False)}, 4000)  # over the line under its own power
         self.assertEqual(w.towed, {})
-        # A jump forward further than a car drives: put there (a reset).
-        w.update(key, True, 41.1, {1: (7.50, 7, True)}, 4000)
+        # A jump forward further than a car drives, into the pits: put there (a reset).
+        w.update(key, True, 41.1, {1: (7.50, 7, True, True)}, 4000)
         self.assertIn(1, w.towed)
         # A new session: afresh.
-        w.update(("sub", 3), True, 0.0, {1: (0.1, 0, True)}, 4000)
+        w.update(("sub", 3), True, 0.0, {1: (0.1, 0, True, False)}, 4000)
         self.assertEqual(w.towed, {})
+
+    def test_blips_and_lag_on_track_are_not_tows(self):
+        """A car missing from iRacing's data for a moment, or seeming to jump on
+        track (its position held back by lag, then caught up), is still
+        driving: it keeps its place and gap."""
+        w = TowWatch()
+        key = ("sub", 4)
+        t = 10.0
+        w.update(key, True, t, {1: (3.20, 3, True, False)}, 1200)
+        w.update(key, True, t + 0.1, {1: (-1, 3, False, False)}, 1200)    # a blip out of the world...
+        w.update(key, True, t + 0.2, {1: (3.22, 3, True, False)}, 1200)   # ...and straight back, on track
+        self.assertEqual(w.towed, {})
+        w.update(key, True, t + 0.3, {1: (3.40, 3, True, False)}, 1200)   # lag caught up: a jump on track
+        self.assertEqual(w.towed, {})
+        w.update(key, True, t + 0.4, {1: (-1, 3, False, False)}, 1200)    # gone a moment...
+        w.update(key, True, t + 0.6, {1: (3.45, 3, True, True)}, 1200)    # ...back, on pit road (driving in)
+        self.assertEqual(w.towed, {})
+        w.update(key, True, t + 0.7, {1: (-1, 3, False, False)}, 1200)    # a real tow: away a while...
+        w.update(key, True, t + 9.0, {1: (3.96, 3, True, True)}, 1200)    # ...then in the pit box
+        self.assertEqual(w.towed, {1: 3})
 
 
 if __name__ == "__main__":
