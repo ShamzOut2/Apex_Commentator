@@ -95,15 +95,21 @@ def normalise_banners(banners):
 
 
 def normalise_sponsors(sponsors):
-    """Sponsor logos, for the boards and the sponsors overlay: [{id, file, name}]."""
+    """Sponsor logos, for the boards and the sponsors overlay: [{id, file, name, scale}].
+    ``scale``: how big this logo is drawn next to the others, % (40-250), everywhere."""
     out = []
     for s in sponsors or []:
         if not isinstance(s, dict) or not UPLOADED_LOGO.fullmatch(str(s.get("file") or "")):
             continue
+        try:
+            scale = int(round(float(s.get("scale") or 100)))
+        except (TypeError, ValueError):
+            scale = 100
         out.append({
             "id": re.sub(r"[^a-z0-9]", "", str(s.get("id") or ""))[:12] or uuid.uuid4().hex[:8],
             "file": s["file"],
             "name": str(s.get("name") or "").strip()[:60],
+            "scale": min(max(scale, 40), 250),
         })
     return out
 

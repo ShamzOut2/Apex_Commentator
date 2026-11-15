@@ -3477,6 +3477,7 @@ const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
     ["left", "Down the left"], ["right", "Down the right"]]],
   iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"]),
+  iff((v) => v.sponsors !== "none", ["sponsor_size", "Sponsor logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]),
   ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"],
   ["show_league", "League name in the header", "bool"],
   ["accent", "Accent colour (the line under the header…)", "select", [["default", "The championship's class colour (else orange)"],
@@ -4553,6 +4554,8 @@ function renderSponsors() {
   $("#sponsor-list").innerHTML = list.length ? list.map((sp, i) => `<div class="sponsor-card">
       <div class="sponsor-img"><img src="${esc(logoSrc(sp.file))}" alt=""></div>
       <input data-sponsor="${i}" value="${esc(sp.name || "")}" placeholder="Sponsor name" aria-label="Sponsor name">
+      <label class="sponsor-scale" title="How big this logo is drawn next to the others, everywhere (sponsors overlay, tower bar, boards): 100 = as the others">Size
+        <input type="number" data-sponsor-scale="${i}" min="40" max="250" step="5" value="${esc(sp.scale || 100)}" aria-label="Logo size (%)">%</label>
       <span class="sponsor-move">
         <button class="btn icon" data-sponsor-move="${i}" data-dir="-1" ${i ? "" : "disabled"} title="Earlier (shown first)">◀</button>
         <button class="btn icon" data-sponsor-move="${i}" data-dir="1" ${i < list.length - 1 ? "" : "disabled"} title="Later">▶</button>
@@ -4576,6 +4579,8 @@ $("#league-editor").addEventListener("change", async (e) => {
   }
   const field = e.target.closest("[data-sponsor]");
   if (field) ui.editing.sponsors[+field.dataset.sponsor].name = field.value;
+  const scale = e.target.closest("[data-sponsor-scale]");
+  if (scale) ui.editing.sponsors[+scale.dataset.sponsorScale].scale = Math.min(250, Math.max(40, Math.round(+scale.value || 100)));
 });
 $("#sponsor-list").addEventListener("click", (e) => {
   const mv = e.target.closest("[data-sponsor-move]");

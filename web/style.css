@@ -591,6 +591,8 @@ kbd {
 .sponsor-list { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
 .sponsor-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); padding: 8px; display: flex; gap: 8px; align-items: center; }
 .sponsor-card input { width: 160px; }
+.sponsor-card .sponsor-scale { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.sponsor-card .sponsor-scale input { width: 62px; }
 .sponsor-img { width: 120px; height: 56px; background: #0003 repeating-conic-gradient(#ffffff10 0 25%, transparent 0 50%) 0 0 / 16px 16px; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
 .sponsor-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .sponsor-pick > div { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; }

@@ -148,7 +148,7 @@ class BoardTests(unittest.TestCase):
         lg = league(sponsors=[{"id": "a1", "file": "sponsor-1.png", "name": "Acme"}, {"id": "b2", "file": "sponsor-2.png"}])
         settings = overlay_settings({"board_championship": {"sponsors": "bottom", "sponsor_ids": "b2"}})
         b = boards.build(lg, {"kind": "championship", "params": {}}, settings)
-        self.assertEqual(b["sponsors"], {"place": "bottom", "logos": [{"id": "b2", "name": "", "url": "/api/logos/lg/sponsor-2.png"}]})
+        self.assertEqual(b["sponsors"], {"place": "bottom", "logos": [{"id": "b2", "name": "", "url": "/api/logos/lg/sponsor-2.png", "scale": 100}]})
         self.assertIsNone(boards.build(lg, {"kind": "teams", "params": {}}, settings)["sponsors"])  # off by default
 
     def test_options_and_banner(self):

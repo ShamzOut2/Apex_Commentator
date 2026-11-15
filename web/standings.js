@@ -525,12 +525,15 @@ function placeSponsor(logo, cfg) {
   if (slot) slot.replaceWith(sponsorBar);
   if (!logo) return;
   sponsorBar.style.setProperty("--sb-h", `${cfg.sponsor_bar_size}px`);
-  if (logo.url === sponsorShown) return;
+  const shown = `${logo.url}|${logo.scale || 100}`;
+  if (shown === sponsorShown) return;
   const first = !sponsorShown;
-  sponsorShown = logo.url;
+  sponsorShown = shown;
   const img = document.createElement("img");
   img.src = logo.url;
   img.alt = logo.name || "";
+  // Its own scale (League builder: Sponsors), within the bar.
+  if ((logo.scale || 100) !== 100) img.style.transform = `scale(${(logo.scale || 100) / 100})`;
   sponsorBar.replaceChildren(img);
   if (!first) img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: "ease" });
 }

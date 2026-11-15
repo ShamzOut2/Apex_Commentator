@@ -22,6 +22,8 @@ How each version's entry is written:
   becomes "Shamoy Samuel") on every overlay and board, Officials mode too.
 - Teams can have a full logo and a small logo, and each overlay and board
   can be set to show either one.
+- Sponsor logo sizes: a size for each sponsor in the League builder (used
+  everywhere it shows), and a sponsor logo size on every board.
 
 ## v0.7.4
 

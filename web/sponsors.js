@@ -45,8 +45,8 @@ function render(snap) {
   stage.innerHTML = `<div class="sp ${esc(s.place)} ${vertical ? "vertical" : ""} ${rotate ? "rotate" : "row"} ${s.background || s.bg !== "default" ? "panel" : ""} ${s.visible ? "" : "hidden-preview"}"
       style="--sp-h:${s.size}px">
     ${s.title ? `<div class="sp-title">${esc(s.title)}</div>` : ""}
-    <div class="sp-row ${s.anchor_side === "last" ? "anchor-last" : ""}">${anchor ? `<img class="sp-anchor" src="${esc(anchor.url)}" alt="${esc(anchor.name)}">` : ""}${logos.length
-      ? `<div class="sp-logos">${logos.map((l, i) => `<img class="${i === 0 ? "on" : ""}" src="${esc(l.url)}" alt="${esc(l.name)}">`).join("")}</div>` : ""}</div>
+    <div class="sp-row ${s.anchor_side === "last" ? "anchor-last" : ""}">${anchor ? `<img class="sp-anchor" src="${esc(anchor.url)}" alt="${esc(anchor.name)}" style="--k:${(anchor.scale || 100) / 100}">` : ""}${logos.length
+      ? `<div class="sp-logos">${logos.map((l, i) => `<img class="${i === 0 ? "on" : ""}" src="${esc(l.url)}" alt="${esc(l.name)}" style="--k:${(l.scale || 100) / 100}">`).join("")}</div>` : ""}</div>
   </div>`;
   if (rotate) {
     const imgs = stage.querySelectorAll(".sp-logos img");

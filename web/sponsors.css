@@ -13,11 +13,12 @@
 /* The pinned logo after the others (right, or below). */
 .sp-row.anchor-last { flex-direction: row-reverse; }
 .sp.vertical .sp-row.anchor-last { flex-direction: column-reverse; }
-.sp-anchor { height: var(--sp-h); max-width: calc(var(--sp-h) * 3.2); object-fit: contain; }
-.sp.vertical .sp-anchor { height: auto; max-height: var(--sp-h); width: auto; max-width: calc(var(--sp-h) * 2.4); }
-.sp-logos img { height: var(--sp-h); max-width: calc(var(--sp-h) * 3.2); object-fit: contain; }
+/* Each logo at the size set, times its own scale (League builder: Sponsors, --k). */
+.sp-anchor { height: calc(var(--sp-h) * var(--k, 1)); max-width: calc(var(--sp-h) * 3.2 * var(--k, 1)); object-fit: contain; }
+.sp.vertical .sp-anchor { height: auto; max-height: calc(var(--sp-h) * var(--k, 1)); width: auto; max-width: calc(var(--sp-h) * 2.4 * var(--k, 1)); }
+.sp-logos img { height: calc(var(--sp-h) * var(--k, 1)); max-width: calc(var(--sp-h) * 3.2 * var(--k, 1)); object-fit: contain; }
 .sp.vertical .sp-logos { flex-direction: column; gap: 14px; }
-.sp.vertical .sp-logos img { height: auto; max-height: var(--sp-h); width: auto; max-width: calc(var(--sp-h) * 2.4); }
+.sp.vertical .sp-logos img { height: auto; max-height: calc(var(--sp-h) * var(--k, 1)); width: auto; max-width: calc(var(--sp-h) * 2.4 * var(--k, 1)); }
 
 /* One at a time: the logos stack in one spot and fade between each other. */
 /* The panel fits the logo showing; the others wait (and fade) over it. */

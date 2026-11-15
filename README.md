@@ -80,6 +80,8 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   becomes "Shamoy Samuel") on every overlay and board, Officials mode too.
 - Teams can have a full logo and a small logo, and each overlay and board
   can be set to show either one.
+- Sponsor logo sizes: a size for each sponsor in the League builder (used
+  everywhere it shows), and a sponsor logo size on every board.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -888,6 +890,10 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   **Always shown**: one sponsor that stays there, beside the others while
   they rotate (e.g. the series' title sponsor), first (left, or top) or
   last (right, or bottom), as *Where it goes* sets.
+  **Each sponsor's own size**: in the League builder, every sponsor has a
+  *Size* (%, 40–250; 100 = as the others), so a logo that looks small (or
+  too big) beside the rest can be evened up. It applies wherever that logo
+  shows: this overlay, the tower's sponsor bar and the boards.
 - **Lap tracker** (`/laps.html`): only in qualifying (practice too, if you
   tick it).
   - The car on camera gets the big tracker. Up to 12 small ones show other
@@ -1279,7 +1285,8 @@ Under *What each board shows*, every board can be set up separately:
 - the league logo in its header;
 - a league banner across the top or bottom or down either side, and which
   banner;
-- the league's sponsor logos along any edge, and which sponsors;
+- the league's sponsor logos along any edge, which sponsors, and their
+  size (*Sponsor logo size*, %; each sponsor's own size on top of it);
 - the board's own columns: car numbers, team names and logos, car badges,
   gaps, wins, penalty points, points from the last few rounds, laps, places
   gained, fastest lap (purple), points scored;

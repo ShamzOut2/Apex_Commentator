@@ -71,9 +71,9 @@ def _banner(league, settings):
 
 
 def sponsors(league, ids):
-    """The league's sponsor logos picked by ``ids`` ("" = all, "none" = none): [{id, name, url}]."""
+    """The league's sponsor logos picked by ``ids`` ("" = all, "none" = none): [{id, name, url, scale}]."""
     wanted = None if not ids else set(ids.split(","))
-    return [{"id": s["id"], "name": s["name"], "url": logo_url(league["id"], s["file"])}
+    return [{"id": s["id"], "name": s["name"], "url": logo_url(league["id"], s["file"]), "scale": s.get("scale", 100)}
             for s in league.get("sponsors", []) if wanted is None or s["id"] in wanted]
 
 
