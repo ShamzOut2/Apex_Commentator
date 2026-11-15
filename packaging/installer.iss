@@ -30,6 +30,10 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+; Tell Windows' shell to refresh its icons once installed: an update that brings
+; a new app icon otherwise keeps showing the old one (cached) on the taskbar
+; pin and the shortcuts.
+ChangesAssociations=yes
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -48,6 +52,8 @@ Name: "{group}\Uninstall Apex Commentator"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Apex Commentator"; Filename: "{app}\ApexCommentator.exe"; Tasks: desktopicon
 
 [Run]
+; Windows 10 / 11: rebuild the icon cache so the new icon shows straight away.
+Filename: "{sys}\ie4uinit.exe"; Parameters: "-show"; Flags: runhidden waituntilterminated skipifdoesntexist
 Filename: "{app}\ApexCommentator.exe"; Description: "{cm:LaunchProgram,Apex Commentator}"; Flags: nowait postinstall skipifsilent
 ; In-app updates run the installer silently with /RELAUNCH: reopen the app afterwards.
 Filename: "{app}\ApexCommentator.exe"; Flags: nowait; Check: ShouldRelaunch

@@ -11,7 +11,7 @@ import os
 import sys
 import threading
 
-from .paths import APP_NAME, FROZEN, USER_DIR
+from .paths import APP_NAME, FROZEN, ICON_FILE, USER_DIR
 
 # The installer waits for this mutex to disappear before replacing files.
 MUTEX_NAME = "ApexCommentatorRunning"
@@ -106,6 +106,21 @@ def window_available():
         return False
 
 
+def _app_icon(window):
+    """The window's icon (title bar, taskbar, Alt+Tab) from the app's .ico, every
+    size of it, so Windows shows the current icon crisp at any scale."""
+    if not IS_WINDOWS or not ICON_FILE.exists():
+        return
+    try:
+        from System import Action
+        from System.Drawing import Icon
+
+        form = window.native
+        form.Invoke(Action(lambda: setattr(form, "Icon", Icon(str(ICON_FILE)))))
+    except Exception as e:  # noqa: BLE001 - the window keeps the exe's icon
+        print(f"[apex] couldn't set the window icon: {e!r}")
+
+
 def run_window(url, title, close_event):
     """Show the control panel in a native window. Blocks until it is closed.
 
@@ -120,6 +135,7 @@ def run_window(url, title, close_event):
             title, url, width=1440, height=900, min_size=(960, 600), background_color="#0f1115",
         )
         _main_window = window
+        window.events.shown += lambda: _app_icon(window)
         # Pop-outs close with the main window.
         window.events.closed += _close_popouts
 

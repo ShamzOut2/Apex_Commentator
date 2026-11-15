@@ -11,6 +11,27 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.7.4
+
+### New features
+
+- Timing tower and screen: a black flag, meatball or slow-down (warning)
+  flag by a driver while iRacing shows them one, on the same tab as the
+  chequered flag, each tab in a colour you can pick.
+
+### Improvements
+
+- Car numbers can take the driver's team colour as their background (timing
+  tower and screen, driver on camera, pit stops, grid walk): pick "team
+  colour" where the car number's colour is set.
+
+### Fixes
+
+- The taskbar and shortcuts now show the new app icon after updating
+  (Windows kept showing the old one it had cached).
+- Timing tower and screen, Overall: every class's fastest lap gets the
+  stopwatch, not just the overall fastest.
+
 ## v0.7.3
 
 ### New features

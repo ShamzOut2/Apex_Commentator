@@ -1432,6 +1432,9 @@ class App:
             "laps_down": r.get("laps_down", 0), "class_laps_down": r.get("class_laps_down", 0),
             # Taken the chequered flag (the tower's flag by their name).
             "finished": self._race.checkered and r["car_idx"] in self._race.finished,
+            # A flag iRacing is showing them for a penalty, the most serious:
+            # "dq", "black", "meatball" (repairs) or "warning" (slow down), else None.
+            "penalty": r.get("flag") if r.get("flag") in PENALTY_NAMES else None,
         }
 
     def _fastest_laps(self, standings, is_race, cfg, frame):
@@ -2386,6 +2389,7 @@ class App:
             "nickname": nickname,
             "number": d.get("number", ""),
             "team": team,
+            "team_color": ((self.leagues.team(team, active_league) or {}).get("color") or "") if active_league and team else "",
             "team_logo": logo_url(pid, self.leagues.team_logo(team, active_league)) if pid else None,
             "car": d.get("car", ""),
             "make": league.get("car_make") or d.get("make", ""),

@@ -109,7 +109,8 @@ DEFAULTS = {
         "team_name_place": "under",  # tower: the team name under the driver's name ("under") or a column of its own ("column")
         # The car number's background and the bar by each driver: the colour of
         # the driver's "main" or "secondary" class (none, a plain number and no
-        # bar, for a driver without one; with no league, iRacing's class colours).
+        # bar, for a driver without one; with no league, iRacing's class colours),
+        # or their "team" colour (their main class's when the team has none).
         "class_colors": "main",
         "stripe_colors": "same",  # the bar's colour: "same" class as the car number's, its own "main" / "secondary", or "team"
         "show_number": True,
@@ -168,6 +169,9 @@ DEFAULTS = {
         "show_fastest_icon": True,
         "name_width": 0,          # the driver name column's width in px (0 = automatic)
         "finish_flag": True,      # race: a waving chequered flag by each driver once they've taken the flag
+        "penalty_flags": True,    # a black flag, meatball or slow-down (warning) flag by a driver while iRacing shows them one
+        # The tabs those flags sit on: black flag (and DQ), meatball, slow down.
+        "flag_black_bg_color": "#8a1010", "flag_meatball_bg_color": "#7a3d05", "flag_warning_bg_color": "#4a4e57",
         "replay_header": True,    # watching a replay: REPLAY in the header, on the accent colour
         "replay_hide_rows": False,  # watching a replay: just the header (REPLAY), the drivers back when live
         "fl_flash": True,
@@ -454,7 +458,7 @@ PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "botto
 CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
+           "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary", "team"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS,
            "font": FONTS,
            "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "anchor_side": ("first", "last"), "fl_flash_many": ("stack", "queue"), "gap_shown": ("ahead", "camera"),

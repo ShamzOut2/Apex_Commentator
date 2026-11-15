@@ -416,8 +416,10 @@ function carSvg(design, number, { mirror = false } = {}) {
 // The colour a driver is shown in (car number, bar, card): with a league
 // active, their main or secondary class's (``which``, the overlay's
 // class_colors setting), or null (no colour: a plain number, no bar) when
-// they have none; without a league, the iRacing class colour.
+// they have none; without a league, the iRacing class colour. ``which``
+// "team": their team's colour, else (a team without one) their main class's.
 function paintFor(e, cls, which) {
+  if (which === "team" && e && e.team_color) return e.team_color;
   if (!e || !e.paint) return cls.color;
   return (which === "secondary" ? e.paint.secondary : e.paint.main) || null;
 }
@@ -486,6 +488,22 @@ const FINISH_FLAG = '<svg class="fin-svg" viewBox="0 0 26 24" aria-hidden="true"
   + '<rect width="8" height="8" fill="#f4f4f4"/><rect width="4" height="4" fill="#111"/><rect x="4" y="4" width="4" height="4" fill="#111"/></pattern></defs>'
   + '<rect x="2" y="1.5" width="2" height="21.5" rx="1" fill="#cfd3d8"/>'
   + '<g class="fin-cloth"><rect x="4" y="2.5" width="20" height="13" fill="url(#fin-check)" stroke="rgba(0,0,0,.35)" stroke-width=".5"/></g></svg>';
+
+// The flags a driver can be shown by their name (the tower's tab, the timing
+// screen): the chequered flag, and iRacing's penalty flags. The black ones
+// have a light edge so they show on the dark tower.
+const flagSvg = (cloth) => '<svg class="fin-svg" viewBox="0 0 26 24" aria-hidden="true">'
+  + '<rect x="2" y="1.5" width="2" height="21.5" rx="1" fill="#cfd3d8"/>'
+  + `<g class="fin-cloth">${cloth}</g></svg>`;
+const BLACK_CLOTH = '<rect x="4" y="2.5" width="20" height="13" fill="#0b0b0c" stroke="rgba(255,255,255,.7)" stroke-width=".8"/>';
+const RACE_FLAGS = {
+  finish: [FINISH_FLAG, "Finished"],
+  black: [flagSvg(BLACK_CLOTH), "Black flag"],
+  dq: [flagSvg(BLACK_CLOTH + '<path d="M10 5.5l8 7M18 5.5l-8 7" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>'), "Disqualified"],
+  meatball: [flagSvg(BLACK_CLOTH + '<circle cx="14" cy="9" r="4.3" fill="#ff7a00"/>'), "Meatball: repairs"],
+  warning: [flagSvg('<rect x="4" y="2.5" width="20" height="13" fill="#f4f4f4"/><path d="M4 2.5L24 15.5H4Z" fill="#0b0b0c"/>'
+    + '<rect x="4" y="2.5" width="20" height="13" fill="none" stroke="rgba(255,255,255,.7)" stroke-width=".8"/>'), "Slow down (warning)"],
+};
 
 // Fixed 1920x1080 stage, scaled to fit the browser source. setStageSize()
 // then makes the whole stage bigger or smaller around the middle (boards,

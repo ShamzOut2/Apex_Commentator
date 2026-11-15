@@ -9,7 +9,8 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_all
 
 root = Path(SPECPATH).parent
-datas = [(str(root / "web"), "web")]
+# The app icon too: the window sets it from the .ico (every size), not only the exe's.
+datas = [(str(root / "web"), "web"), (str(root / "assets" / "icon.ico"), "assets")]
 binaries = []
 hiddenimports = ["irsdk", "yaml"]
 
