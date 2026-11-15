@@ -808,10 +808,11 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   switched on, it appears when someone's within the gap and goes when no one
   is (it stays a few seconds after, so it doesn't flicker). Untick it to show
   and hide it yourself.
-- **Starting lights** (`/lights.html`): a start-light gantry (a steel truss,
-  two posts down to a black housing, and for each light a column of two
-  hooded LED lamps; nothing behind it but a black outline round the whole
-  thing) that only comes up as a race is about to start (5 lights by
+- **Starting lights** (`/lights.html`): a start-light gantry seen in
+  perspective, turned 10° to the left (a steel box truss, two posts down to
+  a black housing, and for each light a column of two lamps, each a glass
+  lens of LEDs in rings under a slim hood; nothing behind it but a black
+  outline round the whole thing) that only comes up as a race is about to start (5 lights by
   default, 3–8). The lights come on
   one by one, a step apart (1 s by default), stay lit, and go out at the
   green, with "LIGHTS OUT", then it goes (3 s by default). *The lights count

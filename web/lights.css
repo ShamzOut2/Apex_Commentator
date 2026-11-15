@@ -25,76 +25,91 @@ body.panel-image .lt-frame::before {
   background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
 }
 
-.lt-truss { display: block; margin-top: 10px; filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .55)); }
-.lt-truss .lattice line { stroke: #3c4047; stroke-width: 3.5; stroke-linecap: round; }
+/* The whole gantry turned 10° to the left, seen in perspective: its right
+   end nearer (bigger), the housing's side showing. The outline stays square on. */
+.lt-rig {
+  display: flex; flex-direction: column; align-items: center; margin: 4px 30px 0;
+  transform: perspective(1500px) rotateY(-10deg); transform-style: preserve-3d;
+}
+
+.lt-truss { display: block; margin-top: 10px; filter: drop-shadow(0 8px 6px rgba(0, 0, 0, .6)); }
+.lt-truss .back { opacity: .55; }
+.lt-truss .lattice line { stroke: #41454c; stroke-width: 3.2; stroke-linecap: round; }
 .lt-mounts { position: relative; height: 34px; margin-top: -8px; }
 .lt-mounts span {
-  position: absolute; top: 0; width: 26px; height: 34px; border-radius: 3px;
-  background: linear-gradient(90deg, #15161a, #5b6069 40%, #2a2c31 70%, #0e0f11);
+  position: absolute; top: 0; width: 24px; height: 34px; border-radius: 3px;
+  background: linear-gradient(90deg, #121316, #686d76 38%, #2a2c31 70%, #0c0d0f);
 }
 .lt-mounts span::before, .lt-mounts span::after {
   content: ""; position: absolute; left: -12px; right: -12px; height: 7px; border-radius: 2px;
-  background: linear-gradient(180deg, #7b818b, #2b2e34);
+  background: linear-gradient(180deg, #858b95, #2b2e34);
 }
 .lt-mounts span::before { top: -2px; }
 .lt-mounts span::after { bottom: -3px; }
 .lt-mounts span:first-child { left: 22%; }
 .lt-mounts span:last-child { right: 22%; }
 
-/* The housing: matt black, a bevelled edge and a little depth. */
+/* The housing: matt black metal, bevelled, with its side panel in 3D. */
 .lt-box {
-  position: relative; padding: 28px 30px; border-radius: 6px;
+  position: relative; padding: 26px 30px; border-radius: 5px; transform-style: preserve-3d;
   background:
-    linear-gradient(115deg, rgba(255, 255, 255, .025) 0 30%, transparent 30% 100%),
-    radial-gradient(ellipse at 50% 40%, #191a1e, #0a0a0c 75%);
-  box-shadow: inset 0 0 0 2px #2a2c32, inset 0 2px 0 #3d4048, inset 0 -3px 0 #050506,
-    8px 10px 0 -2px #060607, 0 18px 34px rgba(0, 0, 0, .7);
+    linear-gradient(100deg, rgba(255, 255, 255, .035) 0 22%, transparent 40%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .012) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at 50% 35%, #1a1b1f, #09090b 78%);
+  box-shadow: inset 0 0 0 2px #26282e, inset 0 2px 0 #43464e, inset 0 -3px 0 #040405, 0 22px 40px rgba(0, 0, 0, .75);
 }
-.lt-box .bolt { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #9aa0a8, #2b2e33 70%); }
+.lt-box::after {  /* its right-hand side, going back */
+  content: ""; position: absolute; top: 2px; bottom: 2px; left: 100%; width: 46px; transform-origin: left center;
+  transform: rotateY(90deg); border-radius: 0 4px 4px 0;
+  background: linear-gradient(90deg, #26282d, #0d0e10 60%, #060607);
+}
+.lt-box .bolt { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #a4aab3, #2b2e33 70%); box-shadow: 0 1px 1px #000; }
 .lt-box .bolt.tl { top: 9px; left: 9px; }
 .lt-box .bolt.tr { top: 9px; right: 9px; }
 .lt-box .bolt.bl { bottom: 9px; left: 9px; }
 .lt-box .bolt.br { bottom: 9px; right: 9px; }
 .lt-row { display: flex; gap: 18px; }
-.lt-pod { display: flex; flex-direction: column; gap: 26px; }
+.lt-pod { display: flex; flex-direction: column; gap: 22px; }
 
-/* A lamp: a dark bezel ring, its LED face, and the hood over the top. */
+/* A lamp: a black bezel ring, a recessed glass face of LEDs, a slim hood. */
 .lt-lamp {
   position: relative; display: block; width: 110px; height: 110px; border-radius: 50%;
-  background: radial-gradient(circle, #050505 60%, #26282d 64%, #101114 72%, #2e3036 76%, #0b0b0d 100%);
-  box-shadow: 0 0 0 2px #000, 0 4px 10px rgba(0, 0, 0, .7);
+  background: radial-gradient(circle, #040404 62%, #2b2d33 65%, #0f1013 71%, #34373e 75%, #0a0a0c 100%);
+  box-shadow: 0 0 0 2px #000, 0 5px 10px rgba(0, 0, 0, .75);
 }
 .lt-face {
-  position: absolute; inset: 12px; border-radius: 50%;
-  /* A grid of LEDs: each a dot, dark until lit. */
+  position: absolute; inset: 13px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 48% 45%, #200807, #120404 70%, #070202);
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, .95);
+  transition: background .06s linear;
+}
+.lt-dots { position: absolute; inset: 1px; width: calc(100% - 2px); height: calc(100% - 2px); fill: #3a100c; transition: fill .06s linear; }
+.lt-face::before {  /* the glass: a soft reflection across its top left */
+  content: ""; position: absolute; inset: 0; border-radius: 50%; z-index: 2; pointer-events: none;
   background:
-    radial-gradient(circle, #4a1612 0 1.6px, transparent 2.3px) 0 0 / 7px 7px,
-    radial-gradient(circle at 45% 40%, #2a0b0a, #160505 65%, #0b0303);
-  box-shadow: inset 0 0 14px rgba(0, 0, 0, .9);
-  transition: background .07s linear, box-shadow .07s linear;
+    radial-gradient(ellipse 60% 38% at 34% 22%, rgba(255, 255, 255, .16), transparent 70%),
+    linear-gradient(180deg, rgba(0, 0, 0, .5), transparent 30%);
 }
-/* The hood: a deep visor over the top half, set up and to the left of the
-   lamp as on a real gantry, its lip shading the face below it. */
+/* The hood: a slim visor over the top, a little up and to the left. */
 .lt-lamp::before {
-  content: ""; position: absolute; left: -15px; top: -16px; width: 128px; height: 128px; border-radius: 50%; z-index: 2;
-  border: 15px solid transparent; border-top-color: #222429; border-left-color: #1c1e22;
-  clip-path: polygon(0 0, 100% 0, 100% 34%, 0 50%);
-  box-shadow: inset 0 8px 10px rgba(0, 0, 0, .85), 0 -2px 0 #34373e;
-}
-.lt-lamp::after {  /* the face's top in the hood's shadow */
-  content: ""; position: absolute; inset: 12px; border-radius: 50%; z-index: 1; pointer-events: none;
-  background: linear-gradient(180deg, rgba(0, 0, 0, .55), transparent 32%);
+  content: ""; position: absolute; left: -6px; top: -8px; width: 116px; height: 116px; border-radius: 50%; z-index: 3;
+  border: 7px solid transparent; border-top-color: #24262b; border-left-color: #1d1f23;
+  clip-path: polygon(0 0, 100% 0, 100% 30%, 0 48%);
+  box-shadow: inset 0 5px 6px rgba(0, 0, 0, .85), 0 -1px 0 #3a3d44;
 }
 
+/* Lit: the LEDs bright, the face glowing red behind them, the light
+   spilling past the bezel and onto the inside of the hood. */
 .lt-pod.on .lt-face {
-  background:
-    radial-gradient(circle, #ffe9e2 0 1.3px, #ff6a50 1.8px, transparent 2.5px) 0 0 / 7px 7px,
-    radial-gradient(circle at 45% 40%, #ff3a24, #e0150a 45%, #a10a04 80%, #5e0502);
-  box-shadow: inset 0 0 10px rgba(80, 0, 0, .8), 0 0 26px 8px rgba(255, 30, 10, .65), 0 0 70px 18px rgba(255, 20, 0, .3);
+  background: radial-gradient(circle at 48% 45%, #ff3a22, #e3170b 40%, #a70b05 75%, #5a0402);
+  box-shadow: inset 0 0 12px rgba(70, 0, 0, .85);
 }
-/* Lit, the red spills onto the inside of the hood and the bezel. */
-.lt-pod.on .lt-lamp::before { border-top-color: #5a0f09; border-left-color: #3a0906; box-shadow: inset 0 9px 12px rgba(255, 45, 20, .8), 0 -2px 0 #34373e; }
-.lt-pod.on .lt-lamp { background: radial-gradient(circle, #050505 60%, #4a1510 64%, #1a0b0a 72%, #4a2a28 76%, #0b0b0d 100%); }
+.lt-pod.on .lt-dots { fill: #ff9a80; filter: drop-shadow(0 0 1.4px #ff3c1e); }
+.lt-pod.on .lt-lamp {
+  background: radial-gradient(circle, #040404 62%, #5a1812 65%, #1c0b0a 71%, #563028 75%, #0a0a0c 100%);
+  box-shadow: 0 0 0 2px #000, 0 0 30px 10px rgba(255, 30, 10, .55), 0 0 80px 22px rgba(255, 20, 0, .25);
+}
+.lt-pod.on .lt-lamp::before { border-top-color: #5c120b; border-left-color: #3c0a06; box-shadow: inset 0 6px 9px rgba(255, 50, 25, .8), 0 -1px 0 #3a3d44; }
 
 .lt-text {
   margin-top: 16px; height: calc(30px * var(--fs, 1)); font-size: calc(26px * var(--fs, 1)); font-weight: 900;

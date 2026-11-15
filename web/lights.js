@@ -23,13 +23,31 @@ function trussSvg(w) {
   return `<svg class="lt-truss" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
     <defs><linearGradient id="lt-tube" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8d939c"/>
       <stop offset=".35" stop-color="#4a4e55"/><stop offset=".7" stop-color="#202226"/><stop offset="1" stop-color="#0d0e10"/></linearGradient></defs>
+    <g class="back"><rect x="10" y="3" width="${w - 10}" height="8" rx="4" fill="url(#lt-tube)"/>
+      <rect x="10" y="44" width="${w - 10}" height="8" rx="4" fill="url(#lt-tube)"/></g>
     <g class="lattice">${lattice.join("")}</g>
     <rect x="0" y="8" width="${w}" height="11" rx="5.5" fill="url(#lt-tube)"/>
     <rect x="0" y="51" width="${w}" height="11" rx="5.5" fill="url(#lt-tube)"/></svg>`;
 }
 
-// One lamp: a bezel, the hood over its top, and a face of LEDs.
-const LAMP = '<span class="lt-lamp"><span class="lt-face"></span></span>';
+// The LEDs of a lamp's face, in rings round its middle as on a real one
+// (drawn once, used by every lamp).
+function ledSymbol() {
+  const dots = ['<circle cx="0" cy="0" r="1.9"/>'];
+  for (let r = 6.2; r <= 41; r += 5.8) {
+    const n = Math.floor((2 * Math.PI * r) / 6.1);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * 2 * Math.PI + r;  // each ring turned a little, as they're set
+      dots.push(`<circle cx="${(r * Math.cos(a)).toFixed(2)}" cy="${(r * Math.sin(a)).toFixed(2)}" r="1.9"/>`);
+    }
+  }
+  return `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="lt-leds" viewBox="-44 -44 88 88">${dots.join("")}</symbol></defs></svg>`;
+}
+stage.insertAdjacentHTML("beforeend", ledSymbol());
+
+// One lamp: a bezel, the hood over its top, and a glass face of LEDs.
+const LAMP = '<span class="lt-lamp"><span class="lt-face"><svg class="lt-dots" viewBox="0 0 88 88"><use href="#lt-leds" width="88" height="88"/></svg></span></span>';
 
 function draw(l, cfg) {
   setPanels(cfg);
@@ -42,12 +60,12 @@ function draw(l, cfg) {
     const boxW = l.lights * 128 - 18 + 60;
     const pods = Array.from({ length: l.lights }, () => `<div class="lt-pod">${LAMP}${LAMP}</div>`).join("");
     stage.insertAdjacentHTML("beforeend", `<div class="lights panel-in ${esc(cfg.place)} ${cfg.visible ? "" : "hidden-preview"}">
-      <div class="lt-frame">
+      <div class="lt-frame"><div class="lt-rig">
         ${trussSvg(boxW + 120)}
         <div class="lt-mounts" style="width:${boxW}px"><span></span><span></span></div>
         <div class="lt-box" style="width:${boxW}px"><div class="lt-row">${pods}</div>
           <i class="bolt tl"></i><i class="bolt tr"></i><i class="bolt bl"></i><i class="bolt br"></i></div>
-        ${cfg.show_text ? '<div class="lt-text"></div>' : ""}
+        </div>${cfg.show_text ? '<div class="lt-text"></div>' : ""}
       </div></div>`);
     box = stage.lastElementChild;
     const el = box;
