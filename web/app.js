@@ -2844,6 +2844,7 @@ const OVERLAY_FIELDS = {
     ["Drivers", [
       ["name_format", "Names", "select", NAME_FORMATS],
       ["finish_flag", "Chequered flag by each driver as they finish the race (a waving flag on a tab at the tower's right edge)", "bool"],
+      ["penalty_flags", "Black flag, meatball and slow-down (warning) flags by a driver while iRacing shows them one (on the same tab)", "bool"],
       ["show_number", "Car numbers", "bool"],
       iff((v) => v.show_number, ["color_number", "Car number on a coloured background (off: just the number)", "bool"]),
       ["class_colors", "Car number background colour from", "select", [["main", "The driver's main class"],

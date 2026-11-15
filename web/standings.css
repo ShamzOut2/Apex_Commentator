@@ -140,6 +140,12 @@ body.screen .fl-flash { top: 14px; }
 .fin-tab.in { animation: fin-tab-in .6s cubic-bezier(.2, .9, .25, 1) both; }
 .fin-tab.in .fin-flag { animation: fin-pop .9s .35s cubic-bezier(.2, .9, .3, 1.4) both; transform-origin: 10% 100%; }
 @keyframes fin-tab-in { from { transform: translateX(-100%); } }
+/* A penalty flag's tab: tinted (so the black flag stands out) and pulsing gently. */
+.fin-tab.black, .fin-tab.dq { background: color-mix(in srgb, #8a1010 calc(var(--bg-k, 1) * 100%), transparent); }
+.fin-tab.meatball { background: color-mix(in srgb, #7a3d05 calc(var(--bg-k, 1) * 100%), transparent); }
+.fin-tab.warning { background: color-mix(in srgb, #4a4e57 calc(var(--bg-k, 1) * 100%), transparent); }
+.fin-tab.black .fin-svg, .fin-tab.dq .fin-svg, .fin-tab.meatball .fin-svg, .fin-tab.warning .fin-svg { animation: pen-pulse 1.6s ease-in-out infinite; }
+@keyframes pen-pulse { 50% { filter: drop-shadow(0 0 4px rgba(255, 255, 255, .55)); } }
 .fin-flag.pop { animation: fin-pop .9s cubic-bezier(.2, .9, .3, 1.4) both; transform-origin: 10% 100%; }
 @keyframes fin-pop { 0% { transform: scale(0) rotate(-35deg); opacity: 0; } 55% { transform: scale(1.45) rotate(8deg); opacity: 1; } 100% { transform: none; } }
 @keyframes fl-pop { 0% { transform: scale(0) rotate(-90deg); opacity: 0; } 60% { transform: scale(1.5); opacity: 1; } }

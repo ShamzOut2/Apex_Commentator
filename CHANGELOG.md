@@ -13,6 +13,12 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- Timing tower and screen: a black flag, meatball or slow-down (warning)
+  flag by a driver while iRacing shows them one, on the same tab as the
+  chequered flag.
+
 ### Improvements
 
 - Car numbers can take the driver's team colour as their background (timing

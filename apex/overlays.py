@@ -169,6 +169,7 @@ DEFAULTS = {
         "show_fastest_icon": True,
         "name_width": 0,          # the driver name column's width in px (0 = automatic)
         "finish_flag": True,      # race: a waving chequered flag by each driver once they've taken the flag
+        "penalty_flags": True,    # a black flag, meatball or slow-down (warning) flag by a driver while iRacing shows them one
         "replay_header": True,    # watching a replay: REPLAY in the header, on the accent colour
         "replay_hide_rows": False,  # watching a replay: just the header (REPLAY), the drivers back when live
         "fl_flash": True,

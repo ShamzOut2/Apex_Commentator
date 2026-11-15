@@ -32,7 +32,7 @@ const POP_MS = 700;
 const lastPlace = new Map();   // car -> position last drawn
 const moves = new Map();       // car -> {up, at}
 const holders = new Map();     // car -> when they took the fastest lap
-const finishers = new Map();   // car -> when they took the chequered flag
+const finishers = new Map();   // car -> {kind, at}: the flag by their name ("finish", or a penalty flag) and since when
 const WAVE_MS = 1100;          // one wave of a finished driver's flag
 let placeView = "";
 
@@ -49,8 +49,10 @@ function notePlaces(entries, classMode) {
     const holds = classMode ? e.class_fastest : e.fastest;
     if (holds && !holders.has(e.car_idx)) holders.set(e.car_idx, fresh ? -1e9 : now);
     if (!holds) holders.delete(e.car_idx);
-    if (e.finished && !finishers.has(e.car_idx)) finishers.set(e.car_idx, fresh ? -1e9 : now);
-    if (!e.finished) finishers.delete(e.car_idx);
+    const kind = e.penalty || (e.finished ? "finish" : null);
+    const had = finishers.get(e.car_idx);
+    if (kind && (!had || had.kind !== kind)) finishers.set(e.car_idx, { kind, at: fresh ? -1e9 : now });
+    if (!kind) finishers.delete(e.car_idx);
   }
 }
 
@@ -103,14 +105,28 @@ function fastestIcon(e, cfg, classMode) {
   return `<span class="fl-icon ${pop ? "pop" : ""}" style="${pop || ""}" title="Fastest lap">${STOPWATCH}</span>`;
 }
 
-// A chequered flag by a driver who's finished the race: it pops in as they
-// cross the line, then waves. Every flag waves in time, whatever the redraws
-// (the wave runs off the page's clock).
+// The flag by a driver's name: a penalty flag iRacing is showing them (black
+// flag, DQ, meatball, slow down), else the chequered flag once they've
+// finished the race; null for none, or one switched off in the settings.
+function flagKind(e, cfg) {
+  if (e.penalty && cfg.penalty_flags !== false) return e.penalty;
+  return e.finished && cfg.finish_flag !== false ? "finish" : null;
+}
+// When that flag came out (for its pop): -1e9 when it's not the one noted.
+function flagSince(e, kind) {
+  const f = finishers.get(e.car_idx);
+  return f && f.kind === kind ? f.at : -1e9;
+}
+
+// It pops in as it comes out (a finisher crossing the line), then waves.
+// Every flag waves in time, whatever the redraws (the wave runs off the page's clock).
 function finishFlag(e, cfg) {
-  if (cfg.finish_flag === false || !e.finished) return "";
-  const pop = ongoing(finishers.get(e.car_idx) ?? -1e9, POP_MS * 1.3);
+  const kind = flagKind(e, cfg);
+  if (!kind) return "";
+  const pop = ongoing(flagSince(e, kind), POP_MS * 1.3);
   const wave = `--wave-delay:-${Math.round(performance.now() % WAVE_MS)}ms`;
-  return `<span class="fin-flag ${pop ? "pop" : ""}" style="${pop ? `${pop};` : ""}${wave}" title="Finished">${FINISH_FLAG}</span>`;
+  const [svg, title] = RACE_FLAGS[kind] || RACE_FLAGS.finish;
+  return `<span class="fin-flag ${kind} ${pop ? "pop" : ""}" style="${pop ? `${pop};` : ""}${wave}" title="${title}">${svg}</span>`;
 }
 
 // On the tower the flags are a tab of their own sticking out of its right
@@ -122,7 +138,7 @@ const finTabs = new Map();  // car -> tab element
 
 function placeFinishTabs(entries, cfg) {
   if (finRail.parentNode !== tower) tower.appendChild(finRail);
-  const done = new Map(entries.filter((e) => cfg.finish_flag !== false && e.finished).map((e) => [String(e.car_idx), e]));
+  const done = new Map(entries.filter((e) => flagKind(e, cfg)).map((e) => [String(e.car_idx), e]));
   const seen = new Set();
   for (const row of tower.querySelectorAll(".srow[data-key]")) {
     const key = row.dataset.key;
@@ -132,12 +148,20 @@ function placeFinishTabs(entries, cfg) {
     // Its place in the tower as laid out (not mid-slide).
     let top = 0;
     for (let el = row; el && el !== tower; el = el.offsetParent) top += el.offsetTop;
+    const kind = flagKind(e, cfg);
+    const since = flagSince(e, kind);
     let tab = finTabs.get(key);
+    if (tab && tab.dataset.kind !== kind) {  // another flag for them: the old tab goes, the new one comes out
+      tab.remove();
+      tab = null;
+    }
     if (!tab) {
       tab = document.createElement("div");
-      const fresh = ongoing(finishers.get(e.car_idx) ?? -1e9, 1500);
-      tab.className = `fin-tab ${fresh ? "in" : ""}`;
-      tab.innerHTML = `<span class="fin-flag">${FINISH_FLAG}</span>`;
+      const fresh = ongoing(since, 1500);
+      tab.className = `fin-tab ${kind} ${fresh ? "in" : ""}`;
+      tab.dataset.kind = kind;
+      const [svg, title] = RACE_FLAGS[kind] || RACE_FLAGS.finish;
+      tab.innerHTML = `<span class="fin-flag" title="${title}">${svg}</span>`;
       finTabs.set(key, tab);
       finRail.appendChild(tab);
     }
@@ -146,7 +170,7 @@ function placeFinishTabs(entries, cfg) {
     // are (by the time since the finish), then come off, so a flag is
     // only brought in once rather than flashing in at every redraw.
     if (tab.classList.contains("in")) {
-      const t = Math.round(performance.now() - (finishers.get(e.car_idx) ?? -1e9));
+      const t = Math.round(performance.now() - since);
       const flag = tab.querySelector(".fin-flag");
       if (t > 1300) {
         tab.classList.remove("in");

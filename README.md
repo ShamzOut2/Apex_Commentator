@@ -71,6 +71,12 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- Timing tower and screen: a black flag, meatball or slow-down (warning)
+  flag by a driver while iRacing shows them one, on the same tab as the
+  chequered flag.
+
 ### Improvements
 
 - Car numbers can take the driver's team colour as their background (timing
@@ -613,6 +619,14 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     before the finish takes them away again. *Chequered flag by each driver
     as they finish the race* (in the tower's Drivers settings) turns them
     off.
+  - **Penalty flags**: on the same tab, while iRacing shows a driver a
+    penalty flag: a **black flag** (on a red tab), the **meatball** (black
+    with an orange disc: repairs, on an amber tab), the black-and-white
+    **slow-down / warning** flag, or a black flag with a cross for a **DQ**.
+    The most serious shows if there's more than one, it pulses gently, and it
+    goes when iRacing clears it; it takes the chequered flag's place while
+    it's out. On the full screen it's by their name. *Black flag, meatball
+    and slow-down (warning) flags* (Drivers settings) turns them off.
   - **Columns** (each on or off):
     - gap to the leader (or to pole);
     - interval to the car ahead;
