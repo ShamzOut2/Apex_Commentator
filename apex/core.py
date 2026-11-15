@@ -29,7 +29,7 @@ from .overlays import OverlaySettings
 from .settings import UserSettings
 from .tracks import TrackCatalogue
 from . import boards, heats, remote, spectate
-from .league import driver_key, logo_url, strip_class_prefix
+from .league import driver_key, logo_url, strip_class_prefix, strip_name_number
 from .makes import logo_for as make_logo
 from .makes import make_for
 from .sources import (
@@ -901,7 +901,7 @@ class App:
                 surface = _at(frame.surface, idx, TRK_NOT_IN_WORLD)
                 row = dict(d)
                 league = self.leagues.lookup(d["cust_id"], d["number"])
-                row["league"] = {k: league.get(k, "") for k in ("nickname", "team", "notes", "driver_number", "class2_id")} if league else None
+                row["league"] = {k: league.get(k, "") for k in ("nickname", "pronouns", "team", "notes", "driver_number", "class2_id")} if league else None
                 # The car as logged in the league wins over iRacing's car name.
                 row["make"] = (league or {}).get("car_make") or d["make"]
                 row["make_logo"] = make_logo(row["make"])
@@ -1293,7 +1293,7 @@ class App:
             name, nickname = self._stream_name(d["name"], info.get("nickname", ""), active_league)
             team = self.leagues.team(d["team"], active_league) if d["team"] else None
             out.append({
-                "driver": d["driver"], "name": name, "nickname": nickname, "number": d["car_number"],
+                "driver": d["driver"], "name": name, "nickname": nickname, "pronouns": info.get("pronouns", ""), "number": d["car_number"],
                 "team": d["team"], "team_logo": logo_url(pid, team.get("logo")) if team else None,
                 "class_color": colours.get(info.get("class_id")), "pos": d["pos"], "points": d["points"],
                 "pos_before": d.get("pos_before"), "points_before": d.get("points_before"),
@@ -1343,8 +1343,7 @@ class App:
 
     # -- stream overlays ----------------------------------------------------
 
-    @staticmethod
-    def _stream_name(name, nickname, active_league):
+    def _stream_name(self, name, nickname, active_league):
         """(name, nickname) to show on stream.
 
         With the league's "Remove driver class in name" on, the stream name
@@ -1353,6 +1352,8 @@ class App:
         own. A real nickname stays the nickname, for the "Nickname" name
         style. The control panel keeps the full name.
         """
+        if self.overlays.get()["general"].get("strip_name_numbers"):
+            name = strip_name_number(name)  # "Shamoy Samuel3": a second account's number left off
         if active_league and active_league.get("strip_class_prefix"):
             clean = strip_class_prefix(name)
             return clean, ("" if str(nickname or "").strip().lower() == clean.lower() else nickname)
@@ -1417,7 +1418,7 @@ class App:
         team = self.leagues.team(team_name, active_league) if active_league else None
         pid = active_league["id"] if active_league else ""
         return {
-            "car_idx": r["car_idx"], "name": name, "nickname": nickname,
+            "car_idx": r["car_idx"], "name": name, "nickname": nickname, "pronouns": lg.get("pronouns", ""),
             "abbrev": r["abbrev"], "number": r["number"], "driver_number": lg.get("driver_number", ""),
             "team": team_name, "team_short": (team or {}).get("short", ""), "team_color": (team or {}).get("color", ""),
             "team_logo": logo_url(pid, team.get("logo")) if team and pid else None,
@@ -1482,7 +1483,7 @@ class App:
             # A driver with no main class in the league (an entry's paint is
             # only there with a league): no class name on the flash.
             no_main = e.get("paint") is not None and not str(e.get("class_key") or "").startswith("league:")
-            flash = {"car_idx": e["car_idx"], "name": e["name"], "nickname": e.get("nickname", ""),
+            flash = {"car_idx": e["car_idx"], "name": e["name"], "nickname": e.get("nickname", ""), "pronouns": e.get("pronouns", ""),
                      "number": e["number"], "class_key": "" if no_main else e["class_key"], "lap_time": t,
                      "scope": "overall" if scope == "overall" else "class", "key": scope,
                      "id": f"{e['car_idx']}:{t}"}
@@ -2387,6 +2388,7 @@ class App:
             "car_name": d.get("car_name") or d.get("car", ""),
             "name": name,
             "nickname": nickname,
+            "pronouns": league.get("pronouns", ""),
             "number": d.get("number", ""),
             "team": team,
             "team_color": ((self.leagues.team(team, active_league) or {}).get("color") or "") if active_league and team else "",

@@ -424,6 +424,15 @@ function paintFor(e, cls, which) {
   return (which === "secondary" ? e.paint.secondary : e.paint.main) || null;
 }
 
+// A driver's name for an overlay or board, as HTML: the name in the style
+// picked, then their pronouns in brackets, a little smaller, always to the
+// right of it (General: Pronouns; set in the League builder).
+function nameHtml(e, format) {
+  const name = esc(formatName(e, format));
+  const pro = GENERAL.show_pronouns !== false && e && e.pronouns ? String(e.pronouns).trim() : "";
+  return pro ? `${name}<span class="pronouns">(${esc(pro)})</span>` : name;
+}
+
 function formatName(e, format) {
   const full = String(e.name || "").trim();
   const parts = full.split(/\s+/);
@@ -747,7 +756,8 @@ function followSnapshots(onSnap) {
 
 // For every overlay and board (Widget Settings, General): decimal places of
 // gaps and intervals, and what overlays do while a board is up.
-let GENERAL = { race_decimals: 1, qual_decimals: 3, board_overlays: "stay", board_dim: 35, solid_colors: true, font: "standard" };
+let GENERAL = { race_decimals: 1, qual_decimals: 3, board_overlays: "stay", board_dim: 35, solid_colors: true, font: "standard",
+  show_pronouns: true, strip_name_numbers: false };
 
 // The fonts for every overlay and board (General: Font): [name, CSS family, stretch].
 // The bundled ones are in web/fonts/overlay (SIL Open Font License), as in Apex Overlays.

@@ -228,7 +228,7 @@ function renderFlash(snap, ov) {
         <div class="fl-intro">New fastest lap${cls ? `<span>${esc(cls.name)}</span>` : ""}</div>
         <div class="fl-text">
           <div class="fl-cap">Fastest lap${cls ? ` · ${esc(cls.name)}` : ""}</div>
-          <div class="fl-name">${esc(f.name)}</div>
+          <div class="fl-name">${nameHtml(f, "full")}</div>
           <div class="fl-time tnum">${fmtLap(f.lap_time)}</div>
         </div>
       </div>`;
@@ -442,7 +442,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
     stripe: () => `<span class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(bgc(stripeColor(e, cls, cfg)))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
     logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
-    name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
+    name: () => `<span class="who" data-opcol="name"><span class="n">${nameHtml(e, cfg.name_format)}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
     team: () => `<span class="tmc" data-opcol="team">${esc(e.team || "")}</span>`,
   };
   return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${e.left ? "left" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
@@ -707,7 +707,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
     `<td class="p r" data-opcol="pos">${pos}</td>`,
     race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
     `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,
-    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${!e.in_world ? (race ? "" : '<span class="pit">OUT</span>') : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
+    `<td data-opcol="name">${nameHtml(e, cfg.name_format)}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${!e.in_world ? (race ? "" : '<span class="pit">OUT</span>') : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
     teamCells,
   ];
   const down = classMode ? e.class_laps_down : e.laps_down;

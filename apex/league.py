@@ -57,7 +57,7 @@ from .paths import WEB_DIR
 LOGO_LIBRARY_DIR = WEB_DIR / "logos"
 UPLOADED_LOGO = re.compile(r"[a-z0-9-]+\.(png|jpg|webp|svg)")
 LIBRARY_LOGO = re.compile(r"lib:([a-z0-9-]+\.svg)")
-EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "class2_id", "car_image", "helmet_image", "driver_number", "car_make")
+EDITABLE_FIELDS = ("nickname", "pronouns", "team", "notes", "class_id", "class2_id", "car_image", "helmet_image", "driver_number", "car_make")
 DRIVER_IMAGES = ("car_image", "helmet_image")
 # Distinct defaults handed to new classes, in order.
 CLASS_PALETTE = ["#e8463c", "#2f80ed", "#27ae60", "#f2c94c", "#9b51e0", "#f2994a", "#56ccf2", "#eb5ea8"]
@@ -66,6 +66,9 @@ LOGO_TYPES = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp", "sv
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 # "(P) Dave Price", "(PA)Dave Price": a class tag some leagues put before names.
 CLASS_PREFIX = re.compile(r"^\s*\([^()]*\)\s*")
+# "Shamoy Samuel3", "Jo Bloggs 2": the number some drivers add to the name of a
+# second iRacing account (a number on the end of the last word, up to 4 digits).
+NAME_NUMBER = re.compile(r"(?<=[^\W\d_])\s?\d{1,4}$")
 
 
 BANNER_SHAPES = ("horizontal", "vertical")
@@ -103,6 +106,17 @@ def normalise_sponsors(sponsors):
             "name": str(s.get("name") or "").strip()[:60],
         })
     return out
+
+
+def strip_name_number(name):
+    """'Shamoy Samuel3' -> 'Shamoy Samuel'; a name that's only a number stays."""
+    name = str(name or "").strip()
+    return NAME_NUMBER.sub("", name).strip() or name
+
+
+def clean_pronouns(text):
+    """Pronouns as typed, without brackets (the overlays add them): 'she/her'."""
+    return re.sub(r"\s+", " ", str(text or "").strip().strip("()").strip())[:24]
 
 
 def strip_class_prefix(name):
@@ -329,6 +343,7 @@ def normalise_profile(profile):
         }
         for key in EDITABLE_FIELDS:
             entry[key] = str(d.get(key) or "").strip()
+        entry["pronouns"] = clean_pronouns(entry["pronouns"])
         if entry["class_id"] not in class_ids and entry["class_id"] != NO_CLASS:
             entry["class_id"] = ""
         if entry["class2_id"] not in secondary_ids:

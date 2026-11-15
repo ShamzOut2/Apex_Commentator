@@ -6,7 +6,7 @@ Boards are built from the active league's saved championship.
 """
 
 from . import championship
-from .league import logo_url, strip_class_prefix
+from .league import driver_key, logo_url, strip_class_prefix, strip_name_number
 from .makes import logo_for as make_logo
 
 KINDS = ("championship", "teams", "makes", "calendar", "results", "qualifying", "grid", "track")
@@ -49,6 +49,8 @@ def _person(league, name, nickname):
     """A driver's full name as the stream shows it (see App._stream_name):
     without its "(P)" class tag when the league says so. The nickname is
     separate (the boards' "Nickname" name style)."""
+    if league.get("_strip_numbers"):
+        name = strip_name_number(name)  # "Shamoy Samuel3": a second account's number left off
     if league.get("strip_class_prefix"):
         return strip_class_prefix(name)
     return name
@@ -93,6 +95,8 @@ def build(league, board, settings, live_results=None):
     kind = board["kind"]
     params = board.get("params") or {}
     cfg = settings[f"board_{kind}"]
+    if settings.get("general", {}).get("strip_name_numbers"):
+        league = dict(league, _strip_numbers=True)
     out = {"kind": kind, "group": params.get("group") or "", "overall": (params.get("group") or championship.OVERALL) == championship.OVERALL, "round": params.get("round") or "", "league": league["name"], "title": TITLES[kind], "subtitle": "",
            "banner": _banner(league, cfg), "sponsors": _sponsor_strip(league, cfg), "settings": cfg, "accent": None, "group_logo": None,
            "league_logo": logo_url(league["id"], league.get("logo")) if cfg["league_logo"] and league.get("logo") else None}
@@ -103,6 +107,8 @@ def build(league, board, settings, live_results=None):
     if cfg.get("accent") == "color":
         out["accent"] = cfg.get("accent_color")  # the board's own accent colour, picked in its settings
     team_logos = {t["name"].lower(): logo_url(league["id"], t.get("logo")) for t in league.get("teams", [])}
+    # Each driver's pronouns (League builder), by driver key, for the rows' names.
+    pronouns = {driver_key(d): d.get("pronouns", "") for d in league.get("drivers", []) if d.get("pronouns")}
     numbers = {championship._key(d): d.get("car_number", "") for d in league.get("drivers", [])}
 
     if kind == "championship":
@@ -121,7 +127,7 @@ def build(league, board, settings, live_results=None):
             roster = next((x for x in league.get("drivers", []) if championship._key(x) == d["driver"]), {})
             make = roster.get("car_make", "")
             rows.append({
-                "pos": d["pos"], "name": _person(league, d["name"], roster.get("nickname", "")),
+                "pos": d["pos"], "driver": d["driver"], "name": _person(league, d["name"], roster.get("nickname", "")),
                 "nickname": roster.get("nickname", ""),
                 "number": numbers.get(d["driver"], ""), "team": d["team"],
                 "class_color": colours.get(class_of.get(d["driver"], "")),
@@ -147,7 +153,8 @@ def build(league, board, settings, live_results=None):
             per = {s["round"]: s["points"] for s in t["rounds"]}
             rows.append(dict(t, team_logo=team_logos.get(t["team"].lower()), color=team.get("color") or None,
                              drivers=[_person(league, d["name"], d["nickname"]) for d in t["drivers"]],
-                             people=[{"name": _person(league, d["name"], d["nickname"]), "nickname": d["nickname"]} for d in t["drivers"]],
+                             people=[{"name": _person(league, d["name"], d["nickname"]), "nickname": d["nickname"],
+                                      "pronouns": pronouns.get(d.get("driver"), "")} for d in t["drivers"]],
                              rounds=[per.get(r["id"]) for r in last]))
         out["rows"] = rows
     elif kind == "makes":
@@ -250,6 +257,9 @@ def build(league, board, settings, live_results=None):
         out["title"] = cfg["title"].strip() or (f"Round {info['round_no']}" if info.get("round_no") else info.get("race") or "Track details")
         out["subtitle"] = info.get("round_name") or (info.get("race") if info.get("round_no") else "")
         out["rows"] = []
+    for row in out.get("rows") or []:
+        if isinstance(row, dict) and "pronouns" not in row:
+            row["pronouns"] = pronouns.get(row.get("driver"), "")
     return _page(out, cfg, params)
 
 

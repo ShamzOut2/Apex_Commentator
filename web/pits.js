@@ -27,7 +27,7 @@ function cardHtml(s, cfg, cls) {
   // Overall or in class, as the standings tower is (Overall / By class).
   const place = byClass ? s.class_pos : s.pos;
   return `<div class="pit-who panel-row" style="--i:0">${cfg.show_position && place ? `<span class="pos">P${place}</span>` : ""}${number}
-      <span class="names"><span class="name">${esc(formatName(s, cfg.name_format))}</span>${cfg.show_team && s.team ? `<span class="team">${esc(s.team)}</span>` : ""}</span>
+      <span class="names"><span class="name">${nameHtml(s, cfg.name_format)}</span>${cfg.show_team && s.team ? `<span class="team">${esc(s.team)}</span>` : ""}</span>
       ${logo}<span class="pit-tag ${s.out ? "out" : ""}" data-tag>${s.out ? "OUT" : s.in_box ? "STOPPED" : "PIT LANE"}</span></div>
     <div class="pit-times panel-row" style="--i:1">
       <div class="pit-time lane" data-t="lane"><span class="lbl">PIT LANE</span><span class="val"></span></div>

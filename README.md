@@ -69,26 +69,15 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.4**
+**Coming in the next update**
 
 ### New features
 
-- Timing tower and screen: a black flag, meatball or slow-down (warning)
-  flag by a driver while iRacing shows them one, on the same tab as the
-  chequered flag, each tab in a colour you can pick.
-
-### Improvements
-
-- Car numbers can take the driver's team colour as their background (timing
-  tower and screen, driver on camera, pit stops, grid walk): pick "team
-  colour" where the car number's colour is set.
-
-### Fixes
-
-- The taskbar and shortcuts now show the new app icon after updating
-  (Windows kept showing the old one it had cached).
-- Timing tower and screen, Overall: every class's fastest lap gets the
-  stopwatch, not just the overall fastest.
+- Pronouns for each driver (League builder): shown after their name on
+  every overlay and board, in brackets and a little smaller, e.g. "(she/her)",
+  with a setting to show or hide them.
+- An option to leave numbers off the end of drivers' names ("Shamoy Samuel3"
+  becomes "Shamoy Samuel") on every overlay and board, Officials mode too.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -1012,6 +1001,22 @@ images inside them). **.csv** files open in Excel or Google Sheets; round
 results and the roster can be edited there and imported back. Classes are
 matched by name, so a league with the same class names picks results up
 directly.
+
+## Names: pronouns and account numbers
+
+**Pronouns** (League builder → Drivers, the *Pronouns* column, e.g. `she/her`):
+shown after the driver's name on every overlay and board, in brackets
+(`Jane Doe (she/her)`), a little smaller than the name and always to its
+right, whatever name style is picked. Brackets typed in are left off (the
+overlays add them). *Each driver's pronouns after their name* (Widget
+Settings → All overlays & boards → *Names*) shows or hides them everywhere.
+
+**Numbers on the end of names** (the same *Names* settings): some drivers
+have a second iRacing account with a number on the end of the name
+(`Shamoy Samuel3`). Ticked, every overlay and board leaves it off (`Shamoy
+Samuel`): one to four digits on the end of the last word (or after a space),
+not numbers inside a name. It works with or without a league, so in
+Officials mode too. The app's own lists keep the names as iRacing has them.
 
 ## Font
 

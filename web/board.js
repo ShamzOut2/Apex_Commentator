@@ -53,7 +53,7 @@ function columns(b) {
   if (b.kind === "championship") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
     add(s.show_number, "number", "#", "80px", "c", numberChip);
-    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
+    add(true, "driver", "Driver", "auto", "", (r) => nameHtml(r, s.name_format));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => {
@@ -68,7 +68,7 @@ function columns(b) {
   } else if (b.kind === "teams") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
     teamCols(true, (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(bgc(r.color))}"></span>` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
-    add(s.show_drivers, "drivers", "Drivers", "auto", "muted team-drivers", (r) => esc((r.people || r.drivers.map((name) => ({ name }))).map((p) => formatName(p, s.name_format)).join(" · ")));
+    add(s.show_drivers, "drivers", "Drivers", "auto", "muted team-drivers", (r) => (r.people || r.drivers.map((name) => ({ name }))).map((p) => nameHtml(p, s.name_format)).join(" · "));
     b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => (r.rounds[i] == null ? "–" : fmtPts(r.rounds[i]))));
     add(s.show_wins, "wins", "Wins", "80px", "c muted", (r) => r.wins || "");
     add(s.show_penalty, "penalty", "Pen", "80px", "r down", (r) => (r.penalty_points ? `−${fmtPts(r.penalty_points)}` : ""));
@@ -85,7 +85,7 @@ function columns(b) {
     add(true, "pos", "Pos", "70px", "p r", (r) => (r.rank ?? (r.status || "").toUpperCase()));
     add(s.show_gained, "gained", "", "90px", "c", (r) => (r.gained ? `<span class="${r.gained > 0 ? "up" : "down"}">${r.gained > 0 ? "▲" : "▼"}${Math.abs(r.gained)}</span>` : ""));
     add(s.show_number, "number", "#", "80px", "c", numberChip);
-    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
+    add(true, "driver", "Driver", "auto", "", (r) => nameHtml(r, s.name_format));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
@@ -106,7 +106,7 @@ function columns(b) {
   } else if (b.kind === "qualifying") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.rank ?? "");
     add(s.show_number, "number", "#", "80px", "c", numberChip);
-    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
+    add(true, "driver", "Driver", "auto", "", (r) => nameHtml(r, s.name_format));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
@@ -119,7 +119,7 @@ function columns(b) {
     add(true, "pos", "Grid", "80px", "p r", (r) => r.pos);
     add(s.show_class_pos && b.overall, "class_pos", "Cls", "70px", "c muted", (r) => r.class_pos);
     add(s.show_number, "number", "#", "80px", "c", numberChip);
-    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
+    add(true, "driver", "Driver", "auto", "", (r) => nameHtml(r, s.name_format));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     // Qualifying times and gaps only on a grid that's from qualifying.
@@ -163,7 +163,7 @@ function gridLayoutHtml(b) {
       <div class="gp">${r.pos}${s.show_class_pos && b.overall ? `<small>P${r.class_pos}</small>` : ""}</div>
       <div class="gbox" style="--cls:${esc(r.class_color || "#8b93a3")}">
         ${s.show_number ? numberChip(r) : ""}
-        <div class="gname"><b>${esc(formatName(r, s.name_format))}</b>${s.show_team && r.team ? `<span>${esc(r.team)}</span>` : ""}</div>
+        <div class="gname"><b>${nameHtml(r, s.name_format)}</b>${s.show_team && r.team ? `<span>${esc(r.team)}</span>` : ""}</div>
         ${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}
         ${s.show_make && r.make_logo ? makeChip({ name: r.make, logo: r.make_logo }) : ""}
         <div class="gq">${s.show_qual && gridFromQual(b) && r.qual_time ? `<span>${fmtLap(r.qual_time)}</span>` : ""}${s.show_gap && gridFromQual(b) && r.qual_gap != null ? `<span class="muted">+${secs(r.qual_gap, false)}</span>`
@@ -219,7 +219,7 @@ function racesHtml(r, s) {
     const head = [s.show_race_name !== false && x.name, s.show_length && x.length].filter(Boolean);
     const shown = (x.winners || []).filter((w) => !only || only.has(w.group));
     const wins = s.show_winners && shown.length ? shown.map((w) => `<div class="rb-win">
-        <span class="dot" style="background:${esc(bgc(w.color || "#8b93a3"))}"></span>${s.show_winner_class !== false && w.group_name ? `<span class="cls">${esc(w.group_name)}:</span> ` : "🏆 "}${esc(formatName(w, s.winner_name_format))}</div>`).join("") : "";
+        <span class="dot" style="background:${esc(bgc(w.color || "#8b93a3"))}"></span>${s.show_winner_class !== false && w.group_name ? `<span class="cls">${esc(w.group_name)}:</span> ` : "🏆 "}${nameHtml(w, s.winner_name_format)}</div>`).join("") : "";
     if (!head.length && !wins) return "";
     return `<div class="race-box">${head.length ? `<div class="rb-head"><b>${esc(head[0])}</b>${head[1] ? ` <span class="len">${esc(head[1])}</span>` : ""}</div>` : ""}${wins}</div>`;
   }).filter(Boolean);

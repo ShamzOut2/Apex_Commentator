@@ -2910,6 +2910,10 @@ const OVERLAY_FIELDS = {
       ["font", "The font every overlay and board uses (its text sized to fit the same room, so nothing changes size)", "select",
         Object.entries(FONTS).map(([id, [name]]) => [id, name])],
     ]],
+    ["Names", [
+      ["show_pronouns", "Each driver's pronouns after their name, in brackets, e.g. (she/her) (set them in the League builder)", "bool"],
+      ["strip_name_numbers", "Leave off a number on the end of a name, e.g. Shamoy Samuel3 → Shamoy Samuel (a driver's second iRacing account; Officials mode too)", "bool"],
+    ]],
     ["Colours", [
       ["solid_colors", "Class, team and accent colours stay as picked whatever a widget's opacity (untick: they fade with the panels)", "bool"],
     ]],
@@ -4356,7 +4360,7 @@ function isSecondary(c) {
   return c.role === "secondary";
 }
 
-const ROSTER_FIELDS = [["name", ""], ["cust_id", "c-id"], ["car_number", "c-num"], ["driver_number", "c-num"], ["nickname", ""], ["team", ""], ["notes", ""]];
+const ROSTER_FIELDS = [["name", ""], ["cust_id", "c-id"], ["car_number", "c-num"], ["driver_number", "c-num"], ["nickname", ""], ["pronouns", "c-pron"], ["team", ""], ["notes", ""]];
 
 // Car makes (and their badges) the app knows, loaded once.
 const makes = { list: [], loaded: false };
@@ -4440,7 +4444,7 @@ function renderRoster() {
   $("#roster-rows").innerHTML = rosterOrder(drivers, classes).map(([d, i]) => `<tr>${ROSTER_FIELDS.map(([f]) =>
     f === "team" && raced.has(driverKey(d))
       ? `<td><div class="team-cell"><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"><button class="btn subtle icon" data-team-history="${i}" title="Teams by race: which team each of their races counts for">⇄</button></div></td>`
-      : `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"></td>`).join("")}
+      : `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"${f === "pronouns" ? ' placeholder="e.g. she/her"' : ""}></td>`).join("")}
     <td><select data-row="${i}" data-field="class_id" aria-label="Class"><option value="">Auto (by car)</option><option value="-" ${d.class_id === "-" ? "selected" : ""} title="No main class: just the secondary class, if any">—</option>${options(main, d.class_id || "")}</select></td>
     <td class="c-class2"><select data-row="${i}" data-field="class2_id" aria-label="Secondary class"><option value="">—</option>${options(second, d.class2_id || "")}</select></td>
     <td class="make-cell">${makeBadge(d.car_make)}<select data-row="${i}" data-field="car_make" aria-label="Car">${makeOptions(d.car_make || "")}</select></td>

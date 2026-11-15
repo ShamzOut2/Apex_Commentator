@@ -53,7 +53,7 @@ function cardHtml(d, cfg, cls, multiclass) {
   const end = swapped ? (teamLogo ? `<span class="team-end">${teamLogo}</span>` : "") : badge(false);
   const under = team;
   const tyre = cfg.show_tyre !== false ? tyreIcon(d.tyre) : "";
-  return `${pos}<div class="who">${number}<div class="names"><div class="name">${esc(formatName(d, cfg.name_format))}${klass}${tyre}</div>${under}</div></div>${end}`;
+  return `${pos}<div class="who">${number}<div class="names"><div class="name">${nameHtml(d, cfg.name_format)}${klass}${tyre}</div>${under}</div></div>${end}`;
 }
 
 function render(snap) {

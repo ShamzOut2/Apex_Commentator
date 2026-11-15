@@ -124,6 +124,7 @@ main.fixed { overflow: hidden; }
 .c-status { width: 52px; }
 .c-actions { width: 150px; text-align: right; }
 .c-id { width: 96px; }
+.c-pron { width: 92px; }
 
 .drivers tr.watching td { background: var(--watch); }
 .drivers tr.watching td:first-child { box-shadow: inset 3px 0 0 var(--accent); }

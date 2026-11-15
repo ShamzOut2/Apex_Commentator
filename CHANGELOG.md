@@ -11,6 +11,16 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- Pronouns for each driver (League builder): shown after their name on
+  every overlay and board, in brackets and a little smaller, e.g. "(she/her)",
+  with a setting to show or hide them.
+- An option to leave numbers off the end of drivers' names ("Shamoy Samuel3"
+  becomes "Shamoy Samuel") on every overlay and board, Officials mode too.
+
 ## v0.7.4
 
 ### New features

@@ -61,7 +61,12 @@ DEFAULTS = {
                 "solid_colors": True,
                 # The font every overlay and board uses (FONTS; web/fonts/overlay), its text
                 # sized to take the room the standard font does (common.js fontFit).
-                "font": "standard"},
+                "font": "standard",
+                # Each driver's pronouns (League builder), "(she/her)" after their name.
+                "show_pronouns": True,
+                # A number on the end of a name ("Shamoy Samuel3": a second
+                # iRacing account) left off on every overlay and board.
+                "strip_name_numbers": False},
     # The live timing website for spectators (spectate.py, web/live/): how it looks
     # and what it shows. Every driver with a class is on it, whatever the tower shows.
     "live": {

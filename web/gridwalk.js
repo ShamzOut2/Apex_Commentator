@@ -252,7 +252,7 @@ function infoHtml(e, i, cls, cfg, multiclass) {
   return `<div class="gw-info ${i ? "rear" : "front"}" style="--cls:${esc(color || "var(--accent)")}">
       ${cfg.show_position !== false ? `<div class="pos" style="color:${color ? inkFor(color) : "#fff"}">${placeHtml(e, cfg, cls)}</div>` : ""}
       <div class="who">${number}
-        <div class="names"><div class="name">${esc(formatName(e, cfg.name_format))}${klass}</div>
+        <div class="names"><div class="name">${nameHtml(e, cfg.name_format)}${klass}</div>
           ${nick ? `<div class="nick">“${esc(nick)}”</div>` : ""}${team}</div></div>
       ${qual || status ? `<div class="qual">${qual ? `<span class="t">${esc(qual)}</span>` : ""}${status ? `<span class="status">${status}</span>` : ""}</div>` : ""}
       ${cfg.show_make !== false && e.make_logo ? `<span class="make"><img src="${esc(e.make_logo)}" alt="${esc(e.make)}"></span>` : ""}
