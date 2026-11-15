@@ -69,38 +69,13 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.3**
-
-### New features
-
-- Starting lights overlay: a start-light gantry of red LED lamps that comes
-  up only as a race is about to start, light one by one, and go out at the green (from iRacing's start
-  lights, the leader's run to the line, or a Count down hotkey).
-- Flag overlay: hidden until a sector goes yellow, then a waving yellow flag
-  for "Sector 1", "Sectors 1 & 2" or "All Sectors", with hotkeys for each
-  sector, all and clear (and an optional automatic mode for stopped cars).
-- Track details board for the start of a race: league, round and track in
-  the header, the track's outline with air and track temperature and wind
-  either side, and the sponsors along the bottom.
+**Coming in the next update**
 
 ### Improvements
 
-- Starting grid board: Automatic now uses iRacing's own grid list for the
-  race, built before anyone's on track, so it doesn't change as drivers
-  join (as Apex Overlays does). It's kept for the event once it's known.
-- Timing tower: an option to show nothing in the header instead of
-  "FINISHED" once the race is over.
-- Timing screen: click the session clock to switch between time passed and
-  time remaining.
-- Apex Commentator is now an Apex Labs tool: a new app icon (taskbar, window,
-  shortcuts and installer, and the browser tab), and the Apex Labs logo on
-  the Home page, the update pop-up and the live timing website.
-
-### Fixes
-
-- A car towed back to the pits no longer jumps to the top of the timing
-  tower and timing screen: it stays where iRacing has it until it crosses
-  the line again.
+- Car numbers can take the driver's team colour as their background (timing
+  tower and screen, driver on camera, pit stops, grid walk): pick "team
+  colour" where the car number's colour is set.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -487,7 +462,7 @@ in the driver-on-camera card's style (top right for the front car, bottom
 left for the second): the card opens from the middle with a light sweep,
 and closes the same way as it goes. Its settings are the driver-on-camera
 card's: grid position overall, in class or both (the class name with it or
-not), class colour from the main or secondary class, car number, class
+not), colour from the main or secondary class or the team, car number, class
 badge, team name, team logo (and its size), car badge; and **Qualifying**:
 the gap to the class pole, the interval to the car ahead in class, the lap
 time or nothing, also painted on the track under each box's number if you
@@ -681,8 +656,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     and *Car number background* can each be turned off. The background is in
     the driver's class colour; with it off, just the number shows. Both the
     tower and the full-screen version follow these.
-  - **Class colours from**: the driver's **main** class or their
-    **secondary** class (League builder), for the car number's background;
+  - **Car number background colour from**: the driver's **main** class,
+    their **secondary** class (League builder), or their **team colour**
+    (their main class's for a team with no colour), for the car number's background;
     **Coloured bar's colour from** sets the bar's on its own (the same class
     as the car number, the main or the secondary class, or the driver's
     **team colour**), so the number can show one class and the bar the
@@ -867,8 +843,8 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   naming the driver the camera is on. **Position shown**: overall, in class,
   or both (overall, with the class position under it). *Class name with the
   class position* can be turned off, for just "P1" under the overall place. Then the car number
-  in the class colour, name, class, team and logo, and car badge. *Class colour from*: the
-  main or the secondary class, as for the standings; a driver without one
+  in the class colour, name, class, team and logo, and car badge. *Car number (and card accent) colour from*: the
+  main or the secondary class, or the team's colour, as for the standings; a driver without one
   gets no colour: no background behind the position or number, white text.
   - When the camera moves to someone else, the old board slides away and the
     new one slides up, opening from the middle with a light sweep. It changes

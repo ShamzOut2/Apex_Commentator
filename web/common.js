@@ -416,8 +416,10 @@ function carSvg(design, number, { mirror = false } = {}) {
 // The colour a driver is shown in (car number, bar, card): with a league
 // active, their main or secondary class's (``which``, the overlay's
 // class_colors setting), or null (no colour: a plain number, no bar) when
-// they have none; without a league, the iRacing class colour.
+// they have none; without a league, the iRacing class colour. ``which``
+// "team": their team's colour, else (a team without one) their main class's.
 function paintFor(e, cls, which) {
+  if (which === "team" && e && e.team_color) return e.team_color;
   if (!e || !e.paint) return cls.color;
   return (which === "secondary" ? e.paint.secondary : e.paint.main) || null;
 }

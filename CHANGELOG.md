@@ -11,6 +11,14 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- Car numbers can take the driver's team colour as their background (timing
+  tower and screen, driver on camera, pit stops, grid walk): pick "team
+  colour" where the car number's colour is set.
+
 ## v0.7.3
 
 ### New features

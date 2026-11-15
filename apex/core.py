@@ -2386,6 +2386,7 @@ class App:
             "nickname": nickname,
             "number": d.get("number", ""),
             "team": team,
+            "team_color": ((self.leagues.team(team, active_league) or {}).get("color") or "") if active_league and team else "",
             "team_logo": logo_url(pid, self.leagues.team_logo(team, active_league)) if pid else None,
             "car": d.get("car", ""),
             "make": league.get("car_make") or d.get("make", ""),
