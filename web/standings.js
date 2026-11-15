@@ -441,7 +441,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
     pos: () => `<span class="p tnum" data-opcol="pos">${pos}</span>`,
     stripe: () => `<span class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(bgc(stripeColor(e, cls, cfg)))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
-    logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
+    logo: () => `<span class="lg" data-opcol="logo">${teamLogoOf(e, cfg) ? `<img class="team-logo" src="${esc(teamLogoOf(e, cfg))}" alt="">` : ""}</span>`,
     name: () => `<span class="who" data-opcol="name"><span class="n">${nameHtml(e, cfg.name_format)}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
     team: () => `<span class="tmc" data-opcol="team">${esc(e.team || "")}</span>`,
   };
@@ -563,7 +563,7 @@ function render() {
     cfg.rows_last = cfg.rows_last_class;
   }
   // Team logo and team name, each a column of its own (the name can sit under the driver's instead).
-  cfg.logo_col = cfg.show_logo && entries.some((e) => e.team_logo);
+  cfg.logo_col = cfg.show_logo && entries.some((e) => teamLogoOf(e, cfg));
   cfg.logo_last = cfg.team_logo_side === "last";
   cfg.team_under = cfg.show_team && cfg.team_name_place !== "column";
   cfg.team_col = cfg.show_team && cfg.team_name_place === "column" && entries.some((e) => e.team);
@@ -700,7 +700,7 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   const change = race && e.pos_change ? `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>` : "";
   // The team logo and the team name: columns of their own, in the order picked.
   const teamCells = screenTeamParts(cfg, compact).map((p) => (p === "logo"
-    ? `<td class="lg c" data-opcol="logo">${e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}</td>`
+    ? `<td class="lg c" data-opcol="logo">${teamLogoOf(e, cfg) ? `<img src="${esc(teamLogoOf(e, cfg))}" alt="">` : ""}</td>`
     : `<td class="team" data-opcol="team">${esc(e.team || "")}</td>`)).join("");
   const cells = [
     `<td class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(bgc(stripeColor(e, cls, cfg)))}` : "background:none"}"></td>`,

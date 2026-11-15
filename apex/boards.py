@@ -109,6 +109,8 @@ def build(league, board, settings, live_results=None):
     team_logos = {t["name"].lower(): logo_url(league["id"], t.get("logo")) for t in league.get("teams", [])}
     # Each driver's pronouns (League builder), by driver key, for the rows' names.
     pronouns = {driver_key(d): d.get("pronouns", "") for d in league.get("drivers", []) if d.get("pronouns")}
+    # Each team's small logo, by team name (the board shows it when set to).
+    team_smalls = {t["name"].lower(): logo_url(league["id"], t.get("logo_small")) for t in league.get("teams", []) if t.get("logo_small")}
     numbers = {championship._key(d): d.get("car_number", "") for d in league.get("drivers", [])}
 
     if kind == "championship":
@@ -258,8 +260,11 @@ def build(league, board, settings, live_results=None):
         out["subtitle"] = info.get("round_name") or (info.get("race") if info.get("round_no") else "")
         out["rows"] = []
     for row in out.get("rows") or []:
-        if isinstance(row, dict) and "pronouns" not in row:
+        if not isinstance(row, dict):
+            continue
+        if "pronouns" not in row:
             row["pronouns"] = pronouns.get(row.get("driver"), "")
+        row["team_logo_small"] = team_smalls.get(str(row.get("team") or "").strip().lower())
     return _page(out, cfg, params)
 
 

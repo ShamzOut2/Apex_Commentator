@@ -42,7 +42,7 @@ function cardHtml(d, cfg, cls, multiclass) {
   // the car badge takes the logo's place by the team name, and the team logo
   // goes to the end.
   const swapped = cfg.team_place === "end";
-  const teamLogo = cfg.show_logo && d.team_logo ? `<img class="team-logo" src="${esc(d.team_logo)}" alt="">` : "";
+  const teamLogo = cfg.show_logo && teamLogoOf(d, cfg) ? `<img class="team-logo" src="${esc(teamLogoOf(d, cfg))}" alt="">` : "";
   const badge = (small) => (cfg.show_make && d.make_logo
     ? `<span class="make ${small ? "small" : ""}"><img src="${esc(d.make_logo)}" alt="${esc(d.make)}"></span>` : "");
   const byName = swapped ? badge(true) : teamLogo;

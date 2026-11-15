@@ -363,12 +363,15 @@ def normalise_profile(profile):
             continue
         seen_teams.add(team_name.lower())
         logo = t.get("logo") or None
+        small = t.get("logo_small") or None
         color = str(t.get("color") or "").strip()
         teams.append({
             "name": team_name,
             "short": str(t.get("short") or "").strip()[:8],
             "color": color if HEX_COLOR.fullmatch(color) else "",
             "logo": logo if logo and _valid_logo_ref(str(logo)) else None,
+            # A small version of it (a badge or icon), for the overlays and boards set to use it.
+            "logo_small": small if small and _valid_logo_ref(str(small)) else None,
             # Not in the team championship (its drivers still score for themselves).
             "no_standings": bool(t.get("no_standings")),
             # The other leagues this team is also in (LeagueStore._sync_teams).
@@ -562,8 +565,10 @@ class LeagueStore:
                     ot = {"name": team["name"]}
                     other_teams.append(ot)
                 logo = self._copy_logo(me, lid, team.get("logo"))
+                small = self._copy_logo(me, lid, team.get("logo_small"))
                 links = sorted(set(ot.get("shared") or []) | {me})  # its own links, and this league
-                new = {"name": team["name"], "short": team["short"], "color": team["color"], "logo": logo, "shared": links}
+                new = {"name": team["name"], "short": team["short"], "color": team["color"], "logo": logo,
+                       "logo_small": small, "shared": links}
                 if any(ot.get(k) != v for k, v in new.items()):
                     ot.update(new)
                     changed = True
@@ -619,7 +624,7 @@ class LeagueStore:
         if not folder.is_dir():
             return
         used = {c.get("logo") for c in profile.get("classes", [])}
-        used |= {t.get("logo") for t in profile.get("teams", [])}
+        used |= {t.get(k) for t in profile.get("teams", []) for k in ("logo", "logo_small")}
         used |= {d.get(k) for d in profile.get("drivers", []) for k in DRIVER_IMAGES}
         used |= {b.get("file") for b in profile.get("banners", []) + profile.get("sponsors", [])}
         used |= {profile.get("logo"), profile.get("calendar_image")}
@@ -648,7 +653,8 @@ class LeagueStore:
             if owner is None:
                 raise LeagueError("Save the class before adding its logo.")
             field, prefix = "logo", owner["id"]
-        elif kind == "team":
+        elif kind in ("team", "team_small"):
+            # A team's logo ("team:<name>") or its small logo ("team_small:<name>").
             key = key.strip()
             if not key:
                 raise LeagueError("Team needs a name.")
@@ -657,7 +663,7 @@ class LeagueStore:
             if owner is None:
                 owner = {"name": key, "logo": None}
                 teams.append(owner)
-            field, prefix = "logo", f"team-{_slug(key)}"
+            field, prefix = ("logo", f"team-{_slug(key)}") if kind == "team" else ("logo_small", f"team-{_slug(key)}-small")
         elif kind == "league" and key in ("logo", "calendar_image"):
             owner, field, prefix = profile, key, f"league-{key.replace('_', '-')}"
         elif kind == "banner":
@@ -784,7 +790,7 @@ class LeagueStore:
             for t in src.get("teams", []):
                 have = mine.get(t["name"].strip().lower())
                 fields = {"short": t.get("short", ""), "color": t.get("color", ""), "logo": img(t.get("logo")),
-                          "no_standings": bool(t.get("no_standings"))}
+                          "logo_small": img(t.get("logo_small")), "no_standings": bool(t.get("no_standings"))}
                 if have:
                     have.update(fields)
                 else:

@@ -2759,12 +2759,14 @@ const iff = (when, field) => Object.assign(field, { when });
 // read from and saved to that section.
 const shared = (section, field) => Object.assign(field, { section });
 // Team logos' size, where there are team logos.
+const LOGO_KIND = iff((v) => "team_logo_kind" in v, ["team_logo_kind", "Team logo", "select",
+  [["full", "The team's full logo"], ["small", "The team's small logo"]]]);
 const LOGO_SIZE = iff((v) => "logo_scale" in v, ["logo_scale", "Team logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]);
-const LOOK = ["Size & background", [["scale", "Size", "size"], LOGO_SIZE, ["bg", "Background", "background"]]];
+const LOOK = ["Size & background", [["scale", "Size", "size"], LOGO_KIND, LOGO_SIZE, ["bg", "Background", "background"]]];
 // Overlays can also be moved from where they sit (px on the 1920×1080 screen), to keep clear of each other.
 const OFFSET = [["offset_x", "Move right (px; minus moves it left)", "number", { min: -1920, max: 1920, step: 5 }],
   ["offset_y", "Move down (px; minus moves it up)", "number", { min: -1080, max: 1080, step: 5 }]];
-const OVERLAY_LOOK = ["Size, position & background", [["scale", "Size", "size"], LOGO_SIZE, ...OFFSET, ["bg", "Background", "background"]]];
+const OVERLAY_LOOK = ["Size, position & background", [["scale", "Size", "size"], LOGO_KIND, LOGO_SIZE, ...OFFSET, ["bg", "Background", "background"]]];
 const OVERLAY_FIELDS = {
   standings: [
     ["What it shows", [
@@ -2873,7 +2875,7 @@ const OVERLAY_FIELDS = {
     ["Size, position & background", [
       ["width", "Width in px (0 = automatic: every column fits what's in it)", "number", { min: 0, max: 1400, step: 10 }],
       ["name_width", "Driver name column width in px (0 = automatic; longer names end in …)", "number", { min: 0, max: 600, step: 5 }],
-      ["scale", "Size", "size"], LOGO_SIZE, ...OFFSET, ["bg", "Background", "background"],
+      ["scale", "Size", "size"], LOGO_KIND, LOGO_SIZE, ...OFFSET, ["bg", "Background", "background"],
     ]],
   ],
   laps: [
@@ -4782,17 +4784,24 @@ function renderTeams() {
     const others = drivers.map((d, j) => [d, j]).filter(([d]) => !sameTeam(d.team, t.name)).sort(byName(([d]) => d.name));
     return `<div class="team-card" style="--team:${esc(t.color || "#3a4150")}">
       <div class="team-card-head">
-        <label class="team-logo big" title="${t.logo ? "Replace logo" : "Upload logo"}">
-          ${t.logo ? `<img src="${esc(logoSrc(t.logo))}" alt="">` : "+ Logo"}
-          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-team-logo="${i}" hidden>
-        </label>
+        <div class="team-logos">
+          <label class="team-logo big" title="${t.logo ? "Replace the full logo" : "Upload the full logo"}">
+            ${t.logo ? `<img src="${esc(logoSrc(t.logo))}" alt="">` : "+ Full logo"}
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-team-logo="${i}" hidden>
+          </label>
+          <label class="team-logo small" title="${t.logo_small ? "Replace the small logo" : "Upload a small logo (a badge or icon): overlays and boards can be set to show it instead"}">
+            ${t.logo_small ? `<img src="${esc(logoSrc(t.logo_small))}" alt="">` : "+ Small"}
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-team-logo-small="${i}" hidden>
+          </label>
+        </div>
         <div class="team-fields">
           <input data-team="${i}" data-key="name" value="${esc(t.name)}" placeholder="Team name" aria-label="Team name">
           <div class="row">
             <input data-team="${i}" data-key="short" class="narrow" maxlength="8" value="${esc(t.short || "")}" placeholder="Short" aria-label="Short name">
             <input type="color" data-team="${i}" data-key="color" value="${esc(t.color || "#3a4150")}" aria-label="Team colour" title="Team colour">
             ${t.color ? `<button class="btn subtle" data-team-nocolor="${i}" title="Use the class colour instead">No colour</button>` : ""}
-            ${t.logo ? `<button class="btn subtle" data-team-nologo="${i}">Remove logo</button>` : ""}
+            ${t.logo ? `<button class="btn subtle" data-team-nologo="${i}">Remove full logo</button>` : ""}
+            ${t.logo_small ? `<button class="btn subtle" data-team-nologo-small="${i}">Remove small logo</button>` : ""}
             <button class="btn icon danger" data-team-delete="${i}" title="Delete team">✕</button>
           </div>
           <label class="check small" title="Its drivers still score for themselves; the team just isn't in the team championship (standings, boards).">
@@ -4845,12 +4854,13 @@ $("#btn-save-teams").addEventListener("click", () => {
 $("#team-cards").addEventListener("change", async (e) => {
   const teams = editorTeams();
   const el = e.target;
-  if (el.dataset.teamLogo != null) {
-    const team = teams[+el.dataset.teamLogo];
+  if (el.dataset.teamLogo != null || el.dataset.teamLogoSmall != null) {
+    const small = el.dataset.teamLogoSmall != null;
+    const team = teams[+(small ? el.dataset.teamLogoSmall : el.dataset.teamLogo)];
     if (!el.files.length) return;
     try {
-      await uploadImage(`team:${team.name}`, el.files[0]);
-      toast(`Logo added to ${team.name}`);
+      await uploadImage(`${small ? "team_small" : "team"}:${team.name}`, el.files[0]);
+      toast(`${small ? "Small logo" : "Logo"} added to ${team.name}`);
     } catch (err) {
       toast(err.message, true);
     }
@@ -4928,6 +4938,7 @@ $("#team-cards").addEventListener("click", async (e) => {
   }
   else if (d.teamNocolor != null) teams[+d.teamNocolor].color = "";
   else if (d.teamNologo != null) teams[+d.teamNologo].logo = null;
+  else if (d.teamNologoSmall != null) teams[+d.teamNologoSmall].logo_small = null;
   else if (d.teamDelete != null) {
     const team = teams[+d.teamDelete];
     if (!confirm(`Delete ${team.name}? Its drivers stay in the league without a team.`)) return;

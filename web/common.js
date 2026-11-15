@@ -424,6 +424,13 @@ function paintFor(e, cls, which) {
   return (which === "secondary" ? e.paint.secondary : e.paint.main) || null;
 }
 
+// A driver's team logo for an overlay or board: its full logo or its small
+// one (the widget's "Team logo" setting); a team with only one, that one.
+function teamLogoOf(e, cfg) {
+  if (!e) return null;
+  return cfg && cfg.team_logo_kind === "small" ? (e.team_logo_small || e.team_logo || null) : (e.team_logo || e.team_logo_small || null);
+}
+
 // A driver's name for an overlay or board, as HTML: the name in the style
 // picked, then their pronouns in brackets, a little smaller, always to the
 // right of it (General: Pronouns; set in the League builder).

@@ -53,7 +53,7 @@ function topHtml(item, cfg, cls, kind) {
   else if (!lap.valid) badge = '<span class="badge">INVALID</span>';
   return `<span class="pos tnum">${item.pos ? `P${item.pos}` : ""}</span>
     ${cfg.show_number ? `<span class="num" style="background:${esc(bgc(cls.color))};color:${inkFor(cls.color)}">#${esc(item.number)}</span>` : ""}
-    ${cfg.show_logo && item.team_logo ? `<img class="team-logo" src="${esc(item.team_logo)}" alt="">` : ""}
+    ${cfg.show_logo && teamLogoOf(item, cfg) ? `<img class="team-logo" src="${esc(teamLogoOf(item, cfg))}" alt="">` : ""}
     <span class="who"><span class="n">${nameHtml(item, cfg.name_format)}</span>${team}</span>
     ${cfg.show_driver_number && item.driver_number ? `<span class="dn" style="border-color:${esc(bgc(cls.color))};color:${esc(cls.color)}">${esc(item.driver_number)}</span>` : ""}
     ${badge}`;
@@ -281,7 +281,7 @@ function screenRowHtml(item, cfg, cls, nsec, camIdx) {
     const d = lap.delta != null && lap.valid ? `<span class="${lap.delta <= 0 ? "faster" : "slower"}"> ${lap.delta > 0 ? "+" : "−"}${secs(Math.abs(lap.delta), false)}</span>` : "";
     lapCell = lap.valid ? `<span class="lapclock">${fmtLap(lap.lap_time)}</span>${d}` : '<span class="lapclock void">INVALID</span>';
   } else lapCell = `<span class="lapclock ${lap.valid ? "" : "invalid"}" data-clock="${item.car_idx}"></span>`;
-  const team = item.team ? `${cfg.show_logo && item.team_logo ? `<img src="${esc(item.team_logo)}" alt="">` : ""}${esc(item.team)}` : "";
+  const team = item.team ? `${cfg.show_logo && teamLogoOf(item, cfg) ? `<img src="${esc(teamLogoOf(item, cfg))}" alt="">` : ""}${esc(item.team)}` : "";
   return `<tr class="${item.car_idx === camIdx ? "cam" : ""}">
     <td class="stripe" style="background:${esc(bgc(cls.color))}"></td>
     <td class="p r">${item.pos ?? ""}</td>

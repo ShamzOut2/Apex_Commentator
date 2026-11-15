@@ -1206,7 +1206,8 @@ class App:
             active = len(picked) > 1 and not me["on_pit"]
             prev = None
             for e in picked:
-                rows.append({**{k: e.get(k) for k in ("car_idx", "name", "nickname", "number", "team", "team_logo", "class_key", "paint")},
+                rows.append({**{k: e.get(k) for k in ("car_idx", "name", "nickname", "pronouns", "number", "team", "team_logo", "team_logo_small",
+                                                      "class_key", "paint")},
                              "pos": e[pos_k], "cam": e["car_idx"] == cam,
                              "interval": round((e.get("gap") or 0.0) - (prev.get("gap") or 0.0), 3) if prev is not None else None,
                              "to_cam": round((e.get("gap") or 0.0) - mine, 3)})
@@ -1295,6 +1296,7 @@ class App:
             out.append({
                 "driver": d["driver"], "name": name, "nickname": nickname, "pronouns": info.get("pronouns", ""), "number": d["car_number"],
                 "team": d["team"], "team_logo": logo_url(pid, team.get("logo")) if team else None,
+                "team_logo_small": logo_url(pid, team.get("logo_small")) if team else None,
                 "class_color": colours.get(info.get("class_id")), "pos": d["pos"], "points": d["points"],
                 "pos_before": d.get("pos_before"), "points_before": d.get("points_before"),
                 "race_points": d.get("race_points"), "race_rank": d.get("race_rank"),
@@ -1422,6 +1424,7 @@ class App:
             "abbrev": r["abbrev"], "number": r["number"], "driver_number": lg.get("driver_number", ""),
             "team": team_name, "team_short": (team or {}).get("short", ""), "team_color": (team or {}).get("color", ""),
             "team_logo": logo_url(pid, team.get("logo")) if team and pid else None,
+            "team_logo_small": logo_url(pid, team.get("logo_small")) if team and pid else None,
             "class_key": r["class_key"], "car": r["car"], "on_pit": r["on_pit"], "in_world": r["in_world"],
             "tyre": r.get("tyre"),
             "paint": self._paint(r, active_league),
@@ -2393,6 +2396,7 @@ class App:
             "team": team,
             "team_color": ((self.leagues.team(team, active_league) or {}).get("color") or "") if active_league and team else "",
             "team_logo": logo_url(pid, self.leagues.team_logo(team, active_league)) if pid else None,
+            "team_logo_small": logo_url(pid, (self.leagues.team(team, active_league) or {}).get("logo_small")) if pid and team else None,
             "car": d.get("car", ""),
             "make": league.get("car_make") or d.get("make", ""),
             "make_logo": make_logo(league.get("car_make") or d.get("make", "")),

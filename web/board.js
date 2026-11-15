@@ -44,7 +44,7 @@ function columns(b) {
   const cols = [];
   const add = (on, key, label, width, cls, cell) => on && cols.push([label, width, cls, cell, key]);
   // The team logo and the team name: columns of their own, the logo before or after the name.
-  const logoCol = (on) => add(on, "logo", "", "90px", "c lg", (r) => (r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""));
+  const logoCol = (on) => add(on, "logo", "", "90px", "c lg", (r) => (teamLogoOf(r, s) ? `<img class="logo" src="${esc(teamLogoOf(r, s))}" alt="">` : ""));
   const teamCols = (nameOn, nameCell) => {
     if (s.team_logo_side !== "last") logoCol(s.show_logo);
     add(nameOn, "team", "Team", "auto", nameCell ? "" : "muted", nameCell || ((r) => esc(r.team)));
@@ -164,7 +164,7 @@ function gridLayoutHtml(b) {
       <div class="gbox" style="--cls:${esc(r.class_color || "#8b93a3")}">
         ${s.show_number ? numberChip(r) : ""}
         <div class="gname"><b>${nameHtml(r, s.name_format)}</b>${s.show_team && r.team ? `<span>${esc(r.team)}</span>` : ""}</div>
-        ${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}
+        ${s.show_logo && teamLogoOf(r, s) ? `<img class="logo" src="${esc(teamLogoOf(r, s))}" alt="">` : ""}
         ${s.show_make && r.make_logo ? makeChip({ name: r.make, logo: r.make_logo }) : ""}
         <div class="gq">${s.show_qual && gridFromQual(b) && r.qual_time ? `<span>${fmtLap(r.qual_time)}</span>` : ""}${s.show_gap && gridFromQual(b) && r.qual_gap != null ? `<span class="muted">+${secs(r.qual_gap, false)}</span>`
           : s.show_gap && !s.show_qual && gridFromQual(b) && r.qual_time ? `<span>${fmtLap(r.qual_time)}</span>` : ""}${s.show_from && showsFrom(b) && r.from ? `<span class="muted">Finished P${r.from}</span>` : ""}</div>

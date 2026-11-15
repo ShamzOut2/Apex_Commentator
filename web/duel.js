@@ -16,7 +16,7 @@ function rowHtml(r, i, cfg, cls) {
   const color = paintFor(r, cls, "main") || cls.color;
   const number = cfg.show_number && r.number
     ? `<span class="num" style="${color ? `background:${esc(bgc(color))};color:${inkFor(color)}` : `background:${bgc("rgba(255,255,255,.14)")}`}">${esc(r.number)}</span>` : "";
-  const logo = !cfg.show_logo ? "" : r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : '<span class="logo"></span>';
+  const logo = !cfg.show_logo ? "" : teamLogoOf(r, cfg) ? `<img class="logo" src="${esc(teamLogoOf(r, cfg))}" alt="">` : '<span class="logo"></span>';
   const cells = [`<span class="pos">P${r.pos ?? "–"}</span>`,
     `<span class="who">${number}${logo}<span class="names"><span class="name">${nameHtml(r, cfg.name_format)}</span>
       ${cfg.show_team && r.team ? `<span class="team">${esc(r.team)}</span>` : ""}</span></span>`];

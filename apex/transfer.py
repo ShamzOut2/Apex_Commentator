@@ -79,7 +79,7 @@ def _images(store, profile, names):
 
 def _league_image_names(profile):
     names = {c.get("logo") for c in profile.get("classes", [])}
-    names |= {t.get("logo") for t in profile.get("teams", [])}
+    names |= {t.get(k) for t in profile.get("teams", []) for k in ("logo", "logo_small")}
     names |= {d.get(k) for d in profile.get("drivers", []) for k in ("car_image", "helmet_image")}
     names |= {b.get("file") for b in profile.get("banners", []) + profile.get("sponsors", [])}
     names |= {profile.get("logo"), profile.get("calendar_image")}
@@ -104,7 +104,7 @@ def export_teams(store, profile):
             known.add(d["team"].lower())
             teams.append({"name": d["team"], "short": "", "color": "", "logo": None})
     return _json_bytes(_envelope("teams", league=profile["name"], teams=teams, drivers=drivers,
-                                 images=_images(store, profile, {t.get("logo") for t in teams})))
+                                 images=_images(store, profile, {t.get(k) for t in teams for k in ("logo", "logo_small")})))
 
 
 def _names(profile):

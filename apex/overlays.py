@@ -18,7 +18,10 @@ from pathlib import Path
 OFFSET = {"offset_x": 0, "offset_y": 0}
 # How big team logos are drawn, in % of their usual size (every overlay and
 # board that shows them).
-LOGO = {"logo_scale": 100}
+LOGO = {"logo_scale": 100,
+        # Which of a team's logos: its "full" logo or its "small" one (League
+        # builder: Teams); a team with only one shows that one.
+        "team_logo_kind": "full"}
 # font_scale: its text alone bigger or smaller (percent), the boxes as they are.
 # The fonts on offer for every overlay and board (ids; web/common.js FONTS has
 # their names, web/fonts/overlay the bundled ones).
@@ -468,7 +471,7 @@ CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "s
            "font": FONTS,
            "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "anchor_side": ("first", "last"), "fl_flash_many": ("stack", "queue"), "gap_shown": ("ahead", "camera"),
            "labels": ("none", "number", "position"), "start_from": ("all", "standing", "hand"),
-           "units": ("metric", "imperial")}
+           "units": ("metric", "imperial"), "team_logo_kind": ("full", "small")}
 
 
 def normalise(settings):

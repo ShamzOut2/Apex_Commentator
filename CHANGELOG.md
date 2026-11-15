@@ -20,6 +20,8 @@ How each version's entry is written:
   with a setting to show or hide them.
 - An option to leave numbers off the end of drivers' names ("Shamoy Samuel3"
   becomes "Shamoy Samuel") on every overlay and board, Officials mode too.
+- Teams can have a full logo and a small logo, and each overlay and board
+  can be set to show either one.
 
 ## v0.7.4
 

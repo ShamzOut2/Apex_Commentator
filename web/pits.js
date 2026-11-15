@@ -23,7 +23,7 @@ function cardHtml(s, cfg, cls) {
   const color = paintFor(s, cls, cfg.class_colors);
   const number = cfg.show_number && s.number
     ? (color ? `<span class="num" style="background:${esc(bgc(color))};color:${inkFor(color)}">${esc(s.number)}</span>` : `<span class="num plain">${esc(s.number)}</span>`) : "";
-  const logo = cfg.show_logo && s.team_logo ? `<img class="logo" src="${esc(s.team_logo)}" alt="">` : "";
+  const logo = cfg.show_logo && teamLogoOf(s, cfg) ? `<img class="logo" src="${esc(teamLogoOf(s, cfg))}" alt="">` : "";
   // Overall or in class, as the standings tower is (Overall / By class).
   const place = byClass ? s.class_pos : s.pos;
   return `<div class="pit-who panel-row" style="--i:0">${cfg.show_position && place ? `<span class="pos">P${place}</span>` : ""}${number}

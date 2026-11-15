@@ -78,6 +78,8 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   with a setting to show or hide them.
 - An option to leave numbers off the end of drivers' names ("Shamoy Samuel3"
   becomes "Shamoy Samuel") on every overlay and board, Officials mode too.
+- Teams can have a full logo and a small logo, and each overlay and board
+  can be set to show either one.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -945,7 +947,12 @@ team, set:
 - its name (renaming moves its drivers with it);
 - a short name, used where space is tight;
 - a colour (optional; the class colour is used otherwise);
-- its logo.
+- its logos: a **full logo** (the big box) and a **small logo** (the small
+  box under it: a badge or icon that reads well when tiny). Every overlay and
+  board that shows team logos has a *Team logo* setting (in its Size
+  settings): the full logo (as before) or the small one, so the timing tower
+  can show the badge while the boards show the full logo. A team with only
+  one of the two shows that one, whichever is picked.
 
 Add drivers to a team from the drop-down, or take them out with ✕. The roster's
 *Team* column in the League builder is the same thing. **Save** saves the
