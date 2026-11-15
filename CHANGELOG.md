@@ -17,7 +17,7 @@ How each version's entry is written:
 
 - Timing tower and screen: a black flag, meatball or slow-down (warning)
   flag by a driver while iRacing shows them one, on the same tab as the
-  chequered flag.
+  chequered flag, each tab in a colour you can pick.
 
 ### Improvements
 

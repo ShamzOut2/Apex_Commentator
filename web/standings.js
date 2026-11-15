@@ -138,6 +138,11 @@ const finTabs = new Map();  // car -> tab element
 
 function placeFinishTabs(entries, cfg) {
   if (finRail.parentNode !== tower) tower.appendChild(finRail);
+  // The penalty flags' tab colours, as picked (Drivers settings).
+  for (const k of ["black", "meatball", "warning"]) {
+    const c = cfg[`flag_${k}_bg_color`];
+    if (c) finRail.style.setProperty(`--pen-${k}`, c);
+  }
   const done = new Map(entries.filter((e) => flagKind(e, cfg)).map((e) => [String(e.car_idx), e]));
   const seen = new Set();
   for (const row of tower.querySelectorAll(".srow[data-key]")) {
