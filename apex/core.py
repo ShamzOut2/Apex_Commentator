@@ -200,6 +200,47 @@ def _laps_as_completed(frame):
     return frame if fixed == list(lap) else replace(frame, lap=fixed)
 
 
+class TowWatch:
+    """Cars put somewhere rather than driven there during a race: towed to
+    their pit box, reset to the pits, or back in the car after leaving it.
+    However iRacing then counts their lap and distance (a box just past the
+    line can make it a lap up), where they've been put isn't where they are
+    in the race: until they've crossed the line again under their own power,
+    they're placed where iRacing's official order has them (``towed``: car ->
+    laps completed when it was put there)."""
+
+    JUMP = 0.06        # laps further on in one update than any car drives: put there
+    TOP_SPEED = 110.0  # m/s: over a longer gap between updates, as far as a car could go
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self, key=None):
+        self._key, self._last, self.towed = key, {}, {}
+
+    def update(self, key, racing, t, cars, track_m):
+        """``cars``: {car: (laps + distance or -1, laps completed, in the world)}."""
+        if key != self._key:
+            self.reset(key)
+        if not racing:
+            self._last = {}
+            return
+        for idx, (p, done, in_world) in cars.items():
+            last = self._last.get(idx)
+            if p is None or p < 0 or not in_world:
+                if last is not None:
+                    self._last[idx] = (last[0], last[1], last[2], False)  # gone from the track for now
+                continue
+            if last is not None:
+                lt, lp, _, was_there = last
+                reach = self.JUMP + max(0.0, t - lt) * self.TOP_SPEED / max(500.0, track_m or 4000.0)
+                if not was_there or p - lp > reach:
+                    self.towed.setdefault(idx, done)
+                elif idx in self.towed and done > self.towed[idx]:
+                    del self.towed[idx]  # over the line again under its own power: as it is
+            self._last[idx] = (t, p, done, True)
+
+
 def _lap_time(value):
     return round(value, 3) if value and value > 0 else None
 
@@ -322,6 +363,9 @@ class App:
         self._grid_cache = (None, [])   # (what it depends on, the race on screen's grid): _race_grid
         self._lineups = {}              # (subsession, race session): the grid iRacing lined it up on (_watch_grid)
         self._lineups_said = set()      # the ones written in the log
+        self._kept_grid = {}            # subsession: iRacing's grid (iRacing IDs), as kept on disk (_keep_grid)
+        self.grids_dir = None           # where it's kept (data/grids; __main__)
+        self._tows = TowWatch()         # cars towed or reset to the pits in the race on now (_watch_tows)
         self._duel_members = None       # the on-track battle's cars, settled (_duel_settle)
         # What iRacing sends during a replay (replaycheck.py): found by itself, and the check that logs it.
         self._probe = ReplayProbe()
@@ -460,6 +504,7 @@ class App:
             self._frame = frame
             self._probe_replay(frame)
             self._detect(frame)
+            self._watch_tows(frame)
             self._watch_grid(frame)
             self._auto_results(frame)
         return True
@@ -620,9 +665,39 @@ class App:
         official = {i: p for i, p in enumerate(frame.position) if i in drivers} if frame else None
         self._grid_order, self._grid_source = grid_order(drivers, info, official)
         self._qual_order, self._qual_source = grid_order(drivers, info, None)  # qualifying, else car number (the grid board)
+        self._keep_grid(drivers)
         self._qual_times = qualifying_times(info)
         self._track_sectors = sector_starts(info)
         self._apply_sectors()
+
+    def _keep_grid(self, drivers):
+        """iRacing's grid for this event (its qualifying results carried into the
+        race), kept on disk for the event (by iRacing ID): after a restart of the
+        app or iRacing without them, the grid is still that, not car numbers."""
+        sub = self._session_meta.get("subsession")
+        folder = getattr(self, "grids_dir", None)
+        if not sub or folder is None:
+            return
+        path = Path(folder) / f"{sub}.json"
+        if self._qual_source == "qualifying":
+            ids = [drivers[i].get("cust_id") for i in self._qual_order if drivers[i].get("cust_id")]
+            if ids and ids != self._kept_grid.get(sub):
+                try:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(json.dumps(ids), encoding="utf-8")
+                    self._kept_grid[sub] = ids
+                except OSError:
+                    pass
+            return
+        try:
+            ids = self._kept_grid.get(sub) or json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        by_id = {d.get("cust_id"): i for i, d in drivers.items()}
+        order = [by_id[c] for c in ids if c in by_id]
+        if order:
+            self._qual_order = order + [i for i in self._qual_order if i not in set(order)]
+            self._qual_source = "qualifying"
 
     def session_key(self, session_num=None):
         """Identifies the session on screen, or race ``session_num`` of this
@@ -849,6 +924,8 @@ class App:
                     **car_flags((_at(frame.car_flags, idx, 0) | (frame.session_flags & CAUTION_FLAGS)) & ~FLAG_CHECKERED
                                 | (FLAG_CHECKERED if self._race.checkered and idx in self._race.finished else 0)),
                     "left": idx in self._gone and idx not in self._drivers,
+                    # Towed or reset to the pits, not over the line again yet: placed by iRacing's order.
+                    "towed": is_race and idx in self._tows.towed and self._tows._key == (self._session_meta.get("subsession"), frame.session_num),
                     "last_event_id": last_event.get(idx),
                     # Where it is round the race, without iRacing's hiccup at the line, or its
                     # little corrections and the frames its next position isn't in yet (gaps.py).
@@ -901,6 +978,8 @@ class App:
                     "laps": session.get("SessionLaps", ""),
                     "state": SESSION_STATES.get(frame.session_state, str(frame.session_state)),
                     "time": round(frame.session_time, 1),
+                    # Time left (None when the session isn't timed: iRacing sends a huge number or -1).
+                    "time_remain": round(frame.session_time_remain, 1) if 0 <= frame.session_time_remain < 86400 * 2 else None,
                     "flags": frame.session_flags,
                     "track": self._session_meta.get("track", ""),
                     "track_config": self._session_meta.get("track_config", ""),
@@ -1908,6 +1987,23 @@ class App:
             self._grid_cache = (key, [e["car_idx"] for e in data["rows"]])
         return self._grid_cache[1]
 
+    def _watch_tows(self, frame):
+        """Note cars towed (or reset) to the pits during a race (TowWatch), live
+        (or iRacing's car data live in a replay)."""
+        if self._replay_cars_live(frame):
+            frame = self._as_live(frame)
+        if not frame.is_live:
+            return
+        racing = self._is_race(frame) and frame.session_state in (STATE_RACING, STATE_CHECKERED)
+        num, t = frame.timeline()
+        cars = {idx: (self._line((num, t), idx, _progress(frame, idx)), _at(frame.laps_completed, idx, -1),
+                      _at(frame.surface, idx, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD) for idx in self._drivers}
+        was = set(self._tows.towed)
+        self._tows.update((self._session_meta.get("subsession"), num), racing, t, cars, self._track_m)
+        for idx in set(self._tows.towed) - was:
+            print(f"[apex] #{(self._drivers.get(idx) or {}).get('number', '?')} towed or reset to the pits: "
+                  "placed where iRacing has it until it crosses the line again")
+
     def _iracing_order(self, frame):
         """iRacing's running order now (CarIdxPosition): [car_idx], first place first."""
         drivers = self._drivers
@@ -2037,8 +2133,8 @@ class App:
             r["class_laps_down"] = _laps_down(cl, r)
             if r is leader:
                 continue
-            if r["progress"] < 0:
-                r["gap"] = None  # in the garage: no gap
+            if r["progress"] < 0 or r.get("towed"):
+                r["gap"] = None  # in the garage, or towed to the pits (where it was put isn't where it is): no gap
                 continue
             gap = self.gaps.gap(r["car_idx"], leader["car_idx"], self.gaps.position(r["car_idx"], r["progress"], now), now)
             if gap is None and leader["progress"] >= r["progress"] >= 0:
@@ -2051,9 +2147,17 @@ class App:
 
     @staticmethod
     def _assign_positions(rows, racing):
-        """Live order while racing, iRacing's official order otherwise."""
+        """Live order while racing, iRacing's official order otherwise. A car
+        towed (or reset) to the pits goes where iRacing's order has it, not
+        where being put there took it (TowWatch), until it crosses the line."""
         if racing:
             rows.sort(key=lambda r: (-r["progress"], r["official_pos"] or 999))
+            towed = sorted((r for r in rows if r.get("towed") and r["official_pos"]), key=lambda r: r["official_pos"])
+            if towed:
+                rest = [r for r in rows if not (r.get("towed") and r["official_pos"])]
+                for r in towed:
+                    rest.insert(min(len(rest), r["official_pos"] - 1), r)
+                rows[:] = rest
         else:
             rows.sort(key=lambda r: (r["official_pos"] or 999, r["best_lap"] or 1e9, -r["progress"]))
         for pos, r in enumerate(rows, start=1):
@@ -3138,15 +3242,18 @@ class App:
         if not finish and prev is None:
             finish = self._meeting_before(league, matched)
         how = cfg["grid_source"]
-        if how in ("auto", "current") and lined:
-            # iRacing's own grid, reverse grids included: nothing worked out, nothing reversed on top.
+        if how == "current" and lined:
+            # As iRacing lines the cars up on the grid (watched as they're put there).
             how = "iracing"
         if how == "auto":
-            # The heats, and the first race (of the event and its meeting),
-            # from qualifying; every race after it (a second race, the
-            # consolation, the feature) from the finishing order of the race before.
+            # As Apex Overlays: the grid iRacing has for the race (its qualifying
+            # results carried into it), one list, the same from before anyone's
+            # out to the green: drivers joining take their places in it, nothing
+            # moves. Without it, worked out: the heats and the first race (of the
+            # event and its meeting) from qualifying; every race after it (a second
+            # race, the consolation, the feature) from the finishing order of the race before.
             first = prev is None and not finish
-            how = "qualifying" if kind == "heat" or first else "previous"
+            how = "qualifying" if self._qual_source == "qualifying" or kind == "heat" or first else "previous"
         order, note = qual, note_qual
         if how == "iracing":
             order = lined + [i for i in qual if i not in set(lined)]

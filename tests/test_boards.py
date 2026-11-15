@@ -551,6 +551,8 @@ class GridBoardTests(unittest.TestCase):
     def test_race_meeting_grids_follow_the_race_before(self):
         from datetime import date
 
+        # No grid list from iRacing (its qualifying results carried into the race): worked out.
+        self.app._qual_source = "qualifying session"
         cars = list(self.app._drivers)
 
         def finish(order):
@@ -656,6 +658,8 @@ class GridBoardTests(unittest.TestCase):
         self.assertEqual([(r["id"], len(r["results"])) for r in saved], [("r1", 1), ("r2", 0)])
 
     def test_two_race_event_second_race_from_the_first(self):
+        # No grid list from iRacing (its qualifying results carried into the race): worked out.
+        self.app._qual_source = "qualifying session"
         cars = list(self.app._drivers)
         first = cars[3:] + cars[:3]
         self.app._session_meta["sessions"] = {
@@ -684,6 +688,8 @@ class GridBoardTests(unittest.TestCase):
         as its round says, and stays so."""
         from apex.league import driver_key
 
+        # No grid list from iRacing (its qualifying results carried into the race): worked out.
+        self.app._qual_source = "qualifying session"
         cars = list(self.app._drivers)
         league = self.app.leagues.active()
         keys = {idx: driver_key({"cust_id": d["cust_id"], "name": d["name"]}) for idx, d in self.app._drivers.items()}
@@ -752,7 +758,7 @@ class GridBoardTests(unittest.TestCase):
         number = lambda idx: self.app._drivers[idx]["number"]  # noqa: E731
         # A reverse grid iRacing set, its order unlike qualifying's.
         grid = cars[::-1][:8]
-        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 4}})
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 4, "grid_source": "current"}})
 
         def board():
             self.app.command("board_show", {"kind": "grid", "group": "", "round": f"session:{num}"})
@@ -799,6 +805,38 @@ class GridBoardTests(unittest.TestCase):
         snap = self.app.build_snapshot()
         start = {r["number"]: r["start_pos"] for r in snap["drivers"]}
         self.assertEqual([start[number(i)] for i in grid], list(range(1, 9)))
+
+    def test_automatic_is_iracings_grid_list_as_drivers_join(self):
+        """As Apex Overlays: iRacing's grid for the race (its qualifying results
+        carried into it), one list from before anyone's out: cars being put on
+        the grid in another order, or a second race, don't move it."""
+        STATE_GET_IN_CAR = 1
+        num = self.app._frame.session_num
+        qual = list(self.app._qual_order)
+        number = lambda idx: self.app._drivers[idx]["number"]  # noqa: E731
+        self.assertEqual(self.app._qual_source, "qualifying")
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 0, "grid_source": "auto"}})
+
+        def board():
+            self.app.command("board_show", {"kind": "grid", "group": "", "round": f"session:{num}"})
+            b = self.app.build_snapshot()["board"]
+            return [r["number"] for r in b["rows"]], b["grid_from"]
+
+        want = [number(i) for i in qual]
+        self.assertEqual(board(), (want, "qualifying"))
+        shuffled = qual[::-1]
+        for k in range(1, len(shuffled) + 1):  # cars put on the grid one by one, in another order
+            self.lined_up(STATE_GET_IN_CAR, shuffled[:k], positions=shuffled)
+            self.assertEqual(board(), (want, "qualifying"))
+        # Kept for the event: without iRacing's list (a restart), still that grid.
+        with tempfile.TemporaryDirectory() as folder:
+            self.app.grids_dir = folder
+            self.app._kept_grid.clear()
+            self.app._keep_grid(self.app._drivers)  # noted
+            self.app._kept_grid.clear()
+            self.app._qual_order, self.app._qual_source = sorted(self.app._drivers), "car number"
+            self.app._keep_grid(self.app._drivers)  # read back
+            self.assertEqual((self.app._qual_order[:len(qual)], self.app._qual_source), (qual, "qualifying"))
 
     def test_qualifying_board_has_no_session_without_qualifying(self):
         self.app.command("board_show", {"kind": "qualifying", "group": "", "round": "latest"})

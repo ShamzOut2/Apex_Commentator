@@ -918,3 +918,8 @@ td.c-make .make-logo { height: 18px; max-width: 36px; object-fit: contain; verti
 .media-bar .replay-data { gap: 8px; }
 .media-bar .replay-data label { display: inline-flex; align-items: center; gap: 6px; }
 .replay-found { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+/* The session clock in the top bar: time passed or time left (click to switch). */
+.clock-btn { border: 0; background: none; color: inherit; font: inherit; padding: 0 2px; cursor: pointer;
+  font-variant-numeric: tabular-nums; border-bottom: 1px dotted var(--muted); }
+.clock-btn:hover { color: var(--text); }

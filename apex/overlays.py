@@ -152,6 +152,7 @@ DEFAULTS = {
         "round_titles": "name",
         "title_wrap": False,      # a long session name: onto two lines (True) or one line, the tower widening for it
         "time_left_word": True,   # "12:34 LEFT" (off: just 12:34)
+        "finished_word": True,    # "FINISHED" once the race is over (off: nothing there)
         # Accent colour: the time / lap in the header, the bar down the tower
         # header's left and the line under the full screen's header.
         # "default" (orange), "color" (accent_color) or "session" (by session:

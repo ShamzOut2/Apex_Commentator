@@ -15,9 +15,22 @@ How each version's entry is written:
 
 ### Improvements
 
+- Starting grid board: Automatic now uses iRacing's own grid list for the
+  race, built before anyone's on track, so it doesn't change as drivers
+  join (as Apex Overlays does). It's kept for the event once it's known.
+- Timing tower: an option to show nothing in the header instead of
+  "FINISHED" once the race is over.
+- Timing screen: click the session clock to switch between time passed and
+  time remaining.
 - Apex Commentator is now an Apex Labs tool: a new app icon (taskbar, window,
   shortcuts and installer, and the browser tab), and the Apex Labs logo on
   the Home page, the update pop-up and the live timing website.
+
+### Fixes
+
+- A car towed back to the pits no longer jumps to the top of the timing
+  tower and timing screen: it stays where iRacing has it until it crosses
+  the line again.
 
 ## v0.7.2
 

@@ -57,6 +57,7 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
     app.overlays = OverlaySettings(ROOT / "data" / "overlays.json")
     app.settings = UserSettings(ROOT / "data" / "settings.json")
     app.replay_check = ReplayCheck(ROOT / "data" / "checks")      # the replay data check's files
+    app.grids_dir = ROOT / "data" / "grids"                         # each event's starting grid, kept (core._keep_grid)
     app.trackmaps = TrackMaps(ROOT / "data" / "trackmaps")  # the spectators' track map
     app.bin_dir = ROOT / "data" / "bin"                      # cloudflared, for the spectators' public link
     app.load_gridwalk_settings()

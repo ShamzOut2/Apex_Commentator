@@ -53,7 +53,7 @@ const ui = {
 const SETTINGS_KEY = "apex.timing";
 const settings = Object.assign(
   { battleGap: 0.15, battleColor: "#ff3b6b", rewind: 10, logPreroll: 10, hotkeys: null, actionKeys: {},
-    nameFormat: "full", showNick: true, keepLeft: true, logHidden: [], timingCols: 1 },
+    nameFormat: "full", showNick: true, keepLeft: true, logHidden: [], timingCols: 1, clock: "elapsed" },
   (() => {
     try {
       return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
@@ -283,8 +283,13 @@ function render() {
 
   const ses = s.session;
   const track = [ses.track, ses.track_config].filter(Boolean).join(" – ");
+  // The session clock: time passed, or time left (click it to switch; kept for this PC).
+  const remaining = settings.clock === "remaining" && ses.time_remain != null;
+  const clock = remaining ? `${fmtClock(ses.time_remain)} left` : fmtClock(ses.time);
+  const clockTip = ses.time_remain == null ? "Time passed (the session isn't timed)"
+    : remaining ? "Time left: click for time passed" : "Time passed: click for time left";
   $("#session-line").innerHTML =
-    `<b>${esc(track)}</b> · ${esc(ses.type || ses.name)} · ${esc(ses.state)} · ${fmtClock(ses.time)}` +
+    `<b>${esc(track)}</b> · ${esc(ses.type || ses.name)} · ${esc(ses.state)} · <button type="button" class="clock-btn" data-clock title="${clockTip}">${clock}</button>` +
     (s.source === "mock" ? " · <i>mock data</i>" : "");
 
   const rb = $("#replay-badge");
@@ -318,6 +323,12 @@ function renderReplayData(s) {
   btn.dataset.on = rd.check.on ? "1" : "";
 }
 $("#replay-check-folder").addEventListener("click", () => cmd("replay_check_folder", {}, (r) => `Opened ${r.folder}`));
+$("#session-line").addEventListener("click", (e) => {
+  if (!e.target.closest("[data-clock]")) return;
+  settings.clock = settings.clock === "remaining" ? "elapsed" : "remaining";
+  saveSettings();
+  if (ui.snap && ui.snap.connected) render();
+});
 $("#replay-car-data").addEventListener("change", (e) => cmd("replay_car_data", { mode: e.target.value }, "Replay data set"));
 $("#replay-check").addEventListener("click", async (e) => {
   const on = !e.currentTarget.dataset.on;
@@ -2767,6 +2778,7 @@ const OVERLAY_FIELDS = {
       ["round_titles", "Heat events: name each race as its round is named in the Championship tab (by today's date)", "select",
         [["name", "Yes"], ["off", "No"]]],
       ["time_left_word", "\"LEFT\" after the time left (12:34 LEFT)", "bool"],
+      ["finished_word", "\"FINISHED\" in the header once the race is over (untick: nothing there)", "bool"],
       ["accent", "Accent colour (time / lap, the header's bar and line)", "select", [["default", "Orange"], ["color", "A colour of my own"],
         ["session", "By session: practice, qualifying, race"]]],
       iff((v) => v.accent === "color", ["accent_color", "Accent colour", "color"]),
@@ -3471,10 +3483,10 @@ const BOARD_FIELDS = {
     ["show_interval", "Interval to the car ahead", "bool"], ["show_laps", "Laps", "bool"],
     ...columnOpacity([["pos", "Position"], ["number", "Car number"], ["driver", "Driver"], ["team", "Team"], ["logo", "Team logo"],
       ["car", "Car badge"], ["laps", "Laps"], ["best", "Best lap"], ["gap", "Gap"], ["interval", "Interval"]])],
-  board_grid: [["grid_source", "The grid from", "select", [["auto", "Automatic: iRacing's own grid once it has lined the race up (reverse grids included); before that, heats from qualifying, every race after from the race before's finish"],
+  board_grid: [["grid_source", "The grid from", "select", [["auto", "Automatic: iRacing's grid list for the race (as Apex Overlays), fixed from before anyone's out; without one, heats from qualifying, every race after from the race before's finish"],
       ["qualifying", "Qualifying (its order)"], ["previous", "The previous race's finish"],
       ["gridwalk", "The grid walk's order (as set by hand on the Grid walk tab)"],
-      ["current", "iRacing's grid: as it has lined the race up (else the order it has the cars in now)"]]],
+      ["current", "As the cars line up on the grid (changes as they're put there)"]]],
     ["reverse_top", "Reverse grid: the first N turned round (0 = none; a race meeting's round can set its own). Not on iRacing's own grid: that's reversed already, if the race is", "number", { min: 0, max: 64 }],
     iff((v) => v.reverse_top > 0, ["reverse_in_class", "Reverse the first N of each class (not overall)", "bool"]),
     ["grid_layout", "Layout", "select", [["list", "A list"], ["grid", "As the cars line up (two staggered columns)"]]],
