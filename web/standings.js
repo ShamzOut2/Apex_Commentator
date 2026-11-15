@@ -423,7 +423,7 @@ function progressText(ov) {
   const left = ov.settings.standings.time_left_word ? " LEFT" : "";
   const pr = ov.progress;
   if (!pr || pr.mode === "none") return "";
-  if (pr.finished) return "FINISHED";
+  if (pr.finished) return ov.settings.standings.finished_word === false ? "" : "FINISHED";
   if (pr.mode === "laps") {
     if (!pr.lap) return pr.laps_total ? `${pr.laps_total} LAPS` : "";
     if (pr.laps_total && pr.lap >= pr.laps_total) return "FINAL LAP";

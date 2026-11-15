@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Apex Commentator</title>
+  <link rel="icon" type="image/svg+xml" href="brand/apex-commentator-icon.svg">
   <link rel="icon" href="favicon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span id="status-dot" class="dot"></span>Apex</div>
+    <div class="brand"><span id="status-dot" class="dot"></span><img class="brand-icon" src="brand/apex-commentator-icon.svg" alt="">Apex Commentator</div>
     <div id="session-line" class="session-line">Waiting for iRacing…</div>
     <div class="topbar-right">
       <button id="update-badge" class="badge update" hidden title="A new version is available">Update available</button>
@@ -44,7 +45,8 @@
   <main id="main">
     <section id="tab-home" class="panel">
       <div class="home">
-        <h1 class="home-title">Apex Commentator <span id="home-version" class="count"></span></h1>
+        <h1 class="home-title"><img class="home-icon" src="brand/apex-commentator-icon.svg" alt="">Apex Commentator <span id="home-version" class="count"></span>
+          <a class="by-labs" href="https://github.com/ShamzOut2/Apex_Commentator" target="_blank" rel="noopener" title="Apex Commentator is an Apex Labs tool">by <img src="brand/apex-labs-logo-on-dark.svg" alt="Apex Labs"></a></h1>
         <p id="home-session" class="hint"></p>
         <div class="tiles">
           <button class="tile" data-goto="hotkeys">
@@ -538,6 +540,21 @@
             <div class="ov-form wq" data-overlay="trackmap" data-quick="colors,labels"></div>
             <div class="wfoot"><span class="desk" data-desk="trackmap"></span><button class="btn subtle" data-wsettings="trackmap">⚙ Settings</button></div>
           </div>
+          <div class="wcard" data-widget="lights">
+            <h4>Starting lights <span id="wlights-state" class="count"></span></h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="lights" title="Comes up by itself as a race is about to start">On</button><button class="wbtn" data-whide="lights" title="Never shows">Off</button></div>
+            <div class="wbtns small"><button class="btn subtle" data-wall="lights:count" title="A light a step from now, held lit until the green">Count down</button><button class="btn subtle" data-wall="lights:reset">Put away</button></div>
+            <div class="ov-form wq" data-overlay="lights" data-quick="start_from"></div>
+            <div class="wfoot"><span class="desk" data-desk="lights"></span><button class="btn subtle" data-wsettings="lights">⚙ Settings</button></div>
+          </div>
+          <div class="wcard" data-widget="flags">
+            <h4>Flags <span id="wflag-state" class="count"></span></h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="flags" title="Shows while a sector's yellow">On</button><button class="wbtn" data-whide="flags" title="Never shows">Off</button></div>
+            <div class="wbtns small" id="wflag-sectors"></div>
+            <div class="wbtns small"><button class="btn subtle" data-wall="flags:all" title="Every sector yellow">All sectors</button><button class="btn subtle" data-wall="flags:clear" title="Every yellow off: Track Clear">Clear</button></div>
+            <div class="ov-form wq" data-overlay="flags" data-quick="auto,flag_sectors"></div>
+            <div class="wfoot"><span class="desk" data-desk="flags"></span><button class="btn subtle" data-wsettings="flags">⚙ Settings</button></div>
+          </div>
           <div class="wcard" data-widget="sponsors">
             <h4>Sponsors</h4>
             <div class="wbtns"><button class="wbtn" data-wshow="sponsors">Show</button><button class="wbtn" data-whide="sponsors">Hide</button></div>
@@ -831,7 +848,7 @@
 
   <div id="update-modal" class="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="update-title">
-      <h2 id="update-title">Update available</h2>
+      <h2 id="update-title" class="update-title"><img src="brand/apex-commentator-icon.svg" alt="">Update available<img class="update-labs" src="brand/apex-labs-mark-on-dark.svg" alt="Apex Labs" title="Apex Labs"></h2>
       <p class="update-versions"><span id="update-current"></span> → <b id="update-latest"></b></p>
       <p id="update-behind" class="update-behind" hidden></p>
       <div id="update-notes" class="update-notes"></div>

@@ -1,0 +1,118 @@
+/* Starting lights: a light gantry as at a real start. A steel truss, two
+   posts down to a black housing, and in it a column of two lamps for each
+   light: a bezel, a hood over the top, and a face of red LEDs. Nothing
+   behind it but a black outline round the whole thing. */
+.lights { position: absolute; }
+.lights.top-left { top: 30px; left: 30px; }
+.lights.top { top: 30px; left: 50%; translate: -50% 0; }
+.lights.top-right { top: 30px; right: 30px; }
+.lights.left { left: 30px; top: 50%; translate: 0 -50%; }
+.lights.right { right: 30px; top: 50%; translate: 0 -50%; }
+.lights.bottom-left { bottom: 30px; left: 30px; }
+.lights.bottom { bottom: 30px; left: 50%; translate: -50% 0; }
+.lights.bottom-right { bottom: 30px; right: 30px; }
+.lights.hidden-preview { opacity: .45; }
+
+.lt-frame {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  padding: 0 0 26px; border: 5px solid #000; border-radius: 4px; overflow: hidden;
+}
+/* A background picked in its settings fills the outline; by default, nothing. */
+body.custom-panels .lt-frame { background: var(--panel); }
+body.panel-image .lt-frame { isolation: isolate; }
+body.panel-image .lt-frame::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
+}
+
+/* The whole gantry turned 10° to the left, seen in perspective: its right
+   end nearer (bigger), the housing's side showing. The outline stays square on. */
+.lt-rig {
+  display: flex; flex-direction: column; align-items: center; margin: 4px 30px 0;
+  transform: perspective(1500px) rotateY(-10deg); transform-style: preserve-3d;
+}
+
+.lt-truss { display: block; margin-top: 10px; filter: drop-shadow(0 8px 6px rgba(0, 0, 0, .6)); }
+.lt-truss .back { opacity: .55; }
+.lt-truss .lattice line { stroke: #41454c; stroke-width: 3.2; stroke-linecap: round; }
+.lt-mounts { position: relative; height: 34px; margin-top: -8px; }
+.lt-mounts span {
+  position: absolute; top: 0; width: 24px; height: 34px; border-radius: 3px;
+  background: linear-gradient(90deg, #121316, #686d76 38%, #2a2c31 70%, #0c0d0f);
+}
+.lt-mounts span::before, .lt-mounts span::after {
+  content: ""; position: absolute; left: -12px; right: -12px; height: 7px; border-radius: 2px;
+  background: linear-gradient(180deg, #858b95, #2b2e34);
+}
+.lt-mounts span::before { top: -2px; }
+.lt-mounts span::after { bottom: -3px; }
+.lt-mounts span:first-child { left: 22%; }
+.lt-mounts span:last-child { right: 22%; }
+
+/* The housing: matt black metal, bevelled, with its side panel in 3D. */
+.lt-box {
+  position: relative; padding: 26px 30px; border-radius: 5px; transform-style: preserve-3d;
+  background:
+    linear-gradient(100deg, rgba(255, 255, 255, .035) 0 22%, transparent 40%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .012) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at 50% 35%, #1a1b1f, #09090b 78%);
+  box-shadow: inset 0 0 0 2px #26282e, inset 0 2px 0 #43464e, inset 0 -3px 0 #040405, 0 22px 40px rgba(0, 0, 0, .75);
+}
+.lt-box::after {  /* its right-hand side, going back */
+  content: ""; position: absolute; top: 2px; bottom: 2px; left: 100%; width: 46px; transform-origin: left center;
+  transform: rotateY(90deg); border-radius: 0 4px 4px 0;
+  background: linear-gradient(90deg, #26282d, #0d0e10 60%, #060607);
+}
+.lt-box .bolt { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #a4aab3, #2b2e33 70%); box-shadow: 0 1px 1px #000; }
+.lt-box .bolt.tl { top: 9px; left: 9px; }
+.lt-box .bolt.tr { top: 9px; right: 9px; }
+.lt-box .bolt.bl { bottom: 9px; left: 9px; }
+.lt-box .bolt.br { bottom: 9px; right: 9px; }
+.lt-row { display: flex; gap: 18px; }
+.lt-pod { display: flex; flex-direction: column; gap: 22px; }
+
+/* A lamp: a black bezel ring, a recessed glass face of LEDs, a slim hood. */
+.lt-lamp {
+  position: relative; display: block; width: 110px; height: 110px; border-radius: 50%;
+  background: radial-gradient(circle, #040404 62%, #2b2d33 65%, #0f1013 71%, #34373e 75%, #0a0a0c 100%);
+  box-shadow: 0 0 0 2px #000, 0 5px 10px rgba(0, 0, 0, .75);
+}
+.lt-face {
+  position: absolute; inset: 13px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 48% 45%, #200807, #120404 70%, #070202);
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, .95);
+  transition: background .06s linear;
+}
+.lt-dots { position: absolute; inset: 1px; width: calc(100% - 2px); height: calc(100% - 2px); fill: #3a100c; transition: fill .06s linear; }
+.lt-face::before {  /* the glass: a soft reflection across its top left */
+  content: ""; position: absolute; inset: 0; border-radius: 50%; z-index: 2; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 38% at 34% 22%, rgba(255, 255, 255, .16), transparent 70%),
+    linear-gradient(180deg, rgba(0, 0, 0, .5), transparent 30%);
+}
+/* The hood: a slim visor over the top, a little up and to the left. */
+.lt-lamp::before {
+  content: ""; position: absolute; left: -6px; top: -8px; width: 116px; height: 116px; border-radius: 50%; z-index: 3;
+  border: 7px solid transparent; border-top-color: #24262b; border-left-color: #1d1f23;
+  clip-path: polygon(0 0, 100% 0, 100% 30%, 0 48%);
+  box-shadow: inset 0 5px 6px rgba(0, 0, 0, .85), 0 -1px 0 #3a3d44;
+}
+
+/* Lit: the LEDs bright, the face glowing red behind them, the light
+   spilling past the bezel and onto the inside of the hood. */
+.lt-pod.on .lt-face {
+  background: radial-gradient(circle at 48% 45%, #ff3a22, #e3170b 40%, #a70b05 75%, #5a0402);
+  box-shadow: inset 0 0 12px rgba(70, 0, 0, .85);
+}
+.lt-pod.on .lt-dots { fill: #ff9a80; filter: drop-shadow(0 0 1.4px #ff3c1e); }
+.lt-pod.on .lt-lamp {
+  background: radial-gradient(circle, #040404 62%, #5a1812 65%, #1c0b0a 71%, #563028 75%, #0a0a0c 100%);
+  box-shadow: 0 0 0 2px #000, 0 0 30px 10px rgba(255, 30, 10, .55), 0 0 80px 22px rgba(255, 20, 0, .25);
+}
+.lt-pod.on .lt-lamp::before { border-top-color: #5c120b; border-left-color: #3c0a06; box-shadow: inset 0 6px 9px rgba(255, 50, 25, .8), 0 -1px 0 #3a3d44; }
+
+
+.lights.panel-in { animation: lt-in .55s cubic-bezier(.2, .9, .25, 1) both; }
+.lights.panel-out { animation: lt-leave .5s ease-in both; pointer-events: none; }
+@keyframes lt-in { from { opacity: 0; transform: translateY(-40px); } }
+@keyframes lt-leave { to { opacity: 0; transform: translateY(-30px); } }

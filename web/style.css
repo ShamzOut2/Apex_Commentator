@@ -36,6 +36,17 @@ button, input, select { font: inherit; color: inherit; }
   position: sticky; top: 0; z-index: 5;
 }
 .brand { font-weight: 700; letter-spacing: .04em; display: flex; align-items: center; gap: 8px; }
+.brand-icon { width: 22px; height: 22px; flex: none; }
+/* Home: the app's icon by its name, and "by Apex Labs" (an Apex Labs tool). */
+.home-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.home-icon { width: 34px; height: 34px; flex: none; }
+.by-labs { display: inline-flex; align-items: center; gap: 7px; margin-left: 6px; font-size: 13px; font-weight: 500;
+  color: var(--muted); text-decoration: none; }
+.by-labs img { height: 26px; width: auto; }
+.by-labs:hover { color: var(--text); }
+.update-title { display: flex; align-items: center; gap: 10px; }
+.update-title img { width: 28px; height: 28px; }
+.update-title .update-labs { width: 26px; height: 26px; margin-left: auto; opacity: .9; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); display: inline-block; }
 .dot.on { background: var(--good); box-shadow: 0 0 6px var(--good); }
 .session-line { color: var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -742,6 +753,7 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 /* Smaller buttons: side by side while they fit, onto the next line when they don't (never cut off). */
 .wbtns.small { display: flex; flex-wrap: wrap; }
 .wbtns.small > * { flex: 1 1 auto; white-space: nowrap; }
+#wflag-sectors .btn.lit { background: #ffd23f; color: #15130a; border-color: #ffd23f; }
 .wbtn {
   padding: 9px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text);
   font-weight: 700; cursor: pointer; font-size: 13px;
@@ -907,3 +919,8 @@ td.c-make .make-logo { height: 18px; max-width: 36px; object-fit: contain; verti
 .media-bar .replay-data { gap: 8px; }
 .media-bar .replay-data label { display: inline-flex; align-items: center; gap: 6px; }
 .replay-found { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+/* The session clock in the top bar: time passed or time left (click to switch). */
+.clock-btn { border: 0; background: none; color: inherit; font: inherit; padding: 0 2px; cursor: pointer;
+  font-variant-numeric: tabular-nums; border-bottom: 1px dotted var(--muted); }
+.clock-btn:hover { color: var(--text); }

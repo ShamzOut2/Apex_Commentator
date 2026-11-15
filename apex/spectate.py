@@ -38,7 +38,7 @@ DEFAULT_PORT = 8191
 HEARTBEAT_S = 15.0
 PAGE_FILES = {"/": ("index.html", "text/html; charset=utf-8"), "/index.html": ("index.html", "text/html; charset=utf-8"),
               "/live.css": ("live.css", "text/css; charset=utf-8"), "/live.js": ("live.js", "text/javascript; charset=utf-8"),
-              "/favicon.png": ("favicon.png", "image/png")}
+              "/favicon.png": ("favicon.png", "image/png"), "/apex-labs.svg": ("apex-labs.svg", "image/svg+xml")}
 IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml"}
 # Every answer: no caching, no address of the page passed on, not framed by
 # other sites (only by the app on this PC, for its preview: a page served from

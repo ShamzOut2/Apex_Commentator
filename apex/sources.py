@@ -97,6 +97,11 @@ class Frame:
     car_flags: list = field(default_factory=list)
     steer: list = field(default_factory=list)  # CarIdxSteer: steering wheel angle, rad
     tire: list = field(default_factory=list)   # CarIdxTireCompound: the tyres on (DriverInfo.DriverTires index), -1 unknown
+    # The weather now (None: not known): air and track temperature (C), wind (m/s, rad).
+    air_temp: float = None
+    track_temp: float = None
+    wind_vel: float = None
+    wind_dir: float = None
     # Heading of the car being driven on this PC (iRacing only sends it for that one).
     player_car_idx: int = -1
     yaw: float = None                   # rad
@@ -192,6 +197,8 @@ class IRacingSource:
                 tire=v("CarIdxTireCompound", []) or [],
                 player_car_idx=v("PlayerCarIdx", -1),
                 yaw=v("Yaw", None),
+                air_temp=v("AirTemp", None), track_temp=v("TrackTempCrew", None),
+                wind_vel=v("WindVel", None), wind_dir=v("WindDir", None),
             )
             ir.unfreeze_var_buffer_latest()
             return frame
@@ -640,6 +647,9 @@ class MockSource:
                     # Road Atlanta's iRacing ID: the demo's live timing map draws its outline.
                     "TrackID": 127,
                     "TrackLength": f"{self.TRACK_LENGTH_KM:.2f} km", "EventType": "Race",
+                    "TrackCity": "Braselton", "TrackCountry": "USA", "TrackNumTurns": 12,
+                    "TrackAirTemp": "22.40 C", "TrackSurfaceTemp": "31.85 C", "TrackWindVel": "3.20 m/s",
+                    "TrackWindDir": "0.79 rad", "TrackSkies": "Partly Cloudy", "TrackRelativeHumidity": "55 %",
                     "SubSessionID": self.subsession_id,
                 },
                 "SessionInfo": {"Sessions": [{

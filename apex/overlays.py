@@ -152,6 +152,7 @@ DEFAULTS = {
         "round_titles": "name",
         "title_wrap": False,      # a long session name: onto two lines (True) or one line, the tower widening for it
         "time_left_word": True,   # "12:34 LEFT" (off: just 12:34)
+        "finished_word": True,    # "FINISHED" once the race is over (off: nothing there)
         # Accent colour: the time / lap in the header, the bar down the tower
         # header's left and the line under the full screen's header.
         # "default" (orange), "color" (accent_color) or "session" (by session:
@@ -258,6 +259,33 @@ DEFAULTS = {
         "show_number": True, "show_team": False, "show_logo": True,
         "show_interval": True,    # the gap to the car ahead in the battle
         "hold_s": 3.0,            # auto: stays up this long after the battle breaks up
+        **BACKGROUND, **OFFSET,
+    },
+    # Starting lights (lights.html): a row of red lights counting down to the
+    # start, lights out at the green; only up then. start_from: "all" (iRacing's
+    # start lights at a standing start, and the leader's run to the line at a
+    # rolling one), "standing" (iRacing's start lights only) or "hand" (the
+    # Count down hotkey only, which works with any of them). A light every
+    # step_s; lights out stays out_s.
+    "lights": {
+        "visible": True,          # on: comes up by itself at the start (off: never)
+        "start_from": "all",
+        "lights": 5, "step_s": 1.0, "out_s": 3.0,
+        "place": "top",
+        **BACKGROUND, **OFFSET,
+    },
+    # The flag overlay (flags.html): a yellow flag naming the sectors under
+    # it ("Sector 1", "Sectors 1 & 2", "All Sectors"); nothing while the track's
+    # clear. Set by hotkeys; with auto, also a car stopped in a sector (yellow
+    # until hold_s after it's going again) and a full course caution (all).
+    # Clearing the last yellow shows a green "Track Clear" for clear_s.
+    "flags": {
+        "visible": True,          # off: never shows, whatever's set
+        "flag_sectors": 3,        # the lap in this many sectors (the track's split points)
+        "auto": False,
+        "hold_s": 10.0, "clear_s": 3.0,
+        "place": "top-right",
+        "show_map": True,         # the track outline with the yellow sectors marked
         **BACKGROUND, **OFFSET,
     },
     # A track map: the track's outline (no background) and a dot for every car
@@ -383,6 +411,18 @@ DEFAULTS = {
         "show_gap": False,        # the gap to the class's fastest qualifier
         "show_from": True,        # where they finished the previous race (a grid from it)
     },
+    # The track details board, for the start of a race: the league, round and
+    # track in the header; the track's outline in the middle with the weather
+    # either side (air and track temperature, wind speed and direction); the
+    # sponsors along the bottom. title: the header's round line ("" = the
+    # league's round this race counts as).
+    "board_track": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "bottom", "sponsor_ids": "",
+                    **BACKGROUND,
+                    "title": "",
+                    "units": "metric",       # "metric" (C, km/h, km) or "imperial" (F, mph, mi)
+                    "show_map": True, "show_air": True, "show_track_temp": True, "show_wind": True,
+                    "show_skies": True,      # the sky (Partly Cloudy) and humidity
+                    "show_details": True},   # the track's length, turns and where it is
     "laps": {**LOGO, 
         "visible": True,
         "count": 4,               # small trackers along the bottom
@@ -408,7 +448,8 @@ DEFAULTS = {
 LIMITS = {"gap_s": (0.1, 30.0), "settle_s": (0.0, 3.0), "ahead": (0, 6), "behind": (0, 6), "dot_size": (40, 250), "map_size": (150, 1400),
           "track_width": (40, 300), "grid_size": (50, 250), "font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1, 3), "board_dim": (0, 90), "sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
-          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080)}
+          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
+          "lights": (3, 8), "step_s": (0.3, 3.0), "out_s": (0.0, 10.0), "flag_sectors": (2, 9), "clear_s": (0.0, 10.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
@@ -417,7 +458,8 @@ CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "s
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS,
            "font": FONTS,
            "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "anchor_side": ("first", "last"), "fl_flash_many": ("stack", "queue"), "gap_shown": ("ahead", "camera"),
-           "labels": ("none", "number", "position")}
+           "labels": ("none", "number", "position"), "start_from": ("all", "standing", "hand"),
+           "units": ("metric", "imperial")}
 
 
 def normalise(settings):

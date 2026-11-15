@@ -242,7 +242,72 @@ function calendarHtml(b) {
 // background (yours, not the default one), the backdrop fading with it.
 let lastSettings = null;
 
+// The track details board: the track's name and where it is, its outline in
+// the middle (from /api/trackmap), the weather either side.
+let trackPts = { id: null, points: null, asked: null };
+let lastSnap = null;
+async function loadTrack(id) {
+  trackPts.asked = id;
+  try {
+    const m = await (await fetch("/api/trackmap", { cache: "no-store" })).json();
+    if (m && m.id === id && Array.isArray(m.points) && m.points.length > 50) trackPts = { id, points: m.points, asked: id };
+    else setTimeout(() => { trackPts.asked = null; }, 5000);  // not there yet: asked again
+  } catch (e) {
+    setTimeout(() => { trackPts.asked = null; }, 5000);
+  }
+  if (lastSnap) render(lastSnap);
+}
+
+const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+function trackHtml(b) {
+  const t = b.track_info || {};
+  const cfg = b.settings;
+  const w = t.weather || {};
+  const imp = cfg.units === "imperial";
+  const temp = (c) => (c == null ? "–" : `${Math.round(imp ? (c * 9) / 5 + 32 : c)}°<small>${imp ? "F" : "C"}</small>`);
+  const speed = (ms) => (ms == null ? "–" : `${Math.round(ms * (imp ? 2.23694 : 3.6))}<small>${imp ? "mph" : "km/h"}</small>`);
+  if (t.map && cfg.show_map && trackPts.id !== t.map && trackPts.asked !== t.map) loadTrack(t.map);
+  let map = "";
+  if (cfg.show_map && t.map && trackPts.id === t.map) {
+    // Fitted to the outline itself (not the square it's drawn in), whatever its shape.
+    const pts = trackPts.points;
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    const x0 = Math.min(...xs), y0 = Math.min(...ys);
+    const k = 1000 / Math.max(Math.max(...xs) - x0, Math.max(...ys) - y0, 1e-6);
+    const w = (Math.max(...xs) - x0) * k, h = (Math.max(...ys) - y0) * k;
+    const at = (p) => [(p[0] - x0) * k, (p[1] - y0) * k];
+    const line = pts.map((p) => at(p).map((v) => v.toFixed(1)).join(",")).join(" ");
+    const [x, y] = at(pts[0]);
+    map = `<svg class="tk-map" viewBox="-40 -40 ${(w + 80).toFixed(0)} ${(h + 80).toFixed(0)}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <polygon class="outline" points="${line}"/><polygon class="road" points="${line}"/><polygon class="glow" points="${line}"/>
+      <circle class="sf" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="16"/></svg>`;
+  } else if (cfg.show_map) {
+    map = '<div class="tk-nomap">Track map not available</div>';
+  }
+  const deg = w.wind_dir != null ? ((w.wind_dir * 180) / Math.PI + 360) % 360 : null;
+  const card = (label, value, extra = "") => `<div class="tk-card"><div class="tk-label">${label}</div><div class="tk-value">${value}</div>${extra}</div>`;
+  const left = [cfg.show_air && card("Air temperature", temp(w.air)), cfg.show_track_temp && card("Track temperature", temp(w.track))].filter(Boolean);
+  const wind = cfg.show_wind && card("Wind", speed(w.wind), deg != null
+    ? `<div class="tk-wind"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44"/>
+        ${COMPASS.filter((_, i) => i % 2 === 0).map((c, i) => `<text x="${50 + 34 * Math.sin((i * Math.PI) / 2)}" y="${50 - 34 * Math.cos((i * Math.PI) / 2)}">${c}</text>`).join("")}
+        <g style="transform:rotate(${deg.toFixed(0)}deg);transform-origin:50px 50px"><path d="M50 14 L59 40 L50 34 L41 40 Z"/><line x1="50" y1="34" x2="50" y2="76"/></g></svg>
+        <span>${COMPASS[Math.round(deg / 45) % 8]}</span></div>` : "");
+  const sky = cfg.show_skies && (w.skies || w.humidity != null) && card("Conditions", `<span class="tk-sky">${esc(w.skies || "–")}</span>`,
+    w.humidity != null ? `<div class="tk-extra">Humidity ${Math.round(w.humidity)}%</div>` : "");
+  const right = [wind, sky].filter(Boolean);
+  const length = t.length_m ? `${(t.length_m / (imp ? 1609.344 : 1000)).toFixed(2)} ${imp ? "mi" : "km"}` : "";
+  const where = [t.city, t.country].filter(Boolean).join(", ");
+  const details = cfg.show_details ? [where, length, t.turns ? `${t.turns} turns` : ""].filter(Boolean) : [];
+  return `<div class="tk">
+    <div class="tk-title"><div class="tk-name">${esc(t.track || "Track")}</div>
+      ${t.config ? `<div class="tk-config">${esc(t.config)}</div>` : ""}
+      ${details.length ? `<div class="tk-details">${details.map((d) => `<span>${esc(d)}</span>`).join("")}</div>` : ""}</div>
+    <div class="tk-mid"><div class="tk-side">${left.join("")}</div><div class="tk-mapbox">${map}</div><div class="tk-side">${right.join("")}</div></div>
+  </div>`;
+}
+
 function render(snap) {
+  lastSnap = snap;
   const b = snap.board;
   if (b) {
     setSize(b.settings, true);
@@ -266,7 +331,8 @@ function render(snap) {
   }
   markReveal(b);
   let body;
-  if (b.kind === "calendar" && b.image) body = `<div class="cal-image"><img src="${esc(b.image)}" alt="Season calendar"></div>`;
+  if (b.kind === "track") body = trackHtml(b);
+  else if (b.kind === "calendar" && b.image) body = `<div class="cal-image"><img src="${esc(b.image)}" alt="Season calendar"></div>`;
   else if (b.kind === "calendar") body = calendarHtml(b);
   else if (!b.rows.length) {
     body = `<div class="empty-board">${b.kind === "grid" ? "No grid yet: drivers appear once they're in the session (qualifying, or the event's entry list)."

@@ -1,0 +1,57 @@
+/* Flags: a waving flag, what it's for and the sectors under it, in a strip (and on the track's outline). */
+.flag {
+  --flag: var(--yellow);
+  position: absolute; display: flex; align-items: center; gap: 20px; min-width: 430px;
+  padding: 16px 24px 16px 18px; border-radius: 14px; overflow: hidden; background: var(--panel);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, calc(.5 * var(--bg-k, 1))), inset 0 0 0 2px color-mix(in srgb, var(--flag) 55%, transparent);
+}
+.flag.clear { --flag: var(--green); }
+body.panel-image .flag { isolation: isolate; }
+body.panel-image .flag::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
+}
+/* A hazard stripe along the top, moving. */
+.flag::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px;
+  background: repeating-linear-gradient(135deg, var(--flag) 0 14px, rgba(0, 0, 0, .65) 14px 28px);
+  background-size: 40px 6px; animation: fl-stripe 1s linear infinite;
+}
+.flag.clear::after { background: var(--flag); animation: none; }
+@keyframes fl-stripe { to { background-position: 40px 0; } }
+
+.flag.top-left { top: 40px; left: 40px; }
+.flag.top { top: 40px; left: 50%; translate: -50% 0; }
+.flag.top-right { top: 40px; right: 40px; }
+.flag.left { left: 40px; top: 50%; translate: 0 -50%; }
+.flag.right { right: 40px; top: 50%; translate: 0 -50%; }
+.flag.bottom-left { bottom: 40px; left: 40px; }
+.flag.bottom { bottom: 40px; left: 50%; translate: -50% 0; }
+.flag.bottom-right { bottom: 40px; right: 40px; }
+.flag.hidden-preview { opacity: .45; }
+
+.fl-cloth { width: 96px; height: 92px; flex: none; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .5)); }
+.fl-cloth .cloth { fill: var(--flag); }
+.fl-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fl-kind { font-size: calc(17px * var(--fs, 1)); font-weight: 900; letter-spacing: .22em; text-transform: uppercase; color: var(--flag); }
+.fl-text { font-size: calc(40px * var(--fs, 1)); font-weight: 900; letter-spacing: .02em; line-height: 1.05; text-transform: uppercase; white-space: nowrap; }
+.fl-strip { display: flex; gap: 6px; margin-top: 8px; }
+.fl-strip span {
+  min-width: 46px; height: 24px; padding: 0 8px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: calc(14px * var(--fs, 1)); font-weight: 900; letter-spacing: .06em;
+  background: rgba(255, 255, 255, calc(.08 * var(--bg-k, 1))); color: var(--muted);
+}
+.fl-strip span.on { background: var(--flag); color: #15130a; animation: fl-blink 1.2s ease-in-out infinite; }
+@keyframes fl-blink { 50% { filter: brightness(.78); } }
+.flag.clear .fl-strip span { background: color-mix(in srgb, var(--flag) 30%, transparent); color: var(--ink); }
+
+.fl-map { width: 150px; height: 150px; flex: none; margin-left: 6px; }
+.fl-map .base { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.fl-map .hot { fill: none; stroke: var(--flag); stroke-width: 11; stroke-linecap: round; stroke-linejoin: round; animation: fl-blink 1.2s ease-in-out infinite; }
+.fl-map .num { fill: var(--ink); font-size: 22px; font-weight: 900; paint-order: stroke; stroke: rgba(0, 0, 0, .8); stroke-width: 4px; }
+
+.flag.panel-in { animation: fl-in .5s cubic-bezier(.2, .9, .25, 1) both; }
+.flag.panel-out { animation: fl-leave .45s ease-in both; pointer-events: none; }
+@keyframes fl-in { from { opacity: 0; transform: translateX(30px) scale(.97); } }
+@keyframes fl-leave { to { opacity: 0; transform: translateX(24px) scale(.97); } }
+.fl-hint { position: absolute; top: 40px; left: 50%; translate: -50% 0; padding: 10px 16px; border-radius: 8px; background: rgba(0, 0, 0, .55); color: var(--muted); font-size: 18px; }

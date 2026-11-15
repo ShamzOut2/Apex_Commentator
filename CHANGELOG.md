@@ -11,6 +11,39 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.7.3
+
+### New features
+
+- Starting lights overlay: a start-light gantry of red LED lamps that comes
+  up only as a race is about to start, light one by one, and go out at the green (from iRacing's start
+  lights, the leader's run to the line, or a Count down hotkey).
+- Flag overlay: hidden until a sector goes yellow, then a waving yellow flag
+  for "Sector 1", "Sectors 1 & 2" or "All Sectors", with hotkeys for each
+  sector, all and clear (and an optional automatic mode for stopped cars).
+- Track details board for the start of a race: league, round and track in
+  the header, the track's outline with air and track temperature and wind
+  either side, and the sponsors along the bottom.
+
+### Improvements
+
+- Starting grid board: Automatic now uses iRacing's own grid list for the
+  race, built before anyone's on track, so it doesn't change as drivers
+  join (as Apex Overlays does). It's kept for the event once it's known.
+- Timing tower: an option to show nothing in the header instead of
+  "FINISHED" once the race is over.
+- Timing screen: click the session clock to switch between time passed and
+  time remaining.
+- Apex Commentator is now an Apex Labs tool: a new app icon (taskbar, window,
+  shortcuts and installer, and the browser tab), and the Apex Labs logo on
+  the Home page, the update pop-up and the live timing website.
+
+### Fixes
+
+- A car towed back to the pits no longer jumps to the top of the timing
+  tower and timing screen: it stays where iRacing has it until it crosses
+  the line again.
+
 ## v0.7.2
 
 ### New features
