@@ -753,6 +753,7 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 /* Smaller buttons: side by side while they fit, onto the next line when they don't (never cut off). */
 .wbtns.small { display: flex; flex-wrap: wrap; }
 .wbtns.small > * { flex: 1 1 auto; white-space: nowrap; }
+#wflag-sectors .btn.lit { background: #ffd23f; color: #15130a; border-color: #ffd23f; }
 .wbtn {
   padding: 9px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text);
   font-weight: 700; cursor: pointer; font-size: 13px;

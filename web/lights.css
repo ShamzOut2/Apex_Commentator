@@ -1,0 +1,52 @@
+/* Starting lights: a gantry of light pods, two lamps each, the red ones lit one by one. */
+.lights {
+  position: absolute; display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 18px 26px 16px; border-radius: 16px; background: var(--panel);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, calc(.5 * var(--bg-k, 1)));
+}
+body.panel-image .lights { isolation: isolate; }
+body.panel-image .lights::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: var(--panel-image) center / cover no-repeat; opacity: var(--panel-opacity, 1);
+}
+.lights.top-left { top: 40px; left: 40px; }
+.lights.top { top: 40px; left: 50%; translate: -50% 0; }
+.lights.top-right { top: 40px; right: 40px; }
+.lights.left { left: 40px; top: 50%; translate: 0 -50%; }
+.lights.right { right: 40px; top: 50%; translate: 0 -50%; }
+.lights.bottom-left { bottom: 40px; left: 40px; }
+.lights.bottom { bottom: 40px; left: 50%; translate: -50% 0; }
+.lights.bottom-right { bottom: 40px; right: 40px; }
+.lights.hidden-preview { opacity: .45; }
+
+.lt-row { display: flex; gap: 16px; }
+.lt-pod {
+  display: flex; flex-direction: column; gap: 10px; padding: 12px 11px; border-radius: 14px;
+  background: linear-gradient(180deg, #1b1e24, #0c0d10); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .06), 0 4px 10px rgba(0, 0, 0, .4);
+}
+.lt-lamp {
+  width: 58px; height: 58px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3a1214, #1a0809 60%, #0d0405);
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, .8);
+  transition: background .08s linear, box-shadow .08s linear;
+}
+.lt-pod.on .lt-lamp {
+  background: radial-gradient(circle at 35% 30%, #ffd0c8, #ff2a1a 38%, #c30d05 70%, #6a0602);
+  box-shadow: 0 0 22px 6px rgba(255, 40, 20, .75), 0 0 60px 10px rgba(255, 30, 10, .35), inset 0 -3px 6px rgba(0, 0, 0, .35);
+}
+.lt-pod.on { animation: lt-pop .18s ease-out; }
+@keyframes lt-pop { from { transform: scale(1.06); } }
+
+.lt-text {
+  height: calc(30px * var(--fs, 1)); font-size: calc(24px * var(--fs, 1)); font-weight: 900; letter-spacing: .28em; text-transform: uppercase;
+  color: var(--muted); padding-left: .28em;
+}
+.lights.out .lt-text { color: var(--green); text-shadow: 0 0 18px rgba(47, 214, 107, .7); animation: lt-go .5s ease-out; }
+.lights.out { box-shadow: 0 14px 40px rgba(0, 0, 0, calc(.5 * var(--bg-k, 1))), 0 0 0 3px rgba(47, 214, 107, .85); }
+@keyframes lt-go { from { transform: scale(1.35); opacity: 0; } }
+
+.lights.panel-in { animation: lt-in .45s cubic-bezier(.2, .9, .25, 1) both; }
+.lights.panel-out { animation: lt-leave .5s ease-in both; pointer-events: none; }
+@keyframes lt-in { from { opacity: 0; transform: translateY(-24px) scale(.96); } }
+@keyframes lt-leave { to { opacity: 0; transform: translateY(-16px) scale(.97); } }
+.lt-hint { position: absolute; top: 40px; left: 50%; translate: -50% 0; padding: 10px 16px; border-radius: 8px; background: rgba(0, 0, 0, .55); color: var(--muted); font-size: 18px; }

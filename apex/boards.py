@@ -9,10 +9,11 @@ from . import championship
 from .league import logo_url, strip_class_prefix
 from .makes import logo_for as make_logo
 
-KINDS = ("championship", "teams", "makes", "calendar", "results", "qualifying", "grid")
+KINDS = ("championship", "teams", "makes", "calendar", "results", "qualifying", "grid", "track")
 TITLES = {
     "championship": "Championship standings", "teams": "Teams' championship", "makes": "Manufacturers' championship",
     "calendar": "Season calendar", "results": "Finishing order", "qualifying": "Qualifying", "grid": "Starting grid",
+    "track": "Track details",
 }
 
 
@@ -241,6 +242,14 @@ def build(league, board, settings, live_results=None):
         out["title"] = f"{data['name']} · starting grid" if data["name"] else "Starting grid"
         out["grid_from"] = data["from"]
         out["rows"] = rows
+    elif kind == "track":
+        # The round, the track (its outline in the middle), the weather either
+        # side of it and the sponsors along the bottom: no rows.
+        info = dict(live_results or {})
+        out["track_info"] = info
+        out["title"] = cfg["title"].strip() or (f"Round {info['round_no']}" if info.get("round_no") else info.get("race") or "Track details")
+        out["subtitle"] = info.get("round_name") or (info.get("race") if info.get("round_no") else "")
+        out["rows"] = []
     return _page(out, cfg, params)
 
 

@@ -189,3 +189,44 @@
   .round .rn .mult { background:color-mix(in srgb, var(--accent) calc(var(--pick-k, 1) * 100%), transparent); }
   .gslot .gbox { box-shadow:inset 6px 0 0 color-mix(in srgb, var(--cls) calc(var(--pick-k, 1) * 100%), transparent); }
 }
+
+/* The track details board: the track's name, its outline flanked by the weather. */
+.tk { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 18px; }
+.board:not(.steady) .tk { animation: row-in .5s .2s cubic-bezier(.2, .8, .2, 1) both; }
+.tk-title { text-align: center; }
+.tk-name { font-size: calc(54px * var(--fs, 1)); font-weight: 900; letter-spacing: .03em; text-transform: uppercase; line-height: 1.05; }
+.tk-config { font-size: calc(26px * var(--fs, 1)); font-weight: 700; color: var(--accent-c, var(--accent)); letter-spacing: .08em; text-transform: uppercase; margin-top: 4px; }
+.tk-details { display: flex; justify-content: center; gap: 12px; margin-top: 10px; }
+.tk-details span {
+  padding: 4px 14px; border-radius: 999px; font-size: calc(18px * var(--fs, 1)); font-weight: 700; color: var(--muted);
+  background: rgba(255, 255, 255, calc(.07 * var(--bg-k, 1)));
+}
+.tk-mid { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px 1fr 340px; gap: 36px; align-items: center; }
+.tk-side { display: flex; flex-direction: column; gap: 22px; }
+.tk-card {
+  padding: 18px 22px; border-radius: 16px; background: rgba(20, 23, 30, calc(.85 * var(--bg-k, 1)));
+  box-shadow: inset 4px 0 0 var(--accent-c, var(--accent)), 0 10px 26px rgba(0, 0, 0, calc(.35 * var(--bg-k, 1)));
+}
+.board:not(.steady) .tk-card { animation: row-in .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: .35s; }
+.tk-label { font-size: calc(17px * var(--fs, 1)); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.tk-value { font-size: calc(58px * var(--fs, 1)); font-weight: 900; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.tk-value .tk-sky { font-size: .55em; font-weight: 800; }
+.tk-value small { font-size: .45em; font-weight: 700; color: var(--muted); margin-left: 4px; }
+.tk-extra { font-size: calc(18px * var(--fs, 1)); color: var(--muted); font-weight: 600; margin-top: 2px; }
+.tk-wind { display: flex; align-items: center; gap: 14px; margin-top: 8px; }
+.tk-wind svg { width: 96px; height: 96px; }
+.tk-wind circle { fill: rgba(255, 255, 255, .05); stroke: rgba(255, 255, 255, .25); stroke-width: 2; }
+.tk-wind text { fill: var(--muted); font-size: 13px; font-weight: 800; text-anchor: middle; dominant-baseline: central; }
+.tk-wind path { fill: var(--accent-c, var(--accent)); }
+.tk-wind line { stroke: var(--accent-c, var(--accent)); stroke-width: 4; stroke-linecap: round; }
+.tk-wind span { font-size: calc(30px * var(--fs, 1)); font-weight: 900; }
+.tk-mapbox { height: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.tk-map { width: 100%; height: 100%; max-height: 660px; overflow: visible; }
+.tk-map .outline { fill: none; stroke: rgba(0, 0, 0, .55); stroke-width: 34; stroke-linejoin: round; }
+.tk-map .road { fill: none; stroke: #f4f5f7; stroke-width: 20; stroke-linejoin: round; }
+.tk-map .glow { fill: none; stroke: var(--accent-c, var(--accent)); stroke-width: 5; stroke-linejoin: round; stroke-dasharray: 18 26; animation: tk-run 2.4s linear infinite; }
+@keyframes tk-run { to { stroke-dashoffset: -88; } }
+.tk-map .sf { fill: #fff; stroke: #111; stroke-width: 6; }
+.board:not(.steady) .tk-map .road { stroke-dasharray: 6000; animation: tk-draw 1.4s .3s ease-out both; }
+@keyframes tk-draw { from { stroke-dashoffset: 6000; } to { stroke-dashoffset: 0; } }
+.tk-nomap { color: var(--muted); font-size: 22px; }

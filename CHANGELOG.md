@@ -13,6 +13,18 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- Starting lights overlay: red lights that come up only as a race is about
+  to start, light one by one, and go out at the green (from iRacing's start
+  lights, the leader's run to the line, or a Count down hotkey).
+- Flag overlay: hidden until a sector goes yellow, then a waving yellow flag
+  for "Sector 1", "Sectors 1 & 2" or "All Sectors", with hotkeys for each
+  sector, all and clear (and an optional automatic mode for stopped cars).
+- Track details board for the start of a race: league, round and track in
+  the header, the track's outline with air and track temperature and wind
+  either side, and the sponsors along the bottom.
+
 ### Improvements
 
 - Starting grid board: Automatic now uses iRacing's own grid list for the

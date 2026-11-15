@@ -540,6 +540,21 @@
             <div class="ov-form wq" data-overlay="trackmap" data-quick="colors,labels"></div>
             <div class="wfoot"><span class="desk" data-desk="trackmap"></span><button class="btn subtle" data-wsettings="trackmap">⚙ Settings</button></div>
           </div>
+          <div class="wcard" data-widget="lights">
+            <h4>Starting lights <span id="wlights-state" class="count"></span></h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="lights" title="Comes up by itself as a race is about to start">On</button><button class="wbtn" data-whide="lights" title="Never shows">Off</button></div>
+            <div class="wbtns small"><button class="btn subtle" data-wall="lights:count" title="A light a step from now, held lit until the green">Count down</button><button class="btn subtle" data-wall="lights:reset">Put away</button></div>
+            <div class="ov-form wq" data-overlay="lights" data-quick="start_from"></div>
+            <div class="wfoot"><span class="desk" data-desk="lights"></span><button class="btn subtle" data-wsettings="lights">⚙ Settings</button></div>
+          </div>
+          <div class="wcard" data-widget="flags">
+            <h4>Flags <span id="wflag-state" class="count"></span></h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="flags" title="Shows while a sector's yellow">On</button><button class="wbtn" data-whide="flags" title="Never shows">Off</button></div>
+            <div class="wbtns small" id="wflag-sectors"></div>
+            <div class="wbtns small"><button class="btn subtle" data-wall="flags:all" title="Every sector yellow">All sectors</button><button class="btn subtle" data-wall="flags:clear" title="Every yellow off: Track Clear">Clear</button></div>
+            <div class="ov-form wq" data-overlay="flags" data-quick="auto,flag_sectors"></div>
+            <div class="wfoot"><span class="desk" data-desk="flags"></span><button class="btn subtle" data-wsettings="flags">⚙ Settings</button></div>
+          </div>
           <div class="wcard" data-widget="sponsors">
             <h4>Sponsors</h4>
             <div class="wbtns"><button class="wbtn" data-wshow="sponsors">Show</button><button class="wbtn" data-whide="sponsors">Hide</button></div>

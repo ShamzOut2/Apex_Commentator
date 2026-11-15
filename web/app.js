@@ -1178,7 +1178,8 @@ const TOWER_COLUMN_HOTKEYS = [["pos_change", "Places gained / lost"], ["number",
   ["laps", "Laps"], ["pits", "Pit stops"], ["stint", "Current stint"], ["tyre", "Tyres"], ["make", "Car manufacturer"],
   ["pit_status", "PIT badge"], ["stripe", "Coloured bar"], ["fastest_icon", "Fastest lap stopwatch"]];
 const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"],
-  ["battle", "Championship battle"], ["pits", "Pit stops"], ["duel", "On-track battle"], ["trackmap", "Track map"]];
+  ["battle", "Championship battle"], ["pits", "Pit stops"], ["duel", "On-track battle"], ["trackmap", "Track map"],
+  ["lights", "Starting lights (comes up at the start)"], ["flags", "Flags (shows while a sector's yellow)"]];
 const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
 
 // What a key can do besides cameras: [[section, [[id, label, run]]]], from
@@ -1198,6 +1199,7 @@ function hotkeyActions(s = ui.snap || {}) {
   if (opts.teams) add("teams", "", "Teams' championship");
   groups.forEach((g) => add("makes", g.key, `Manufacturers · ${g.name}`));
   add("calendar", "", "Season calendar");
+  add("track", "", "Track details (round, track, weather)");
   resultGroups(opts).forEach((g) => add("results", g.key, `Finishing order · ${g.name}`));
   resultGroups(opts).forEach((g) => add("qualifying", g.key, `Qualifying results · ${g.name}`));
   resultGroups(opts).forEach((g) => add("grid", g.key, `Starting grid · ${g.name}`));
@@ -1250,6 +1252,16 @@ function hotkeyActions(s = ui.snap || {}) {
       ["follow:sync", "Sync: back to what the host is showing, and following", () => cmd("hotkey", { action: "follow:sync" }, "Synced with the host")],
       ["follow:toggle", "Free mode / Sync (switch)", () => cmd("hotkey", { action: "follow:toggle" })],
     ]],
+    ["Starting lights", [
+      ["lights:count", "Count down now (a light a step, held lit until the green)", () => cmd("hotkey", { action: "lights:count" }, "Starting lights: counting down")],
+      ["lights:reset", "Put the lights away", () => cmd("hotkey", { action: "lights:reset" }, "Starting lights away")],
+    ]],
+    ["Flags (yellow by sector)", [
+      ...Array.from({ length: (ov.flags && ov.flags.flag_sectors) || 3 }, (_, i) => [`flags:s${i + 1}`, `Sector ${i + 1} yellow / clear`,
+        () => cmd("hotkey", { action: `flags:s${i + 1}` }, (r) => flagToast(r))]),
+      ["flags:all", "Every sector yellow (All Sectors)", () => cmd("hotkey", { action: "flags:all" }, "Yellow flag: All Sectors")],
+      ["flags:clear", "Clear every yellow (Track Clear)", () => cmd("hotkey", { action: "flags:clear" }, "Track clear")],
+    ]],
     ["Boards (press again: off screen)", boards],
     ["Championship battle", [
       ["battle:toggle", "The drivers picked in its settings, on / off", () => cmd("hotkey", { action: "battle:toggle" },
@@ -1257,6 +1269,13 @@ function hotkeyActions(s = ui.snap || {}) {
       ...BATTLE_PICKS.map(([mode, label]) => [`battle:${mode}`, `${label} (picks them and shows it)`,
         () => cmd("battle_pick", { mode }, "Championship battle on")])]],
   ];
+}
+
+// The flag overlay's sectors after a hotkey: "Yellow flag: Sectors 1 & 3" / "Track clear".
+function flagToast(r) {
+  const s = (r && r.sectors) || [];
+  if (!s.length) return "Track clear";
+  return `Yellow flag: ${s.length > 1 ? `Sectors ${s.slice(0, -1).join(", ")} & ${s[s.length - 1]}` : `Sector ${s[0]}`}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -2981,6 +3000,33 @@ const OVERLAY_FIELDS = {
     ]],
     OVERLAY_LOOK,
   ],
+  lights: [
+    ["What it shows", [
+      ["visible", "Comes up by itself as a race is about to start (untick: never)", "bool"],
+      ["start_from", "The lights count down from", "select", [["all", "iRacing's start lights (standing start), or the leader's run to the line on the lap to the green (rolling start)"],
+        ["standing", "iRacing's start lights only (standing starts)"], ["hand", "The Count down button / hotkey only"]]],
+      ["lights", "Lights", "number", { min: 3, max: 8, step: 1 }],
+      ["step_s", "A light every (seconds)", "number", { min: 0.3, max: 3, step: 0.1 }],
+      ["out_s", "Lights out stays (seconds)", "number", { min: 0, max: 10, step: 0.5 }],
+      ["show_text", "\"GET READY\" while they count, \"LIGHTS OUT\" at the green", "bool"],
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+    ]],
+    OVERLAY_LOOK,
+  ],
+  flags: [
+    ["What it shows", [
+      ["visible", "Shows while a sector's yellow (untick: never)", "bool"],
+      ["flag_sectors", "Sectors in a lap (from the track's split points)", "number", { min: 2, max: 9, step: 1 }],
+      ["auto", "Also by itself: a sector goes yellow while a car's stopped in it, and every sector under a full course caution", "bool"],
+      iff((v) => v.auto, ["hold_s", "A stopped car's sector stays yellow after it gets going (seconds)", "number", { min: 0, max: 60, step: 1 }]),
+      ["clear_s", "\"Track Clear\" (green) once the last yellow's cleared, for (seconds; 0 = not shown)", "number", { min: 0, max: 10, step: 0.5 }],
+      ["show_map", "The track's outline with the yellow sectors marked", "bool"],
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+    ]],
+    OVERLAY_LOOK,
+  ],
   trackmap: [
     ["What it shows", [
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
@@ -3451,6 +3497,12 @@ const BOARD_FIELDS = {
   board_makes: [["rows", "Manufacturers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
     ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"],
     ...columnOpacity([["pos", "Position"], ["make", "Manufacturer"], ["wins", "Wins"], ["points", "Points"], ["gap", "Gap"]])],
+  board_track: [["title", "Round line in the header (empty: the league's round this race counts as, e.g. Round 3)", "text"],
+    ["units", "Units", "select", [["metric", "Metric (°C, km/h, km)"], ["imperial", "Imperial (°F, mph, mi)"]]],
+    ["show_map", "The track's outline in the middle", "bool"],
+    ["show_details", "Where it is, its length and turns (under its name)", "bool"],
+    ["show_air", "Air temperature", "bool"], ["show_track_temp", "Track temperature", "bool"],
+    ["show_wind", "Wind speed and direction", "bool"], ["show_skies", "Conditions (sky, humidity)", "bool"]],
   board_calendar: [["style", "Show", "select", [["cards", "The calendar built from the rounds"], ["image", "The league's own calendar image"]]],
     iff(cards, ["round_title", "Round titles", "select", [["both", "Round 3 · your round name"], ["name", "Your round name"], ["number", "Round 3"]]]),
     iff(cards, ["show_date", "Dates", "bool"]),
@@ -3509,7 +3561,7 @@ const BOARD_FIELDS = {
 const BOARD_SECTION_NAMES = {
   board_championship: "Championship standings", board_teams: "Teams' championship",
   board_makes: "Manufacturers' championship", board_calendar: "Season calendar", board_results: "Finishing order",
-  board_qualifying: "Qualifying results", board_grid: "Starting grid",
+  board_qualifying: "Qualifying results", board_grid: "Starting grid", board_track: "Track details",
 };
 
 let boardButtonsKey = "";
@@ -3566,6 +3618,7 @@ function renderBoards(s) {
         : `<span class="hint">${opts.has_teams ? "No team points yet." : "Give drivers a team in the League builder (Teams tab) for a teams' championship."}</span>`}</div>
       <div class="board-group"><h4>Manufacturers<button class="btn subtle icon" data-wsettings="board_makes" title="Its settings">⚙</button></h4>${groups.map((g) => boardButton(g.name, "makes", g.key, g.color)).join("") || '<span class="hint">No results yet.</span>'}</div>
       <div class="board-group"><h4>Season<button class="btn subtle icon" data-wsettings="board_calendar" title="Its settings">⚙</button></h4>${boardButton("Season calendar", "calendar")}</div>
+      <div class="board-group"><h4>Track details<button class="btn subtle icon" data-wsettings="board_track" title="Its settings">⚙</button></h4>${boardButton("Round, track & weather", "track")}</div>
       <div class="board-group"><h4>Finishing order<button class="btn subtle icon" data-wsettings="board_results" title="Its settings">⚙</button></h4>
         <label class="field">From <select id="board-round">
           <option value="latest" ${boardRound === "latest" ? "selected" : ""}>Latest round</option>
@@ -3596,6 +3649,7 @@ function renderBoards(s) {
 function officialBoardsHtml(opts) {
   const sessions = opts.sessions || [];
   return `<p class="hint">Officials mode: the boards from the iRacing event (championship boards need a league).</p>
+    <div class="board-group"><h4>Track details<button class="btn subtle icon" data-wsettings="board_track" title="Its settings">⚙</button></h4>${boardButton("Round, track & weather", "track")}</div>
     <div class="board-group"><h4>Finishing order<button class="btn subtle icon" data-wsettings="board_results" title="Its settings">⚙</button></h4>
       <label class="field">From <select id="board-round">
         <option value="live" ${boardRound === "live" ? "selected" : ""}>This session (live)</option>
@@ -3682,6 +3736,10 @@ const WIDGETS = [
     about: "The car on camera and the cars just ahead and behind it, within the gap you pick: \"Battle for P3\", their names and the gaps between them. It can come up by itself whenever there's a battle." },
   { key: "trackmap", name: "Track map", page: "trackmap",
     about: "The track's outline with no background and a dot for every car where it is, in its main or secondary class colour (the live timing website's map)." },
+  { key: "lights", name: "Starting lights", page: "lights",
+    about: "Red lights counting down to the start, one by one, then lights out at the green. Only on screen as a race is about to start: from iRacing's start lights, the leader's run to the line on a rolling start, or the Count down button." },
+  { key: "flags", name: "Flags", page: "flags",
+    about: "Not on screen until a sector goes yellow: a waving yellow flag naming them (Sector 1, Sectors 1 & 2, All Sectors), the sectors in a strip and on the track's outline. Set them with the buttons or hotkeys, or let it find stopped cars." },
   { key: "sponsors", name: "Sponsors", page: "sponsors",
     about: "The active league's sponsor logos, in a corner or along an edge: all together, or one at a time." },
   { key: "gridwalk", name: "Grid walk", page: "gridwalk",
@@ -3727,6 +3785,17 @@ function renderWidgets(s) {
     card.classList.toggle("on", on);
   }
   $("#wgw-state").textContent = gw.visible ? (gw.running ? "on air" : "paused") : "";
+  // The flag card: a button for each sector (lit while it's yellow), and what's showing.
+  const fl = s.overlays.flags;
+  const yellow = new Set((fl && !fl.clear && fl.sectors) || []);
+  const count = (st.flags && st.flags.flag_sectors) || 3;
+  const fbtns = $("#wflag-sectors");
+  if (fbtns && fbtns.children.length !== count) {
+    fbtns.innerHTML = Array.from({ length: count }, (_, i) => `<button class="btn subtle" data-wall="flags:s${i + 1}" title="Sector ${i + 1} yellow / clear">S${i + 1}</button>`).join("");
+  }
+  if (fbtns) [...fbtns.children].forEach((b, i) => b.classList.toggle("lit", yellow.has(i + 1)));
+  $("#wflag-state").textContent = fl ? (fl.clear ? "track clear" : fl.text) : "";
+  $("#wlights-state").textContent = s.overlays.lights ? (s.overlays.lights.out ? "lights out" : `${s.overlays.lights.lit} lit`) : "";
   $("#wgw-toggle").textContent = gw.running ? "❚❚ Pause" : "▶ Resume";
   const key = JSON.stringify([st, (s.classes || []).map((c) => [c.key, c.name, c.color])]);
   if (key === wqKey || document.activeElement.closest(".wq")) return;

@@ -18,6 +18,8 @@ from .events import EventDetector
 from .gridwalk import GridWalk, grid_order, parse_design, qualifying_times
 from .paths import USER_DIR
 from .replaycheck import ReplayCheck, ReplayProbe
+from .sectorflags import SectorFlags
+from .startlights import StartLights
 from .thumbnails import Thumbnails, name_tags
 from .pits import PitTracker
 from .backgrounds import Backgrounds
@@ -366,6 +368,10 @@ class App:
         self._kept_grid = {}            # subsession: iRacing's grid (iRacing IDs), as kept on disk (_keep_grid)
         self.grids_dir = None           # where it's kept (data/grids; __main__)
         self._tows = TowWatch()         # cars towed or reset to the pits in the race on now (_watch_tows)
+        self._lights = StartLights()     # the starting lights overlay (_watch_start)
+        self._flags = SectorFlags()      # the flag overlay: yellow sectors (_watch_start)
+        self._lights_now = None
+        self._flags_now = None
         self._duel_members = None       # the on-track battle's cars, settled (_duel_settle)
         # What iRacing sends during a replay (replaycheck.py): found by itself, and the check that logs it.
         self._probe = ReplayProbe()
@@ -505,6 +511,7 @@ class App:
             self._probe_replay(frame)
             self._detect(frame)
             self._watch_tows(frame)
+            self._watch_start(frame)
             self._watch_grid(frame)
             self._auto_results(frame)
         return True
@@ -620,6 +627,10 @@ class App:
             "track_id": weekend.get("TrackID"),  # its outline for the spectators' map (trackmaps.py)
             "subsession": weekend.get("SubSessionID"),
             "sessions": {s.get("SessionNum"): s for s in sessions},
+            # For the track details board: where it is, how long, and the weather.
+            "weekend": {k: weekend.get(k) for k in ("TrackCity", "TrackCountry", "TrackLength", "TrackNumTurns", "TrackAirTemp",
+                                                    "TrackSurfaceTemp", "TrackWindVel", "TrackWindDir", "TrackSkies",
+                                                    "TrackRelativeHumidity", "TrackType")},
         }
         self._camera_groups = [
             {"num": g.get("GroupNum"), "name": g.get("GroupName", "")}
@@ -1021,6 +1032,10 @@ class App:
             snap["overlays"]["battle"] = self._battle_snapshot(snap["championship"], active_league)
             snap["overlays"]["duel"] = self._duel_snapshot(snap["overlays"], frame, is_race)
             snap["overlays"]["trackmap"] = self._trackmap_snapshot(rows, snap, frame, active_league)
+            snap["overlays"]["lights"] = self._lights_now
+            starts = self._flag_sectors(self.overlays.get()["flags"]["flag_sectors"])
+            snap["overlays"]["flags"] = self._flags_now and dict(self._flags_now, starts=[round(x, 4) for x in starts],
+                                                                 map=self._session_meta.get("track_id") and (snap["overlays"]["trackmap"] or {}).get("map"))
             if self.spectators is not None:
                 snap["spectator"] = self._spectator_section(rows, frame, session, active_league, is_race, snap)
             return snap
@@ -2004,6 +2019,41 @@ class App:
             print(f"[apex] #{(self._drivers.get(idx) or {}).get('number', '?')} towed or reset to the pits: "
                   "placed where iRacing has it until it crosses the line again")
 
+    def _watch_start(self, frame):
+        """The starting lights (lights.html) and the yellow sectors (flags.html),
+        from the live race (iRacing's car data live in a replay too)."""
+        if self._replay_cars_live(frame):
+            frame = self._as_live(frame)
+        num, t = frame.session_num, frame.session_time
+        key = (self._session_meta.get("subsession"), num)
+        ov = self.overlays.get()
+        race = self._is_race(frame)
+        cfg = ov["lights"]
+        leader = None
+        if frame.is_live and race:
+            ahead = [p for p in (_progress(frame, idx) for idx in self._drivers
+                                 if _at(frame.surface, idx, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD) if p is not None and p >= 0]
+            leader = max(ahead) if ahead else None
+        self._lights_now = self._lights.update(
+            key, t, race=race and frame.is_live, started=frame.session_state >= STATE_RACING, flags=frame.session_flags,
+            leader=leader, auto=cfg["start_from"], lights=cfg["lights"], step=cfg["step_s"], out_s=cfg["out_s"])
+        fcfg = ov["flags"]
+        starts = self._flag_sectors(fcfg["flag_sectors"])
+        cars = {idx: (_at(frame.pct, idx, -1), _at(frame.surface, idx, TRK_NOT_IN_WORLD), bool(_at(frame.on_pit, idx, False)))
+                for idx in self._drivers} if frame.is_live else {}
+        self._flags_now = self._flags.update(
+            key, t, starts=starts, cars=cars, track_m=self._track_m, auto=fcfg["auto"] and frame.is_live,
+            caution=bool(frame.session_flags & CAUTION_FLAGS),
+            racing=frame.session_state in (STATE_RACING, STATE_CHECKERED), hold_s=fcfg["hold_s"], clear_s=fcfg["clear_s"])
+
+    def _flag_sectors(self, count):
+        """The flag overlay's sectors: the track's split points merged into
+        ``count`` (equal parts of the lap when the track has too few)."""
+        starts = group_sectors(self._track_sectors, count)
+        if len(starts) < count:
+            starts = tuple(k / count for k in range(count))
+        return starts
+
     def _iracing_order(self, frame):
         """iRacing's running order now (CarIdxPosition): [car_idx], first place first."""
         drivers = self._drivers
@@ -2513,6 +2563,8 @@ class App:
         "pits": ("Pit stops", "/pits.html"),
         "duel": ("On-track battle", "/duel.html"),
         "trackmap": ("Track map", "/trackmap.html"),
+        "lights": ("Starting lights", "/lights.html"),
+        "flags": ("Flags", "/flags.html"),
     }
 
     def _desktop_snapshot(self):
@@ -2559,7 +2611,7 @@ class App:
         return {"method": method}
 
     # What "all of them on my screen" puts up (hotkeys desk:overlays / desk:boards).
-    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits", "duel", "trackmap"), "boards": ("board",),
+    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits", "duel", "trackmap", "lights", "flags"), "boards": ("board",),
                       "gridwalk": ("gridwalk",)}
 
     def cmd_desktop_show_all(self, group="overlays", screen=None):
@@ -2929,6 +2981,10 @@ class App:
             if self.board.get("kind") == board_kind and self.board.get("params", {}).get("group", "") == group:
                 return self.cmd_board_hide()
             return self.cmd_board_show(board_kind, group, "latest")
+        if kind == "lights":
+            return self.cmd_lights(rest)
+        if kind == "flags":
+            return self.cmd_flags(rest)
         if kind == "battle":
             if rest == "toggle":  # the drivers picked in its settings, on screen or off
                 cfg = self.overlays.get()["battle"]
@@ -2970,7 +3026,7 @@ class App:
     TOWER_COLUMN_KEYS = ("show_pos_change", "show_number", "show_logo", "show_team", "show_gap", "show_interval",
                          "show_last_lap", "show_best_lap", "show_laps", "show_pits", "show_stint", "show_tyre",
                          "show_make", "show_pit_status", "show_stripe", "show_fastest_icon")
-    TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits", "duel", "trackmap")
+    TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits", "duel", "trackmap", "lights", "flags")
 
     def _toggled(self, ov):
         """The overlays everything-off / on takes: not the sponsors set to stay."""
@@ -3068,7 +3124,7 @@ class App:
         return self._officials_state()
 
     # Boards from the iRacing event that work without a league (in Officials mode).
-    EVENT_BOARDS = ("qualifying", "grid", "results")
+    EVENT_BOARDS = ("qualifying", "grid", "results", "track")
 
     def _officials_league(self):
         """A stand-in league for the event's boards in Officials mode: no
@@ -3182,9 +3238,12 @@ class App:
 
     def _board_data(self, league, kind, source, rows):
         """What a board built from the iRacing event shows: a finishing order
-        (results), qualifying results (qualifying) or a starting grid (grid)."""
+        (results), qualifying results (qualifying), a starting grid (grid) or
+        the track's details (track)."""
         if kind == "grid":
             return self._grid_board(league, source)
+        if kind == "track":
+            return self._track_board(league)
         if kind == "qualifying" and not source.startswith("session:"):
             # The latest qualifying session: the one on now, else the last with results.
             sessions = self._session_meta.get("sessions", {})
@@ -3197,6 +3256,64 @@ class App:
                 return None
             source = f"session:{num}"
         return self._session_board(league, source, rows)
+
+    def _track_board(self, league):
+        """The track details board: the round (the league's round this race
+        counts as, else the race's own name), the track and where it is, its
+        outline, and the weather now (iRacing's live readings, else the
+        event's)."""
+        meta = self._session_meta
+        weekend = meta.get("weekend") or {}
+        frame = self._frame
+        sessions = meta.get("sessions", {})
+        races = sorted(n for n, x in sessions.items() if n is not None and self._kind_of(x) == "race")
+        cur = frame.session_num if frame else None
+        num = next((n for n in races if cur is None or n > cur or (n == cur and frame.session_state < STATE_CHECKERED)),
+                   races[-1] if races else None)
+        round_no, round_name = None, ""
+        if league and league.get("championship"):
+            champ = championship.normalise(league.get("championship"))
+            rd = None
+            if num is not None:
+                rd = self._live_round(champ, league, f"{meta.get('subsession')}:{num}")
+            rd = rd or championship.live_round_for(champ)
+            if rd is not None:
+                round_no = next((i for i, r in enumerate(champ["rounds"], start=1) if r["id"] == rd["id"]), None)
+                round_name = str(rd.get("event") or rd.get("name") or "").strip()
+        race = self._race_title(league, num, sessions.get(num, {})) if num is not None else ""
+
+        def number(text):
+            m = re.match(r"\s*(-?[\d.]+)", str(text or ""))
+            return float(m.group(1)) if m else None
+
+        def live(value):
+            return value if isinstance(value, (int, float)) and value == value else None  # not NaN
+
+        air = live(frame.air_temp) if frame else None
+        track_t = live(frame.track_temp) if frame else None
+        wind = live(frame.wind_vel) if frame else None
+        wind_dir = live(frame.wind_dir) if frame else None
+        tmap = self.trackmaps.get(meta.get("track_id")) if self.trackmaps and meta.get("track_id") else None
+        return {
+            "round_no": round_no, "round_name": round_name, "race": race,
+            "track": meta.get("track", ""), "config": meta.get("track_config", ""),
+            "city": str(weekend.get("TrackCity") or ""), "country": str(weekend.get("TrackCountry") or ""),
+            "length_m": round(self._track_m) if weekend.get("TrackLength") else None,
+            "turns": weekend.get("TrackNumTurns") if isinstance(weekend.get("TrackNumTurns"), int) else None,
+            "map": tmap["id"] if tmap else None,
+            "weather": {
+                "air": round(air if air is not None else number(weekend.get("TrackAirTemp")) or 0, 1)
+                if air is not None or weekend.get("TrackAirTemp") else None,
+                "track": round(track_t if track_t is not None else number(weekend.get("TrackSurfaceTemp")) or 0, 1)
+                if track_t is not None or weekend.get("TrackSurfaceTemp") else None,
+                "wind": round(wind if wind is not None else number(weekend.get("TrackWindVel")) or 0, 2)
+                if wind is not None or weekend.get("TrackWindVel") else None,
+                "wind_dir": round(wind_dir if wind_dir is not None else number(weekend.get("TrackWindDir")) or 0, 3)
+                if wind_dir is not None or weekend.get("TrackWindDir") else None,
+                "skies": str(weekend.get("TrackSkies") or ""),
+                "humidity": number(weekend.get("TrackRelativeHumidity")),
+            },
+        }
 
     def _grid_board(self, league, source):
         """The starting grid of a race of the event ("session:<number>", or
@@ -3359,7 +3476,7 @@ class App:
         kind = self.board.get("kind")
         source = self.board["params"].get("round", "") if kind in ("results", "qualifying", "grid") else ""
         # From the iRacing event: worked out afresh (it changes as the session goes on).
-        live = kind in ("qualifying", "grid") or source == "live" or source.startswith("session:")
+        live = kind in ("qualifying", "grid", "track") or source == "live" or source.startswith("session:")
         if key == self._board_cache[0] and not live:
             return self._board_cache[1]
         data = None
@@ -3392,6 +3509,35 @@ class App:
         if cached is None or now - cached[0] > 5.0:
             self._overlay_leagues_cache = cached = (now, [{"id": p["id"], "name": p["name"]} for p in self.leagues.list()])
         return [p for p in cached[1] if p["id"] in have and p["id"] != self.leagues.active_id]
+
+    def cmd_lights(self, step="count"):
+        """The starting lights: "count" (count down from now, a light a step,
+        held at all lit until the green) or "reset" (put them away)."""
+        frame = self._frame
+        t = frame.session_time if frame else 0.0
+        if step == "count":
+            self._lights.count(t)
+        elif step == "reset":
+            self._lights.reset()
+        else:
+            raise CommandError(f"Unknown lights step '{step}'")
+        return {"step": step}
+
+    def cmd_flags(self, step):
+        """The flag overlay's yellow sectors: "s1".."s9" (that sector on / off),
+        "all" (every sector), "clear" (none: the track's clear)."""
+        count = self.overlays.get()["flags"]["flag_sectors"]
+        if step == "all":
+            sectors = self._flags.set_all(count)
+        elif step == "clear":
+            sectors = self._flags.clear()
+        elif re.fullmatch(r"s[1-9]", str(step)):
+            sectors = self._flags.toggle(int(step[1:]), count)
+        else:
+            raise CommandError(f"Unknown flag step '{step}'")
+        if self._frame is not None:
+            self._watch_start(self._frame)  # on screen at once, not next tick
+        return {"sectors": sectors}
 
     def cmd_overlay_settings(self, overlay, values):
         try:

@@ -71,6 +71,18 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- Starting lights overlay: red lights that come up only as a race is about
+  to start, light one by one, and go out at the green (from iRacing's start
+  lights, the leader's run to the line, or a Count down hotkey).
+- Flag overlay: hidden until a sector goes yellow, then a waving yellow flag
+  for "Sector 1", "Sectors 1 & 2" or "All Sectors", with hotkeys for each
+  sector, all and clear (and an optional automatic mode for stopped cars).
+- Track details board for the start of a race: league, round and track in
+  the header, the track's outline with air and track temperature and wind
+  either side, and the sponsors along the bottom.
+
 ### Improvements
 
 - Starting grid board: Automatic now uses iRacing's own grid list for the
@@ -257,6 +269,9 @@ shows something else. Camera hotkeys work in whichever window has focus.
   A battle scrolled out of sight (a big field) puts a pill in that colour at
   the top or bottom edge of the list, "▼ 2 battles below · P23" (the nearest
   one's place): click it to scroll to it.
+- **Session clock** (the line above the standings): click it to switch
+  between the time the session has run and the time left in it ("12:34
+  left"), kept for this PC.
 - **1 list / 2 lists** (above the standings, kept for this PC): the field in
   one list, or in two side by side (the first half on the left), so a big
   field fits on one page. Two lists leave out Last, Best and Pit, and the
@@ -327,13 +342,17 @@ shows something else. Camera hotkeys work in whichever window has focus.
 and the *⌨ Hotkeys* buttons on the Timing Screen and Widgets tabs) also
 sets keys for:
 - each overlay: the standings tower, lap tracker, driver on camera,
-  sponsors, championship battle and pit stops, on and off;
+  sponsors, championship battle, pit stops, on-track battle, track map,
+  starting lights and flags, on and off;
 - everything at once: every overlay, the board and the grid walk off
   screen; pressed again, whatever it took off comes back (with nothing up,
   every overlay comes on). Or apart: the **overlays** (and the grid walk)
   only, or the **board** only, which brings the same board back as it was
   (any board: the qualifying results and the starting grid too, its page
   and the grid's rows shown);
+- the starting lights: count down now, and put them away;
+- the flags: each sector yellow / clear, every sector (All Sectors), and
+  clearing them (Track Clear);
 - the timing tower: its sponsor bar under the header on and off, overall /
   by class, and its header between laps left and time left;
 - the championship battle: on / off with the drivers picked in its
@@ -574,6 +593,8 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     the session is limited ("LAP 5 / 20", then "FINAL LAP" and
     "FINISHED"; or "12:34 LEFT", then "LAST LAP" once the clock has run out,
     until the chequered flag). You can also pick laps, time or nothing.
+    **"FINISHED" in the header once the race is over** can be unticked, to
+    leave that part of the header empty after the race.
   - **Fill in as drivers complete a lap** (on by default): at the start of
     any session, only the header shows (session, and laps or time left). In a
     race, nobody shows before the green, and each driver appears once they've
@@ -787,6 +808,30 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   switched on, it appears when someone's within the gap and goes when no one
   is (it stays a few seconds after, so it doesn't flicker). Untick it to show
   and hide it yourself.
+- **Starting lights** (`/lights.html`): a row of red lights (5 by default,
+  3–8) that only comes up as a race is about to start. The lights come on
+  one by one, a step apart (1 s by default), stay lit, and go out at the
+  green, with "LIGHTS OUT", then it goes (3 s by default). *The lights count
+  down from*: **iRacing's start lights** at a standing start (Ready starts
+  the count, Set has them all lit, Go is lights out) or, at a rolling start,
+  **the leader's run to the line** on the lap to the green (a light for each
+  second it's away, from its speed); iRacing's start lights only; or the
+  **Count down** button / hotkey only (which works with any of them: a light
+  a step from the press, held lit until the green). **On / Off**: off, it
+  never shows. Not in replays, and not when the app starts mid-race.
+- **Flags** (`/flags.html`): not on screen until a sector goes yellow. Then a
+  waving yellow flag naming them: **Sector 1**, **Sectors 1 & 2**,
+  **Sectors 1, 2 & 4**, or **All Sectors** once every one is yellow; a strip
+  of the sectors (S1 S2 S3) with the yellow ones lit, and the track's
+  outline with them marked. Clearing the last yellow shows a green
+  **Track Clear** for a moment (3 s by default; 0 = not shown), then it goes.
+  The lap is cut into **3 sectors** by default (2–9), from the track's own
+  split points (equal parts of the lap if it has too few). Set them with the
+  buttons on its Widgets card (S1, S2, S3…, All sectors, Clear) or hotkeys:
+  each sector yellow / clear, every sector, clear them all. **Auto** (off by
+  default) also makes a sector yellow while a car is stopped or crawling in
+  it (on or off the track, not in the pits), until a while after it gets
+  going (10 s by default), and every sector under a full course caution.
 - **Track map** (`/trackmap.html`): the track's outline with no background
   (the live timing website's map) and a dot for every car where it is, in
   its **main or secondary class colour**. The car on camera is bigger, with
@@ -1158,6 +1203,16 @@ built from the active league:
   results. Races show their finishing order with the points; practice and
   qualifying show the order by best lap, without points (drivers with no
   time aren't listed).
+- **Track details**: for the start of a race. The header has the round
+  (the league's round this race counts as: "Round 3" with its name; else the
+  race's own name; or your own words in its settings) and the league's
+  name; under it the track's name, its layout, and where it is, its length
+  and turns. In the middle, the track's outline, with the air and track
+  temperatures on one side and the wind (speed, and its direction on a
+  compass) and the conditions (sky, humidity) on the other, as iRacing has
+  them now. The sponsors' logos run along the bottom (the league's
+  sponsors; which ones, and where, in its settings). Metric or imperial
+  units; each part can be left out. Officials mode has it too.
 - **Qualifying results**: a qualifying session of the iRacing event (the
   latest one, or any you pick), Overall or a class: by best lap, with the
   gap to pole (the class's pole in a class) and the interval to the car
@@ -1165,20 +1220,14 @@ built from the active league:
 - **Starting grid**: the grid for a race of the event (the race on now, else
   the next one; or any race you pick), worked out from the session before
   anyone has loaded in, Overall or a class. *The grid from*:
-  **Automatic** (as it starts): **iRacing's own grid**, once iRacing has
-  set it: from the race's session starting, before anyone has joined the
-  track too, exactly as iRacing set it, a reverse grid included, so there's
-  nothing to set (no *Reverse grid* on top). The app takes the race's
-  results list if iRacing has filled it in; else, with nobody on the grid
-  yet, iRacing's running order once it has changed from how the session
-  before left it (until then it can still be the last session's); else
-  iRacing's order if it agrees with where the cars sit on the grid, else
-  the cars in the order they're lined up, nose to tail. At the green it's
-  kept as it was. `apex.log` says what iRacing's order was as the race's
-  session started (new, or the same as the last session's) and the grid at
-  the green (car numbers, pole first).
-  Before iRacing has set it (the board shown during the race before, or
-  iRacing's order not changed yet), it's worked out: the first race (and every heat) from
+  **Automatic** (as it starts): **iRacing's grid list for the race**, as
+  Apex Overlays builds its standings: the list iRacing has for the race
+  (its qualifying results carried into it), so the board is complete and
+  fixed from before anyone is out on track, and drivers joining the track
+  just take their places in it rather than moving the list about. Once
+  it's known it's kept for the event (`data/grids`), so it's the same if the
+  app is restarted.
+  Without a list from iRacing it's worked out: the first race (and every heat) from
   qualifying, and every race after it from the finishing order of the race
   before: a heat meeting's consolation from the heat before it and its
   feature from the consolation, a two-race round's second race from the
@@ -1186,9 +1235,9 @@ built from the active league:
   A meeting's race run as an iRacing event of its own takes the
   race before's finish from the results saved to the league. On iRacing's
   grid after a race, *Finished* shows where each driver finished it.
-  Or qualifying, the previous race's finish, **iRacing's grid** (as
-  Automatic once it's lined up; before that, the order iRacing has the cars
-  in now), or the grid walk's order (fix it by hand on the Grid walk
+  Or qualifying, the previous race's finish, **as the cars line up on the
+  grid** (iRacing's order as it puts them there: it changes as they join;
+  before that, the order iRacing has the cars in now), or the grid walk's order (fix it by hand on the Grid walk
   tab). Its title is the race's name as the tower's header
   gives it (the round's name, or the names set for heats, the consolation
   and the feature). **Reverse grid** (on a grid the app works out, not on
@@ -1755,6 +1804,7 @@ apex/
   updater.py   update checks and in-app updates from GitHub releases
   desktop.py   app window, single instance, message boxes, log file
   paths.py     program files vs. user data, for source and packaged app
+  startlights.py, sectorflags.py  the starting lights and the yellow sectors
 web/           the overlay UI (plain HTML/CSS/JS, no build step)
   index.html   control panel (app.js)
   gridwalk.html  grid walk broadcast graphic for OBS (gridwalk.js)
@@ -1762,6 +1812,7 @@ web/           the overlay UI (plain HTML/CSS/JS, no build step)
   sponsors.html  sponsor logos for OBS
   driver.html  the driver on camera, for OBS
   duel.html, trackmap.html  the on-track battle and the track map, for OBS
+  lights.html, flags.html  the starting lights and the yellow flags by sector, for OBS
   common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos
 packaging/     PyInstaller recipe (apex.spec) and Inno Setup installer script
