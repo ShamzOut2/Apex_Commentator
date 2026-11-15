@@ -3,7 +3,7 @@
 // Starting lights: up only as a race is about to start. The red lights come
 // on one by one (iRacing's start lights, the leader's run to the line on the
 // lap to the green, or the Count down hotkey), stay lit, and go out at the
-// green: "LIGHTS OUT", then it goes.
+// green, then it goes. No text: just the lights.
 
 const stage = $("#stage");
 fitStage(stage);
@@ -52,7 +52,7 @@ const LAMP = '<span class="lt-lamp"><span class="lt-face"><svg class="lt-dots" v
 function draw(l, cfg) {
   setPanels(cfg);
   setSize(cfg);
-  const key = [cfg.place, l.lights, cfg.visible, cfg.show_text].join("|");
+  const key = [cfg.place, l.lights, cfg.visible].join("|");
   if (!box || key !== shownKey) {
     leave();
     shownKey = key;
@@ -65,7 +65,7 @@ function draw(l, cfg) {
         <div class="lt-mounts" style="width:${boxW}px"><span></span><span></span></div>
         <div class="lt-box" style="width:${boxW}px"><div class="lt-row">${pods}</div>
           <i class="bolt tl"></i><i class="bolt tr"></i><i class="bolt bl"></i><i class="bolt br"></i></div>
-        </div>${cfg.show_text ? '<div class="lt-text"></div>' : ""}
+        </div>
       </div></div>`);
     box = stage.lastElementChild;
     const el = box;
@@ -73,8 +73,6 @@ function draw(l, cfg) {
   }
   box.querySelectorAll(".lt-pod").forEach((pod, i) => pod.classList.toggle("on", !l.out && i < l.lit));
   box.classList.toggle("out", !!l.out);
-  const text = box.querySelector(".lt-text");
-  if (text) text.textContent = l.out ? "Lights out" : l.lit >= l.lights ? "" : "Get ready";
 }
 
 function leave() {

@@ -111,13 +111,6 @@ body.panel-image .lt-frame::before {
 }
 .lt-pod.on .lt-lamp::before { border-top-color: #5c120b; border-left-color: #3c0a06; box-shadow: inset 0 6px 9px rgba(255, 50, 25, .8), 0 -1px 0 #3a3d44; }
 
-.lt-text {
-  margin-top: 16px; height: calc(30px * var(--fs, 1)); font-size: calc(26px * var(--fs, 1)); font-weight: 900;
-  letter-spacing: .3em; padding-left: .3em; text-transform: uppercase; color: #d9dde4;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, .9);
-}
-.lights.out .lt-text { color: var(--green); text-shadow: 0 0 18px rgba(47, 214, 107, .8), 0 2px 6px rgba(0, 0, 0, .9); animation: lt-go .5s ease-out; }
-@keyframes lt-go { from { transform: scale(1.35); opacity: 0; } }
 
 .lights.panel-in { animation: lt-in .55s cubic-bezier(.2, .9, .25, 1) both; }
 .lights.panel-out { animation: lt-leave .5s ease-in both; pointer-events: none; }

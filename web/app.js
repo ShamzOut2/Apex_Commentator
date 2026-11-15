@@ -3008,7 +3008,6 @@ const OVERLAY_FIELDS = {
       ["lights", "Lights", "number", { min: 3, max: 8, step: 1 }],
       ["step_s", "A light every (seconds)", "number", { min: 0.3, max: 3, step: 0.1 }],
       ["out_s", "Lights out stays (seconds)", "number", { min: 0, max: 10, step: 0.5 }],
-      ["show_text", "\"GET READY\" while they count, \"LIGHTS OUT\" at the green", "bool"],
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
         ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
     ]],

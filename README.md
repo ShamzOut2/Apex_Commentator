@@ -815,7 +815,7 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   outline round the whole thing) that only comes up as a race is about to start (5 lights by
   default, 3–8). The lights come on
   one by one, a step apart (1 s by default), stay lit, and go out at the
-  green, with "LIGHTS OUT", then it goes (3 s by default). *The lights count
+  green (no text, just the lights), then it goes (3 s by default). *The lights count
   down from*: **iRacing's start lights** at a standing start (Ready starts
   the count, Set has them all lit, Go is lights out) or, at a rolling start,
   **the leader's run to the line** on the lap to the green (a light for each

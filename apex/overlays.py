@@ -272,7 +272,6 @@ DEFAULTS = {
         "start_from": "all",
         "lights": 5, "step_s": 1.0, "out_s": 3.0,
         "place": "top",
-        "show_text": True,        # "LIGHTS OUT" under them at the green
         **BACKGROUND, **OFFSET,
     },
     # The flag overlay (flags.html): a yellow flag naming the sectors under
