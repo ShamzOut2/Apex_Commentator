@@ -23,6 +23,7 @@ else:
     USER_DIR = APP_DIR
 
 WEB_DIR = APP_DIR / "web"
+ICON_FILE = APP_DIR / "assets" / "icon.ico"   # the app icon, every size (the window's own)
 
 
 def documents_dir():

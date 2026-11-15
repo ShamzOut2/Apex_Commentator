@@ -25,6 +25,13 @@ How each version's entry is written:
   tower and screen, driver on camera, pit stops, grid walk): pick "team
   colour" where the car number's colour is set.
 
+### Fixes
+
+- The taskbar and shortcuts now show the new app icon after updating
+  (Windows kept showing the old one it had cached).
+- Timing tower and screen, Overall: every class's fastest lap gets the
+  stopwatch, not just the overall fastest.
+
 ## v0.7.3
 
 ### New features

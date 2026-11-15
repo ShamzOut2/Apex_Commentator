@@ -83,6 +83,13 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   tower and screen, driver on camera, pit stops, grid walk): pick "team
   colour" where the car number's colour is set.
 
+### Fixes
+
+- The taskbar and shortcuts now show the new app icon after updating
+  (Windows kept showing the old one it had cached).
+- Timing tower and screen, Overall: every class's fastest lap gets the
+  stopwatch, not just the overall fastest.
+
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
 
@@ -756,8 +763,9 @@ when another is on, like the fastest lap flash timer, appear once it's on.
     in. The stopwatch pops in when the fastest lap changes hands. The
     fastest-lap pill drops in saying "NEW FASTEST LAP", then switches to the
     driver and lap time, and fades out at the end.
-  - **Fastest lap**: a purple stopwatch by the holder's name. In Overall it's
-    the one fastest driver; in By class, each class's fastest.
+  - **Fastest lap**: a purple stopwatch by the holder's name: each class's
+    fastest, in Overall (one for every class in a multiclass race) and By
+    class alike.
   - **New fastest lap flash**: when someone sets a new fastest lap, a purple
     pill appears at the top middle of the screen with a stopwatch. It says
     "NEW FASTEST LAP" for about two seconds, then shows the driver and the lap

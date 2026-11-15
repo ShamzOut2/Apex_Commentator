@@ -36,6 +36,11 @@ const finishers = new Map();   // car -> {kind, at}: the flag by their name ("fi
 const WAVE_MS = 1100;          // one wave of a finished driver's flag
 let placeView = "";
 
+// The stopwatch: the fastest lap in their class, overall and by class alike,
+// so every class's fastest shows in the overall list too (the overall
+// fastest is its own class's fastest as well).
+const holdsFastest = (e) => !!(e.class_fastest || e.fastest);
+
 function notePlaces(entries, classMode) {
   const view = `${SCREEN}:${classMode}`;
   const fresh = view !== placeView;  // switched view: nothing "moved"
@@ -46,7 +51,7 @@ function notePlaces(entries, classMode) {
     const was = lastPlace.get(e.car_idx);
     if (!fresh && was != null && pos != null && pos !== was) moves.set(e.car_idx, { up: pos < was, at: now });
     lastPlace.set(e.car_idx, pos);
-    const holds = classMode ? e.class_fastest : e.fastest;
+    const holds = holdsFastest(e);
     if (holds && !holders.has(e.car_idx)) holders.set(e.car_idx, fresh ? -1e9 : now);
     if (!holds) holders.delete(e.car_idx);
     const kind = e.penalty || (e.finished ? "finish" : null);
@@ -100,7 +105,7 @@ function goFlash(ov, replay = false) {
 
 // The purple stopwatch by the fastest lap's holder: overall, or each class's in "by class".
 function fastestIcon(e, cfg, classMode) {
-  if (!cfg.show_fastest_icon || !(classMode ? e.class_fastest : e.fastest)) return "";
+  if (!cfg.show_fastest_icon || !holdsFastest(e)) return "";
   const pop = ongoing(holders.get(e.car_idx) ?? -1e9, POP_MS);
   return `<span class="fl-icon ${pop ? "pop" : ""}" style="${pop || ""}" title="Fastest lap">${STOPWATCH}</span>`;
 }
