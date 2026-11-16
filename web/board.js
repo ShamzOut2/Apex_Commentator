@@ -44,7 +44,7 @@ function columns(b) {
   const cols = [];
   const add = (on, key, label, width, cls, cell) => on && cols.push([label, width, cls, cell, key]);
   // The team logo and the team name: columns of their own, the logo before or after the name.
-  const logoCol = (on) => add(on, "logo", "", "90px", "c lg", (r) => (r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""));
+  const logoCol = (on) => add(on, "logo", "", "90px", "c lg", (r) => (teamLogoOf(r, s) ? `<img class="logo" src="${esc(teamLogoOf(r, s))}" alt="">` : ""));
   const teamCols = (nameOn, nameCell) => {
     if (s.team_logo_side !== "last") logoCol(s.show_logo);
     add(nameOn, "team", "Team", "auto", nameCell ? "" : "muted", nameCell || ((r) => esc(r.team)));
@@ -53,7 +53,7 @@ function columns(b) {
   if (b.kind === "championship") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
     add(s.show_number, "number", "#", "80px", "c", numberChip);
-    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
+    add(true, "driver", "Driver", "auto", "", (r) => nameHtml(r, s.name_format));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => {
@@ -68,7 +68,7 @@ function columns(b) {
   } else if (b.kind === "teams") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.pos);
     teamCols(true, (r) => `<span class="team-cell">${s.show_color && r.color ? `<span class="team-stripe" style="background:${esc(bgc(r.color))}"></span>` : ""}<span class="team-name">${esc(r.team)}</span></span>`);
-    add(s.show_drivers, "drivers", "Drivers", "auto", "muted team-drivers", (r) => esc((r.people || r.drivers.map((name) => ({ name }))).map((p) => formatName(p, s.name_format)).join(" · ")));
+    add(s.show_drivers, "drivers", "Drivers", "auto", "muted team-drivers", (r) => (r.people || r.drivers.map((name) => ({ name }))).map((p) => nameHtml(p, s.name_format)).join(" · "));
     b.round_names.forEach((name, i) => add(true, "rounds", name, "70px", "rd", (r) => (r.rounds[i] == null ? "–" : fmtPts(r.rounds[i]))));
     add(s.show_wins, "wins", "Wins", "80px", "c muted", (r) => r.wins || "");
     add(s.show_penalty, "penalty", "Pen", "80px", "r down", (r) => (r.penalty_points ? `−${fmtPts(r.penalty_points)}` : ""));
@@ -85,7 +85,7 @@ function columns(b) {
     add(true, "pos", "Pos", "70px", "p r", (r) => (r.rank ?? (r.status || "").toUpperCase()));
     add(s.show_gained, "gained", "", "90px", "c", (r) => (r.gained ? `<span class="${r.gained > 0 ? "up" : "down"}">${r.gained > 0 ? "▲" : "▼"}${Math.abs(r.gained)}</span>` : ""));
     add(s.show_number, "number", "#", "80px", "c", numberChip);
-    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
+    add(true, "driver", "Driver", "auto", "", (r) => nameHtml(r, s.name_format));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
@@ -106,7 +106,7 @@ function columns(b) {
   } else if (b.kind === "qualifying") {
     add(true, "pos", "Pos", "70px", "p r", (r) => r.rank ?? "");
     add(s.show_number, "number", "#", "80px", "c", numberChip);
-    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
+    add(true, "driver", "Driver", "auto", "", (r) => nameHtml(r, s.name_format));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
@@ -119,7 +119,7 @@ function columns(b) {
     add(true, "pos", "Grid", "80px", "p r", (r) => r.pos);
     add(s.show_class_pos && b.overall, "class_pos", "Cls", "70px", "c muted", (r) => r.class_pos);
     add(s.show_number, "number", "#", "80px", "c", numberChip);
-    add(true, "driver", "Driver", "auto", "", (r) => esc(formatName(r, s.name_format)));
+    add(true, "driver", "Driver", "auto", "", (r) => nameHtml(r, s.name_format));
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     // Qualifying times and gaps only on a grid that's from qualifying.
@@ -163,8 +163,8 @@ function gridLayoutHtml(b) {
       <div class="gp">${r.pos}${s.show_class_pos && b.overall ? `<small>P${r.class_pos}</small>` : ""}</div>
       <div class="gbox" style="--cls:${esc(r.class_color || "#8b93a3")}">
         ${s.show_number ? numberChip(r) : ""}
-        <div class="gname"><b>${esc(formatName(r, s.name_format))}</b>${s.show_team && r.team ? `<span>${esc(r.team)}</span>` : ""}</div>
-        ${s.show_logo && r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : ""}
+        <div class="gname"><b>${nameHtml(r, s.name_format)}</b>${s.show_team && r.team ? `<span>${esc(r.team)}</span>` : ""}</div>
+        ${s.show_logo && teamLogoOf(r, s) ? `<img class="logo" src="${esc(teamLogoOf(r, s))}" alt="">` : ""}
         ${s.show_make && r.make_logo ? makeChip({ name: r.make, logo: r.make_logo }) : ""}
         <div class="gq">${s.show_qual && gridFromQual(b) && r.qual_time ? `<span>${fmtLap(r.qual_time)}</span>` : ""}${s.show_gap && gridFromQual(b) && r.qual_gap != null ? `<span class="muted">+${secs(r.qual_gap, false)}</span>`
           : s.show_gap && !s.show_qual && gridFromQual(b) && r.qual_time ? `<span>${fmtLap(r.qual_time)}</span>` : ""}${s.show_from && showsFrom(b) && r.from ? `<span class="muted">Finished P${r.from}</span>` : ""}</div>
@@ -219,7 +219,7 @@ function racesHtml(r, s) {
     const head = [s.show_race_name !== false && x.name, s.show_length && x.length].filter(Boolean);
     const shown = (x.winners || []).filter((w) => !only || only.has(w.group));
     const wins = s.show_winners && shown.length ? shown.map((w) => `<div class="rb-win">
-        <span class="dot" style="background:${esc(bgc(w.color || "#8b93a3"))}"></span>${s.show_winner_class !== false && w.group_name ? `<span class="cls">${esc(w.group_name)}:</span> ` : "🏆 "}${esc(formatName(w, s.winner_name_format))}</div>`).join("") : "";
+        <span class="dot" style="background:${esc(bgc(w.color || "#8b93a3"))}"></span>${s.show_winner_class !== false && w.group_name ? `<span class="cls">${esc(w.group_name)}:</span> ` : "🏆 "}${nameHtml(w, s.winner_name_format)}</div>`).join("") : "";
     if (!head.length && !wins) return "";
     return `<div class="race-box">${head.length ? `<div class="rb-head"><b>${esc(head[0])}</b>${head[1] ? ` <span class="len">${esc(head[1])}</span>` : ""}</div>` : ""}${wins}</div>`;
   }).filter(Boolean);
@@ -286,7 +286,7 @@ function trackHtml(b) {
   }
   const deg = w.wind_dir != null ? ((w.wind_dir * 180) / Math.PI + 360) % 360 : null;
   const card = (label, value, extra = "") => `<div class="tk-card"><div class="tk-label">${label}</div><div class="tk-value">${value}</div>${extra}</div>`;
-  const left = [cfg.show_air && card("Air temperature", temp(w.air)), cfg.show_track_temp && card("Track temperature", temp(w.track))].filter(Boolean);
+  const left = [cfg.show_air && card("Air temperature", temp(w.air)), cfg.show_track_temp && card("Track temperature", temp(w.track))];
   const wind = cfg.show_wind && card("Wind", speed(w.wind), deg != null
     ? `<div class="tk-wind"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44"/>
         ${COMPASS.filter((_, i) => i % 2 === 0).map((c, i) => `<text x="${50 + 34 * Math.sin((i * Math.PI) / 2)}" y="${50 - 34 * Math.cos((i * Math.PI) / 2)}">${c}</text>`).join("")}
@@ -294,7 +294,6 @@ function trackHtml(b) {
         <span>${COMPASS[Math.round(deg / 45) % 8]}</span></div>` : "");
   const sky = cfg.show_skies && (w.skies || w.humidity != null) && card("Conditions", `<span class="tk-sky">${esc(w.skies || "–")}</span>`,
     w.humidity != null ? `<div class="tk-extra">Humidity ${Math.round(w.humidity)}%</div>` : "");
-  const right = [wind, sky].filter(Boolean);
   const length = t.length_m ? `${(t.length_m / (imp ? 1609.344 : 1000)).toFixed(2)} ${imp ? "mi" : "km"}` : "";
   const where = [t.city, t.country].filter(Boolean).join(", ");
   const details = cfg.show_details ? [where, length, t.turns ? `${t.turns} turns` : ""].filter(Boolean) : [];
@@ -302,7 +301,7 @@ function trackHtml(b) {
     <div class="tk-title"><div class="tk-name">${esc(t.track || "Track")}</div>
       ${t.config ? `<div class="tk-config">${esc(t.config)}</div>` : ""}
       ${details.length ? `<div class="tk-details">${details.map((d) => `<span>${esc(d)}</span>`).join("")}</div>` : ""}</div>
-    <div class="tk-mid"><div class="tk-side">${left.join("")}</div><div class="tk-mapbox">${map}</div><div class="tk-side">${right.join("")}</div></div>
+    <div class="tk-mid"><div class="tk-side">${[...left, wind, sky].filter(Boolean).join("")}</div><div class="tk-mapbox">${map}</div></div>
   </div>`;
 }
 
@@ -340,7 +339,7 @@ function render(snap) {
   } else if (b.kind === "grid" && b.settings.grid_layout === "grid") {
     // Fewer drivers on screen: bigger slots (and everything in them).
     const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
-      - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? 110 : 0);
+      - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? Math.round(30 + 80 * (+b.settings.sponsor_size || 100) / 100) : 0);
     const pairs = Math.max(1, Math.ceil(Math.max(b.rows.length, +b.settings.rows || 1) / 2));
     // Filling the page (grid_fill) as they come, however few; then the size picked by hand.
     const fit = Math.floor((space - 10 * (pairs - 1)) / (pairs + 0.6));
@@ -351,7 +350,7 @@ function render(snap) {
   } else {
     // Long lists go into two columns rather than shrinking past readable.
     const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
-      - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? 110 : 0);
+      - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? Math.round(30 + 80 * (+b.settings.sponsor_size || 100) / 100) : 0);
     const cols = columns(b);
     const split = b.rows.length > 20 ? 2 : 1;
     // The starting grid: fewer drivers on screen, bigger name plates.
@@ -372,7 +371,9 @@ function render(snap) {
     const parts = [];
     if (b.banner && b.banner.place === place) parts.push(`<div class="banner ${b.banner.orientation}"><img src="${esc(b.banner.url)}" alt=""></div>`);
     if (b.sponsors && b.sponsors.place === place) {
-      parts.push(`<div class="sponsors">${b.sponsors.logos.map((l) => `<img src="${esc(l.url)}" alt="${esc(l.name)}">`).join("")}</div>`);
+      // The board's sponsor logo size (sponsor_size, %) times each logo's own scale.
+      parts.push(`<div class="sponsors" style="--sp-size:${(+b.settings.sponsor_size || 100) / 100}">${b.sponsors.logos.map((l) =>
+        `<img src="${esc(l.url)}" alt="${esc(l.name)}" style="--k:${(l.scale || 100) / 100}">`).join("")}</div>`);
     }
     if (!parts.length) return "";
     // The banner sits on the outside, sponsors next to the table.

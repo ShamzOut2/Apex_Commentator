@@ -22,8 +22,8 @@ function rowHtml(r, i, b, cfg, cols) {
   const number = cfg.show_number && r.number
     ? `<span class="num" style="${r.class_color ? `background:${esc(bgc(r.class_color))};color:${inkFor(r.class_color)}` : `background:${bgc("rgba(255,255,255,.14)")}`}">${esc(r.number)}</span>` : "";
   // An empty space where a driver has no team logo, so the names line up.
-  const logo = !cfg.show_logo ? "" : r.team_logo ? `<img class="logo" src="${esc(r.team_logo)}" alt="">` : '<span class="logo"></span>';
-  cells.push(`<span class="who">${number}${logo}<span class="names"><span class="name">${esc(formatName(r, cfg.name_format))}</span>
+  const logo = !cfg.show_logo ? "" : teamLogoOf(r, cfg) ? `<img class="logo" src="${esc(teamLogoOf(r, cfg))}" alt="">` : '<span class="logo"></span>';
+  cells.push(`<span class="who">${number}${logo}<span class="names"><span class="name">${nameHtml(r, cfg.name_format)}</span>
     ${cfg.show_team && r.team ? `<span class="team">${esc(r.team)}</span>` : ""}</span></span>`);
   if (cols.race) cells.push(`<span class="race ${r.race_points ? "" : "zero"}">${r.race_points ? `+${pts(r.race_points)}` : "0"}</span>`);
   cells.push(`<span class="pts">${pts(r.points)}</span>`);

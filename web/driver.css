@@ -74,3 +74,5 @@ body.panel-image .card::before {
   .card { border-bottom:5px solid color-mix(in srgb, var(--cls, var(--accent)) calc(var(--pick-k, 1) * 100%), transparent); }
   .pos { background:color-mix(in srgb, var(--cls, var(--accent)) calc(var(--pick-k, 1) * 100%), transparent); }
 }
+/* Pronouns sit right up against the name (the gap between the name's other parts stays). */
+.name > .pronouns { margin-left: -6px; padding-top: .12em; }

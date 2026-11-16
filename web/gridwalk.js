@@ -244,7 +244,7 @@ function infoHtml(e, i, cls, cfg, multiclass) {
   const logo = cfg.show_class !== false && (multiclass || cls.logo) && classLogo(cls, rerender);  // the class logo, laid on its colour
   const klass = cfg.show_class === false ? "" : logo ? `<span class="klass has-logo" style="background:${esc(bgc(color))}"><img class="klass-logo" src="${esc(logo.url)}" alt="${esc(cls.name)}"></span>`
     : multiclass && cls.name ? `<span class="klass" style="background:${esc(bgc(color))};color:${inkFor(color)}">${esc(cls.name)}</span>` : "";
-  const teamLogo = cfg.show_logo !== false && e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : "";
+  const teamLogo = cfg.show_logo !== false && teamLogoOf(e, cfg) ? `<img class="team-logo" src="${esc(teamLogoOf(e, cfg))}" alt="">` : "";
   const teamName = cfg.show_team !== false && e.team ? `<span class="team-name">${esc(e.team)}</span>` : "";
   const team = teamLogo || teamName ? `<div class="team">${teamLogo}${teamName}</div>` : "";
   const number = cfg.show_number === false || !e.number ? ""
@@ -252,7 +252,7 @@ function infoHtml(e, i, cls, cfg, multiclass) {
   return `<div class="gw-info ${i ? "rear" : "front"}" style="--cls:${esc(color || "var(--accent)")}">
       ${cfg.show_position !== false ? `<div class="pos" style="color:${color ? inkFor(color) : "#fff"}">${placeHtml(e, cfg, cls)}</div>` : ""}
       <div class="who">${number}
-        <div class="names"><div class="name">${esc(formatName(e, cfg.name_format))}${klass}</div>
+        <div class="names"><div class="name">${nameHtml(e, cfg.name_format)}${klass}</div>
           ${nick ? `<div class="nick">“${esc(nick)}”</div>` : ""}${team}</div></div>
       ${qual || status ? `<div class="qual">${qual ? `<span class="t">${esc(qual)}</span>` : ""}${status ? `<span class="status">${status}</span>` : ""}</div>` : ""}
       ${cfg.show_make !== false && e.make_logo ? `<span class="make"><img src="${esc(e.make_logo)}" alt="${esc(e.make)}"></span>` : ""}

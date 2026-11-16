@@ -13,7 +13,7 @@ class ProfileTests(unittest.TestCase):
             normalise_profile({"name": "X", "league_id": "abc"})
         p = normalise_profile({"name": "My League!", "drivers": [{"name": " A ", "cust_id": "12"}, {"name": ""}]})
         self.assertEqual(p["id"], "my-league")
-        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "team": "", "notes": "", "class_id": "", "class2_id": "", "car_image": "", "helmet_image": "", "driver_number": "", "car_make": ""}])
+        self.assertEqual(p["drivers"], [{"cust_id": 12, "name": "A", "car_number": "", "nickname": "", "pronouns": "", "team": "", "notes": "", "class_id": "", "class2_id": "", "car_image": "", "helmet_image": "", "driver_number": "", "car_make": ""}])
 
     def test_normalise_classes(self):
         p = normalise_profile({"name": "L", "classes": [
@@ -219,7 +219,7 @@ class StoreTests(unittest.TestCase):
         junk = normalise_profile({"name": "L", "drivers": [{"name": "A", "car_image": "../../x.png"}],
                                   "teams": [{"name": "T", "logo": "../x.png"}, {"name": "t"}, {"name": ""}]})
         self.assertEqual(junk["drivers"][0]["car_image"], "")
-        self.assertEqual(junk["teams"], [{"name": "T", "short": "", "color": "", "logo": None, "no_standings": False, "shared": []}])
+        self.assertEqual(junk["teams"], [{"name": "T", "short": "", "color": "", "logo": None, "logo_small": None, "no_standings": False, "shared": []}])
 
     def test_teams_shared_between_leagues(self):
         png = b"\x89PNG\r\n\x1a\n" + b"\0" * 16

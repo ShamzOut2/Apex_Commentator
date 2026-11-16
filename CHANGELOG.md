@@ -11,6 +11,36 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.7.5
+
+### New features
+
+- Pronouns for each driver (League builder): shown after their name on
+  every overlay and board, in brackets and a little smaller, e.g. "(she/her)",
+  with a setting to show or hide them.
+- An option to leave numbers off the end of drivers' names ("Shamoy Samuel3"
+  becomes "Shamoy Samuel") on every overlay and board, Officials mode too.
+- Teams can have a full logo and a small logo, and each overlay and board
+  can be set to show either one.
+- Sponsor logo sizes: a size for each sponsor in the League builder (used
+  everywhere it shows), and a sponsor logo size on every board.
+- Live timing website: a delay of its own (on top of the overlays'), to
+  match your stream's delay.
+- Track details board: the conditions all down the left, the track beside them.
+
+### Fixes
+
+- Starting lights now come up for rolling starts (counting down as the
+  leader heads for the line once the pace car pulls in).
+- Gaps no longer go blank for a while on the timing tower and screen when
+  iRacing's data for a car blips out for a moment.
+- Timing tower by class: places gained / lost are within the class.
+- Live timing website: with a class picked, places gained / lost are within
+  the class.
+- Penalty flags aren't shown for drivers who are out or have left.
+- Timing tower in qualifying: the header shows before anyone has set a lap
+  with "fill in as drivers complete a lap" off, as in a race.
+
 ## v0.7.4
 
 ### New features

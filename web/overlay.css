@@ -24,6 +24,8 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
   padding: 0 calc(.3em / var(--ff, 1)); border-radius: 4px; font-weight: 800; font-variant-numeric: tabular-nums;
 }
 .team-logo { object-fit: contain; }
+/* A driver's pronouns, "(she/her)": after the name, a little smaller and lighter. */
+.pronouns { margin-left: .35em; font-size: .72em; font-weight: 600; opacity: .78; letter-spacing: 0; text-transform: none; white-space: nowrap; }
 .tnum { font-variant-numeric: tabular-nums; }
 .class-head { display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 34px; font-weight: 800; }
 .class-head .class-logo { height: 26px; }

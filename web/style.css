@@ -124,6 +124,7 @@ main.fixed { overflow: hidden; }
 .c-status { width: 52px; }
 .c-actions { width: 150px; text-align: right; }
 .c-id { width: 96px; }
+.c-pron { width: 92px; }
 
 .drivers tr.watching td { background: var(--watch); }
 .drivers tr.watching td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
@@ -451,6 +452,8 @@ kbd {
 }
 .team-card-head { display: flex; gap: 10px; align-items: flex-start; }
 .team-logo.big { width: 84px; height: 64px; flex: 0 0 auto; cursor: pointer; color: var(--muted); font-size: 12px; border: 1px dashed var(--line); }
+.team-logos { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 0 0 auto; }
+.team-logo.small { width: 40px; height: 40px; cursor: pointer; color: var(--muted); font-size: 10px; border: 1px dashed var(--line); }
 .team-fields { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .team-fields .row { gap: 6px; flex-wrap: wrap; }
 .team-fields input.narrow { width: 80px; }
@@ -588,6 +591,8 @@ kbd {
 .sponsor-list { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
 .sponsor-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); padding: 8px; display: flex; gap: 8px; align-items: center; }
 .sponsor-card input { width: 160px; }
+.sponsor-card .sponsor-scale { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.sponsor-card .sponsor-scale input { width: 62px; }
 .sponsor-img { width: 120px; height: 56px; background: #0003 repeating-conic-gradient(#ffffff10 0 25%, transparent 0 50%) 0 0 / 16px 16px; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
 .sponsor-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .sponsor-pick > div { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; }

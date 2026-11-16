@@ -18,7 +18,10 @@ from pathlib import Path
 OFFSET = {"offset_x": 0, "offset_y": 0}
 # How big team logos are drawn, in % of their usual size (every overlay and
 # board that shows them).
-LOGO = {"logo_scale": 100}
+LOGO = {"logo_scale": 100,
+        # Which of a team's logos: its "full" logo or its "small" one (League
+        # builder: Teams); a team with only one shows that one.
+        "team_logo_kind": "full"}
 # font_scale: its text alone bigger or smaller (percent), the boxes as they are.
 # The fonts on offer for every overlay and board (ids; web/common.js FONTS has
 # their names, web/fonts/overlay the bundled ones).
@@ -61,7 +64,12 @@ DEFAULTS = {
                 "solid_colors": True,
                 # The font every overlay and board uses (FONTS; web/fonts/overlay), its text
                 # sized to take the room the standard font does (common.js fontFit).
-                "font": "standard"},
+                "font": "standard",
+                # Each driver's pronouns (League builder), "(she/her)" after their name.
+                "show_pronouns": True,
+                # A number on the end of a name ("Shamoy Samuel3": a second
+                # iRacing account) left off on every overlay and board.
+                "strip_name_numbers": False},
     # The live timing website for spectators (spectate.py, web/live/): how it looks
     # and what it shows. Every driver with a class is on it, whatever the tower shows.
     "live": {
@@ -82,6 +90,9 @@ DEFAULTS = {
         "show_status": True,        # PIT, and the finish flag
         "tracker": True,            # the Driver tracker tab (head to head and the track map)
         "map_label": "abbr",        # the map's car labels: "abbr" (3 letters), "number", "name" or "none"
+        # Seconds the page runs behind on top of the overlays' delay, to match the
+        # stream's own delay (so spectators don't see the race before the stream does).
+        "delay_s": 0.0,
     },
     "standings": {**LOGO, 
         "visible": True,
@@ -333,7 +344,7 @@ DEFAULTS = {
     # sponsor logos go, the same places as a banner) and sponsor_ids (which,
     # as for the sponsors overlay).
     "board_championship": {**LOGO, **COLUMN_OPACITY, **PAGING, 
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
         "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
@@ -342,7 +353,7 @@ DEFAULTS = {
         "show_wins": False, "show_penalty": False,
     },
     "board_teams": {**LOGO, **COLUMN_OPACITY, **PAGING, 
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
         "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
@@ -350,9 +361,9 @@ DEFAULTS = {
         "show_drivers": True,  # the drivers who scored for the team, under its name
         "show_gap": True, "show_ahead": False, "show_wins": False, "show_penalty": False,
     },
-    "board_makes": {**COLUMN_OPACITY, **PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND, "rows": 12, "show_logo": True,
+    "board_makes": {**COLUMN_OPACITY, **PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND, "rows": 12, "show_logo": True,
                     "show_gap": True, "show_wins": True},
-    "board_calendar": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+    "board_calendar": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
                        "rows": 24,  # race meetings a page
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
@@ -368,7 +379,7 @@ DEFAULTS = {
                        "date_format": "weekday_short",
                        "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
     "board_results": {**LOGO, **COLUMN_OPACITY, **PAGING, 
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
         "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True,
@@ -383,7 +394,7 @@ DEFAULTS = {
     # Qualifying results (board.html): a qualifying session of the iRacing event,
     # by best lap, overall or a class.
     "board_qualifying": {**LOGO, **COLUMN_OPACITY, **PAGING,
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
         "name_format": "full",
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         "show_best": True, "show_gap": True, "show_interval": True, "show_laps": False,
@@ -395,7 +406,7 @@ DEFAULTS = {
     # class (reverse_in_class). grid_layout: "list" or "grid" (two staggered
     # columns, as cars line up).
     "board_grid": {**LOGO, **COLUMN_OPACITY, **PAGING, "keep_leader": False,  # a grid's pages follow on (no pole at the top of each)
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
         "name_format": "full",
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         # Where the grid comes from: "auto" (a heat: qualifying; a consolation
@@ -420,7 +431,7 @@ DEFAULTS = {
     # either side (air and track temperature, wind speed and direction); the
     # sponsors along the bottom. title: the header's round line ("" = the
     # league's round this race counts as).
-    "board_track": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "bottom", "sponsor_ids": "",
+    "board_track": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100,
                     **BACKGROUND,
                     "title": "",
                     "units": "metric",       # "metric" (C, km/h, km) or "imperial" (F, mph, mi)
@@ -452,7 +463,7 @@ DEFAULTS = {
 LIMITS = {"gap_s": (0.1, 30.0), "settle_s": (0.0, 3.0), "ahead": (0, 6), "behind": (0, 6), "dot_size": (40, 250), "map_size": (150, 1400),
           "track_width": (40, 300), "grid_size": (50, 250), "font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1, 3), "board_dim": (0, 90), "sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
-          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
+          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "sponsor_size": (40, 250), "delay_s": (0.0, 300.0), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
           "lights": (3, 8), "step_s": (0.3, 3.0), "out_s": (0.0, 10.0), "flag_sectors": (2, 9), "clear_s": (0.0, 10.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
@@ -463,7 +474,7 @@ CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "s
            "font": FONTS,
            "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "anchor_side": ("first", "last"), "fl_flash_many": ("stack", "queue"), "gap_shown": ("ahead", "camera"),
            "labels": ("none", "number", "position"), "start_from": ("all", "standing", "hand"),
-           "units": ("metric", "imperial")}
+           "units": ("metric", "imperial"), "team_logo_kind": ("full", "small")}
 
 
 def normalise(settings):

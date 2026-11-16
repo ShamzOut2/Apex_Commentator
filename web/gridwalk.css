@@ -235,3 +235,5 @@ body.panel-image .gw-title::before, body.panel-image .gw-info::before {
 }
 /* Straight on the user's screen: no soft shadows (they can't be see-through there). */
 body.desktop *, body.desktop *::before, body.desktop *::after { box-shadow: none !important; filter: none !important; }
+/* Pronouns sit right up against the name (the gap between the name's other parts stays). */
+.gw-info .name > .pronouns { margin-left: -6px; padding-top: .12em; }

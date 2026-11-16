@@ -42,7 +42,7 @@ function cardHtml(d, cfg, cls, multiclass) {
   // the car badge takes the logo's place by the team name, and the team logo
   // goes to the end.
   const swapped = cfg.team_place === "end";
-  const teamLogo = cfg.show_logo && d.team_logo ? `<img class="team-logo" src="${esc(d.team_logo)}" alt="">` : "";
+  const teamLogo = cfg.show_logo && teamLogoOf(d, cfg) ? `<img class="team-logo" src="${esc(teamLogoOf(d, cfg))}" alt="">` : "";
   const badge = (small) => (cfg.show_make && d.make_logo
     ? `<span class="make ${small ? "small" : ""}"><img src="${esc(d.make_logo)}" alt="${esc(d.make)}"></span>` : "");
   const byName = swapped ? badge(true) : teamLogo;
@@ -53,7 +53,7 @@ function cardHtml(d, cfg, cls, multiclass) {
   const end = swapped ? (teamLogo ? `<span class="team-end">${teamLogo}</span>` : "") : badge(false);
   const under = team;
   const tyre = cfg.show_tyre !== false ? tyreIcon(d.tyre) : "";
-  return `${pos}<div class="who">${number}<div class="names"><div class="name">${esc(formatName(d, cfg.name_format))}${klass}${tyre}</div>${under}</div></div>${end}`;
+  return `${pos}<div class="who">${number}<div class="names"><div class="name">${nameHtml(d, cfg.name_format)}${klass}${tyre}</div>${under}</div></div>${end}`;
 }
 
 function render(snap) {

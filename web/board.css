@@ -39,9 +39,9 @@
 .edge.down .banner { flex: 1; width: 100%; }
 .sponsors { display: flex; align-items: center; justify-content: center; gap: 48px; flex-wrap: wrap; }
 .sponsors img { object-fit: contain; }
-.edge.across .sponsors img { height: 80px; max-width: 260px; }
+.edge.across .sponsors img { height: calc(80px * var(--sp-size, 1) * var(--k, 1)); max-width: calc(260px * var(--sp-size, 1) * var(--k, 1)); }
 .edge.down .sponsors { flex-direction: column; gap: 32px; }
-.edge.down .sponsors img { max-height: 110px; max-width: 260px; }
+.edge.down .sponsors img { max-height: calc(110px * var(--sp-size, 1) * var(--k, 1)); max-width: calc(260px * var(--sp-size, 1) * var(--k, 1)); }
 .main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 18px; }
 
 .bhead { display: flex; align-items: center; gap: 22px; padding-bottom: 14px; border-bottom: 3px solid var(--accent-c, var(--accent)); }
@@ -201,7 +201,11 @@
   padding: 4px 14px; border-radius: 999px; font-size: calc(18px * var(--fs, 1)); font-weight: 700; color: var(--muted);
   background: rgba(255, 255, 255, calc(.07 * var(--bg-k, 1)));
 }
-.tk-mid { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px 1fr 340px; gap: 36px; align-items: center; }
+/* The conditions down the left, the track's outline filling the rest. */
+.tk-mid { flex: 1; min-height: 0; display: grid; grid-template-columns: 360px 1fr; gap: 48px; align-items: center; }
+.tk-side { gap: 16px; }
+.tk-side .tk-card { padding: 14px 20px; }
+.tk-side .tk-value { font-size: calc(48px * var(--fs, 1)); }
 .tk-side { display: flex; flex-direction: column; gap: 22px; }
 .tk-card {
   padding: 18px 22px; border-radius: 16px; background: rgba(20, 23, 30, calc(.85 * var(--bg-k, 1)));

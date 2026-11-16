@@ -57,7 +57,7 @@ from .paths import WEB_DIR
 LOGO_LIBRARY_DIR = WEB_DIR / "logos"
 UPLOADED_LOGO = re.compile(r"[a-z0-9-]+\.(png|jpg|webp|svg)")
 LIBRARY_LOGO = re.compile(r"lib:([a-z0-9-]+\.svg)")
-EDITABLE_FIELDS = ("nickname", "team", "notes", "class_id", "class2_id", "car_image", "helmet_image", "driver_number", "car_make")
+EDITABLE_FIELDS = ("nickname", "pronouns", "team", "notes", "class_id", "class2_id", "car_image", "helmet_image", "driver_number", "car_make")
 DRIVER_IMAGES = ("car_image", "helmet_image")
 # Distinct defaults handed to new classes, in order.
 CLASS_PALETTE = ["#e8463c", "#2f80ed", "#27ae60", "#f2c94c", "#9b51e0", "#f2994a", "#56ccf2", "#eb5ea8"]
@@ -66,6 +66,9 @@ LOGO_TYPES = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp", "sv
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 # "(P) Dave Price", "(PA)Dave Price": a class tag some leagues put before names.
 CLASS_PREFIX = re.compile(r"^\s*\([^()]*\)\s*")
+# "Shamoy Samuel3", "Jo Bloggs 2": the number some drivers add to the name of a
+# second iRacing account (a number on the end of the last word, up to 4 digits).
+NAME_NUMBER = re.compile(r"(?<=[^\W\d_])\s?\d{1,4}$")
 
 
 BANNER_SHAPES = ("horizontal", "vertical")
@@ -92,17 +95,34 @@ def normalise_banners(banners):
 
 
 def normalise_sponsors(sponsors):
-    """Sponsor logos, for the boards and the sponsors overlay: [{id, file, name}]."""
+    """Sponsor logos, for the boards and the sponsors overlay: [{id, file, name, scale}].
+    ``scale``: how big this logo is drawn next to the others, % (40-250), everywhere."""
     out = []
     for s in sponsors or []:
         if not isinstance(s, dict) or not UPLOADED_LOGO.fullmatch(str(s.get("file") or "")):
             continue
+        try:
+            scale = int(round(float(s.get("scale") or 100)))
+        except (TypeError, ValueError):
+            scale = 100
         out.append({
             "id": re.sub(r"[^a-z0-9]", "", str(s.get("id") or ""))[:12] or uuid.uuid4().hex[:8],
             "file": s["file"],
             "name": str(s.get("name") or "").strip()[:60],
+            "scale": min(max(scale, 40), 250),
         })
     return out
+
+
+def strip_name_number(name):
+    """'Shamoy Samuel3' -> 'Shamoy Samuel'; a name that's only a number stays."""
+    name = str(name or "").strip()
+    return NAME_NUMBER.sub("", name).strip() or name
+
+
+def clean_pronouns(text):
+    """Pronouns as typed, without brackets (the overlays add them): 'she/her'."""
+    return re.sub(r"\s+", " ", str(text or "").strip().strip("()").strip())[:24]
 
 
 def strip_class_prefix(name):
@@ -329,6 +349,7 @@ def normalise_profile(profile):
         }
         for key in EDITABLE_FIELDS:
             entry[key] = str(d.get(key) or "").strip()
+        entry["pronouns"] = clean_pronouns(entry["pronouns"])
         if entry["class_id"] not in class_ids and entry["class_id"] != NO_CLASS:
             entry["class_id"] = ""
         if entry["class2_id"] not in secondary_ids:
@@ -348,12 +369,15 @@ def normalise_profile(profile):
             continue
         seen_teams.add(team_name.lower())
         logo = t.get("logo") or None
+        small = t.get("logo_small") or None
         color = str(t.get("color") or "").strip()
         teams.append({
             "name": team_name,
             "short": str(t.get("short") or "").strip()[:8],
             "color": color if HEX_COLOR.fullmatch(color) else "",
             "logo": logo if logo and _valid_logo_ref(str(logo)) else None,
+            # A small version of it (a badge or icon), for the overlays and boards set to use it.
+            "logo_small": small if small and _valid_logo_ref(str(small)) else None,
             # Not in the team championship (its drivers still score for themselves).
             "no_standings": bool(t.get("no_standings")),
             # The other leagues this team is also in (LeagueStore._sync_teams).
@@ -547,8 +571,10 @@ class LeagueStore:
                     ot = {"name": team["name"]}
                     other_teams.append(ot)
                 logo = self._copy_logo(me, lid, team.get("logo"))
+                small = self._copy_logo(me, lid, team.get("logo_small"))
                 links = sorted(set(ot.get("shared") or []) | {me})  # its own links, and this league
-                new = {"name": team["name"], "short": team["short"], "color": team["color"], "logo": logo, "shared": links}
+                new = {"name": team["name"], "short": team["short"], "color": team["color"], "logo": logo,
+                       "logo_small": small, "shared": links}
                 if any(ot.get(k) != v for k, v in new.items()):
                     ot.update(new)
                     changed = True
@@ -604,7 +630,7 @@ class LeagueStore:
         if not folder.is_dir():
             return
         used = {c.get("logo") for c in profile.get("classes", [])}
-        used |= {t.get("logo") for t in profile.get("teams", [])}
+        used |= {t.get(k) for t in profile.get("teams", []) for k in ("logo", "logo_small")}
         used |= {d.get(k) for d in profile.get("drivers", []) for k in DRIVER_IMAGES}
         used |= {b.get("file") for b in profile.get("banners", []) + profile.get("sponsors", [])}
         used |= {profile.get("logo"), profile.get("calendar_image")}
@@ -633,7 +659,8 @@ class LeagueStore:
             if owner is None:
                 raise LeagueError("Save the class before adding its logo.")
             field, prefix = "logo", owner["id"]
-        elif kind == "team":
+        elif kind in ("team", "team_small"):
+            # A team's logo ("team:<name>") or its small logo ("team_small:<name>").
             key = key.strip()
             if not key:
                 raise LeagueError("Team needs a name.")
@@ -642,7 +669,7 @@ class LeagueStore:
             if owner is None:
                 owner = {"name": key, "logo": None}
                 teams.append(owner)
-            field, prefix = "logo", f"team-{_slug(key)}"
+            field, prefix = ("logo", f"team-{_slug(key)}") if kind == "team" else ("logo_small", f"team-{_slug(key)}-small")
         elif kind == "league" and key in ("logo", "calendar_image"):
             owner, field, prefix = profile, key, f"league-{key.replace('_', '-')}"
         elif kind == "banner":
@@ -769,7 +796,7 @@ class LeagueStore:
             for t in src.get("teams", []):
                 have = mine.get(t["name"].strip().lower())
                 fields = {"short": t.get("short", ""), "color": t.get("color", ""), "logo": img(t.get("logo")),
-                          "no_standings": bool(t.get("no_standings"))}
+                          "logo_small": img(t.get("logo_small")), "no_standings": bool(t.get("no_standings"))}
                 if have:
                     have.update(fields)
                 else:

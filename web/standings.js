@@ -114,7 +114,9 @@ function fastestIcon(e, cfg, classMode) {
 // flag, DQ, meatball, slow down), else the chequered flag once they've
 // finished the race; null for none, or one switched off in the settings.
 function flagKind(e, cfg) {
-  if (e.penalty && cfg.penalty_flags !== false) return e.penalty;
+  // No penalty flag for a driver who's out (not in the car) or has left the session.
+  const out = e.in_world === false || e.left;
+  if (e.penalty && cfg.penalty_flags !== false && !out) return e.penalty;
   return e.finished && cfg.finish_flag !== false ? "finish" : null;
 }
 // When that flag came out (for its pop): -1e9 when it's not the one noted.
@@ -228,7 +230,7 @@ function renderFlash(snap, ov) {
         <div class="fl-intro">New fastest lap${cls ? `<span>${esc(cls.name)}</span>` : ""}</div>
         <div class="fl-text">
           <div class="fl-cap">Fastest lap${cls ? ` · ${esc(cls.name)}` : ""}</div>
-          <div class="fl-name">${esc(f.name)}</div>
+          <div class="fl-name">${nameHtml(f, "full")}</div>
           <div class="fl-time tnum">${fmtLap(f.lap_time)}</div>
         </div>
       </div>`;
@@ -249,9 +251,11 @@ const makeBadge = (e) => (e.make_logo ? `<span class="make-badge"><img src="${es
 const stintText = (e) => (e.on_pit ? '<span class="dim">PIT</span>' : e.stint ?? "");
 
 const COLUMNS = [
-  ["show_pos_change", "46px", "+/−", (e, race) => {
-    if (!race || !e.pos_change) return race ? '<span class="dim">–</span>' : "";
-    return `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>`;
+  ["show_pos_change", "46px", "+/−", (e, race, classMode) => {
+    // By class: places gained or lost in the class (from its place on the class's grid).
+    const change = classMode ? e.class_pos_change : e.pos_change;
+    if (!race || !change) return race ? '<span class="dim">–</span>' : "";
+    return `<span class="${change > 0 ? "up" : "down"}">${change > 0 ? "▲" : "▼"}${Math.abs(change)}</span>`;
   }, (race) => race],
   ["show_laps", "44px", "Laps", (e) => e.laps_completed ?? ""],
   ["show_pits", "40px", "Pit", (e) => e.pit_stops || ""],
@@ -441,8 +445,8 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
     pos: () => `<span class="p tnum" data-opcol="pos">${pos}</span>`,
     stripe: () => `<span class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(bgc(stripeColor(e, cls, cfg)))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
-    logo: () => `<span class="lg" data-opcol="logo">${e.team_logo ? `<img class="team-logo" src="${esc(e.team_logo)}" alt="">` : ""}</span>`,
-    name: () => `<span class="who" data-opcol="name"><span class="n">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
+    logo: () => `<span class="lg" data-opcol="logo">${teamLogoOf(e, cfg) ? `<img class="team-logo" src="${esc(teamLogoOf(e, cfg))}" alt="">` : ""}</span>`,
+    name: () => `<span class="who" data-opcol="name"><span class="n">${nameHtml(e, cfg.name_format)}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
     team: () => `<span class="tmc" data-opcol="team">${esc(e.team || "")}</span>`,
   };
   return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${e.left ? "left" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
@@ -525,12 +529,15 @@ function placeSponsor(logo, cfg) {
   if (slot) slot.replaceWith(sponsorBar);
   if (!logo) return;
   sponsorBar.style.setProperty("--sb-h", `${cfg.sponsor_bar_size}px`);
-  if (logo.url === sponsorShown) return;
+  const shown = `${logo.url}|${logo.scale || 100}`;
+  if (shown === sponsorShown) return;
   const first = !sponsorShown;
-  sponsorShown = logo.url;
+  sponsorShown = shown;
   const img = document.createElement("img");
   img.src = logo.url;
   img.alt = logo.name || "";
+  // Its own scale (League builder: Sponsors), within the bar.
+  if ((logo.scale || 100) !== 100) img.style.transform = `scale(${(logo.scale || 100) / 100})`;
   sponsorBar.replaceChildren(img);
   if (!first) img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: "ease" });
 }
@@ -563,7 +570,7 @@ function render() {
     cfg.rows_last = cfg.rows_last_class;
   }
   // Team logo and team name, each a column of its own (the name can sit under the driver's instead).
-  cfg.logo_col = cfg.show_logo && entries.some((e) => e.team_logo);
+  cfg.logo_col = cfg.show_logo && entries.some((e) => teamLogoOf(e, cfg));
   cfg.logo_last = cfg.team_logo_side === "last";
   cfg.team_under = cfg.show_team && cfg.team_name_place !== "column";
   cfg.team_col = cfg.show_team && cfg.team_name_place === "column" && entries.some((e) => e.team);
@@ -613,9 +620,9 @@ function render() {
   const sub = headerSub(snap, cfg, false);
   const progress = progressText(ov);
   const sponsor = sponsorLogo(snap, cfg);
-  // Hidden until someone qualifies for a row, unless "reveal" is on: then
-  // the header shows from the start and drivers join as they cross the line.
-  const visible = snap.connected && cfg.visible && (entries.length > 0 || cfg.reveal);
+  // The header shows from the start of every session (qualifying with nobody
+  // timed yet too); drivers join below it as they set a time / cross the line.
+  const visible = snap.connected && cfg.visible;
   // The header (with the column labels) is one panel; the drivers follow it,
   // joined on (overall) or as a separate panel per class, evenly spaced.
   if (replay) tower.style.setProperty("--replay-ink", inkOn(accentColor()));
@@ -697,17 +704,18 @@ function screenRow(e, cfg, cls, race, classMode, multiclass, camIdx, compact) {
   const gap = classMode ? e.class_gap : e.gap;
   const interval = classMode ? e.class_interval : e.interval;
   const first = pos === 1;
-  const change = race && e.pos_change ? `<span class="${e.pos_change > 0 ? "up" : "down"}">${e.pos_change > 0 ? "▲" : "▼"}${Math.abs(e.pos_change)}</span>` : "";
+  const gained = classMode ? e.class_pos_change : e.pos_change;  // by class: places gained in the class
+  const change = race && gained ? `<span class="${gained > 0 ? "up" : "down"}">${gained > 0 ? "▲" : "▼"}${Math.abs(gained)}</span>` : "";
   // The team logo and the team name: columns of their own, in the order picked.
   const teamCells = screenTeamParts(cfg, compact).map((p) => (p === "logo"
-    ? `<td class="lg c" data-opcol="logo">${e.team_logo ? `<img src="${esc(e.team_logo)}" alt="">` : ""}</td>`
+    ? `<td class="lg c" data-opcol="logo">${teamLogoOf(e, cfg) ? `<img src="${esc(teamLogoOf(e, cfg))}" alt="">` : ""}</td>`
     : `<td class="team" data-opcol="team">${esc(e.team || "")}</td>`)).join("");
   const cells = [
     `<td class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(bgc(stripeColor(e, cls, cfg)))}` : "background:none"}"></td>`,
     `<td class="p r" data-opcol="pos">${pos}</td>`,
     race ? `<td class="c" data-opcol="pos_change">${change}</td>` : "",
     `<td class="c" data-opcol="number">${numberChip(e, cls, cfg)}</td>`,
-    `<td data-opcol="name">${esc(formatName(e, cfg.name_format))}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${!e.in_world ? (race ? "" : '<span class="pit">OUT</span>') : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
+    `<td data-opcol="name">${nameHtml(e, cfg.name_format)}${fastestIcon(e, cfg, classMode)}${finishFlag(e, cfg)}${!e.in_world ? (race ? "" : '<span class="pit">OUT</span>') : e.on_pit ? '<span class="pit">PIT</span>' : ""}</td>`,
     teamCells,
   ];
   const down = classMode ? e.class_laps_down : e.laps_down;

@@ -9,14 +9,18 @@ from apex.core import App
 from apex.league import LeagueStore
 from apex.sectorflags import SectorFlags, sector_of, sectors_text
 from apex.sources import MockSource, STATE_PARADE_LAPS
-from apex.startlights import ONE_LAP_TO_GREEN, START_GO, START_READY, START_SET, StartLights
+from apex.startlights import ONE_LAP_TO_GREEN, START_GO, START_READY, START_SET, StartLights, is_green
 from tests.test_app import FakeClock
 
 KEY = (1, 0)
 
 
-def lit(lights, t, **kw):
-    args = dict(race=True, started=False, flags=0, leader=None)
+CAUTION = 0x4000
+PARADE, RACING = 3, 4
+
+
+def lit(lights, t, started=False, **kw):
+    args = dict(race=True, state=RACING if started else PARADE, flags=0, leader=None)
     args.update(kw)
     out = lights.update(KEY, t, **args)
     return None if out is None else ("out" if out["out"] else out["lit"])
@@ -52,6 +56,29 @@ class LightsTests(unittest.TestCase):
         self.assertEqual(counting, sorted(counting))              # never back a light
         self.assertEqual(seen[195], 5)                            # all lit before the line
         self.assertEqual(seen[200], "out")
+
+    def test_rolling_start_racing_behind_the_pace_car_with_no_one_to_green_flag(self):
+        """iRacing can already say "racing" behind the pace car, with a caution
+        flag out, and needn't show "one lap to green": the pace car pulling into
+        the pits marks the last pace lap."""
+        self.assertFalse(is_green(RACING, CAUTION))
+        self.assertTrue(is_green(RACING, 0))
+        lights = StartLights()
+        seen = []
+        for k in range(400):
+            t = k * 0.1
+            progress = 0.80 + t / 100.0
+            if progress < 1.0:
+                pace_pitted = progress > 0.85
+                seen.append(lit(lights, t, state=RACING, flags=CAUTION, leader=progress, final_lap=pace_pitted))
+            else:
+                seen.append(lit(lights, t, state=RACING, flags=0, leader=progress))
+        counting = [x for x in seen[:200] if x is not None]
+        self.assertEqual(sorted(set(counting)), [0, 1, 2, 3, 4, 5])
+        self.assertEqual(seen[200], "out")
+        # A caution later and the restart: no lights.
+        for k in range(100):
+            self.assertIsNone(lit(lights, 300 + k * 0.1, state=RACING, flags=CAUTION, leader=5.9 + k * 0.001, final_lap=True))
 
     def test_by_hand_and_held_until_the_green(self):
         lights = StartLights()
