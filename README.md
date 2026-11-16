@@ -86,6 +86,9 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   can be set to show either one.
 - Sponsor logo sizes: a size for each sponsor in the League builder (used
   everywhere it shows), and a sponsor logo size on every board.
+- Live timing website: a delay of its own (on top of the overlays'), to
+  match your stream's delay.
+- Track details board: the conditions all down the left, the track beside them.
 
 ### Fixes
 
@@ -94,6 +97,8 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 - Gaps no longer go blank for a while on the timing tower and screen when
   iRacing's data for a car blips out for a moment.
 - Timing tower by class: places gained / lost are within the class.
+- Live timing website: with a class picked, places gained / lost are within
+  the class.
 - Penalty flags aren't shown for drivers who are out or have left.
 - Timing tower in qualifying: the header shows before anyone has set a lap
   with "fill in as drivers complete a lap" off, as in a race.
@@ -192,7 +197,8 @@ the same thing without saying "go to car 23".
 
 - **Leaderboard**: the running order (overall or a class), gaps, intervals,
   last and best laps, each sector of the lap on now (purple / green / yellow),
-  tyres, pit stops, and OUT for cars that have left.
+  tyres, pit stops, and OUT for cars that have left. With a class picked, the
+  places and the places gained / lost are within the class.
 - **Driver tracker**: the position list (arrows for places gained or lost),
   a **head to head** of any two drivers picked from it (the gap between them,
   their last laps, sector by sector, best laps and tyres), and the **track
@@ -201,6 +207,10 @@ the same thing without saying "go to car 23".
 **Its look and what it shows** are set in the same tab, with a preview of the
 page beside them (the preview isn't counted as watching):
 
+- **Delay**: how far the page runs behind, on top of the overlays' delay, to
+  match your stream's own delay (seconds, up to 300; 0 = none). Spectators
+  watching the stream then see the timing as the stream shows the race, not
+  ahead of it.
 - **Header**: the heading (empty: the league's name), the league logo, and
   the colour of the top bar (also used for the drivers picked on the map).
 - **Drivers**: the name style (full name, A. Driver, Driver A., last name,
@@ -230,7 +240,8 @@ address. The page only ever gets the timing, picked field by field: names,
 car numbers, teams, classes, places, gaps, laps, sectors, tyres and where each
 car is on the lap. Never iRacing IDs, notes, file paths, your dual
 commentary address or code, or anything else about you, and nothing on the
-page can change the app. It follows the data delay like everything else.
+page can change the app. It follows the data delay like everything else,
+plus its own delay (above).
 
 The free link changes each time it's turned on. For one that stays the same,
 set up a tunnel in your Cloudflare account (Zero Trust → Networks → Tunnels)
@@ -1257,10 +1268,9 @@ built from the active league:
   (the league's round this race counts as: "Round 3" with its name; else the
   race's own name; or your own words in its settings) and the league's
   name; under it the track's name, its layout, and where it is, its length
-  and turns. In the middle, the track's outline, with the air and track
-  temperatures on one side and the wind (speed, and its direction on a
-  compass) and the conditions (sky, humidity) on the other, as iRacing has
-  them now. The sponsors' logos run along the bottom (the league's
+  and turns. Down the left, the conditions as iRacing has them now: the air
+  and track temperatures, the wind (speed, and its direction on a compass)
+  and the sky and humidity; the track's outline fills the rest. The sponsors' logos run along the bottom (the league's
   sponsors; which ones, and where, in its settings). Metric or imperial
   units; each part can be left out. Officials mode has it too.
 - **Qualifying results**: a qualifying session of the iRacing event (the

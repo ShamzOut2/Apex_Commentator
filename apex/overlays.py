@@ -90,6 +90,9 @@ DEFAULTS = {
         "show_status": True,        # PIT, and the finish flag
         "tracker": True,            # the Driver tracker tab (head to head and the track map)
         "map_label": "abbr",        # the map's car labels: "abbr" (3 letters), "number", "name" or "none"
+        # Seconds the page runs behind on top of the overlays' delay, to match the
+        # stream's own delay (so spectators don't see the race before the stream does).
+        "delay_s": 0.0,
     },
     "standings": {**LOGO, 
         "visible": True,
@@ -460,7 +463,7 @@ DEFAULTS = {
 LIMITS = {"gap_s": (0.1, 30.0), "settle_s": (0.0, 3.0), "ahead": (0, 6), "behind": (0, 6), "dot_size": (40, 250), "map_size": (150, 1400),
           "track_width": (40, 300), "grid_size": (50, 250), "font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1, 3), "board_dim": (0, 90), "sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
-          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "sponsor_size": (40, 250), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
+          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "sponsor_size": (40, 250), "delay_s": (0.0, 300.0), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
           "lights": (3, 8), "step_s": (0.3, 3.0), "out_s": (0.0, 10.0), "flag_sectors": (2, 9), "clear_s": (0.0, 10.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),

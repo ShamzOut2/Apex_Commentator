@@ -340,6 +340,7 @@ class App:
         self._encode_lock = threading.Lock()
         self._errors = {}                   # poller errors logged: (where, error) -> (when, times since)
         self._delay_history = deque()       # (when, snapshot, cards) for the data delay (_delay)
+        self._live_history = deque()        # (when, section) for the live timing website's own delay (_live_delay)
         self._cards = {}                    # every car's driver card in the last snapshot built (_driver_cards)
         self._round_titles = {}             # (league, subsession, session): the round a race was named after (_round_title)
         # Dual commentary (remote.py): this app's camera shared with a
@@ -2531,7 +2532,7 @@ class App:
         # same delay as everything else), never to the app's pages.
         section = snap.pop("spectator", None)
         if self.spectators is not None and section is not None:
-            self.spectators.update(section, self._spec[2], self._spec[3])
+            self.spectators.update(self._live_delay(section), self._spec[2], self._spec[3])
         updater = getattr(self, "updater", None)
         if updater is not None:
             # So the pop-up appears whenever a check finds a new version.
@@ -2543,6 +2544,24 @@ class App:
             self._snapshot = snap
             self._version += 1
             self._changed.notify_all()
+
+    def _live_delay(self, section):
+        """The live timing website's section from ``delay_s`` ago (its own
+        delay, on top of the overlays', to match the stream's): the newest one
+        at least that old (the oldest there is, just started)."""
+        try:
+            delay = min(300.0, max(0.0, float(self.overlays.get()["live"].get("delay_s") or 0)))
+        except (TypeError, ValueError):
+            delay = 0.0
+        hist = self._live_history
+        if delay <= 0:
+            hist.clear()
+            return section
+        now = time.monotonic()
+        hist.append((now, section))
+        while len(hist) > 1 and hist[1][0] <= now - delay:
+            hist.popleft()
+        return hist[0][1]
 
     def wait_snapshot(self, last_version, timeout=15.0):
         """Block until a snapshot newer than ``last_version`` exists."""
@@ -3828,6 +3847,7 @@ class App:
             lap = self.laps.summary(r["car_idx"]) or {}
             cars.append({
                 "id": r["car_idx"], "pos": r["pos"], "cpos": r["class_pos"], "pc": r.get("pos_change"),
+                "cpc": r.get("class_pos_change"),  # places gained / lost in the class (a class picked)
                 "num": r["number"], "name": name, "abbr": re.sub(r"[^A-Za-z]", "", last_name)[:3].upper() or str(r["number"]),
                 "team": (e["team"] or "") if cfg["show_team"] else "", "logo": image(e["team_logo"]) if cfg["show_logo"] else None,
                 "cls": r["class_key"], "gap": gap, "int": interval, "down": r.get("laps_down") or 0,

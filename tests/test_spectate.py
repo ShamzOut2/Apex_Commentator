@@ -93,7 +93,7 @@ class FeedTests(unittest.TestCase):
             app.settings.set("follow_code", "")
             text = json.dumps(section)
             self.assertTrue(section["cars"])
-            allowed = {"id", "pos", "cpos", "pc", "num", "name", "abbr", "team", "logo", "cls", "gap", "int", "down", "lap",
+            allowed = {"id", "pos", "cpos", "pc", "cpc", "num", "name", "abbr", "team", "logo", "cls", "gap", "int", "down", "lap",
                        "laps", "last", "best", "pct", "pit", "out", "fin", "tyre", "fl", "cfl", "sec", "now", "bsec"}
             for car in section["cars"]:
                 self.assertLessEqual(set(car), allowed)
@@ -116,6 +116,32 @@ class FeedTests(unittest.TestCase):
             self.assertEqual({c["id"] for c in snap["spectator"]["cars"]}, everyone)
             self.assertIsInstance(snap["spectator"]["clock"], float)
 
+
+    def test_class_places_gained_and_its_own_delay(self):
+        """Each car's places gained in its class too (the page's class filter),
+        and the page running behind by its own delay (the stream's)."""
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            app, _ = make_app(tmp, minutes=1.5)
+            app.spectators = spectate.SpectatorServer(WEB_DIR / "live", port=0)
+            snap = app.build_snapshot()
+            rows = {r["car_idx"]: r for r in snap["drivers"]}
+            for car in snap["spectator"]["cars"]:
+                self.assertEqual(car["cpc"], rows[car["id"]].get("class_pos_change"))
+            sent = []
+            app.spectators.update = lambda section, *a: sent.append(section)
+            clock = [1000.0]
+            with mock.patch("apex.core.time.monotonic", lambda: clock[0]):
+                app.overlays.update("live", {"delay_s": 10})
+                for k in range(30):  # a section a second, numbered
+                    app._live_delay({"n": k})
+                    clock[0] += 1.0
+                self.assertEqual(app._live_delay({"n": 30})["n"], 20)  # 10 s behind
+                app.overlays.update("live", {"delay_s": 0})
+                self.assertEqual(app._live_delay({"n": 31})["n"], 31)  # none: as it is
+            self.assertEqual(app.overlays.get()["live"]["delay_s"], 0.0)
+            app.overlays.update("live", {"delay_s": 999})
+            self.assertEqual(app.overlays.get()["live"]["delay_s"], 300.0)
 
     def test_the_live_timing_tabs_settings(self):
         with tempfile.TemporaryDirectory() as tmp:

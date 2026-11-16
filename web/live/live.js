@@ -127,6 +127,8 @@ $("#class-chips").addEventListener("click", (e) => {
 // -- the leaderboard ---------------------------------------------------------------------
 
 const visible = () => (data.cars || []).filter((c) => classFilter === "all" || c.cls === classFilter);
+// Places gained (+) or lost (−): overall, or within the class when one's picked.
+const gained = (c) => (classFilter === "all" ? c.pc : c.cpc);
 
 function gapCell(car, first) {
   if (car.out && !car.fin) return '<span class="tag out">OUT</span>';
@@ -159,7 +161,10 @@ function renderBoard() {
   // The columns switched on: [heading, the cell for a car].
   const cols = [
     ['<th class="r">Pos</th>', (c) => `<td class="pos">${(classFilter === "all" ? c.pos : c.cpos) ?? ""}</td>`],
-    race() && shows("pos_change") && ["<th></th>", (c) => `<td class="chg-cell">${c.pc ? `<span class="chg ${c.pc > 0 ? "up" : "down"}">${c.pc > 0 ? "▲" : "▼"}${Math.abs(c.pc)}</span>` : ""}</td>`],
+    race() && shows("pos_change") && ["<th></th>", (c) => {
+      const pc = gained(c);  // in the class, when one's picked
+      return `<td class="chg-cell">${pc ? `<span class="chg ${pc > 0 ? "up" : "down"}">${pc > 0 ? "▲" : "▼"}${Math.abs(pc)}</span>` : ""}</td>`;
+    }],
     shows("number") && ["<th>#</th>", (c) => {
       const color = classOf(c).color;
       return `<td><span class="num" style="background:${esc(color)};color:${ink(color)}">${esc(c.num)}</span></td>`;
@@ -218,7 +223,8 @@ function renderPositions() {
   const cars = visible();
   const html = cars.map((c) => {
     const pos = classFilter === "all" ? c.pos : c.cpos;
-    const mark = race() && c.pc ? `<span class="pn ${c.pc > 0 ? "up" : "down"}">${c.pc > 0 ? "↑" : "↓"}</span>` : `<span class="pn">${pos ?? ""}</span>`;
+    const pc = gained(c);
+    const mark = race() && pc ? `<span class="pn ${pc > 0 ? "up" : "down"}">${pc > 0 ? "↑" : "↓"}</span>` : `<span class="pn">${pos ?? ""}</span>`;
     return `<li class="${picks.includes(c.id) ? "pick" : ""} ${c.out && !c.fin ? "out" : ""}" data-car="${c.id}" title="${esc(c.name)}">${mark}<span class="bar" style="background:${esc(classOf(c).color)}"></span><span class="ab">${esc(c.abbr)}</span></li>`;
   });
   patch($("#pos-list"), cars.map((c, i) => [String(c.id), html[i]]));

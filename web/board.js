@@ -286,7 +286,7 @@ function trackHtml(b) {
   }
   const deg = w.wind_dir != null ? ((w.wind_dir * 180) / Math.PI + 360) % 360 : null;
   const card = (label, value, extra = "") => `<div class="tk-card"><div class="tk-label">${label}</div><div class="tk-value">${value}</div>${extra}</div>`;
-  const left = [cfg.show_air && card("Air temperature", temp(w.air)), cfg.show_track_temp && card("Track temperature", temp(w.track))].filter(Boolean);
+  const left = [cfg.show_air && card("Air temperature", temp(w.air)), cfg.show_track_temp && card("Track temperature", temp(w.track))];
   const wind = cfg.show_wind && card("Wind", speed(w.wind), deg != null
     ? `<div class="tk-wind"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44"/>
         ${COMPASS.filter((_, i) => i % 2 === 0).map((c, i) => `<text x="${50 + 34 * Math.sin((i * Math.PI) / 2)}" y="${50 - 34 * Math.cos((i * Math.PI) / 2)}">${c}</text>`).join("")}
@@ -294,7 +294,6 @@ function trackHtml(b) {
         <span>${COMPASS[Math.round(deg / 45) % 8]}</span></div>` : "");
   const sky = cfg.show_skies && (w.skies || w.humidity != null) && card("Conditions", `<span class="tk-sky">${esc(w.skies || "–")}</span>`,
     w.humidity != null ? `<div class="tk-extra">Humidity ${Math.round(w.humidity)}%</div>` : "");
-  const right = [wind, sky].filter(Boolean);
   const length = t.length_m ? `${(t.length_m / (imp ? 1609.344 : 1000)).toFixed(2)} ${imp ? "mi" : "km"}` : "";
   const where = [t.city, t.country].filter(Boolean).join(", ");
   const details = cfg.show_details ? [where, length, t.turns ? `${t.turns} turns` : ""].filter(Boolean) : [];
@@ -302,7 +301,7 @@ function trackHtml(b) {
     <div class="tk-title"><div class="tk-name">${esc(t.track || "Track")}</div>
       ${t.config ? `<div class="tk-config">${esc(t.config)}</div>` : ""}
       ${details.length ? `<div class="tk-details">${details.map((d) => `<span>${esc(d)}</span>`).join("")}</div>` : ""}</div>
-    <div class="tk-mid"><div class="tk-side">${left.join("")}</div><div class="tk-mapbox">${map}</div><div class="tk-side">${right.join("")}</div></div>
+    <div class="tk-mid"><div class="tk-side">${[...left, wind, sky].filter(Boolean).join("")}</div><div class="tk-mapbox">${map}</div></div>
   </div>`;
 }
 

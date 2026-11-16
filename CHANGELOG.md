@@ -24,6 +24,9 @@ How each version's entry is written:
   can be set to show either one.
 - Sponsor logo sizes: a size for each sponsor in the League builder (used
   everywhere it shows), and a sponsor logo size on every board.
+- Live timing website: a delay of its own (on top of the overlays'), to
+  match your stream's delay.
+- Track details board: the conditions all down the left, the track beside them.
 
 ### Fixes
 
@@ -32,6 +35,8 @@ How each version's entry is written:
 - Gaps no longer go blank for a while on the timing tower and screen when
   iRacing's data for a car blips out for a moment.
 - Timing tower by class: places gained / lost are within the class.
+- Live timing website: with a class picked, places gained / lost are within
+  the class.
 - Penalty flags aren't shown for drivers who are out or have left.
 - Timing tower in qualifying: the header shows before anyone has set a lap
   with "fill in as drivers complete a lap" off, as in a race.

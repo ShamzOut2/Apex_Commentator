@@ -201,7 +201,11 @@
   padding: 4px 14px; border-radius: 999px; font-size: calc(18px * var(--fs, 1)); font-weight: 700; color: var(--muted);
   background: rgba(255, 255, 255, calc(.07 * var(--bg-k, 1)));
 }
-.tk-mid { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px 1fr 340px; gap: 36px; align-items: center; }
+/* The conditions down the left, the track's outline filling the rest. */
+.tk-mid { flex: 1; min-height: 0; display: grid; grid-template-columns: 360px 1fr; gap: 48px; align-items: center; }
+.tk-side { gap: 16px; }
+.tk-side .tk-card { padding: 14px 20px; }
+.tk-side .tk-value { font-size: calc(48px * var(--fs, 1)); }
 .tk-side { display: flex; flex-direction: column; gap: 22px; }
 .tk-card {
   padding: 18px 22px; border-radius: 16px; background: rgba(20, 23, 30, calc(.85 * var(--bg-k, 1)));

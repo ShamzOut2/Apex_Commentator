@@ -2735,6 +2735,7 @@ const NAME_FORMATS = [["full", "Full name"], ["initial_last", "A. Driver"], ["la
 
 // The Live timing tab: how the spectators' page looks and what it shows.
 const LIVE_FIELDS = [
+  ["Delay", [["delay_s", "Extra delay, to match your stream's delay (seconds, on top of the overlays' delay; 0 = none). Spectators then see the race as the stream shows it, not ahead of it", "number", { min: 0, max: 300, step: 0.5 }]]],
   ["Header", [["title", "Heading (empty: the league's name)", "text"], ["show_series_logo", "League logo", "bool"],
     ["accent_color", "Colour of the top bar (and the drivers picked)", "color"]]],
   ["Drivers", [["name_format", "Names", "select", NAME_FORMATS], ["show_team", "Team name under each driver", "bool"],
