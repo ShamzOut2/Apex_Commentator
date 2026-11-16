@@ -73,17 +73,15 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.6**
+**Coming in the next update**
 
-### Improvements
+### New features
 
-- Overlays use much less CPU and GPU, in OBS and in the app: the timing
-  tower and timing screen only redraw what changed, the track map draws
-  less often and only when cars move, and overlays with nothing on screen
-  sit idle.
-- apex.log now has every error, from the overlays in OBS and the app's
-  window as well as the app itself, each line with the time, and
-  **Show log file** on the Home tab opens it, ready to send.
+- Pit strategy overlay: the cars you pick, each with its race along a lap
+  scale, a tag at the lap of each pit stop, PIT while it's in the pit lane,
+  and its stops and laps on its current stint. Pick cars on the Widgets tab
+  (one by one, or the top 5, the cars around the one on camera, or each
+  class's leader), with hotkeys too.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -826,6 +824,26 @@ cost to how smoothly things move.
   switched on, it appears when someone's within the gap and goes when no one
   is (it stays a few seconds after, so it doesn't flicker). Untick it to show
   and hide it yourself.
+- **Pit strategy** (`/strategy.html`): up to 8 cars you pick, one row each,
+  in the championship battle's style: place, car number (class colour), team
+  logo and name, then the car's race along a **lap scale** (the race's
+  length when it's set in laps, else the laps run so far, with marks every
+  5, 10, 25 or 50 laps). The laps it's done are filled in in its colour, a
+  tag sits at the lap of **each pit stop** (L14: it came in on lap 14; stops
+  close together share one, "L14 · 15") and a dot shows where it is now:
+  a yellow **PIT** while it's in the pit lane, a chequered flag once it's
+  finished, **OUT** if it's retired or left (its race so far stays drawn).
+  At the end, its **number of stops** and the **laps on its current stint**.
+  The header has the race's lap (LAP 38 / 60). Cars are picked **by car
+  number**, so a team's car stays picked when its drivers swap. On the
+  Widgets tab: add cars one at a time, or pick them in one go: **Top 5**,
+  **Around camera** (the car on camera and two either side of it, in its
+  class), **Camera car** or **Class leaders**. Those are hotkeys too, with
+  one to show and hide the cars picked. Rows in running order or as you
+  picked them; the width, heading, names, position (overall or in class) and
+  columns can be set. A stop is counted from the pit lane entry line (a
+  drive-through counts too), from the race log, so stops made before the app
+  was running in a race aren't on it.
 - **Starting lights** (`/lights.html`): a start-light gantry seen in
   perspective, turned 10° to the left (a steel box truss, two posts down to
   a black housing, and for each light a column of two lamps, each a glass
@@ -1874,6 +1892,7 @@ web/           the overlay UI (plain HTML/CSS/JS, no build step)
   sponsors.html  sponsor logos for OBS
   driver.html  the driver on camera, for OBS
   duel.html, trackmap.html  the on-track battle and the track map, for OBS
+  strategy.html          the pit strategy (picked cars' pit stops along the race), for OBS
   lights.html, flags.html  the starting lights and the yellow flags by sector, for OBS
   common.js    shared helpers: logo recolouring, drawn liveries
   logos/       built-in layered class logos

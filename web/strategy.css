@@ -1,0 +1,55 @@
+/* Pit strategy: the championship battle's panel and rows (battle.css), with a
+   lap scale across the middle: each car's race so far, a tag at each pit
+   stop's lap and a marker where it is now. */
+.strategy { min-width: 700px; }
+.strategy .bt-head { gap: 14px; }
+.st-lap { margin-left: auto; color: var(--accent); letter-spacing: .06em; }
+
+/* The scale's lap numbers, over the lanes (both inset so the ends' tags fit). */
+.st-cols { height: 30px; }
+.st-ticks, .st-lane { position: relative; height: 100%; margin: 0 24px; }
+.st-ticks i {
+  position: absolute; top: 50%; translate: -50% -50%; font-style: normal; font-variant-numeric: tabular-nums;
+  font-size: calc(12px * var(--fs, 1)); color: var(--muted); letter-spacing: 0;
+}
+
+/* A lane: the whole race faint, the laps run so far in the car's colour,
+   faint lines at the scale's marks. */
+.st-lane {
+  background: linear-gradient(to right, rgba(255, 255, 255, calc(.07 * var(--bg-k, 1))) 1px, transparent 1px) 0 0 / var(--tick, 10%) 100% repeat-x;
+}
+.st-line, .st-run { position: absolute; left: 0; top: 50%; height: 4px; translate: 0 -50%; border-radius: 2px; }
+.st-line { right: 0; background: rgba(255, 255, 255, calc(.16 * var(--bg-k, 1))); }
+.st-run { background: var(--run, var(--accent)); transition: width .8s cubic-bezier(.2, .8, .2, 1); }
+
+/* A pit stop: the lap it came in on. */
+.st-stop {
+  position: absolute; top: 50%; translate: -50% -50%; z-index: 3; padding: 1px 7px; border-radius: 5px;
+  font-size: calc(13px * var(--fs, 1)); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap;
+  background: #14171d; color: var(--ink); border: 2px solid var(--run, var(--accent));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, calc(.45 * var(--bg-k, 1)));
+}
+
+/* Where the car is now. */
+.st-at { position: absolute; top: 50%; translate: -50% -50%; z-index: 2; transition: left .8s cubic-bezier(.2, .8, .2, 1); display: flex; }
+.st-now {
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 0 3px var(--run, var(--accent)), 0 2px 6px rgba(0, 0, 0, .5);
+}
+.st-now.pit, .st-now.out {
+  width: auto; height: auto; border-radius: 5px; padding: 2px 8px; box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+  font-size: calc(13px * var(--fs, 1)); font-weight: 900; letter-spacing: .08em; color: #111;
+}
+.st-now.pit { background: var(--yellow); animation: st-pulse 1.1s ease-in-out infinite; }
+.st-at.over { z-index: 4; }  /* PIT / OUT: over the stop tags */
+.st-now.out { background: #9aa1ad; }
+.st-now.fin {
+  width: 18px; height: 18px; border-radius: 3px;
+  background: conic-gradient(#111 0 25%, #fff 0 50%, #111 0 75%, #fff 0) 0 0 / 9px 9px;
+}
+@keyframes st-pulse { 50% { opacity: .55; } }
+
+.st-n { font-size: calc(24px * var(--fs, 1)); font-weight: 900; text-align: right; font-variant-numeric: tabular-nums; }
+.st-n.stint { color: var(--muted); }
+.strategy .bt-row.in-pit { background: rgba(255, 210, 63, calc(.08 * var(--bg-k, 1))); }
+.strategy .bt-row.gone { opacity: .55; }

@@ -11,6 +11,16 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- Pit strategy overlay: the cars you pick, each with its race along a lap
+  scale, a tag at the lap of each pit stop, PIT while it's in the pit lane,
+  and its stops and laps on its current stint. Pick cars on the Widgets tab
+  (one by one, or the top 5, the cars around the one on camera, or each
+  class's leader), with hotkeys too.
+
 ## v0.7.6
 
 ### Improvements

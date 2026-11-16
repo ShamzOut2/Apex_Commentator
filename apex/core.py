@@ -1067,6 +1067,8 @@ class App:
             self._battle_basis = (rows, snap["championship"], frame.cam_car_idx)
             snap["overlays"]["battle"] = self._battle_snapshot(snap["championship"], active_league)
             snap["overlays"]["duel"] = self._duel_snapshot(snap["overlays"], frame, is_race)
+            snap["overlays"]["strategy"] = self._strategy_snapshot(snap["overlays"], frame, is_race)
+            self._strategy_basis = (snap["overlays"]["standings"] if is_race else [], frame.cam_car_idx)
             snap["overlays"]["trackmap"] = self._trackmap_snapshot(rows, snap, frame, active_league)
             snap["overlays"]["lights"] = self._lights_now
             starts = self._flag_sectors(self.overlays.get()["flags"]["flag_sectors"])
@@ -1256,6 +1258,100 @@ class App:
         elif cfg["auto"] and held and held[1] == cam and 0 <= now - held[0] <= cfg["hold_s"]:
             rows, active = held[2], True
         return {"active": active, "rows": rows, "pos": rows[0]["pos"] if rows else None, "multiclass": by_class}
+
+    def _pit_laps(self, session_num):
+        """car -> the laps it came into the pits on, in this race (from the race
+        log: the lap it was on as it crossed the pit lane entry line)."""
+        out = {}
+        for ev in self.detector.events:
+            if ev["type"] == "pit_in" and ev.get("session_num") == session_num:
+                out.setdefault(ev["car_idx"], []).append(ev.get("lap") or 0)
+        return out
+
+    def _strategy_snapshot(self, ov, frame, is_race):
+        """The pit strategy overlay (strategy.html): the cars picked (by number),
+        each with the laps it pitted on, where it is now and its stops and
+        stint, and the lap scale they're drawn on. None outside a race or
+        with no cars picked."""
+        cfg = self.overlays.get()["strategy"]
+        picked = [n for n in cfg["cars"].split(",") if n]
+        if not is_race or not picked:
+            return None
+        entries = ov.get("standings") or []
+        by_number = {}
+        for e in entries:
+            by_number.setdefault(str(e["number"]), e)
+        multi = len({e["class_key"] for e in entries}) > 1
+        session_num = frame.timeline()[0]
+        pits = self._pit_laps(session_num)
+        # Laps done as last known: a car out of the car (retired, or gone)
+        # has none in iRacing's data, but its race so far stays drawn.
+        done_at = getattr(self, "_strategy_done", None)
+        if done_at is None or done_at[0] != session_num:
+            done_at = self._strategy_done = (session_num, {})
+        progress = ov.get("progress") or {}
+        total = progress.get("laps_total") if progress.get("mode") == "laps" else None
+        lead = max((e.get("laps_completed") or 0 for e in entries), default=0)
+        rows = []
+        for n in picked:
+            e = by_number.get(n)
+            if e is None:  # not in this race
+                continue
+            if e.get("laps_completed") is not None:
+                done_at[1][e["car_idx"]] = e["laps_completed"]
+            done = done_at[1].get(e["car_idx"], 0)
+            rows.append({**{k: e.get(k) for k in ("car_idx", "number", "name", "nickname", "pronouns", "team", "team_logo",
+                                                  "team_logo_small", "class_key", "paint", "stint", "finished")},
+                         "pos": e["class_pos"] if cfg["position_shown"] == "class" else e["pos"],
+                         "order": e["pos"] or 999,
+                         "done": done,
+                         "stops": pits.get(e["car_idx"], []),
+                         "in_pit": bool(e.get("on_pit") and e.get("in_world")),
+                         "out": bool(not e.get("finished") and (e.get("left") or (not e.get("in_world") and done > 0)))})
+        if cfg["order"] == "position":
+            rows.sort(key=lambda r: r["order"])
+        # The lap scale: the race's length (laps), else the laps run so far
+        # (the leader's), with a little room, in steps of 5.
+        scale = total if cfg["scale_to"] == "race" and total else max(10, -(-(lead + 2) // 5) * 5)
+        return {"rows": rows, "scale": scale, "laps_total": total, "lap": lead, "multiclass": multi,
+                "missing": [n for n in picked if n not in by_number]}
+
+    STRATEGY_PICKS = ("top", "around", "camera", "leaders")
+
+    def cmd_strategy_pick(self, mode="around", show=True):
+        """Pick the pit strategy overlay's cars in one go (and put it on screen):
+        ``mode`` "top" (the top five overall), "around" (the car on camera and
+        two either side of it in its class), "camera" (just the car on camera)
+        or "leaders" (each class's leader)."""
+        if mode not in self.STRATEGY_PICKS:
+            raise CommandError(f"Unknown pick '{mode}'")
+        standings, cam_idx = getattr(self, "_strategy_basis", ([], None))
+        entries = sorted((e for e in standings if e.get("pos")), key=lambda e: e["pos"])
+        if not entries:
+            raise CommandError("No race running order yet")
+        cam = next((e for e in entries if e["car_idx"] == cam_idx), None)
+        if mode == "top":
+            picked = entries[:5]
+        elif mode == "leaders":
+            seen, picked = set(), []
+            for e in entries:
+                if e["class_key"] not in seen:
+                    seen.add(e["class_key"])
+                    picked.append(e)
+        else:
+            if cam is None:
+                raise CommandError("The car on camera isn't in the race")
+            if mode == "camera":
+                picked = [cam]
+            else:
+                mine = [e for e in entries if e["class_key"] == cam["class_key"]]
+                i = mine.index(cam)
+                picked = mine[max(0, i - 2):i + 3]
+        values = {"cars": ",".join(str(e["number"]) for e in picked)}
+        if show:
+            values["visible"] = True
+        self.overlays.update("strategy", values)
+        return {"cars": values["cars"].split(",")}
 
     def _duel_settle(self, key, now, group, me, within, settle_s):
         """The cars in the on-track battle (car_idx): each joins once it's been
@@ -2677,6 +2773,7 @@ class App:
         "battle": ("Championship battle", "/battle.html"),
         "pits": ("Pit stops", "/pits.html"),
         "duel": ("On-track battle", "/duel.html"),
+        "strategy": ("Pit strategy", "/strategy.html"),
         "trackmap": ("Track map", "/trackmap.html"),
         "lights": ("Starting lights", "/lights.html"),
         "flags": ("Flags", "/flags.html"),
@@ -2726,7 +2823,7 @@ class App:
         return {"method": method}
 
     # What "all of them on my screen" puts up (hotkeys desk:overlays / desk:boards).
-    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits", "duel", "trackmap", "lights", "flags"), "boards": ("board",),
+    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits", "duel", "strategy", "trackmap", "lights", "flags"), "boards": ("board",),
                       "gridwalk": ("gridwalk",)}
 
     def cmd_desktop_show_all(self, group="overlays", screen=None):
@@ -3060,6 +3157,8 @@ class App:
         board:next, board:prev (its pages), board:row_next / row_prev / row_all
         (the starting grid shown row by row), board:<kind>:<group> (on screen,
         or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick),
+        strategy:toggle (the pit strategy's cars on screen or off),
+        strategy:<top|around|camera|leaders> (see cmd_strategy_pick),
         desk:overlays / desk:boards / desk:gridwalk (on the user's screen), desk:off,
         tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class),
         tower:header (its header: laps left / time left), all:toggle (every
@@ -3107,6 +3206,13 @@ class App:
                     raise CommandError("Pick the championship battle's drivers first (Overlays tab)")
                 return self.cmd_overlay_settings("battle", {"visible": not cfg["visible"]})
             return self.cmd_battle_pick(rest)
+        if kind == "strategy":
+            if rest == "toggle":  # the cars picked, on screen or off
+                cfg = self.overlays.get()["strategy"]
+                if not cfg["visible"] and not cfg["cars"]:
+                    raise CommandError("Pick the pit strategy's cars first (Widgets tab)")
+                return self.cmd_overlay_settings("strategy", {"visible": not cfg["visible"]})
+            return self.cmd_strategy_pick(rest)
         if kind == "desk":
             if rest == "boards_toggle":  # the boards on the user's screen, or off it
                 on = self.desktop.on_screen() if self.desktop is not None else {}
@@ -3141,7 +3247,7 @@ class App:
     TOWER_COLUMN_KEYS = ("show_pos_change", "show_number", "show_logo", "show_team", "show_gap", "show_interval",
                          "show_last_lap", "show_best_lap", "show_laps", "show_pits", "show_stint", "show_tyre",
                          "show_make", "show_pit_status", "show_stripe", "show_fastest_icon")
-    TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits", "duel", "trackmap", "lights", "flags")
+    TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits", "duel", "strategy", "trackmap", "lights", "flags")
 
     def _toggled(self, ov):
         """The overlays everything-off / on takes: not the sponsors set to stay."""
