@@ -919,11 +919,14 @@ class App:
             last_event = {}
             pit_stops = {}
             pit_exit_lap = {}  # car -> the lap it was on as it left the pits (its stint started)
+            penalties_count = self.overlays.get()["general"]["penalty_stops"]
             for ev in events:
                 counts[ev["car_idx"]] = counts.get(ev["car_idx"], 0) + 1
                 last_event[ev["car_idx"]] = ev["id"]
-                # Pit stops: this race's own (not a heat's before it, or practice's).
-                if ev["type"] == "pit_out" and ev.get("session_num") == frame.session_num:
+                # Pit stops: this race's own (not a heat's before it, or practice's);
+                # a penalty served in the pit lane only if they count (General).
+                if ev["type"] == "pit_out" and ev.get("session_num") == frame.session_num \
+                        and (penalties_count or ev.get("stop", "stop") == "stop"):
                     pit_stops[ev["car_idx"]] = pit_stops.get(ev["car_idx"], 0) + 1
                     pit_exit_lap[ev["car_idx"]] = ev.get("lap") or 0
             classes = {}
@@ -1260,12 +1263,20 @@ class App:
         return {"active": active, "rows": rows, "pos": rows[0]["pos"] if rows else None, "multiclass": by_class}
 
     def _pit_laps(self, session_num):
-        """car -> the laps it came into the pits on, in this race (from the race
-        log: the lap it was on as it crossed the pit lane entry line)."""
-        out = {}
+        """car -> its visits to the pit lane in this race, from the race log:
+        [{"lap": the lap it was on as it crossed the entry line, "kind": "stop",
+        "drive_through" or "stop_go" once it's left (see events.py), None
+        while it's still in the pit lane}]."""
+        out, open_ = {}, {}
         for ev in self.detector.events:
-            if ev["type"] == "pit_in" and ev.get("session_num") == session_num:
-                out.setdefault(ev["car_idx"], []).append(ev.get("lap") or 0)
+            if ev.get("session_num") != session_num:
+                continue
+            if ev["type"] == "pit_in":
+                visit = {"lap": ev.get("lap") or 0, "kind": None}
+                out.setdefault(ev["car_idx"], []).append(visit)
+                open_[ev["car_idx"]] = visit
+            elif ev["type"] == "pit_out" and ev["car_idx"] in open_:
+                open_.pop(ev["car_idx"])["kind"] = ev.get("stop", "stop")
         return out
 
     def _strategy_snapshot(self, ov, frame, is_race):
@@ -1274,6 +1285,7 @@ class App:
         stint, and the lap scale they're drawn on. None outside a race or
         with no cars picked."""
         cfg = self.overlays.get()["strategy"]
+        penalties_count = self.overlays.get()["general"]["penalty_stops"]
         picked = [n for n in cfg["cars"].split(",") if n]
         if not is_race or not picked:
             return None
@@ -1300,12 +1312,21 @@ class App:
             if e.get("laps_completed") is not None:
                 done_at[1][e["car_idx"]] = e["laps_completed"]
             done = done_at[1].get(e["car_idx"], 0)
+            # Each visit to the pit lane: a stop (counted), a penalty served
+            # (counted only if they count; shown if wanted), or under way (None).
+            visits = []
+            for v in pits.get(e["car_idx"], []):
+                penalty = v["kind"] in ("drive_through", "stop_go")
+                if penalty and not (penalties_count or cfg["show_penalties"]):
+                    continue
+                visits.append({"lap": v["lap"], "kind": v["kind"], "counted": v["kind"] is not None and (not penalty or penalties_count)})
             rows.append({**{k: e.get(k) for k in ("car_idx", "number", "name", "nickname", "pronouns", "team", "team_logo",
                                                   "team_logo_small", "class_key", "paint", "stint", "finished")},
                          "pos": e["class_pos"] if cfg["position_shown"] == "class" else e["pos"],
                          "order": e["pos"] or 999,
                          "done": done,
-                         "stops": pits.get(e["car_idx"], []),
+                         "stops": visits,
+                         "stop_count": sum(1 for v in visits if v["counted"]),
                          "in_pit": bool(e.get("on_pit") and e.get("in_world")),
                          "out": bool(not e.get("finished") and (e.get("left") or (not e.get("in_world") and done > 0)))})
         if cfg["order"] == "position":

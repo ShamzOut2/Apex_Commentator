@@ -4,7 +4,8 @@ import unittest
 from apex.config import DEFAULTS
 from apex.events import EventDetector
 from apex.sources import (
-    FLAG_BLACK, FLAG_CAUTION, FLAG_FURLED, FLAG_GREEN, Frame, STATE_RACING, TRK_OFF_TRACK, TRK_ON_TRACK,
+    FLAG_BLACK, FLAG_CAUTION, FLAG_FURLED, FLAG_GREEN, Frame, STATE_RACING, TRK_APPROACHING_PITS, TRK_IN_PIT_STALL, TRK_OFF_TRACK,
+    TRK_ON_TRACK,
 )
 
 TRACK_M = 4000.0
@@ -318,6 +319,30 @@ class RaceEventTests(unittest.TestCase):
         pit_out = events[1]
         self.assertAlmostEqual(pit_out["duration"], 28.0, delta=0.2)
         self.assertEqual((pit_out["from_position"], pit_out["position"]), (1, 3))
+
+    def visit(self, box, black_until=None, seconds=40):
+        """Car 1 down the pit lane from 2 s to 30 s, in its pit box from 10 s to
+        20 s if ``box``; a black flag (a penalty) until ``black_until``."""
+        def car(t):
+            flags = FLAG_GREEN | (FLAG_BLACK if black_until is not None and t < black_until else 0)
+            if t < 2 or t >= 30:
+                return (5, (0.60 + t * 0.011) % 1, TRK_ON_TRACK, False, flags, 89.0)
+            surface = TRK_IN_PIT_STALL if box and 10 <= t < 20 else TRK_APPROACHING_PITS
+            return (5, 0.62 + (t - 2) * 0.001, surface, True, flags, 89.0)
+        return next(e for e in self.race(seconds, car) if e["type"] == "pit_out")
+
+    def test_what_kind_of_pit_stop(self):
+        self.assertEqual(self.visit(box=True)["stop"], "stop")
+        self.setUp()
+        self.assertEqual(self.visit(box=False)["stop"], "drive_through")  # never stopped in its box
+        self.setUp()
+        self.assertEqual(self.visit(box=False, black_until=29)["stop"], "drive_through")  # a drive-through penalty served
+        self.setUp()
+        self.assertEqual(self.visit(box=True, black_until=29)["stop"], "stop_go")  # stopped in the box, penalty gone
+        self.setUp()
+        self.assertEqual(self.visit(box=True, black_until=33)["stop"], "stop_go")  # the flag goes just after the exit
+        self.setUp()
+        self.assertEqual(self.visit(box=True, black_until=99)["stop"], "stop")  # stopped with the penalty still to serve
 
     def test_leaving_the_pits_for_the_grid_isnt_a_pit_stop(self):
         """Before the green, cars go from their pit stalls to the grid: not a

@@ -32,12 +32,18 @@ class StrategyTests(unittest.TestCase):
     def standings(self):
         return sorted(self.app.build_snapshot()["overlays"]["standings"], key=lambda e: e["pos"])
 
-    def pit(self, entry, lap, session_num=None):
-        """A pit stop in the race log: in on ``lap``."""
+    def pit(self, entry, lap, session_num=None, kind="stop"):
+        """A visit to the pit lane in the race log: in on ``lap``, out (a
+        ``kind`` of stop) on the next; kind None: still in the pit lane."""
         num = self.app._frame.timeline()[0] if session_num is None else session_num
-        self.app.detector.events.append({"id": 10_000 + len(self.app.detector.events), "type": "pit_in", "car_idx": entry["car_idx"],
-                                         "car_number": entry["number"], "driver": entry["name"], "session_num": num,
-                                         "session_time": 1.0, "lap": lap, "incidents": 0})
+        for typ, at in (("pit_in", lap), ("pit_out", lap + 1)):
+            if typ == "pit_out" and kind is None:
+                break
+            ev = {"id": 10_000 + len(self.app.detector.events), "type": typ, "car_idx": entry["car_idx"], "car_number": entry["number"],
+                  "driver": entry["name"], "session_num": num, "session_time": 1.0, "lap": at, "incidents": 0}
+            if typ == "pit_out":
+                ev.update(stop=kind, duration=30.0, position=1, from_position=1)
+            self.app.detector.events.append(ev)
 
     def test_the_cars_picked_with_their_stops(self):
         self.assertIsNone(self.app.build_snapshot()["overlays"]["strategy"])  # none picked: nothing
@@ -50,7 +56,8 @@ class StrategyTests(unittest.TestCase):
         s = self.app.build_snapshot()["overlays"]["strategy"]
         # In running order, the stops' laps, and the car not in the race left out.
         self.assertEqual([r["number"] for r in s["rows"]], [first["number"], third["number"], fifth["number"]])
-        self.assertEqual([r["stops"] for r in s["rows"]], [[], [7, 19], []])
+        self.assertEqual([[v["lap"] for v in r["stops"]] for r in s["rows"]], [[], [7, 19], []])
+        self.assertEqual([r["stop_count"] for r in s["rows"]], [0, 2, 0])
         self.assertEqual(s["missing"], ["999"])
         self.assertEqual(s["scale"], 30)  # the race's length
         self.assertEqual(s["rows"][0]["done"], first["laps_completed"])
@@ -60,6 +67,32 @@ class StrategyTests(unittest.TestCase):
         self.assertEqual([r["number"] for r in s["rows"]], [fifth["number"], first["number"], third["number"]])
         self.assertEqual(s["scale"] % 5, 0)
         self.assertGreater(s["scale"], s["lap"])
+
+    def test_penalties_served_in_the_pit_lane(self):
+        car = self.standings()[0]
+        self.pit(car, 5, kind="drive_through")
+        self.pit(car, 12)
+        self.pit(car, 18, kind="stop_go")
+        self.pit(car, 25, kind=None)  # in the pit lane now: not known yet, not counted yet
+        self.app.command("overlay_settings", {"overlay": "strategy", "values": {"cars": car["number"]}})
+
+        def now():
+            snap = self.app.build_snapshot()
+            row = snap["overlays"]["strategy"]["rows"][0]
+            tower = next(e for e in snap["overlays"]["standings"] if e["car_idx"] == car["car_idx"])
+            return [(v["lap"], v["kind"], v["counted"]) for v in row["stops"]], row["stop_count"], tower["pit_stops"]
+        # The default: penalties shown on the scale, not counted (here or in the tower's Pits).
+        visits, count, tower = now()
+        self.assertEqual(visits, [(5, "drive_through", False), (12, "stop", True), (18, "stop_go", False), (25, None, False)])
+        self.assertEqual((count, tower), (1, 1))
+        # Not shown either.
+        self.app.command("overlay_settings", {"overlay": "strategy", "values": {"show_penalties": False}})
+        self.assertEqual([v[0] for v in now()[0]], [12, 25])
+        # Counted as stops: everywhere.
+        self.app.command("overlay_settings", {"overlay": "general", "values": {"penalty_stops": True}})
+        visits, count, tower = now()
+        self.assertEqual(visits[:3], [(5, "drive_through", True), (12, "stop", True), (18, "stop_go", True)])
+        self.assertEqual((count, tower), (3, 3))
 
     def test_a_car_out_of_its_car_keeps_its_race_so_far(self):
         car = self.standings()[1]

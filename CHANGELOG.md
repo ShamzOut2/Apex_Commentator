@@ -20,6 +20,10 @@ How each version's entry is written:
   and its stops and laps on its current stint. Pick cars on the Widgets tab
   (one by one, or the top 5, the cars around the one on camera, or each
   class's leader), with hotkeys too.
+- Drive-through and stop-and-go penalties are told apart from pit stops, with
+  a setting for whether they count as stops (tower, timing screen, live
+  timing website, pit strategy); the pit strategy shows them as red tags and
+  the race log names them.
 
 ## v0.7.6
 

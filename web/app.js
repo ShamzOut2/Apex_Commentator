@@ -799,7 +799,8 @@ function eventText(ev) {
       return `${who} pits${ev.position ? ` from P${ev.position}` : ""}`;
     case "pit_out": {
       const lost = ev.position && ev.from_position ? ev.position - ev.from_position : 0;
-      return `${who} rejoins <b>P${ev.position ?? "?"}</b>${lost > 0 ? ` (lost ${lost})` : ""} · ${ev.duration}s in the pits`;
+      const served = { drive_through: " · drive-through", stop_go: " · stop-and-go" }[ev.stop] || "";
+      return `${who} rejoins <b>P${ev.position ?? "?"}</b>${lost > 0 ? ` (lost ${lost})` : ""} · ${ev.duration}s in the pits${served}`;
     }
     case "position":
       return `${who} loses <b>${ev.position - ev.from_position}</b> place${ev.position - ev.from_position === 1 ? "" : "s"} after going off (P${ev.from_position} → P${ev.position})`;
@@ -2988,6 +2989,9 @@ const OVERLAY_FIELDS = {
       ["show_pronouns", "Each driver's pronouns after their name, in brackets, e.g. (she/her) (set them in the League builder)", "bool"],
       ["strip_name_numbers", "Leave off a number on the end of a name, e.g. Shamoy Samuel3 → Shamoy Samuel (a driver's second iRacing account; Officials mode too)", "bool"],
     ]],
+    ["Pit stops", [
+      ["penalty_stops", "Penalties served in the pit lane (a drive-through, a stop-and-go) count as pit stops: the Pits and Stint columns, the live timing website and the pit strategy (untick: only stops in the pit box count)", "bool"],
+    ]],
     ["Colours", [
       ["solid_colors", "Class, team and accent colours stay as picked whatever a widget's opacity (untick: they fade with the panels)", "bool"],
     ]],
@@ -3098,6 +3102,7 @@ const OVERLAY_FIELDS = {
       ["show_logo", "Team logos", "bool"],
       ["show_stops", "Number of stops", "bool"],
       ["show_stint", "Laps on the current stint", "bool"],
+      ["show_penalties", "Penalties served in the pit lane on the scale too (red DT for a drive-through, SG for a stop-and-go); whether they count as stops is in All overlays & boards", "bool"],
     ]],
     OVERLAY_LOOK,
   ],

@@ -29,14 +29,31 @@ function columns(cfg) {
   return [cfg.show_position && "56px", "minmax(240px, 340px)", "1fr", cfg.show_stops && "64px", cfg.show_stint && "64px"].filter(Boolean);
 }
 
+// A penalty served in the pit lane: its tag's letters and what they stand for.
+const PENALTY = { drive_through: ["DT", "Drive-through"], stop_go: ["SG", "Stop-and-go"] };
+
+// Each visit to the pit lane that's over: a tag at its lap. Pit stops "L14";
+// penalties served there "DT L20" / "SG L20", in the penalty colour (counted
+// as stops or not: All overlays & boards). Close ones of a kind share a tag.
 function stopsHtml(stops, scale, laneW) {
   const groups = [];
-  for (const lap of [...stops].sort((a, b) => a - b)) {
+  for (const s of [...stops].filter((v) => v.kind).sort((a, b) => a.lap - b.lap)) {
     const last = groups[groups.length - 1];
-    if (last && ((lap - last[0]) / Math.max(1, scale)) * laneW < STOP_GAP_PX) last.push(lap);
-    else groups.push([lap]);
+    if (last && last.kind === s.kind && ((s.lap - last.laps[0]) / Math.max(1, scale)) * laneW < STOP_GAP_PX) last.laps.push(s.lap);
+    else groups.push({ kind: s.kind, laps: [s.lap] });
   }
-  return groups.map((g, i) => `<span class="st-stop" style="left:${along(g[0], scale)}%;--k:${i}">L${g.join(" · ")}</span>`).join("");
+  // Left to right, a tag that would cover the one before it (a stop and a
+  // penalty a lap apart) moves along just enough to sit beside it.
+  let edge = -Infinity;  // the right-hand end of the last tag (px)
+  return groups.map((g) => {
+    const pen = PENALTY[g.kind];
+    const text = `${pen ? `${pen[0]} ` : ""}L${g.laps.join(" · ")}`;
+    const width = 20 + text.length * 8.5;  // about, at the standard size
+    const at = (along(g.laps[0], scale) / 100) * laneW;
+    const shift = Math.max(0, edge + 4 - (at - width / 2));
+    edge = at + shift + width / 2;
+    return `<span class="st-stop ${pen ? "pen" : ""}" style="left:calc(${along(g.laps[0], scale)}% + ${Math.round(shift)}px)"${pen ? ` title="${pen[1]}"` : ""}>${pen ? `<b>${pen[0]}</b> ` : ""}L${g.laps.join(" · ")}</span>`;
+  }).join("");
 }
 
 function rowHtml(r, i, cfg, cls, scale, laneW) {
@@ -52,9 +69,9 @@ function rowHtml(r, i, cfg, cls, scale, laneW) {
   if (cfg.show_position) cells.push(`<span class="pos">${r.pos ? `P${r.pos}` : "–"}</span>`);
   cells.push(`<span class="who">${number}${logo}<span class="names"><span class="name">${nameHtml(r, cfg.name_format)}</span></span></span>`);
   cells.push(`<span class="st-lane" style="--run:${esc(color)}"><span class="st-line"></span>
-    <span class="st-run" style="width:${along(done, scale)}%"></span>${stopsHtml(r.in_pit ? r.stops.slice(0, -1) : r.stops, scale, laneW)}
+    <span class="st-run" style="width:${along(done, scale)}%"></span>${stopsHtml(r.stops, scale, laneW)}
     <span class="st-at ${r.in_pit || r.out ? "over" : ""}" style="left:${along(done, scale)}%">${now}</span></span>`);
-  if (cfg.show_stops) cells.push(`<span class="st-n">${r.stops.length}</span>`);
+  if (cfg.show_stops) cells.push(`<span class="st-n">${r.stop_count}</span>`);
   if (cfg.show_stint) cells.push(`<span class="st-n stint">${r.stint ?? "–"}</span>`);
   return `<div class="bt-row panel-row ${r.in_pit ? "in-pit" : ""} ${r.out ? "gone" : ""}" style="--i:${i}" data-key="${r.car_idx}">${cells.join("")}</div>`;
 }

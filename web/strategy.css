@@ -30,6 +30,10 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, calc(.45 * var(--bg-k, 1)));
 }
 
+/* A penalty served in the pit lane (drive-through, stop-and-go): red, its letters first. */
+.st-stop.pen { border-color: var(--red); background: #3a1a1e; }
+.st-stop.pen b { color: var(--red); font-weight: 900; letter-spacing: .04em; }
+
 /* Where the car is now. */
 .st-at { position: absolute; top: 50%; translate: -50% -50%; z-index: 2; transition: left .8s cubic-bezier(.2, .8, .2, 1); display: flex; }
 .st-now {

@@ -69,7 +69,11 @@ DEFAULTS = {
                 "show_pronouns": True,
                 # A number on the end of a name ("Shamoy Samuel3": a second
                 # iRacing account) left off on every overlay and board.
-                "strip_name_numbers": False},
+                "strip_name_numbers": False,
+                # Penalties served in the pit lane (a drive-through, a stop-and-go)
+                # counted as pit stops: the Pits and Stint columns, the live timing
+                # website, the pit strategy (off: only stops in the pit box count).
+                "penalty_stops": False},
     # The live timing website for spectators (spectate.py, web/live/): how it looks
     # and what it shows. Every driver with a class is on it, whatever the tower shows.
     "live": {
@@ -296,6 +300,7 @@ DEFAULTS = {
         "show_number": True, "show_logo": True,
         "show_stops": True,       # the number of stops
         "show_stint": True,       # laps in the current stint (since its last stop)
+        "show_penalties": True,   # penalties served in the pit lane on the scale too (DT, SG), counted or not
         "class_colors": "main",
         **BACKGROUND, **OFFSET,
     },

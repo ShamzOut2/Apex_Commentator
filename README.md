@@ -82,6 +82,10 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   and its stops and laps on its current stint. Pick cars on the Widgets tab
   (one by one, or the top 5, the cars around the one on camera, or each
   class's leader), with hotkeys too.
+- Drive-through and stop-and-go penalties are told apart from pit stops, with
+  a setting for whether they count as stops (tower, timing screen, live
+  timing website, pit strategy); the pit strategy shows them as red tags and
+  the race log names them.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -841,9 +845,19 @@ cost to how smoothly things move.
   class), **Camera car** or **Class leaders**. Those are hotkeys too, with
   one to show and hide the cars picked. Rows in running order or as you
   picked them; the width, heading, names, position (overall or in class) and
-  columns can be set. A stop is counted from the pit lane entry line (a
-  drive-through counts too), from the race log, so stops made before the app
-  was running in a race aren't on it.
+  columns can be set. Stops come from the race log, so ones made before the
+  app was running in a race aren't on it.
+
+  **Penalties served in the pit lane** are told apart from pit stops: a
+  visit where the car never stops in its pit box is a **drive-through**
+  (DT); one it came in for with a penalty (iRacing's black flag) that's gone
+  as it leaves, having stopped in its box, a **stop-and-go** (SG). On the
+  scale they're red tags (DT L20, SG L20), or left off (*Penalties … on the
+  scale*). Whether they **count as pit stops** is up to you: *All overlays &
+  boards → Pit stops* (off by default: only stops in the pit box count). That
+  goes for every count of stops, so they agree: the tower's and timing
+  screen's **Pits** and **Stint** columns, the live timing website and the
+  pit strategy. The race log says which it was too ("· drive-through").
 - **Starting lights** (`/lights.html`): a start-light gantry seen in
   perspective, turned 10° to the left (a steel box truss, two posts down to
   a black housing, and for each light a column of two lamps, each a glass
