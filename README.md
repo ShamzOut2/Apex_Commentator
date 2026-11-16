@@ -17,6 +17,8 @@ An Apex Labs tool. A lightweight iRacing overlay suite for commentators. It runs
 app next to iRacing. Open it in a browser on a second monitor, or add it as an
 OBS dock.
 
+![Apex Commentator on stream: the timing tower by team, the driver on camera, an on-track battle, the track map and the league's sponsors](docs/hero.jpg)
+
 - **Timing screen**: one screen for the race. Live standings with overall
   and class position, places gained or lost, gap and interval, flags and
   penalties. **Battles** (a car within 0.15 s of the one ahead) light up in a colour you choose.
@@ -64,7 +66,9 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   left; its settings are a list of label and value, in sections that open
   and close, with its OBS links and a live preview beside them.
 
-![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.png)
+![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.jpg)
+
+![Widgets tab: every overlay and board on a card, with Show / Hide and its most-used settings](docs/widgets.jpg)
 
 ## What's new
 
@@ -455,7 +459,7 @@ Things to know:
 
 ## Grid walk
 
-![grid walk: two cars in their grid boxes, seen at an angle from beside the track](docs/gridwalk-track.png)
+![grid walk: two cars in their grid boxes, seen at an angle from beside the track](docs/gridwalk.jpg)
 
 The **Grid walk** tab runs a broadcast graphic that goes through the whole
 field, front to back, two drivers at a time. The grid is seen in
@@ -546,7 +550,7 @@ on stream or put on a monitor (open it, then F11).
 - **Live timing**: every driver in qualifying, with sector boxes coloured as
   they're set, the running lap clock, best lap and gap.
 
-![full-screen standings board](docs/standings-screen.png)
+![full-screen timing screen](docs/timing-screen.jpg)
 
 **Widget Settings** has each overlay's address for OBS, a **Preview ↗**
 button, a live preview and its settings; the **Widgets** tab turns them on and off. Add each one as a *Browser Source* at 1920×1080 (the
@@ -844,6 +848,8 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   default) also makes a sector yellow while a car is stopped or crawling in
   it (on or off the track, not in the pits), until a while after it gets
   going (10 s by default), and every sector under a full course caution.
+![the starting lights counting down, and a yellow flag for sectors 2 and 3](docs/lights-flags.jpg)
+
 - **Track map** (`/trackmap.html`): the track's outline with no background
   (the live timing website's map) and a dot for every car where it is, in
   its **main or secondary class colour**. The car on camera is bigger, with
@@ -957,11 +963,13 @@ when another is on, like the fastest lap flash timer, appear once it's on.
   - Sector splits come from iRacing's sector points for the track. Lap times
     use iRacing's own time when it reports one.
 
-![standings tower by class](docs/standings.png)
+![timing tower by class, with team badges, pronouns and the sponsor bar](docs/tower.jpg)
 
-![qualifying lap tracker: big tracker for the car on camera, small ones for the rest](docs/laps.png)
+![qualifying: the tower by class and the lap tracker, a big tracker for the car on camera and small ones for the rest](docs/qualifying.jpg)
 
 ## Team builder
+
+![Teams tab: each team's full and small logo, colour and drivers](docs/teams.jpg)
 
 The **Teams** tab works on the same league as the League builder. For each
 team, set:
@@ -1203,6 +1211,11 @@ The boards along the bottom of the **Widgets** tab put a full-screen board on st
 it. **⧉ Pop out** opens the Widgets tab in a window of its own. Each board's
 settings are in Widget Settings (⚙ by its name). The buttons are
 built from the active league:
+
+![championship standings board](docs/board-championship.jpg)
+![starting grid board, as the cars line up](docs/board-grid.jpg)
+![track details board: the round, the track and the weather](docs/board-track.jpg)
+![season calendar board](docs/board-calendar.jpg)
 
 - **Championship standings**: Overall, and one button per class (e.g. PRO,
   SEMI-PRO, AM): that championship's drivers with their points, the gap to
@@ -1538,6 +1551,8 @@ standings update from what's saved.
 
 ## League builder
 
+![League builder: the drivers, with nicknames, pronouns, teams, classes and cars](docs/league.jpg)
+
 Open the **League builder** tab.
 
 1. **Build from the current session**: takes the drivers in the iRacing
@@ -1652,7 +1667,7 @@ for a driver in the roster still wins.
 
 ### Classes and logos
 
-![class editor](docs/class-editor.png)
+![League builder: classes](docs/classes.jpg)
 
 Each class has a **name**, a **colour**, and optionally a **logo**.
 **Build from the current session** creates one class per iRacing car class,
