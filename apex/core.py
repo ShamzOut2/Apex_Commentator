@@ -26,6 +26,7 @@ from .backgrounds import Backgrounds
 from .gaps import GapTimer
 from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
+from .payload import Payloads
 from .settings import UserSettings
 from .tracks import TrackCatalogue
 from . import boards, heats, remote, spectate
@@ -336,7 +337,7 @@ class App:
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._snapshot = {"connected": False}
-        self._payload = (None, b"")         # (version, the snapshot as JSON): encoded once for every page listening
+        self._payloads = Payloads()         # the snapshot as JSON: encoded once for every page listening
         self._encode_lock = threading.Lock()
         self._errors = {}                   # poller errors logged: (where, error) -> (when, times since)
         self._delay_history = deque()       # (when, snapshot, cards) for the data delay (_delay)
@@ -2574,14 +2575,13 @@ class App:
 
         Every page open (the app, pop-outs, each overlay in OBS) gets each
         snapshot; it's encoded once for all of them, not once each (encoding
-        is most of the work of sending one)."""
+        is most of the work of sending one), and parts that haven't changed
+        since the snapshot the page had are left out (payload.py)."""
         version, snap = self.wait_snapshot(last_version, timeout)
         if version == last_version:
             return version, None
         with self._encode_lock:
-            if self._payload[0] != version:
-                self._payload = (version, json.dumps(snap, separators=(",", ":")).encode("utf-8"))
-            return self._payload
+            return version, self._payloads.get(version, snap, last_version)
 
     # -- commands -----------------------------------------------------------
 

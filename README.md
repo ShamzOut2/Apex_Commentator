@@ -73,35 +73,14 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.5**
+**Coming in the next update**
 
-### New features
+### Improvements
 
-- Pronouns for each driver (League builder): shown after their name on
-  every overlay and board, in brackets and a little smaller, e.g. "(she/her)",
-  with a setting to show or hide them.
-- An option to leave numbers off the end of drivers' names ("Shamoy Samuel3"
-  becomes "Shamoy Samuel") on every overlay and board, Officials mode too.
-- Teams can have a full logo and a small logo, and each overlay and board
-  can be set to show either one.
-- Sponsor logo sizes: a size for each sponsor in the League builder (used
-  everywhere it shows), and a sponsor logo size on every board.
-- Live timing website: a delay of its own (on top of the overlays'), to
-  match your stream's delay.
-- Track details board: the conditions all down the left, the track beside them.
-
-### Fixes
-
-- Starting lights now come up for rolling starts (counting down as the
-  leader heads for the line once the pace car pulls in).
-- Gaps no longer go blank for a while on the timing tower and screen when
-  iRacing's data for a car blips out for a moment.
-- Timing tower by class: places gained / lost are within the class.
-- Live timing website: with a class picked, places gained / lost are within
-  the class.
-- Penalty flags aren't shown for drivers who are out or have left.
-- Timing tower in qualifying: the header shows before anyone has set a lap
-  with "fill in as drivers complete a lap" off, as in a race.
+- Overlays use much less CPU and GPU, in OBS and in the app: the timing
+  tower and timing screen only redraw what changed, the track map draws
+  less often and only when cars move, and overlays with nothing on screen
+  sit idle.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -578,6 +557,14 @@ Timing Screen) are in *All overlays & boards*, in the timing tower's
 board's) settings are in sections that open and close (What it shows,
 Header, Columns, Drivers, Size & background…); settings that only matter
 when another is on, like the fastest lap flash timer, appear once it's on.
+
+**Light on the PC**: overlays only redraw what's changed (a new gap is that
+one number, not the whole tower again), the track map draws its cars up to
+30 times a second and not at all while none of them moves, and an overlay
+with nothing on screen sits idle. The app also sends each page only the parts
+of the live data that have changed. In OBS, ticking a Browser Source's
+*Use custom frame rate* and setting 30 halves what OBS does for it, at little
+cost to how smoothly things move.
 
 - **Standings** (`/standings.html`): in a race, the running order with the gap
   to the leader. In qualifying and practice, it shows the fastest clean lap,

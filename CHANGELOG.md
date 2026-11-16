@@ -11,6 +11,15 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- Overlays use much less CPU and GPU, in OBS and in the app: the timing
+  tower and timing screen only redraw what changed, the track map draws
+  less often and only when cars move, and overlays with nothing on screen
+  sit idle.
+
 ## v0.7.5
 
 ### New features

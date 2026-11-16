@@ -334,22 +334,23 @@ function tick() {
   if (SCREEN) {
     for (const el of stage.querySelectorAll("[data-clock]")) {
       const elapsed = screenClocks.get(el.dataset.clock);
-      el.textContent = elapsed == null ? "" : fmtLap(elapsed + ((now - screenAt) / 1000) * speed).replace(/(\.\d)\d\d$/, "$1");
+      setText(el, elapsed == null ? "" : fmtLap(elapsed + ((now - screenAt) / 1000) * speed).replace(/(\.\d)\d\d$/, "$1"));
     }
-    return requestAnimationFrame(tick);
+    return screenClocks.size > 0;
   }
   for (const entry of shown.values()) {
     const lap = entry.item && entry.item.lap;
     const lt = entry.el.querySelector(".lt");
-    if (!lap) lt.textContent = "";
-    else if (lap.state === "finished") lt.textContent = lap.valid ? fmtLap(lap.lap_time) : "INVALID";
-    else lt.textContent = fmtLap(lap.elapsed + ((now - entry.received) / 1000) * speed).replace(/(\.\d)\d\d$/, "$1");
+    if (!lap) setText(lt, "");
+    else if (lap.state === "finished") setText(lt, lap.valid ? fmtLap(lap.lap_time) : "INVALID");
+    else setText(lt, fmtLap(lap.elapsed + ((now - entry.received) / 1000) * speed).replace(/(\.\d)\d\d$/, "$1"));
   }
-  requestAnimationFrame(tick);
+  return shown.size > 0;
 }
-requestAnimationFrame(tick);
+const runClocks = frameLoop(tick);
 
 followSnapshots((s) => {
   snap = s;
   render();
+  runClocks();
 });

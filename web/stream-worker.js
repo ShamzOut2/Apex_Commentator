@@ -9,7 +9,11 @@
 
 const ports = new Set();
 let stream = null;
-let last = null;
+// The last whole snapshot, and the ones since that leave out what hadn't
+// changed ("_same", see apex/payload.py): a page that joins gets all of
+// them, in order, to have the whole of the latest.
+let whole = null;
+let since = [];
 
 function send(msg) {
   for (const port of ports) port.postMessage(msg);
@@ -23,11 +27,19 @@ let heard = 0;
 
 function open() {
   if (stream) stream.close();
+  [whole, since] = [null, []];  // the new connection starts with a whole one
   heard = Date.now();
   stream = new EventSource("/api/stream");
   stream.onmessage = (m) => {
     heard = Date.now();
-    last = m.data;
+    if (m.data.startsWith('{"_same"')) {
+      since.push(m.data);
+      // The app sends a whole one every couple of seconds; until then a page
+      // joining waits for it (rather than this keeping every one).
+      if (since.length > 100) [whole, since] = [null, []];
+    } else {
+      [whole, since] = [m.data, []];
+    }
     send({ type: "snapshot", data: m.data });
   };
   stream.onerror = () => send({ type: "down" });  // it tries again by itself (or the watch below does)
@@ -47,5 +59,7 @@ onconnect = (e) => {
     if (m.data === "bye") ports.delete(port);  // the page is going
   };
   if (!stream) open();
-  if (last) port.postMessage({ type: "snapshot", data: last });  // no waiting for the next one
+  if (whole) {  // no waiting for the next one
+    for (const data of [whole, ...since]) port.postMessage({ type: "snapshot", data });
+  }
 };

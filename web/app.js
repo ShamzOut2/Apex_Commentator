@@ -642,14 +642,18 @@ function renderStandings(s) {
   // One list, or two side by side: the first half of the field on the left.
   const half = settings.timingCols === 2 ? Math.ceil(ordered.length / 2) : ordered.length;
   const lists = [[$("#standings-rows"), ordered.slice(0, half)], [secondList(), ordered.slice(half)]];
-  // Drivers changing places slide past each other.
-  flipRows($("#std-lists"), "tr[data-car]", () => {
+  // Drivers changing places slide past each other (only looked at when the
+  // order has changed: finding where rows are makes the browser lay out the page).
+  const reorder = () => {
     for (const [body, rows] of lists) {
       rows.forEach((tr, i) => {
         if (body.children[i] !== tr) body.insertBefore(tr, body.children[i] || null);
       });
     }
-  }, 350, (el) => el.dataset.car);
+  };
+  const placed = lists.every(([body, rows]) => body.children.length === rows.length && rows.every((tr, i) => body.children[i] === tr));
+  if (placed) reorder();
+  else flipRows($("#std-lists"), "tr[data-car]", reorder, 350, (el) => el.dataset.car);
   updateBattleHints();
 }
 

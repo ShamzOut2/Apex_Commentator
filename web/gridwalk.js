@@ -448,14 +448,16 @@ function tickProgress() {
   const bar = document.getElementById("progress");
   if (bar && progress) {
     const extra = progress.running ? (performance.now() - progress.at) / 1000 : 0;
-    bar.style.width = `${Math.min(100, ((progress.elapsed + extra) / progress.interval) * 100)}%`;
+    const width = `${Math.min(100, ((progress.elapsed + extra) / progress.interval) * 100).toFixed(2)}%`;
+    if (bar.style.width !== width) bar.style.width = width;
   }
-  requestAnimationFrame(tickProgress);
+  return !!(bar && progress && progress.running);
 }
-requestAnimationFrame(tickProgress);
+const runProgress = frameLoop(tickProgress);
 
 stage.classList.add("hidden");
 followSnapshots((s) => {
   snap = s;
   render();
+  runProgress();
 });
