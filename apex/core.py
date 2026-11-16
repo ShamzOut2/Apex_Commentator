@@ -26,6 +26,7 @@ from .backgrounds import Backgrounds
 from .gaps import GapTimer
 from .laps import LapTracker, group_sectors, sector_starts
 from .overlays import OverlaySettings
+from .payload import Payloads
 from .settings import UserSettings
 from .tracks import TrackCatalogue
 from . import boards, heats, remote, spectate
@@ -336,9 +337,10 @@ class App:
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._snapshot = {"connected": False}
-        self._payload = (None, b"")         # (version, the snapshot as JSON): encoded once for every page listening
+        self._payloads = Payloads()         # the snapshot as JSON: encoded once for every page listening
         self._encode_lock = threading.Lock()
-        self._errors = {}                   # poller errors logged: (where, error) -> (when, times since)
+        self._errors = {}                   # errors logged: key -> (when, times since)
+        self._errors_lock = threading.Lock()
         self._delay_history = deque()       # (when, snapshot, cards) for the data delay (_delay)
         self._live_history = deque()        # (when, section) for the live timing website's own delay (_live_delay)
         self._cards = {}                    # every car's driver card in the last snapshot built (_driver_cards)
@@ -487,21 +489,40 @@ class App:
             self._stop.wait(max(0.0, period - (time.monotonic() - started)))
 
     def _report(self, where, e):
-        """Log an error from the poller: in full the first time, then at most
-        once a minute while it keeps happening (not many times a second)."""
-        key = (where, type(e).__name__, str(e)[:200])
-        now = time.monotonic()
-        seen = self._errors.get(key)
-        if seen and now - seen[0] < 60:
-            self._errors[key] = (seen[0], seen[1] + 1)
+        """Log an error (the poller's, a request's, a command's) in apex.log: in
+        full the first time, then at most once a minute while it keeps
+        happening (not many times a second)."""
+        shown = self._log_once((where, type(e).__name__, str(e)[:200]))
+        if shown is None:
             return
-        again = f" (x{seen[1] + 1} in the last minute)" if seen else ""
-        print(f"[apex] {where} error{again}: {e!r}")
-        if not seen:
-            traceback.print_exc()
-        if len(self._errors) > 100:
-            self._errors.clear()
-        self._errors[key] = (now, 0)
+        print(f"[apex] {where} error{shown}: {e!r}")
+        if not shown:
+            traceback.print_exception(type(e), e, e.__traceback__)
+
+    def log_page_error(self, page, message, where="", stack=""):
+        """An error in one of the app's pages (an overlay in OBS, the app's
+        window, a pop-out), sent by the page itself: into apex.log, as
+        ``_report`` does the app's own."""
+        shown = self._log_once(("page", page, message[:200]))
+        if shown is None:
+            return
+        print(f"[apex] page error{shown} in {page or '?'}: {message}" + (f" ({where})" if where else ""))
+        if stack and not shown:
+            print("    " + stack.strip().replace("\n", "\n    "))
+
+    def _log_once(self, key):
+        """None if this error was logged in the last minute (it's counted),
+        else "" the first time or " (xN in the last minute)" after."""
+        now = time.monotonic()
+        with self._errors_lock:
+            seen = self._errors.get(key)
+            if seen and now - seen[0] < 60:
+                self._errors[key] = (seen[0], seen[1] + 1)
+                return None
+            if len(self._errors) > 100:
+                self._errors.clear()
+            self._errors[key] = (now, 0)
+        return f" (x{seen[1] + 1} in the last minute)" if seen else ""
 
     def tick(self):
         """Read one frame and update state. Returns False while disconnected."""
@@ -1793,6 +1814,17 @@ class App:
             print(f"[apex] replay data check: stopped ({self.replay_check.rows} rows in {self.replay_check.path})")
         return self._replay_data_state()
 
+    def cmd_show_log(self):
+        """Open the folder with apex.log (the app's log: every error, from the
+        app and its pages) in the file manager, the log picked out."""
+        from .desktop import reveal
+        log = USER_DIR / "apex.log"
+        if not log.exists():
+            raise CommandError("There's no apex.log: started from source, the app writes its log in its console window")
+        if not reveal(log):
+            raise CommandError(f"Couldn't open the folder: {log.parent}")
+        return {"path": str(log)}
+
     def cmd_replay_check_folder(self):
         """Open the replay data check's folder in the file manager (on the PC the
         app runs on), the latest file picked out."""
@@ -2574,14 +2606,13 @@ class App:
 
         Every page open (the app, pop-outs, each overlay in OBS) gets each
         snapshot; it's encoded once for all of them, not once each (encoding
-        is most of the work of sending one)."""
+        is most of the work of sending one), and parts that haven't changed
+        since the snapshot the page had are left out (payload.py)."""
         version, snap = self.wait_snapshot(last_version, timeout)
         if version == last_version:
             return version, None
         with self._encode_lock:
-            if self._payload[0] != version:
-                self._payload = (version, json.dumps(snap, separators=(",", ":")).encode("utf-8"))
-            return self._payload
+            return version, self._payloads.get(version, snap, last_version)
 
     # -- commands -----------------------------------------------------------
 
@@ -2616,7 +2647,7 @@ class App:
             # click on screen: no lock, nothing to publish.
             return handler(**params) or {}
         # The grid walk can run from the last known grid while disconnected.
-        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay", "share_", "follow_", "sync_", "replay_car_data", "replay_check")):
+        if not self.source.connected and not action.startswith(("gridwalk_", "overlay_", "auto_results", "hotkey", "board_", "battle_", "popout", "desktop_", "officials", "pick_", "data_delay", "show_log", "share_", "follow_", "sync_", "replay_car_data", "replay_check")):
             raise CommandError("Not connected to iRacing")
         with self._lock:
             result = handler(**params)

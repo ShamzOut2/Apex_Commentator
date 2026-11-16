@@ -205,6 +205,7 @@ class Updater:
         """Ask GitHub for the newest version. Never raises; errors go in ``error``."""
         if not self.enabled:
             return self.status()
+        before = self.error
         try:
             latest = self._newest_release()
             if latest and parse_version(latest["version"]) > (parse_version(self.current) or (0, 0, 0)):
@@ -218,6 +219,8 @@ class Updater:
             reason = getattr(e, "reason", None) or e
             with self._lock:
                 self.error = f"Couldn't check for updates: {reason}"
+        if self.error and self.error != before:  # in apex.log too (once, not at every retry)
+            print(f"[apex] update check: {self.error}")
         self.checked_at = time.time()
         return self.status()
 

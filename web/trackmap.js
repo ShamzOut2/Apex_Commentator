@@ -15,6 +15,7 @@ let points = null;          // the outline: lap fraction i / n -> [x, y] (0..1)
 let mapId;                  // which one that is
 let box = null;             // the widget's element
 const motion = new Map();   // car -> {pct, clock, at, speed, shown}
+let pixels = 420;           // the canvases' size (px)
 
 async function loadMap(id) {
   mapId = id;
@@ -113,24 +114,38 @@ function noteMotion() {
   for (const id of motion.keys()) if (!seen.has(id)) motion.delete(id);
 }
 
+// The cars are drawn 30 times a second at most (smooth enough for dots
+// going round a map, and half the work of every frame), and not at all while
+// none has moved. The outline is a picture of its own underneath, drawn only
+// when it changes. Both are as many pixels as the map takes on screen (up to
+// twice its size), no more.
+const FRAME_MS = 1000 / 30;
 let lastFrame = performance.now();
+let lastDrawn = "";
 function draw() {
-  requestAnimationFrame(draw);
+  if (!box || !points || !data) return false;  // nothing to draw: it starts again with the next snapshot
   const now = performance.now();
   const step = Math.min(100, now - lastFrame);
   lastFrame = now;
-  if (!box || !points || !data) return;
-  const canvas = box.querySelector("canvas");
-  const size = Math.round(cfg.map_size * 2);  // drawn at twice the size: sharp when scaled up
-  if (canvas.width !== size) canvas.width = canvas.height = size;
+  const canvas = box.querySelector("canvas.tm-cars");
+  const size = pixels;
+  if (canvas.width !== size) {
+    canvas.width = canvas.height = size;
+    lastDrawn = "";
+  }
   const k = size / 420;
   const pad = 22 * k * Math.max(1, cfg.dot_size / 100);
-  const g = canvas.getContext("2d");
-  g.clearRect(0, 0, size, size);
-  g.drawImage(track(size, pad, k), 0, 0);
+  const under = box.querySelector("canvas.tm-track");
+  const pic = track(size, pad, k);
+  if (under.dataset.key !== trackKey) {
+    under.width = under.height = size;
+    under.getContext("2d").drawImage(pic, 0, 0);
+    under.dataset.key = trackKey;
+  }
   const ease = 1 - Math.exp(-step / 120);
   // The car on camera last (on top).
   const cars = [...data.cars].sort((a, b) => (a.id === data.cam) - (b.id === data.cam));
+  const dots = [];
   for (const c of cars) {
     const m = motion.get(c.id);
     if (!m) continue;
@@ -141,7 +156,15 @@ function draw() {
     const label = cfg.labels === "number" ? String(c.num || "") : cfg.labels === "position" ? String(c.pos || "") : "";
     const r = (label ? 11 : 7) * k * (cfg.dot_size / 100) * (cam ? 1.35 : 1);
     const color = (cfg.colors === "secondary" ? c.second : c.main) || "#ffffff";
-    g.globalAlpha = c.pit ? 0.55 : 1;
+    dots.push({ x, y, cam, label, r, color, pit: c.pit });
+  }
+  const drawn = JSON.stringify([size, trackKey, dots.map((d) => [Math.round(d.x * 2), Math.round(d.y * 2), d.cam, d.label, d.color, d.pit])]);
+  if (drawn === lastDrawn) return true;  // nothing's moved
+  lastDrawn = drawn;
+  const g = canvas.getContext("2d");
+  g.clearRect(0, 0, size, size);
+  for (const { x, y, cam, label, r, color, pit } of dots) {
+    g.globalAlpha = pit ? 0.55 : 1;
     if (cam) {
       g.beginPath();
       g.arc(x, y, r + 5 * k, 0, Math.PI * 2);
@@ -164,8 +187,9 @@ function draw() {
     }
     g.globalAlpha = 1;
   }
+  return true;
 }
-requestAnimationFrame(draw);
+const runDraw = frameLoop(draw, FRAME_MS);
 
 function render(snap) {
   const ov = snap.overlays;
@@ -192,11 +216,17 @@ function render(snap) {
     return;
   }
   if (!box) {
-    stage.insertAdjacentHTML("beforeend", '<div class="tmap"><canvas></canvas></div>');
+    stage.insertAdjacentHTML("beforeend", '<div class="tmap"><canvas class="tm-track"></canvas><canvas class="tm-cars"></canvas></div>');
     box = stage.lastElementChild;
+    lastDrawn = "";  // a new canvas: the cars drawn on it whether or not they've moved
   }
+  runDraw();
   box.className = `tmap ${cfg.place} ${cfg.visible ? "" : "hidden-preview"}`;
   box.style.setProperty("--map-size", `${cfg.map_size}px`);
+  // As many pixels as it takes on screen (the page may be scaled to fit, or
+  // on a high-resolution display), between its own size and twice that.
+  const onScreen = box.getBoundingClientRect().width * (devicePixelRatio || 1);
+  pixels = Math.round(Math.min(cfg.map_size * 2, Math.max(cfg.map_size, onScreen || cfg.map_size)));
 }
 
 followSnapshots(render);

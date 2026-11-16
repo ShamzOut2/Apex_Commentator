@@ -145,6 +145,12 @@
             <button id="upd-install" class="btn primary" hidden>Install update</button>
           </div>
           <p id="upd-error" class="upd-error" hidden></p>
+          <div class="row log-row">
+            <span class="hint">Something not working? Every error the app or an overlay runs into goes in its log, <b>apex.log</b>:
+              send that file along with when it happened.</span>
+            <span class="grow"></span>
+            <button id="show-log" class="btn subtle" title="Open the folder with apex.log, the app's log">Show log file</button>
+          </div>
           <details id="upd-token-box">
             <summary>Private repository? Add a GitHub access token</summary>
             <p class="hint">A private repository's releases can only be seen with a token. On GitHub: Settings → Developer

@@ -100,8 +100,8 @@ function tick() {
     const box = s.box_s == null ? null : s.box_s + (s.in_box ? since : 0);
     const laneEl = el.querySelector('[data-t="lane"]');
     const boxEl = el.querySelector('[data-t="box"]');
-    laneEl.querySelector(".val").textContent = fmt(lane);
-    boxEl.querySelector(".val").textContent = fmt(box);
+    setText(laneEl.querySelector(".val"), fmt(lane));
+    setText(boxEl.querySelector(".val"), fmt(box));
     laneEl.classList.toggle("live", !s.out);
     laneEl.classList.toggle("done", s.out);
     boxEl.classList.toggle("live", s.in_box);
@@ -109,9 +109,12 @@ function tick() {
   }
 }
 
-(function loop() {
+const runClocks = frameLoop(() => {
   tick();
-  requestAnimationFrame(loop);
-}());
+  return stops.length > 0;
+});
 
-followSnapshots(render);
+followSnapshots((s) => {
+  render(s);
+  runClocks();
+});

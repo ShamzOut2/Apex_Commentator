@@ -2,6 +2,32 @@
 
 // Shared by the control panel (app.js) and the broadcast pages.
 
+// Any error in this page (an overlay in OBS, the app's window, a pop-out)
+// goes into the app's log (apex.log), with the page and where in the code,
+// so a problem on stream can be looked into afterwards: each different
+// error once per page load, and only so many.
+(function reportErrors() {
+  const sent = new Set();
+  const page = location.pathname + location.search;
+  const send = (message, source, line, stack) => {
+    const key = `${message}|${source}|${line}`;
+    if (sent.has(key) || sent.size >= 20) return;
+    sent.add(key);
+    try {
+      fetch("/api/client_error", {
+        method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+        body: JSON.stringify({ page, message: String(message || ""), source: String(source || "").replace(location.origin, ""),
+          line: line || 0, stack: String(stack || "").slice(0, 3000) }),
+      }).catch(() => {});
+    } catch (e) { /* nowhere to send it */ }
+  };
+  addEventListener("error", (e) => send(e.message, e.filename, e.lineno, e.error && e.error.stack));
+  addEventListener("unhandledrejection", (e) => {
+    const r = e.reason;
+    send(r && r.message ? r.message : String(r), "", 0, r && r.stack);
+  });
+}());
+
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
@@ -459,33 +485,154 @@ function formatName(e, format) {
 // Redraw a list and slide each row from where it was to its new place, so
 // drivers swapping positions glide past each other. Rows carry data-key.
 // Rows new to the list fade in. Works through redraws mid-slide: a row
-// carries on from wherever it had got to.
+// carries on from wherever it had got to. (The slide is an animation of its
+// own, not the row's style, so redrawing a row in place doesn't stop it.)
+const slides = new WeakMap();  // row -> its slide under way
 function flipRows(container, selector, redraw, ms = 450, keyOf = (el) => el.dataset.key) {
   const before = new Map();
   container.querySelectorAll(selector).forEach((el) => before.set(keyOf(el), el.getBoundingClientRect().top));
   redraw();
-  const moved = [];
   const hadRows = before.size > 0;
-  container.querySelectorAll(selector).forEach((el) => {
+  const rows = [...container.querySelectorAll(selector)];
+  // Where each row now is, without a slide it's in the middle of.
+  for (const el of rows) {
+    const slide = slides.get(el);
+    if (slide) slide.cancel();
+    slides.delete(el);
+  }
+  for (const el of rows) {
     const top = before.get(keyOf(el));
     if (top === undefined) {
       if (hadRows) el.classList.add("row-enter");
-      return;
+      continue;
     }
     const rect = el.getBoundingClientRect();
     const scale = el.offsetHeight ? rect.height / el.offsetHeight : 1;  // the stage is scaled to fit
     const dy = (top - rect.top) / (scale || 1);
-    if (Math.abs(dy) < 1) return;
-    el.style.transition = "none";
-    el.style.transform = `translateY(${dy}px)`;
-    moved.push(el);
-  });
-  if (!moved.length) return;
-  container.getBoundingClientRect();  // apply the start positions before sliding
-  for (const el of moved) {
-    el.style.transition = `transform ${ms}ms cubic-bezier(.2, .8, .2, 1)`;
-    el.style.transform = "";
+    if (Math.abs(dy) < 1) continue;
+    const slide = el.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }],
+      { duration: ms, easing: "cubic-bezier(.2, .8, .2, 1)" });
+    slides.set(el, slide);
+    slide.onfinish = () => { if (slides.get(el) === slide) slides.delete(el); };
   }
+}
+
+// Bring what's in `container` in line with `html`, changing only what's
+// different: a gap that went from 1.2 to 1.3 is that one bit of text, not the
+// whole overlay built again (which has the browser lay out and paint all of
+// it, and reload its pictures). Rows (data-key) are matched by key, so a row
+// that changes places is moved, not rebuilt. Elements marked data-keep (in
+// the html) are the page's own once in place: left as they are. Elements the
+// page added that aren't in the html (data-stay) are left where they are.
+const KEEP_CLASSES = ["row-enter"];  // added by flipRows: not undone by the next redraw
+function patchHtml(container, html) {
+  patchKids(container, htmlFragment(html));
+}
+
+function htmlFragment(html) {
+  const t = document.createElement("template");
+  t.innerHTML = html;
+  return t.content;
+}
+
+function patchKids(cur, next) {
+  const keyed = new Map();
+  for (const el of cur.children) if (el.hasAttribute("data-key")) keyed.set(el.getAttribute("data-key"), el);
+  const stays = (x) => x && x.nodeType === 1 && x.hasAttribute("data-stay");
+  let at = cur.firstChild;  // the next of the old nodes not yet dealt with (new ones go in before it)
+  for (let n = next.firstChild; n;) {
+    const following = n.nextSibling;
+    const key = n.nodeType === 1 ? n.getAttribute("data-key") : null;
+    let nextOld = at;  // the next old node to match by place (the page's own skipped)
+    while (stays(nextOld)) nextOld = nextOld.nextSibling;
+    let match = null;
+    if (key != null) {
+      match = keyed.get(key) || null;
+      keyed.delete(key);
+      if (match && match.nodeName !== n.nodeName) match = null;
+    } else if (nextOld && nextOld.nodeType === n.nodeType && nextOld.nodeName === n.nodeName
+      && !(nextOld.nodeType === 1 && nextOld.hasAttribute("data-key"))) {
+      match = nextOld;
+    }
+    if (match) {
+      if (match === nextOld) at = nextOld.nextSibling;
+      else cur.insertBefore(match, at);
+      if (!(n.nodeType === 1 && n.hasAttribute("data-keep"))) patchNode(match, n);
+    } else {
+      cur.insertBefore(n, at);  // new: taken from the html as it is
+    }
+    n = following;
+  }
+  // Whatever's left of the old ones isn't in the html any more.
+  while (at) {
+    const after = at.nextSibling;
+    if (!(at.nodeType === 1 && at.hasAttribute("data-stay"))) at.remove();
+    at = after;
+  }
+}
+
+function patchNode(cur, next) {
+  if (cur.nodeType !== 1) {
+    if (cur.nodeValue !== next.nodeValue) cur.nodeValue = next.nodeValue;
+    return;
+  }
+  for (const a of next.attributes) {
+    let value = a.value;
+    if (a.name === "class") {
+      const kept = KEEP_CLASSES.filter((c) => cur.classList.contains(c) && !next.classList.contains(c));
+      value = [...next.classList, ...kept].join(" ");
+    }
+    if (cur.getAttribute(a.name) !== value) {
+      if (a.namespaceURI) cur.setAttributeNS(a.namespaceURI, a.name, value);
+      else cur.setAttribute(a.name, value);
+    }
+  }
+  for (const a of [...cur.attributes]) {
+    if (!next.hasAttribute(a.name)) {
+      if (a.namespaceURI) cur.removeAttributeNS(a.namespaceURI, a.localName);
+      else cur.removeAttribute(a.name);
+    }
+  }
+  patchKids(cur, next);
+}
+
+// patchHtml for a list whose rows (`selector`, by data-key) slide to new
+// places (flipRows). Finding where rows are on screen has the browser lay
+// the page out there and then, so that's only done when the order changes.
+// `then`: anything else to do once it's redrawn, before rows are measured.
+function patchRows(container, selector, html, ms = 450, then = () => {}) {
+  const next = htmlFragment(html);
+  const order = (root) => [...root.querySelectorAll(selector)].map((el) => el.getAttribute("data-key")).join("\n");
+  const redraw = () => {
+    patchKids(container, next);
+    then();
+  };
+  if (order(container) === order(next)) redraw();
+  else flipRows(container, selector, redraw, ms);
+}
+
+// Something done every frame (fn: a running clock, moving dots), only while
+// there's something to animate (fn returns true): a page with nothing moving
+// on it doesn't wake every frame for nothing. Returns a function that starts
+// it again, for each snapshot. With `everyMs`, no more often than that.
+function frameLoop(fn, everyMs = 0) {
+  let running = false;
+  const step = () => {
+    if (!fn()) running = false;
+    else if (everyMs) setTimeout(() => requestAnimationFrame(step), everyMs - 4);
+    else requestAnimationFrame(step);
+  };
+  return () => {
+    if (running) return;
+    running = true;
+    requestAnimationFrame(step);
+  };
+}
+
+// Text that's redrawn every frame (a running clock): only written when it
+// shows something new, so an unchanged clock costs the browser nothing.
+function setText(el, text) {
+  if (el.textContent !== text) el.textContent = text;
 }
 
 // An animation that keeps going across redraws: elements re-created mid-way
@@ -715,11 +862,12 @@ function setBackground(cfg, visible) {
 // and clicks need one too. Where shared workers aren't available, the page
 // has its own.
 function liveStream(onSnap, onDown = () => {}) {
+  onSnap = wholeSnapshots(onSnap);
   if (typeof SharedWorker === "function") {
     try {
       const worker = new SharedWorker("/stream-worker.js", { name: "apex-live" });
       worker.port.onmessage = (m) => {
-        if (m.data.type === "snapshot") onSnap(JSON.parse(m.data.data));
+        if (m.data.type === "snapshot") onSnap(m.data.data);
         else onDown();
       };
       worker.port.start();
@@ -736,7 +884,7 @@ function liveStream(onSnap, onDown = () => {}) {
     stream = new EventSource("/api/stream");
     stream.onmessage = (m) => {
       heard = Date.now();
-      onSnap(JSON.parse(m.data));
+      onSnap(m.data);
     };
     stream.onerror = onDown;
   };
@@ -747,6 +895,28 @@ function liveStream(onSnap, onDown = () => {}) {
       open();
     }
   }, 2000);
+}
+
+// The app leaves out of a snapshot the parts that haven't changed since the
+// one before (named in "_same": "events", "overlays.settings"...; see
+// apex/payload.py): they're the ones this page already has. JSON in, whole
+// snapshots out (none until there's a whole one to go from).
+function wholeSnapshots(onSnap) {
+  let had = null;
+  return (json) => {
+    const snap = JSON.parse(json);
+    if (snap._same) {
+      if (!had) return;
+      for (const path of snap._same) {
+        const [key, sub] = path.split(".");
+        if (sub === undefined) snap[key] = had[key];
+        else if (snap[key] && had[key]) snap[key][sub] = had[key][sub];
+      }
+      delete snap._same;
+    }
+    had = snap;
+    onSnap(snap);
+  };
 }
 
 // Follow the app's live snapshot; reload after an app update so OBS picks up

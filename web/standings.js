@@ -141,6 +141,7 @@ function finishFlag(e, cfg) {
 // redraws), each tab sliding out from behind the tower as they finish.
 const finRail = document.createElement("div");
 finRail.className = "fin-rail";
+finRail.dataset.stay = "";  // the tower's redraws leave it be
 const finTabs = new Map();  // car -> tab element
 
 function placeFinishTabs(entries, cfg) {
@@ -152,6 +153,9 @@ function placeFinishTabs(entries, cfg) {
   }
   const done = new Map(entries.filter((e) => flagKind(e, cfg)).map((e) => [String(e.car_idx), e]));
   const seen = new Set();
+  // Where each row is first, then the tabs placed (reading where things are
+  // after changing any of them has the browser lay the page out again).
+  const rows = [];
   for (const row of tower.querySelectorAll(".srow[data-key]")) {
     const key = row.dataset.key;
     const e = done.get(key);
@@ -160,6 +164,9 @@ function placeFinishTabs(entries, cfg) {
     // Its place in the tower as laid out (not mid-slide).
     let top = 0;
     for (let el = row; el && el !== tower; el = el.offsetParent) top += el.offsetTop;
+    rows.push([key, e, `${top}px`, `${row.offsetHeight}px`]);
+  }
+  for (const [key, e, top, height] of rows) {
     const kind = flagKind(e, cfg);
     const since = flagSince(e, kind);
     let tab = finTabs.get(key);
@@ -174,27 +181,22 @@ function placeFinishTabs(entries, cfg) {
       tab.dataset.kind = kind;
       const [svg, title] = RACE_FLAGS[kind] || RACE_FLAGS.finish;
       tab.innerHTML = `<span class="fin-flag" title="${title}">${svg}</span>`;
-      finTabs.set(key, tab);
-      finRail.appendChild(tab);
-    }
-    // The tower's redraws take the rail out and put it back, which starts
-    // its animations again: the slide-out and pop carry on from where they
-    // are (by the time since the finish), then come off, so a flag is
-    // only brought in once rather than flashing in at every redraw.
-    if (tab.classList.contains("in")) {
-      const t = Math.round(performance.now() - since);
       const flag = tab.querySelector(".fin-flag");
-      if (t > 1300) {
-        tab.classList.remove("in");
-        tab.style.animationDelay = flag.style.animationDelay = "";
-      } else {
+      // Every flag waves in step with the others.
+      flag.style.setProperty("--wave-delay", `-${Math.round(performance.now() % WAVE_MS)}ms`);
+      // Sliding out (and the flag's pop) from where it would have got to
+      // since the finish: a page opened a moment after doesn't start it over.
+      if (fresh) {
+        const t = Math.round(performance.now() - since);
         tab.style.animationDelay = `-${t}ms`;
         flag.style.animationDelay = `${350 - t}ms`;
       }
+      finTabs.set(key, tab);
+      finRail.appendChild(tab);
     }
-    tab.style.top = `${top}px`;
-    tab.style.height = `${row.offsetHeight}px`;
-    tab.querySelector(".fin-flag").style.setProperty("--wave-delay", `-${Math.round(performance.now() % WAVE_MS)}ms`);
+    if (tab.classList.contains("in") && performance.now() - since > 1300) tab.classList.remove("in");
+    if (tab.style.top !== top) tab.style.top = top;
+    if (tab.style.height !== height) tab.style.height = height;
   }
   for (const [key, tab] of finTabs) {
     if (!seen.has(key)) {
@@ -523,6 +525,7 @@ function sponsorLogo(snap, cfg) {
 
 const sponsorBar = document.createElement("div");
 sponsorBar.className = "tower-sponsor";
+sponsorBar.dataset.key = "sponsor-bar";  // its slot in the tower's html (data-keep): left as it is once in place
 let sponsorShown = "";
 function placeSponsor(logo, cfg) {
   const slot = tower.querySelector(".tower-sponsor-slot");
@@ -631,7 +634,7 @@ function render() {
       ? '<div class="h1"><span class="t1">REPLAY</span></div>'
       : `<div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
       ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}`}
-    </div></div>${sponsor ? '<div class="tower-sponsor-slot"></div>' : ""}${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
+    </div></div>${sponsor ? '<div class="tower-sponsor-slot" data-key="sponsor-bar" data-keep></div>' : ""}${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
   tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("wrap-title", !!cfg.title_wrap);
   tower.classList.toggle("hidden", !visible);
@@ -647,9 +650,8 @@ function render() {
   if (visible && (html !== shown || mode !== fitMode)) {
     shown = html;
     fitMode = mode;
-    flipRows(tower, ".srow[data-key]", () => {
-      tower.innerHTML = html;
-      tower.appendChild(finRail);
+    // Only what changed is redrawn (patchRows): a new gap is that bit of text.
+    patchRows(tower, ".srow[data-key]", html, 450, () => {
       placeSponsor(sponsor, cfg);
       if (auto) autoFit(cfg, cols);
     });
@@ -826,7 +828,7 @@ function renderScreen(snap, ov) {
     ${body}</div>`;
   if (html !== shown) {
     shown = html;
-    flipRows(screenRoot, "tr[data-key]", () => { screenRoot.innerHTML = html; });
+    patchRows(screenRoot, "tr[data-key]", html);
   }
 }
 

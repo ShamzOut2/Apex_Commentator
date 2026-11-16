@@ -18,11 +18,13 @@
 * ``GET  /api/update``           update status; ``POST /api/update/{check,skip,install}``
 * ``POST /api/calendar/scan?day_first=1``  a calendar image (raw PNG body) read into rounds
 * ``POST /api/calendar/parse``     ``{"text", "day_first"}``: pasted calendar text into rounds
+* ``POST /api/client_error``     ``{"page", "message", "source", "line", "stack"}``: a page's error, into apex.log
 """
 
 import json
 import mimetypes
 import threading
+import traceback
 from pathlib import Path
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -79,6 +81,36 @@ class Handler(BaseHTTPRequestHandler):
     # -- routing ------------------------------------------------------------
 
     def do_GET(self):
+        self._guarded(self._get)
+
+    def do_POST(self):
+        self._guarded(self._post)
+
+    def do_DELETE(self):
+        self._guarded(self._delete)
+
+    def _guarded(self, handle):
+        """A request that fails unexpectedly: the error goes in apex.log (with
+        what was asked for), and the page is told, rather than left waiting."""
+        try:
+            handle()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
+            pass  # the page went away
+        except Exception as e:
+            self._log_error(f"{self.command} {self._path()}", e)
+            try:
+                self._error(f"Something went wrong: {e}", HTTPStatus.INTERNAL_SERVER_ERROR)
+            except OSError:
+                pass
+
+    def _log_error(self, where, e):
+        report = getattr(self.app, "_report", None)
+        if report:
+            report(where, e)
+        else:
+            traceback.print_exception(type(e), e, e.__traceback__)
+
+    def _get(self):
         path = self._path()
         if path == "/api/state":
             return self._send_json(self.app.build_snapshot())
@@ -136,7 +168,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json(profile)
         return self._static(path)
 
-    def do_POST(self):
+    def _post(self):
         path = self._path()
         parts = path.split("/")
         if len(parts) == 7 and parts[:3] == ["", "api", "leagues"] and parts[4] == "classes" and parts[6] == "logo":
@@ -154,6 +186,8 @@ class Handler(BaseHTTPRequestHandler):
             body = self._body()
         except ValueError as e:
             return self._error(f"Bad request: {e}")
+        if path == "/api/client_error":
+            return self._client_error(body)
         if path.startswith("/api/update/"):
             return self._update_action(path.rsplit("/", 1)[1], body)
         if path == "/api/export":
@@ -230,10 +264,12 @@ class Handler(BaseHTTPRequestHandler):
         except (CommandError, LeagueError) as e:
             return self._error(str(e))
         except (TypeError, ValueError) as e:
+            # Our own pages send these: one that doesn't fit is worth a look.
+            self._log_error(f"{path} {body.get('action') or ''}".strip(), e)
             return self._error(f"Invalid parameters: {e}")
         return self._error("Not found", HTTPStatus.NOT_FOUND)
 
-    def do_DELETE(self):
+    def _delete(self):
         path = self._path()
         if path.startswith("/api/leagues/"):
             self.app.leagues.delete(path.split("/", 3)[3])
@@ -242,6 +278,19 @@ class Handler(BaseHTTPRequestHandler):
         return self._error("Not found", HTTPStatus.NOT_FOUND)
 
     # -- endpoints ----------------------------------------------------------
+
+    def _client_error(self, body):
+        """An error in one of the app's pages (an overlay in OBS, the app's
+        window...), reported by the page (reportErrors in common.js): into apex.log."""
+        def text(key, most):
+            return str(body.get(key) or "")[:most]
+        where = text("source", 300)
+        if where and body.get("line"):
+            where += f":{body.get('line')}"
+        log = getattr(self.app, "log_page_error", None)
+        if log:
+            log(text("page", 300), text("message", 500) or "Unknown error", where, text("stack", 3000))
+        return self._send_json({"ok": True})
 
     def _import_round(self, profile_id, round_id):
         """Fill a championship round with the current session's results."""
@@ -353,6 +402,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 version = updater.install()
             except UpdateError as e:
+                print(f"[apex] update install failed: {e}" + (f" ({e.__cause__!r})" if e.__cause__ else ""))
                 return self._error(str(e))
             # An installer reopens the app itself; a file update needs a relaunch.
             request_restart(relaunch=not updater.installer_mode)
