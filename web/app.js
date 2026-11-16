@@ -322,6 +322,7 @@ function renderReplayData(s) {
   btn.classList.toggle("on-air", !!rd.check.on);
   btn.dataset.on = rd.check.on ? "1" : "";
 }
+$("#show-log").addEventListener("click", () => cmd("show_log", {}, (r) => `Opened the folder with ${r.path}`));
 $("#replay-check-folder").addEventListener("click", () => cmd("replay_check_folder", {}, (r) => `Opened ${r.folder}`));
 $("#session-line").addEventListener("click", (e) => {
   if (!e.target.closest("[data-clock]")) return;

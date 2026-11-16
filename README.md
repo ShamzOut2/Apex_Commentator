@@ -81,6 +81,9 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   tower and timing screen only redraw what changed, the track map draws
   less often and only when cars move, and overlays with nothing on screen
   sit idle.
+- apex.log now has every error, from the overlays in OBS and the app's
+  window as well as the app itself, each line with the time, and
+  **Show log file** on the Home tab opens it, ready to send.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -105,6 +108,15 @@ in your browser instead. Your settings and leagues are stored in
 `%APPDATA%\Apex Commentator` (`config.json` and `data\`), and a log is kept in
 `apex.log` there. A portable zip is attached to each release too, if you
 don't want to install.
+
+**If something goes wrong**, `apex.log` has it: every error the app runs
+into, and every error in its pages too (each overlay in OBS, the app's own
+window, pop-outs), with the time, the page and where in the code. Each line
+starts with the time, so say roughly when it happened. **Show log file** on
+the Home tab (under Updates) opens the folder with it picked out, ready to
+send. The same error over and over is written in full once, then counted
+(once a minute at most), so the log stays readable. It's trimmed to its last
+1 MB once it passes 5 MB.
 
 ## Run from source
 

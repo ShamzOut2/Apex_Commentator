@@ -19,6 +19,9 @@ How each version's entry is written:
   tower and timing screen only redraw what changed, the track map draws
   less often and only when cars move, and overlays with nothing on screen
   sit idle.
+- apex.log now has every error, from the overlays in OBS and the app's
+  window as well as the app itself, each line with the time, and
+  **Show log file** on the Home tab opens it, ready to send.
 
 ## v0.7.5
 

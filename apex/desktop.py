@@ -10,6 +10,7 @@ import importlib.util
 import os
 import sys
 import threading
+import time
 
 from .paths import APP_NAME, FROZEN, ICON_FILE, USER_DIR
 
@@ -52,14 +53,45 @@ def trim_log(path, most=None, keep=None):
         pass
 
 
+class StampedLog:
+    """A text stream that starts every line with the time (HH:MM:SS), so an
+    error in apex.log can be matched with what was happening on stream."""
+
+    def __init__(self, stream, clock=None):
+        self._stream = stream
+        self._clock = clock or (lambda: time.strftime("%H:%M:%S"))
+        self._line_start = True
+        self._lock = threading.Lock()  # several threads print
+
+    def write(self, text):
+        if not text:
+            return 0
+        with self._lock:
+            out = []
+            for piece in text.splitlines(keepends=True):
+                if self._line_start:
+                    out.append(f"{self._clock()} ")
+                out.append(piece)
+                self._line_start = piece.endswith("\n")
+            self._stream.write("".join(out))
+        return len(text)
+
+    def flush(self):
+        self._stream.flush()
+
+    def __getattr__(self, name):  # encoding, fileno, isatty...
+        return getattr(self._stream, name)
+
+
 def log_to_file():
-    """Send output to a log file when there is no console (the packaged app)."""
+    """Send output to a log file when there is no console (the packaged app):
+    everything printed and every error (from any thread), each line timed."""
     if sys.stdout is not None and sys.stderr is not None:
         return None
     USER_DIR.mkdir(parents=True, exist_ok=True)
     path = USER_DIR / "apex.log"
     trim_log(path)
-    log = open(path, "a", encoding="utf-8", buffering=1)
+    log = StampedLog(open(path, "a", encoding="utf-8", buffering=1))
     sys.stdout = sys.stderr = log
     return log
 

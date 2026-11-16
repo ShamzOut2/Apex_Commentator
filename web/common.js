@@ -2,6 +2,32 @@
 
 // Shared by the control panel (app.js) and the broadcast pages.
 
+// Any error in this page (an overlay in OBS, the app's window, a pop-out)
+// goes into the app's log (apex.log), with the page and where in the code,
+// so a problem on stream can be looked into afterwards: each different
+// error once per page load, and only so many.
+(function reportErrors() {
+  const sent = new Set();
+  const page = location.pathname + location.search;
+  const send = (message, source, line, stack) => {
+    const key = `${message}|${source}|${line}`;
+    if (sent.has(key) || sent.size >= 20) return;
+    sent.add(key);
+    try {
+      fetch("/api/client_error", {
+        method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+        body: JSON.stringify({ page, message: String(message || ""), source: String(source || "").replace(location.origin, ""),
+          line: line || 0, stack: String(stack || "").slice(0, 3000) }),
+      }).catch(() => {});
+    } catch (e) { /* nowhere to send it */ }
+  };
+  addEventListener("error", (e) => send(e.message, e.filename, e.lineno, e.error && e.error.stack));
+  addEventListener("unhandledrejection", (e) => {
+    const r = e.reason;
+    send(r && r.message ? r.message : String(r), "", 0, r && r.stack);
+  });
+}());
+
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------

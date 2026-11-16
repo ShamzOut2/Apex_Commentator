@@ -11,6 +11,7 @@ when it's pressed. One another program already holds is reported as taken.
 import ctypes
 import sys
 import threading
+import traceback
 
 IS_WINDOWS = sys.platform == "win32"
 MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_NOREPEAT = 0x1, 0x2, 0x4, 0x4000
@@ -89,8 +90,11 @@ class GlobalHotkeys:
     def _fire(self, action):
         try:
             self.run(action)
-        except Exception as e:  # a hotkey that can't do its thing right now (no car on camera...)
+        except Exception as e:
             print(f"[apex] hotkey {action}: {e}")
+            # Anything but one that can't do its thing right now (no car on camera...): in full.
+            if type(e).__name__ != "CommandError":
+                traceback.print_exception(type(e), e, e.__traceback__)
 
     def _apply(self, user32):
         """Hotkeys can only be registered on the thread that listens for them: here."""
