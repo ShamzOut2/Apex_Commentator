@@ -209,6 +209,44 @@ class AppTests(unittest.TestCase):
         self.assertTrue(self.app.build_snapshot()["overlays"]["flags"]["clear"])
         self.assertIn("flags", self.app.TOGGLE_ALL)
 
+    def test_a_car_stopped_on_track_by_itself(self):
+        """On by default: a car stopped on track for a couple of seconds turns
+        its sector yellow (from iRacing's data, through the app). One that's
+        taken the chequered flag stopping after the line doesn't."""
+        self.app.overlays.update("standings", {"reveal": False})
+        self.run_for(60)
+        self.assertTrue(self.app.overlays.get()["flags"]["auto_yellow"])
+        read = self.src.read
+        stopped = {}
+
+        def with_stopped():
+            f = read()
+            if f is None:
+                return f
+            pct, surface = list(f.pct), list(f.surface)
+            for idx, at in stopped.items():
+                pct[idx], surface[idx] = at, 3  # on track, not moving
+            return replace(f, pct=pct, surface=surface)
+        self.src.read = with_stopped
+        car = next(idx for idx in self.app._drivers if self.app._frame.pct[idx] > 0)
+        stopped[car] = 0.5  # half way round: sector 2 of 3
+        self.run_for(1)
+        self.assertIsNone(self.app.build_snapshot()["overlays"]["flags"])  # not straight away
+        self.run_for(3)
+        flags = self.app.build_snapshot()["overlays"]["flags"]
+        self.assertEqual((flags["sectors"], flags["text"]), ([2], "Sector 2"))
+        # Gone again: yellow a while longer, then the track's clear.
+        stopped.clear()
+        self.app.command("hotkey", {"action": "flags:clear"})
+        self.run_for(6)
+        # A car that's finished stopping on track: no yellow.
+        other = next(idx for idx in self.app._drivers if idx != car and self.app._frame.pct[idx] > 0)
+        self.app._race.finished.add(other)
+        self.app._race.session = self.app._frame.session_num
+        stopped[other] = 0.2
+        self.run_for(5)
+        self.assertIsNone(self.app.build_snapshot()["overlays"]["flags"])
+
     def test_lights_on_the_lap_to_the_green(self):
         # The demo race held on its parade lap (one to green) for a while, then racing.
         read = self.src.read

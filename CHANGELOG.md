@@ -21,6 +21,11 @@ How each version's entry is written:
   pace car still leading is never taken for the green.
 - Gaps by class (tower, timing screen, Timing tab) no longer go below zero:
   each car is timed against its class leader.
+- Flags: a sector now goes yellow by itself while a car's stopped in it (it
+  was off unless you ticked it: now it's on for everyone), never for a car
+  that's finished the race.
+- The Size setting now works for the flags, the starting lights and the
+  track map (they stayed the same size).
 
 ## v0.7.7
 

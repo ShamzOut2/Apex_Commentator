@@ -83,6 +83,11 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   pace car still leading is never taken for the green.
 - Gaps by class (tower, timing screen, Timing tab) no longer go below zero:
   each car is timed against its class leader.
+- Flags: a sector now goes yellow by itself while a car's stopped in it (it
+  was off unless you ticked it: now it's on for everyone), never for a car
+  that's finished the race.
+- The Size setting now works for the flags, the starting lights and the
+  track map (they stayed the same size).
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -898,10 +903,14 @@ cost to how smoothly things move.
   The lap is cut into **3 sectors** by default (2–9), from the track's own
   split points (equal parts of the lap if it has too few). Set them with the
   buttons on its Widgets card (S1, S2, S3…, All sectors, Clear) or hotkeys:
-  each sector yellow / clear, every sector, clear them all. **Auto** (off by
-  default) also makes a sector yellow while a car is stopped or crawling in
-  it (on or off the track, not in the pits), until a while after it gets
-  going (10 s by default), and every sector under a full course caution.
+  each sector yellow / clear, every sector, clear them all. **Also by
+  itself** (on by default) makes a sector yellow while a car has been
+  stopped or crawling in it for a couple of seconds (on or off the track, not
+  in the pits, and not a car that's taken the chequered flag), until a while
+  after it gets going (10 s by default), and every sector under a full
+  course caution. It works from the live race (not while a replay's on
+  screen, unless iRacing's car data is live then). **Size** scales it, as it
+  does the starting lights and the track map.
 ![the starting lights counting down, and a yellow flag for sectors 2 and 3](docs/lights-flags.jpg)
 
 - **Track map** (`/trackmap.html`): the track's outline with no background

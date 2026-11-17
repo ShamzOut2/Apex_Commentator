@@ -2266,7 +2266,9 @@ class App:
         cars = {idx: (_at(frame.pct, idx, -1), _at(frame.surface, idx, TRK_NOT_IN_WORLD), bool(_at(frame.on_pit, idx, False)))
                 for idx in self._drivers} if frame.is_live else {}
         self._flags_now = self._flags.update(
-            key, t, starts=starts, cars=cars, track_m=self._track_m, auto=fcfg["auto"] and frame.is_live,
+            key, t, starts=starts, cars=cars, track_m=self._track_m, auto=fcfg["auto_yellow"] and frame.is_live,
+            # A car that's taken the chequered flag stopping (or crawling round) isn't a hazard.
+            done=self._race.finished if self._race.session == num else (),
             caution=bool(frame.session_flags & CAUTION_FLAGS),
             racing=frame.session_state in (STATE_RACING, STATE_CHECKERED), hold_s=fcfg["hold_s"], clear_s=fcfg["clear_s"])
 
