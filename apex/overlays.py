@@ -325,7 +325,10 @@ DEFAULTS = {
     "flags": {
         "visible": True,          # off: never shows, whatever's set
         "flag_sectors": 3,        # the lap in this many sectors (the track's split points)
-        "auto": False,
+        # Also by itself: a sector yellow while a car's stopped in it, every
+        # sector under a full course caution. (A new key, so it's on for
+        # everyone: "auto" was the old one, off.)
+        "auto_yellow": True,
         "hold_s": 10.0, "clear_s": 3.0,
         "place": "top-right",
         "show_map": True,         # the track outline with the yellow sectors marked

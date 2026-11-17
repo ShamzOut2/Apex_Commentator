@@ -11,6 +11,27 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.7.8
+
+### Fixes
+
+- Starting lights at a rolling start: they now start as the pace car pulls
+  into the pits and stay lit until the green, wherever iRacing waves it (on
+  an oval it can be well before the line, so they never came up), and the
+  pace car still leading is never taken for the green.
+- Gaps by class (tower, timing screen, Timing tab) no longer go below zero:
+  each car is timed against its class leader.
+- Flags: a sector now goes yellow by itself while a car's stopped in it (it
+  was off unless you ticked it: now it's on for everyone), never for a car
+  that's finished the race.
+- The Size setting now works for the flags, the starting lights and the
+  track map (they stayed the same size).
+- Finishing order: as each car crosses the line after the chequered flag,
+  the tower and timing screen place it by iRacing's own scoring straight
+  away, then take iRacing's official gaps once it publishes them, so a photo
+  finish (two cars 0.016 s apart) is no longer the wrong way round, live or
+  during a replay.
+
 ## v0.7.7
 
 ### New features

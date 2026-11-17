@@ -80,6 +80,42 @@ class LightsTests(unittest.TestCase):
         for k in range(100):
             self.assertIsNone(lit(lights, 300 + k * 0.1, state=RACING, flags=CAUTION, leader=5.9 + k * 0.001, final_lap=True))
 
+    def test_rolling_start_green_before_the_line(self):
+        """An oval: iRacing waves the green at a restart point well before the
+        line. The lights start as the pace car pulls in, not as the leader
+        nears the line, so they're all lit before the green, then out."""
+        lights = StartLights()
+        seen = []
+        for k in range(400):
+            t = k * 0.1
+            progress = 0.60 + t / 100.0
+            pitted = progress >= 0.70             # the pace car pulls in at 70 % of the lap
+            if progress < 0.85:                    # the green, 15 s later: 15 % of the lap before the line
+                seen.append(lit(lights, t, state=PARADE, flags=CAUTION, leader=progress, final_lap=pitted, pace_leading=not pitted))
+            else:
+                seen.append(lit(lights, t, state=RACING, flags=0, leader=progress, final_lap=True))
+        counting = [x for x in seen[:250] if x is not None]
+        self.assertEqual(seen[99], None)          # nothing while the pace car's out
+        self.assertEqual(sorted(set(counting)), [0, 1, 2, 3, 4, 5])
+        self.assertEqual(seen[249], 5)             # all lit just before the green
+        self.assertEqual(seen[250], "out")
+
+    def test_flags_saying_racing_behind_the_pace_car(self):
+        """iRacing saying "racing", no caution, while the pace car leads: not
+        the green. Its flags can't tell the green then: the leader crossing
+        the line after the pace car's pulled in is."""
+        lights = StartLights()
+        seen = []
+        for k in range(400):
+            t = k * 0.1
+            progress = 0.60 + t / 100.0
+            pitted = progress >= 0.75
+            seen.append(lit(lights, t, state=RACING, flags=0, leader=progress, final_lap=pitted, pace_leading=not pitted))
+        self.assertEqual(seen[100], None)           # pace car out: no green, no lights
+        self.assertEqual((seen[199], seen[220]), (4, 5))  # a light a second from the pace car pulling in (15 s), held
+        self.assertEqual(seen[399], 5)              # (the line is at 1.0: t = 40 s)
+        self.assertEqual(lit(lights, 40.1, state=RACING, flags=0, leader=1.001, final_lap=True), "out")
+
     def test_by_hand_and_held_until_the_green(self):
         lights = StartLights()
         lights.count(50.0)
@@ -172,6 +208,44 @@ class AppTests(unittest.TestCase):
         self.app.command("hotkey", {"action": "flags:clear"})
         self.assertTrue(self.app.build_snapshot()["overlays"]["flags"]["clear"])
         self.assertIn("flags", self.app.TOGGLE_ALL)
+
+    def test_a_car_stopped_on_track_by_itself(self):
+        """On by default: a car stopped on track for a couple of seconds turns
+        its sector yellow (from iRacing's data, through the app). One that's
+        taken the chequered flag stopping after the line doesn't."""
+        self.app.overlays.update("standings", {"reveal": False})
+        self.run_for(60)
+        self.assertTrue(self.app.overlays.get()["flags"]["auto_yellow"])
+        read = self.src.read
+        stopped = {}
+
+        def with_stopped():
+            f = read()
+            if f is None:
+                return f
+            pct, surface = list(f.pct), list(f.surface)
+            for idx, at in stopped.items():
+                pct[idx], surface[idx] = at, 3  # on track, not moving
+            return replace(f, pct=pct, surface=surface)
+        self.src.read = with_stopped
+        car = next(idx for idx in self.app._drivers if self.app._frame.pct[idx] > 0)
+        stopped[car] = 0.5  # half way round: sector 2 of 3
+        self.run_for(1)
+        self.assertIsNone(self.app.build_snapshot()["overlays"]["flags"])  # not straight away
+        self.run_for(3)
+        flags = self.app.build_snapshot()["overlays"]["flags"]
+        self.assertEqual((flags["sectors"], flags["text"]), ([2], "Sector 2"))
+        # Gone again: yellow a while longer, then the track's clear.
+        stopped.clear()
+        self.app.command("hotkey", {"action": "flags:clear"})
+        self.run_for(6)
+        # A car that's finished stopping on track: no yellow.
+        other = next(idx for idx in self.app._drivers if idx != car and self.app._frame.pct[idx] > 0)
+        self.app._race.finished.add(other)
+        self.app._race.session = self.app._frame.session_num
+        stopped[other] = 0.2
+        self.run_for(5)
+        self.assertIsNone(self.app.build_snapshot()["overlays"]["flags"])
 
     def test_lights_on_the_lap_to_the_green(self):
         # The demo race held on its parade lap (one to green) for a while, then racing.

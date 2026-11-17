@@ -112,12 +112,19 @@ def _rank(standings, is_race):
         in_class[k] = in_class.get(k, 0) + 1
         e["pos"], e["class_pos"] = pos, in_class[k]
         t = e.pop("time")
+        timed = e.pop("class_time", None)  # a race: timed against the class leader (_live_gaps)
         e["best"] = None if is_race else t
         if first is None:
             first = t
         leader = ahead.setdefault(k, {"first": t, "prev": None})
         if is_race:
-            gap, class_gap = t, (t - leader["first"]) if t is not None and leader["first"] is not None else None
+            # Its own timing against the class leader (how long ago they were
+            # where this car is), else the two gaps to the leader apart; never
+            # below 0: the class leader's ahead of it (gaps measured at
+            # different places, a moment apart, can make the difference so).
+            gap = t
+            class_gap = timed if timed is not None else (t - leader["first"]) if t is not None and leader["first"] is not None else None
+            class_gap = None if class_gap is None else max(0.0, class_gap)
         else:
             # Drivers without a lap time (shown once they've done a lap) have no gap.
             gap = t - first if t is not None and first is not None else None
@@ -384,6 +391,7 @@ class App:
         self._flags = SectorFlags()      # the flag overlay: yellow sectors (_watch_start)
         self._lights_now = None
         self._pace_idx = None            # the pace car's CarIdx (session info), if there is one
+        self._finish_pos = {}            # (subsession, session) -> {car: iRacing's position as it finished}
         self._pace_out = None            # the session the pace car's been out on track in
         self._start_seen = None          # what was last logged about the start (_watch_start)
         self._flags_now = None
@@ -1015,6 +1023,8 @@ class App:
                     r["class_pos"] = in_class[r["class_key"]]
             self._add_start_positions(rows, is_race, grid or self._grid_order)
             rows = self._hold_live(live_frame, rows)
+            if is_race:
+                rows = self._official_finish(live_frame, rows)
             self._class_of = {r["car_idx"]: r["class_key"] for r in rows}
             session = self._session(frame)
             snap = {
@@ -1772,7 +1782,7 @@ class App:
             for r in rows:
                 if r["pos"] is not None and (not reveal or lap_done(r)):
                     standings.append(dict(entries[r["car_idx"]], pos=r["pos"], class_pos=r["class_pos"],
-                                          time=r["gap"], pos_change=r["pos_change"],
+                                          time=r["gap"], class_time=r.get("class_gap"), pos_change=r["pos_change"],
                                           class_pos_change=r.get("class_pos_change")))
         else:
             official = self._official_best(session)
@@ -1869,7 +1879,7 @@ class App:
         for r in rows:  # rows in live order: those crossing on the same tick in that order
             idx = r["car_idx"]
             if idx in done and idx not in kept and r["pos"] is not None:
-                kept[idx] = {k: r[k] for k in ("pos", "gap", "lap", "laps_completed")}
+                kept[idx] = {k: r.get(k) for k in ("pos", "gap", "class_gap", "lap", "laps_completed")}
                 # Where it finished, in laps: the line it crossed.
                 line = round(r["progress"]) if r["progress"] >= 0 else (r["laps_completed"] or 0)
                 kept[idx]["_at"] = (line, len(kept))
@@ -2064,7 +2074,7 @@ class App:
             self._line_gaps(placed, placed[0], crossed, "gap", "laps_down")
             for r in placed:
                 cl = class_leader[r["class_key"]]
-                self._line_gaps([r], cl, crossed, None, "class_laps_down")
+                self._line_gaps([r], cl, crossed, "class_gap", "class_laps_down")
             for r in placed:
                 at = crossed.get(r["car_idx"])
                 pace = r.get("last_lap") or r.get("best_lap")
@@ -2074,6 +2084,86 @@ class App:
                     r["pct"] = round(min(0.995, max(0.0, (now - at[1]) / pace)), 4)
         self._log_passes_at_line(live, num, placed)
         return placed + [r for r in out if r["pos"] is None]
+
+    def _official_finish(self, live, rows):
+        """After the chequered flag: the cars that have finished, in iRacing's
+        order. The app's own timing at the line can't split a photo finish:
+        iRacing sends other cars' positions only a few times a second, so a
+        crossing's time is worked out between two of them, to a few
+        hundredths (and during a replay, from the lap before's crossing plus
+        the lap time); it had two cars 0.016 s apart the wrong way round.
+
+        iRacing's own position for a car (CarIdxPosition, live) is its scoring
+        at the line, to the sim's precision, there the moment it crosses: the
+        order from then. Its results, once it publishes them (ResultsPositions,
+        a moment later, live or during a replay), give its race times too:
+        the gaps to the 10,000th of a second. Finishers take the places they
+        held between them, in iRacing's order; cars still racing stay as they
+        are, live."""
+        num = live.session_num
+        if not (self._race.checkered and self._race.session == num and self._race.finished):
+            return rows
+        session = self._session_meta.get("sessions", {}).get(num, {})
+        official = {}
+        for p in session.get("ResultsPositions") or []:
+            if (isinstance(p, dict) and isinstance(p.get("Time"), (int, float)) and p["Time"] > 0
+                    and isinstance(p.get("Position"), int) and p["Position"] > 0):
+                official[p.get("CarIdx")] = p
+        # iRacing's live position of each finisher (kept: it goes to 0 in the garage).
+        seen = self._finish_pos.setdefault((self._session_meta.get("subsession"), num), {})
+        if live.is_live or self._replay_cars_live(live):
+            for idx in self._race.finished:
+                p = _at(live.position, idx, 0)
+                if p and p > 0:
+                    seen[idx] = p
+
+        def place(idx):
+            return official[idx]["Position"] if idx in official else seen.get(idx)
+        done = [r for r in rows if r["car_idx"] in self._race.finished and r["pos"] is not None and place(r["car_idx"])]
+        if not done:
+            return rows
+        slots = sorted(r["pos"] for r in done)
+        # Their gaps as the app timed them, in order (a car placed behind another
+        # isn't shown closer to the winner), until iRacing's race times are in.
+        timed_gaps = sorted(r["gap"] for r in done if r.get("gap") is not None and r["car_idx"] not in official)
+        done.sort(key=lambda r: (place(r["car_idx"]), r["pos"]))
+        for slot, r in zip(slots, done):
+            r["pos"] = slot
+        untimed = [r for r in done if r.get("gap") is not None and r["car_idx"] not in official]
+        for r, gap in zip(untimed, timed_gaps):
+            r["gap"] = gap
+        # Gaps from iRacing's race times: to the winner, and to the class's
+        # first finisher, on the same lap (a lap or more down: the laps).
+        winner = next((p for p in official.values() if p["Position"] == 1), None)
+        timed = [r for r in done if r["car_idx"] in official]
+        class_first = {}
+        for r in timed:
+            class_first.setdefault(r["class_key"], official[r["car_idx"]])
+
+        def behind(p, first):
+            laps = (first.get("LapsComplete") or 0) - (p.get("LapsComplete") or 0)
+            return max(0, laps), (round(max(0.0, p["Time"] - first["Time"]), 3) if laps <= 0 else None)
+
+        for r in timed:
+            p = official[r["car_idx"]]
+            if winner is not None:
+                r["laps_down"], gap = behind(p, winner)
+                r["gap"] = 0.0 if p is winner else gap if gap is not None else r.get("gap")
+            first = class_first[r["class_key"]]
+            r["class_laps_down"], gap = behind(p, first)
+            r["class_gap"] = 0.0 if p is first else gap if gap is not None else r.get("class_gap")
+        rows.sort(key=lambda r: (r["pos"] is None, r["pos"] or 0))
+        in_class = {}
+        for r in rows:
+            if r["pos"] is None:
+                continue
+            in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
+            r["class_pos"] = in_class[r["class_key"]]
+            if r.get("start_pos"):
+                r["pos_change"] = r["start_pos"] - r["pos"]
+            if r.get("class_start_pos"):
+                r["class_pos_change"] = r["class_start_pos"] - r["class_pos"]
+        return rows
 
     def _line_gaps(self, rows, leader, crossed, gap_key, down_key):
         """Gaps timed at the line (a replay during a race, _hold_live): each
@@ -2240,17 +2330,18 @@ class App:
         # Only once it's been out on track leading them (a pace car parked, or
         # not out at all, isn't one pulling in).
         pace = self._pace_idx
-        final_lap = False
+        final_lap = pace_leading = False
         if pace is not None and race and frame.is_live and frame.session_state < STATE_CHECKERED:
             surface = _at(frame.surface, pace, TRK_NOT_IN_WORLD)
             pitting = bool(_at(frame.on_pit, pace, False)) or surface in (TRK_NOT_IN_WORLD, TRK_IN_PIT_STALL)
             if surface == TRK_ON_TRACK and not pitting:
                 self._pace_out = key
+                pace_leading = True
             final_lap = pitting and self._pace_out == key
         was = self._lights_now
         self._lights_now = self._lights.update(
             key, t, race=race and frame.is_live, state=frame.session_state, flags=frame.session_flags,
-            leader=leader, final_lap=final_lap, auto=cfg["start_from"], lights=cfg["lights"], step=cfg["step_s"],
+            leader=leader, final_lap=final_lap, pace_leading=pace_leading, auto=cfg["start_from"], lights=cfg["lights"], step=cfg["step_s"],
             out_s=cfg["out_s"])
         self._log_start(key, frame, race, final_lap, was)
         fcfg = ov["flags"]
@@ -2258,7 +2349,9 @@ class App:
         cars = {idx: (_at(frame.pct, idx, -1), _at(frame.surface, idx, TRK_NOT_IN_WORLD), bool(_at(frame.on_pit, idx, False)))
                 for idx in self._drivers} if frame.is_live else {}
         self._flags_now = self._flags.update(
-            key, t, starts=starts, cars=cars, track_m=self._track_m, auto=fcfg["auto"] and frame.is_live,
+            key, t, starts=starts, cars=cars, track_m=self._track_m, auto=fcfg["auto_yellow"] and frame.is_live,
+            # A car that's taken the chequered flag stopping (or crawling round) isn't a hazard.
+            done=self._race.finished if self._race.session == num else (),
             caution=bool(frame.session_flags & CAUTION_FLAGS),
             racing=frame.session_state in (STATE_RACING, STATE_CHECKERED), hold_s=fcfg["hold_s"], clear_s=fcfg["clear_s"])
 
@@ -2419,19 +2512,25 @@ class App:
             cl = class_leader.setdefault(r["class_key"], r)
             r["laps_down"] = _laps_down(leader, r)
             r["class_laps_down"] = _laps_down(cl, r)
+            if r is cl:
+                r["class_gap"] = 0.0
             if r is leader:
                 continue
             if r["progress"] < 0 or r.get("towed"):
-                r["gap"] = None  # in the garage, or towed to the pits (where it was put isn't where it is): no gap
+                r["gap"] = r["class_gap"] = None  # in the garage, or towed to the pits (where it was put isn't where it is): no gap
                 continue
-            gap = self.gaps.gap(r["car_idx"], leader["car_idx"], self.gaps.position(r["car_idx"], r["progress"], now), now)
-            if gap is None and leader["progress"] >= r["progress"] >= 0:
-                # Not timed yet (the first moments of the race, before the
-                # leader has been where this car is): the distance behind the
-                # leader at a usual lap's pace, rather than iRacing's 0.0.
-                gap = (leader["progress"] - r["progress"]) * lap_s
-            if gap is not None:
-                r["gap"] = round(gap, 3)
+            at = self.gaps.position(r["car_idx"], r["progress"], now)
+            for ahead, key in ((leader, "gap"), (cl, "class_gap")):
+                if r is ahead:
+                    continue
+                gap = self.gaps.gap(r["car_idx"], ahead["car_idx"], at, now)
+                if gap is None and ahead["progress"] >= r["progress"] >= 0:
+                    # Not timed yet (the first moments of the race, before the
+                    # leader has been where this car is): the distance behind the
+                    # leader at a usual lap's pace, rather than iRacing's 0.0.
+                    gap = (ahead["progress"] - r["progress"]) * lap_s
+                if gap is not None:
+                    r[key] = round(gap, 3)
 
     @staticmethod
     def _assign_positions(rows, racing):

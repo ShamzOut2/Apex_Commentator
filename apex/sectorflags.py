@@ -68,10 +68,11 @@ class SectorFlags:
 
     # -- each tick -------------------------------------------------------
 
-    def update(self, key, t, *, starts, cars, track_m, auto, caution, racing, hold_s=10.0, clear_s=3.0):
+    def update(self, key, t, *, starts, cars, track_m, auto, caution, racing, hold_s=10.0, clear_s=3.0, done=()):
         """The flag now: {"sectors", "count", "text", "clear"} or None (nothing on).
         ``cars``: {car: (pct, surface, on_pit_road)}; ``starts``: each sector's
-        start (lap fraction); ``racing``: a session under way, cars timed."""
+        start (lap fraction); ``racing``: a session under way, cars timed;
+        ``done``: cars that have finished the race (never a hazard)."""
         if key != self._key:
             self._key = key
             self.manual = set()
@@ -83,7 +84,7 @@ class SectorFlags:
             if caution:
                 yellow |= set(range(1, count + 1))
             else:
-                for car, sector in self._stopped(t, cars, track_m, starts):
+                for car, sector in self._stopped(t, {c: v for c, v in cars.items() if c not in done}, track_m, starts):
                     self._held[sector] = t + hold_s
                 yellow |= {s for s, until in self._held.items() if until > t and s <= count}
         else:

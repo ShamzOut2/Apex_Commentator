@@ -523,7 +523,9 @@ function standingsView(s) {
   return rows.map((r) => {
     let gap = null, int = null;
     if (race && r.gap != null && leaderGap != null) {
-      gap = r.gap - leaderGap;
+      // A class picked: its own timing against the class leader (never below 0:
+      // the leader's ahead of it, whatever two gaps measured apart say).
+      gap = ui.classFilter !== "all" && r.class_gap != null ? r.class_gap : Math.max(0, r.gap - leaderGap);
       if (prev && prev.gap != null) int = Math.max(0, r.gap - prev.gap);
     }
     const down = race ? (ui.classFilter === "all" ? r.laps_down : r.class_laps_down) || 0 : 0;
@@ -3123,8 +3125,8 @@ const OVERLAY_FIELDS = {
     ["What it shows", [
       ["visible", "Shows while a sector's yellow (untick: never)", "bool"],
       ["flag_sectors", "Sectors in a lap (from the track's split points)", "number", { min: 2, max: 9, step: 1 }],
-      ["auto", "Also by itself: a sector goes yellow while a car's stopped in it, and every sector under a full course caution", "bool"],
-      iff((v) => v.auto, ["hold_s", "A stopped car's sector stays yellow after it gets going (seconds)", "number", { min: 0, max: 60, step: 1 }]),
+      ["auto_yellow", "Also by itself: a sector goes yellow while a car's stopped in it (not one that's finished), and every sector under a full course caution", "bool"],
+      iff((v) => v.auto_yellow, ["hold_s", "A stopped car's sector stays yellow after it gets going (seconds)", "number", { min: 0, max: 60, step: 1 }]),
       ["clear_s", "\"Track Clear\" (green) once the last yellow's cleared, for (seconds; 0 = not shown)", "number", { min: 0, max: 10, step: 0.5 }],
       ["show_map", "The track's outline with the yellow sectors marked", "bool"],
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],

@@ -73,26 +73,26 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.7**
-
-### New features
-
-- Pit strategy overlay: the cars you pick, each with its race along a lap
-  scale, a tag at the lap of each pit stop, PIT while it's in the pit lane,
-  and its stops and laps on its current stint. Pick cars on the Widgets tab
-  (one by one, or the top 5, the cars around the one on camera, or each
-  class's leader), with hotkeys too.
-- Drive-through and stop-and-go penalties are told apart from pit stops, with
-  a setting for whether they count as stops (tower, timing screen, live
-  timing website, pit strategy); the pit strategy shows them as red tags and
-  the race log names them.
+**v0.7.8**
 
 ### Fixes
 
-- A pit stop under way as you go into a replay is now finished in the race
-  log when you're back live, so it counts in the Pits and Stint columns
-  (it was left open and never counted). The pit strategy stays on the live
-  race through any replay.
+- Starting lights at a rolling start: they now start as the pace car pulls
+  into the pits and stay lit until the green, wherever iRacing waves it (on
+  an oval it can be well before the line, so they never came up), and the
+  pace car still leading is never taken for the green.
+- Gaps by class (tower, timing screen, Timing tab) no longer go below zero:
+  each car is timed against its class leader.
+- Flags: a sector now goes yellow by itself while a car's stopped in it (it
+  was off unless you ticked it: now it's on for everyone), never for a car
+  that's finished the race.
+- The Size setting now works for the flags, the starting lights and the
+  track map (they stayed the same size).
+- Finishing order: as each car crosses the line after the chequered flag,
+  the tower and timing screen place it by iRacing's own scoring straight
+  away, then take iRacing's official gaps once it publishes them, so a photo
+  finish (two cars 0.016 s apart) is no longer the wrong way round, live or
+  during a replay.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -640,7 +640,13 @@ cost to how smoothly things move.
     turns into the chequered flag.
   - **After the flag**: a driver who's taken the chequered flag keeps their
     place and gap from the moment they crossed the line, whatever they do
-    after (pit, garage, leave): no greying out, no PIT or OUT.
+    after (pit, garage, leave): no greying out, no PIT or OUT. The places
+    among the finishers are **iRacing's own**: its scoring at the line
+    (CarIdxPosition) the moment each crosses, then its official results and
+    race times (to the 10,000th of a second) once it publishes them, so a
+    photo finish comes out as iRacing has it. (The app's own timing at the
+    line works from where iRacing says each car is, a few times a second,
+    good to a few hundredths: not enough to split two cars 0.016 s apart.)
   - **Drivers who leave**: *Keep drivers who leave the session in the
     list* keeps a driver who leaves where they were, on the tower and the
     full screen, greyed out (marked OUT on the full screen); the others
@@ -886,9 +892,13 @@ cost to how smoothly things move.
   green (no text, just the lights), then it goes (3 s by default). *The lights count
   down from*: **iRacing's start lights** at a standing start (Ready starts
   the count, Set has them all lit, Go is lights out) or, at a rolling start,
-  **the leader's run to the line** on the last pace lap, once the pace car
-  has pulled into the pits (or iRacing shows "one lap to green"): a light for
-  each second it's away, from its speed; iRacing's start lights only; or the
+  **from the moment the pace car pulls into the pits**: a light a step from
+  then, held lit until iRacing's green, wherever it waves it (on an oval, a
+  restart point well before the line). While the pace car's out leading the
+  field it's never the green; if iRacing already says "racing" then, the
+  green is the leader crossing the line. With no pace car, iRacing's "one lap
+  to green": a light for each second the leader's away from the line, from
+  its speed. Or iRacing's start lights only; or the
   **Count down** button / hotkey only (which works with any of them: a light
   a step from the press, held lit until the green). **On / Off**: off, it
   never shows. Not in replays, not at restarts after a caution, and not when
@@ -904,10 +914,14 @@ cost to how smoothly things move.
   The lap is cut into **3 sectors** by default (2–9), from the track's own
   split points (equal parts of the lap if it has too few). Set them with the
   buttons on its Widgets card (S1, S2, S3…, All sectors, Clear) or hotkeys:
-  each sector yellow / clear, every sector, clear them all. **Auto** (off by
-  default) also makes a sector yellow while a car is stopped or crawling in
-  it (on or off the track, not in the pits), until a while after it gets
-  going (10 s by default), and every sector under a full course caution.
+  each sector yellow / clear, every sector, clear them all. **Also by
+  itself** (on by default) makes a sector yellow while a car has been
+  stopped or crawling in it for a couple of seconds (on or off the track, not
+  in the pits, and not a car that's taken the chequered flag), until a while
+  after it gets going (10 s by default), and every sector under a full
+  course caution. It works from the live race (not while a replay's on
+  screen, unless iRacing's car data is live then). **Size** scales it, as it
+  does the starting lights and the track map.
 ![the starting lights counting down, and a yellow flag for sectors 2 and 3](docs/lights-flags.jpg)
 
 - **Track map** (`/trackmap.html`): the track's outline with no background
