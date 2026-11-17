@@ -263,6 +263,7 @@ function render() {
   renderResultsAuto(s.results_auto);
   renderOverlaySettings(s);
   renderBattlePick(s);
+  renderStrategyPick(s);
   renderRaceControl(s);
   renderChampLive(s);
   renderBoards(s);
@@ -798,7 +799,8 @@ function eventText(ev) {
       return `${who} pits${ev.position ? ` from P${ev.position}` : ""}`;
     case "pit_out": {
       const lost = ev.position && ev.from_position ? ev.position - ev.from_position : 0;
-      return `${who} rejoins <b>P${ev.position ?? "?"}</b>${lost > 0 ? ` (lost ${lost})` : ""} · ${ev.duration}s in the pits`;
+      const served = { drive_through: " · drive-through", stop_go: " · stop-and-go" }[ev.stop] || "";
+      return `${who} rejoins <b>P${ev.position ?? "?"}</b>${lost > 0 ? ` (lost ${lost})` : ""} · ${ev.duration}s in the pits${served}`;
     }
     case "position":
       return `${who} loses <b>${ev.position - ev.from_position}</b> place${ev.position - ev.from_position === 1 ? "" : "s"} after going off (P${ev.from_position} → P${ev.position})`;
@@ -1183,7 +1185,7 @@ const TOWER_COLUMN_HOTKEYS = [["pos_change", "Places gained / lost"], ["number",
   ["laps", "Laps"], ["pits", "Pit stops"], ["stint", "Current stint"], ["tyre", "Tyres"], ["make", "Car manufacturer"],
   ["pit_status", "PIT badge"], ["stripe", "Coloured bar"], ["fastest_icon", "Fastest lap stopwatch"]];
 const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"],
-  ["battle", "Championship battle"], ["pits", "Pit stops"], ["duel", "On-track battle"], ["trackmap", "Track map"],
+  ["battle", "Championship battle"], ["pits", "Pit stops"], ["duel", "On-track battle"], ["strategy", "Pit strategy"], ["trackmap", "Track map"],
   ["lights", "Starting lights (comes up at the start)"], ["flags", "Flags (shows while a sector's yellow)"]];
 const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
 
@@ -1273,6 +1275,11 @@ function hotkeyActions(s = ui.snap || {}) {
         ov.battle && ov.battle.visible ? "Championship battle off" : "Championship battle on")],
       ...BATTLE_PICKS.map(([mode, label]) => [`battle:${mode}`, `${label} (picks them and shows it)`,
         () => cmd("battle_pick", { mode }, "Championship battle on")])]],
+    ["Pit strategy", [
+      ["strategy:toggle", "The cars picked, on / off", () => cmd("hotkey", { action: "strategy:toggle" },
+        ov.strategy && ov.strategy.visible ? "Pit strategy off" : "Pit strategy on")],
+      ...STRATEGY_PICKS.map(([mode, , label]) => [`strategy:${mode}`, `${label} (picks them and shows it)`,
+        () => cmd("strategy_pick", { mode }, "Pit strategy on")])]],
   ];
 }
 
@@ -1461,6 +1468,66 @@ $("#battle-pick").addEventListener("click", (e) => {
     cmd("battle_pick", { mode: pick.dataset.battlePick }, "Championship battle on");
   }
   if (e.target.closest("[data-battle-clear]")) setBattle({ drivers: "", visible: false });
+  if (e.target.closest("button")) e.target.closest("button").blur();
+});
+
+// -- pit strategy: the cars it follows -------------------------------------------
+
+// [mode, button, what it picks]
+const STRATEGY_PICKS = [["top", "Top 5", "The top 5"], ["around", "Around camera", "The car on camera and two either side of it (its class)"],
+  ["camera", "Camera car", "The car on camera"], ["leaders", "Class leaders", "Each class's leader"]];
+const STRATEGY_MAX = 8;
+let strategyPickKey = "";
+
+function renderStrategyPick(s) {
+  const el = $("#strategy-pick");
+  const cfg = s.overlays && s.overlays.settings && s.overlays.settings.strategy;
+  if (!el || !cfg) return;
+  const picked = cfg.cars ? cfg.cars.split(",") : [];
+  // Everyone in the session with a number, by number (the tower's leaving out safety cars and the like).
+  const cars = (s.drivers || []).filter((d) => d.number && !d.hidden);
+  const key = JSON.stringify([cfg.cars, cars.map((d) => [d.number, d.name, d.pos]), !!s.connected]);
+  if (key === strategyPickKey || (el.contains(document.activeElement) && document.activeElement.tagName === "SELECT")) return;
+  strategyPickKey = key;
+  const byNumber = new Map(cars.map((d) => [String(d.number), d]));
+  const chips = picked.map((n) => {
+    const d = byNumber.get(n);
+    return `<span class="bp-chip ${d ? "" : "missing"}" title="${d ? "" : "Not in this session"}">#${esc(n)}${d ? ` ${esc(d.name)}` : ""}
+      <button type="button" data-strat-remove="${esc(n)}" aria-label="Remove">×</button></span>`;
+  }).join("");
+  const free = cars.filter((d) => !picked.includes(String(d.number)))
+    .sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
+  el.innerHTML = `
+    <div class="bp-drivers"><span>Cars <span class="hint">(up to ${STRATEGY_MAX}, by number: a team's car stays picked when its drivers swap)</span></span>
+      <div class="bp-chips">${chips || '<span class="hint">None picked yet</span>'}
+        ${picked.length < STRATEGY_MAX && free.length ? `<select data-strat-add aria-label="Add a car"><option value="">+ Add a car…</option>${free.map((d) =>
+          `<option value="${esc(d.number)}">#${esc(d.number)} · ${esc(d.name)}${d.pos ? ` (P${d.pos})` : ""}</option>`).join("")}</select>` : ""}
+      </div></div>
+    <div class="row bp-quick">${STRATEGY_PICKS.map(([mode, label, about]) => `<button type="button" class="btn subtle" data-strat-pick="${mode}"
+      title="${esc(about)}: pick them and show it">${esc(label)}</button>`).join("")}
+      ${picked.length ? '<button type="button" class="btn subtle" data-strat-clear>Clear</button>' : ""}</div>`;
+}
+
+function setStrategy(values, done) {
+  strategyPickKey = "";
+  return cmd("overlay_settings", { overlay: "strategy", values }, done);
+}
+
+const strategyPicked = () => (ui.snap.overlays.settings.strategy.cars || "").split(",").filter(Boolean);
+
+$("#strategy-pick").addEventListener("change", (e) => {
+  if (e.target.matches("[data-strat-add]") && e.target.value) setStrategy({ cars: [...strategyPicked(), e.target.value].join(",") });
+  e.target.blur();
+});
+$("#strategy-pick").addEventListener("click", (e) => {
+  const remove = e.target.closest("[data-strat-remove]");
+  if (remove) setStrategy({ cars: strategyPicked().filter((n) => n !== remove.dataset.stratRemove).join(",") });
+  const pick = e.target.closest("[data-strat-pick]");
+  if (pick) {
+    strategyPickKey = "";
+    cmd("strategy_pick", { mode: pick.dataset.stratPick }, "Pit strategy on");
+  }
+  if (e.target.closest("[data-strat-clear]")) setStrategy({ cars: "", visible: false });
   if (e.target.closest("button")) e.target.closest("button").blur();
 });
 
@@ -2922,6 +2989,9 @@ const OVERLAY_FIELDS = {
       ["show_pronouns", "Each driver's pronouns after their name, in brackets, e.g. (she/her) (set them in the League builder)", "bool"],
       ["strip_name_numbers", "Leave off a number on the end of a name, e.g. Shamoy Samuel3 → Shamoy Samuel (a driver's second iRacing account; Officials mode too)", "bool"],
     ]],
+    ["Pit stops", [
+      ["penalty_stops", "Penalties served in the pit lane (a drive-through, a stop-and-go) count as pit stops: the Pits and Stint columns, the live timing website and the pit strategy (untick: only stops in the pit box count)", "bool"],
+    ]],
     ["Colours", [
       ["solid_colors", "Class, team and accent colours stay as picked whatever a widget's opacity (untick: they fade with the panels)", "bool"],
     ]],
@@ -3013,6 +3083,26 @@ const OVERLAY_FIELDS = {
       ["show_logo", "Team logos", "bool"],
       ["show_interval", "Gaps", "bool"],
       iff((v) => v.show_interval, ["gap_shown", "Each car's gap", "select", [["ahead", "To the car ahead of it"], ["camera", "To the driver on camera (− ahead, + behind)"]]]),
+    ]],
+    OVERLAY_LOOK,
+  ],
+  strategy: [
+    ["What it shows", [
+      ["order", "Cars in", "select", [["position", "Running order"], ["picked", "The order you picked them"]]],
+      ["scale_to", "The lap scale", "select", [["race", "The race's length (in laps), else the laps run so far"], ["so_far", "The laps run so far"]]],
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["panel_width", "Width (px)", "number", { min: 700, max: 1840, step: 10 }],
+      ["title", "Heading (empty: Pit strategy)", "text"],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_position", "Position", "bool"],
+      iff((v) => v.show_position, ["position_shown", "Position shown", "select", [["overall", "Overall"], ["class", "In class"]]]),
+      ["show_number", "Car numbers", "bool"],
+      ["class_colors", "Car number and lap scale colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
+      ["show_logo", "Team logos", "bool"],
+      ["show_stops", "Number of stops", "bool"],
+      ["show_stint", "Laps on the current stint", "bool"],
+      ["show_penalties", "Penalties served in the pit lane on the scale too (red DT for a drive-through, SG for a stop-and-go); whether they count as stops is in All overlays & boards", "bool"],
     ]],
     OVERLAY_LOOK,
   ],
@@ -3750,6 +3840,8 @@ const WIDGETS = [
     about: "A few drivers fighting for the championship: their place and points (as if the race ended now), what this race gives them and the points between them. Pick them on the Widgets tab." },
   { key: "duel", name: "On-track battle", page: "duel",
     about: "The car on camera and the cars just ahead and behind it, within the gap you pick: \"Battle for P3\", their names and the gaps between them. It can come up by itself whenever there's a battle." },
+  { key: "strategy", name: "Pit strategy", page: "strategy",
+    about: "A few cars you pick, each with its race so far along a lap scale and a tag at the lap of each pit stop; where it is now (PIT in the pit lane), its stops and the laps on its current stint. Pick the cars on the Widgets tab." },
   { key: "trackmap", name: "Track map", page: "trackmap",
     about: "The track's outline with no background and a dot for every car where it is, in its main or secondary class colour (the live timing website's map)." },
   { key: "lights", name: "Starting lights", page: "lights",

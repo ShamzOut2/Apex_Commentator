@@ -11,6 +11,27 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.7.7
+
+### New features
+
+- Pit strategy overlay: the cars you pick, each with its race along a lap
+  scale, a tag at the lap of each pit stop, PIT while it's in the pit lane,
+  and its stops and laps on its current stint. Pick cars on the Widgets tab
+  (one by one, or the top 5, the cars around the one on camera, or each
+  class's leader), with hotkeys too.
+- Drive-through and stop-and-go penalties are told apart from pit stops, with
+  a setting for whether they count as stops (tower, timing screen, live
+  timing website, pit strategy); the pit strategy shows them as red tags and
+  the race log names them.
+
+### Fixes
+
+- A pit stop under way as you go into a replay is now finished in the race
+  log when you're back live, so it counts in the Pits and Stint columns
+  (it was left open and never counted). The pit strategy stays on the live
+  race through any replay.
+
 ## v0.7.6
 
 ### Improvements

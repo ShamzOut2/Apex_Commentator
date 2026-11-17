@@ -57,6 +57,7 @@ from .sources import (
     STATE_RACING,
     TRK_NOT_IN_WORLD,
     TRK_OFF_TRACK,
+    TRK_IN_PIT_STALL,
     TRK_ON_TRACK,
 )
 
@@ -64,6 +65,7 @@ INCIDENT_MATCH_WINDOW_S = 15.0
 PAIR_FORGET_S = 1.0
 MIN_BASELINE_SPEED = 15.0  # m/s; below this a car is not "at speed"
 RECOVERY_SETTLE_S = 5.0    # back on track this long before counting places lost
+PENALTY_CLEAR_S = 10.0     # a penalty flag going this soon after a pit exit: that visit served it
 TIME_JUMP_S = 2.0          # a bigger jump means a replay skip: start afresh
 SPEED_BINS = 250           # the track split into this many pieces for "usual speed here"
 SPEED_BIN_MIN_SAMPLES = 8  # samples in a piece before its usual speed counts
@@ -137,7 +139,8 @@ class EventDetector:
         self._prev_surface = {}
         self._last_kind_time = {}
         self._session_num = None
-        self._pit = {}            # car -> {"on", "since", "pos"}
+        self._pit = {}            # car -> {"on", "since", "pos", "boxed", "black"}
+        self._served = {}         # car -> (its pit_out event, until): a penalty flag it came in with, going (served)
         self._recover = {}        # car -> {"pos", "when", "back"} after going off
         self._prev_flags = {}
         self._car_best = {}
@@ -203,8 +206,14 @@ class EventDetector:
             # Time stood still, went backwards or jumped (pause, session change,
             # replay skip): start afresh rather than compare across the gap.
             if dt != 0:
+                # Forward (back live after a replay): who was in the pit lane is
+                # kept, so a stop that went on while the replay was up still
+                # ends (or starts) in the log; what it was is then a guess
+                # ("unseen": see _detect_race_events).
+                pits = {idx: dict(p, unseen=True) for idx, p in self._pit.items()} if dt > 0 else {}
                 self.reset()
                 self._session_num = frame.session_num
+                self._pit = pits
             self._prev_time = now
             return []
         self._prev_time = now
@@ -506,20 +515,46 @@ class EventDetector:
         # Pit stops count from the green: leaving the pit stalls for the grid isn't one.
         under_way = is_race and frame.session_state in (STATE_RACING, STATE_CHECKERED)
         for idx in drivers:
-            # Pit stops.
+            # Pit stops. What kind ("stop" on the pit_out event): a stop in its
+            # pit box, or a "drive_through" (down the pit lane without stopping
+            # in it); one it came in with a penalty (black flag) for, and the
+            # flag goes as it leaves (or just after): that penalty served, a
+            # "drive_through" or a "stop_go" (stopped in the box).
             on_pit = bool(_at(frame.on_pit, idx, False))
+            in_stall = _at(frame.surface, idx, TRK_NOT_IN_WORLD) == TRK_IN_PIT_STALL
+            black = bool(_at(frame.car_flags, idx, 0) & FLAG_BLACK)
             pit = self._pit.get(idx)
             if pit is None:
-                self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx)}
+                self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx), "boxed": on_pit and in_stall, "black": black,
+                                  "unseen": on_pit}  # already in the pit lane: not seen from its entry
             elif on_pit != pit["on"]:
                 if under_way and on_pit:
                     created.append(self._emit("pit_in", idx, frame, drivers, position=pos.get(idx)))
                 elif under_way:
-                    created.append(self._emit(
-                        "pit_out", idx, frame, drivers, position=pos.get(idx), from_position=pit["pos"],
-                        duration=round(now - pit["since"], 1),
-                    ))
-                self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx)}
+                    # Part of the visit not seen (the app wasn't watching live,
+                    # a replay was up): no stop in its box seen is no proof it
+                    # didn't stop, so a pit stop unless a penalty went with it.
+                    kind = "stop" if pit["boxed"] or pit.get("unseen") else "drive_through"
+                    if pit["black"] and not black:
+                        kind = "stop_go" if pit["boxed"] else "drive_through"
+                    ev = self._emit("pit_out", idx, frame, drivers, position=pos.get(idx), from_position=pit["pos"],
+                                    duration=round(now - pit["since"], 1), stop=kind)
+                    created.append(ev)
+                    if pit["black"] and black and pit["boxed"]:  # the flag may go a moment later
+                        self._served[idx] = (ev, now + PENALTY_CLEAR_S)
+                # Came into the pit lane while a replay was up (seen in it straight after): its start unseen.
+                self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx), "boxed": on_pit and in_stall, "black": black,
+                                  "unseen": bool(pit.get("unseen")) and on_pit}
+            elif on_pit and in_stall:
+                pit["boxed"] = True
+            if pit is not None and pit.get("unseen") and not on_pit and on_pit == pit["on"]:
+                pit["unseen"] = False  # out on track as it was: nothing unseen about its next stop
+            served = self._served.get(idx)
+            if served is not None:
+                if not black and now <= served[1]:
+                    served[0]["stop"] = "stop_go"
+                if not black or now > served[1] or on_pit:
+                    del self._served[idx]
 
             # Places lost after going off.
             surface = _at(frame.surface, idx, TRK_NOT_IN_WORLD)

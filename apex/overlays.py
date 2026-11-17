@@ -69,7 +69,11 @@ DEFAULTS = {
                 "show_pronouns": True,
                 # A number on the end of a name ("Shamoy Samuel3": a second
                 # iRacing account) left off on every overlay and board.
-                "strip_name_numbers": False},
+                "strip_name_numbers": False,
+                # Penalties served in the pit lane (a drive-through, a stop-and-go)
+                # counted as pit stops: the Pits and Stint columns, the live timing
+                # website, the pit strategy (off: only stops in the pit box count).
+                "penalty_stops": False},
     # The live timing website for spectators (spectate.py, web/live/): how it looks
     # and what it shows. Every driver with a class is on it, whatever the tower shows.
     "live": {
@@ -276,6 +280,30 @@ DEFAULTS = {
         "hold_s": 3.0,            # auto: stays up this long after the battle breaks up
         **BACKGROUND, **OFFSET,
     },
+    # Pit strategy (strategy.html): a few cars picked by number, each with its
+    # race so far along a lap scale and a mark at the lap of each of its pit
+    # stops; where it is now (PIT while it's in the pit lane), its stops and
+    # the laps in its current stint. cars: comma separated car numbers, up to
+    # eight, in the order picked. scale_to: the race's length when it's set in
+    # laps ("race"), else (or with "so_far") the laps run so far.
+    "strategy": {**LOGO,
+        "visible": False,
+        "cars": "",
+        "order": "position",      # rows in running order ("position") or as picked ("picked")
+        "place": "bottom",
+        "panel_width": 1240,      # px across
+        "title": "",              # its heading ("" = Pit strategy)
+        "scale_to": "race",
+        "name_format": "full",
+        "show_position": True,
+        "position_shown": "overall",  # "overall" (P3) or "class" (P1 in its class)
+        "show_number": True, "show_logo": True,
+        "show_stops": True,       # the number of stops
+        "show_stint": True,       # laps in the current stint (since its last stop)
+        "show_penalties": True,   # penalties served in the pit lane on the scale too (DT, SG), counted or not
+        "class_colors": "main",
+        **BACKGROUND, **OFFSET,
+    },
     # Starting lights (lights.html): a row of red lights counting down to the
     # start, lights out at the green; only up then. start_from: "all" (iRacing's
     # start lights at a standing start, and the leader's run to the line at a
@@ -460,7 +488,7 @@ DEFAULTS = {
     },
 }
 
-LIMITS = {"gap_s": (0.1, 30.0), "settle_s": (0.0, 3.0), "ahead": (0, 6), "behind": (0, 6), "dot_size": (40, 250), "map_size": (150, 1400),
+LIMITS = {"panel_width": (700, 1840), "gap_s": (0.1, 30.0), "settle_s": (0.0, 3.0), "ahead": (0, 6), "behind": (0, 6), "dot_size": (40, 250), "map_size": (150, 1400),
           "track_width": (40, 300), "grid_size": (50, 250), "font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1, 3), "board_dim": (0, 90), "sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
           "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "sponsor_size": (40, 250), "delay_s": (0.0, 300.0), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
@@ -474,7 +502,8 @@ CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "s
            "font": FONTS,
            "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "anchor_side": ("first", "last"), "fl_flash_many": ("stack", "queue"), "gap_shown": ("ahead", "camera"),
            "labels": ("none", "number", "position"), "start_from": ("all", "standing", "hand"),
-           "units": ("metric", "imperial"), "team_logo_kind": ("full", "small")}
+           "units": ("metric", "imperial"), "team_logo_kind": ("full", "small"),
+           "order": ("position", "picked"), "scale_to": ("race", "so_far")}
 
 
 def normalise(settings):
@@ -511,6 +540,9 @@ def _value(key, value, default):
                 if re.fullmatch(r"[a-z_]{1,20}", col) and pct.strip().isdigit() and int(pct) < 100:
                     out.append(f"{col}:{max(0, int(pct))}")
             return ",".join(out)
+        if key == "cars":  # car numbers (as iRacing has them: "007" isn't "7")
+            nums = [n.strip() for n in value.split(",") if re.fullmatch(r"[0-9A-Za-z]{1,4}", n.strip())]
+            return ",".join(list(dict.fromkeys(nums))[:8])
         if key == "drivers":
             keys = [k.strip() for k in value.split(",") if re.fullmatch(r"(cust:\d{1,12}|name:[^,]{1,60})", k.strip())]
             return ",".join(dict.fromkeys(keys[:6]))
