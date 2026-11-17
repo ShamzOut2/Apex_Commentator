@@ -11,6 +11,17 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- Starting lights at a rolling start: they now start as the pace car pulls
+  into the pits and stay lit until the green, wherever iRacing waves it (on
+  an oval it can be well before the line, so they never came up), and the
+  pace car still leading is never taken for the green.
+- Gaps by class (tower, timing screen, Timing tab) no longer go below zero:
+  each car is timed against its class leader.
+
 ## v0.7.7
 
 ### New features

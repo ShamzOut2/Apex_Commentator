@@ -523,7 +523,9 @@ function standingsView(s) {
   return rows.map((r) => {
     let gap = null, int = null;
     if (race && r.gap != null && leaderGap != null) {
-      gap = r.gap - leaderGap;
+      // A class picked: its own timing against the class leader (never below 0:
+      // the leader's ahead of it, whatever two gaps measured apart say).
+      gap = ui.classFilter !== "all" && r.class_gap != null ? r.class_gap : Math.max(0, r.gap - leaderGap);
       if (prev && prev.gap != null) int = Math.max(0, r.gap - prev.gap);
     }
     const down = race ? (ui.classFilter === "all" ? r.laps_down : r.class_laps_down) || 0 : 0;

@@ -80,6 +80,42 @@ class LightsTests(unittest.TestCase):
         for k in range(100):
             self.assertIsNone(lit(lights, 300 + k * 0.1, state=RACING, flags=CAUTION, leader=5.9 + k * 0.001, final_lap=True))
 
+    def test_rolling_start_green_before_the_line(self):
+        """An oval: iRacing waves the green at a restart point well before the
+        line. The lights start as the pace car pulls in, not as the leader
+        nears the line, so they're all lit before the green, then out."""
+        lights = StartLights()
+        seen = []
+        for k in range(400):
+            t = k * 0.1
+            progress = 0.60 + t / 100.0
+            pitted = progress >= 0.70             # the pace car pulls in at 70 % of the lap
+            if progress < 0.85:                    # the green, 15 s later: 15 % of the lap before the line
+                seen.append(lit(lights, t, state=PARADE, flags=CAUTION, leader=progress, final_lap=pitted, pace_leading=not pitted))
+            else:
+                seen.append(lit(lights, t, state=RACING, flags=0, leader=progress, final_lap=True))
+        counting = [x for x in seen[:250] if x is not None]
+        self.assertEqual(seen[99], None)          # nothing while the pace car's out
+        self.assertEqual(sorted(set(counting)), [0, 1, 2, 3, 4, 5])
+        self.assertEqual(seen[249], 5)             # all lit just before the green
+        self.assertEqual(seen[250], "out")
+
+    def test_flags_saying_racing_behind_the_pace_car(self):
+        """iRacing saying "racing", no caution, while the pace car leads: not
+        the green. Its flags can't tell the green then: the leader crossing
+        the line after the pace car's pulled in is."""
+        lights = StartLights()
+        seen = []
+        for k in range(400):
+            t = k * 0.1
+            progress = 0.60 + t / 100.0
+            pitted = progress >= 0.75
+            seen.append(lit(lights, t, state=RACING, flags=0, leader=progress, final_lap=pitted, pace_leading=not pitted))
+        self.assertEqual(seen[100], None)           # pace car out: no green, no lights
+        self.assertEqual((seen[199], seen[220]), (4, 5))  # a light a second from the pace car pulling in (15 s), held
+        self.assertEqual(seen[399], 5)              # (the line is at 1.0: t = 40 s)
+        self.assertEqual(lit(lights, 40.1, state=RACING, flags=0, leader=1.001, final_lap=True), "out")
+
     def test_by_hand_and_held_until_the_green(self):
         lights = StartLights()
         lights.count(50.0)
