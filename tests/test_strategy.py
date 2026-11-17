@@ -122,6 +122,77 @@ class StrategyTests(unittest.TestCase):
         self.assertFalse(self.app.overlays.get()["strategy"]["visible"])
         self.assertIn("strategy", self.app.TOGGLE_ALL)
 
+    def test_a_replay_doesnt_change_it(self):
+        """Going into a replay (iRacing's car data then the replay's: older laps,
+        cars in other places, in the pits or not) leaves the overlay showing
+        the live race: the same cars, stops and laps, never gone back. A replay
+        of another session (qualifying, say) too: it stays as it was live."""
+        import copy
+        from dataclasses import replace
+
+        order = self.standings()
+        cars = [e["number"] for e in order[:4]]
+        self.pit(order[1], 3)
+        self.pit(order[2], 2, kind="drive_through")
+        self.app.command("overlay_settings", {"overlay": "strategy", "values": {"cars": ",".join(cars), "visible": True}})
+        history = []
+        read = self.src.read
+
+        def recorded():
+            f = read()
+            history.append(copy.deepcopy(f))
+            return f
+        self.src.read = recorded
+        self.run_for(30)
+
+        def view():
+            s = self.app.build_snapshot()["overlays"]["strategy"]
+            return s and [(r["number"], r["done"], [(v["lap"], v["kind"]) for v in r["stops"]], r["stop_count"]) for r in s["rows"]]
+        live = view()
+        self.assertEqual(len(live), 4)
+        live_pit = {r["number"]: r["in_pit"] for r in self.app.build_snapshot()["overlays"]["strategy"]["rows"]}
+        self.app.command("replay_car_data", {"mode": "replay"})  # iRacing's car data in a replay: the replay's
+        # Watching a replay from 25 s back (20 s of it: race time already seen
+        # live; later than that the app logs the replay, as race time it didn't
+        # see): its laps, places, pits and track surfaces.
+        back = 250
+        for step in range(200):
+            self.clock.t += 0.1
+            f = read()
+            history.append(copy.deepcopy(f))
+            old = history[-back]
+            self.src.read = lambda f=f, old=old: replace(
+                f, replay_frames_from_end=back * 6, replay_session_time=old.session_time, replay_session_num=f.session_num,
+                lap=old.lap, laps_completed=old.laps_completed, pct=old.pct, position=old.position, last_lap=old.last_lap,
+                surface=old.surface, on_pit=[not p for p in old.on_pit], f2_time=old.f2_time)
+            self.app.tick()
+            if step % 50 == 0:
+                snap = self.app.build_snapshot()
+                now = view()
+                # The same cars, in the live running order the tower holds through a replay.
+                tower = [e["number"] for e in sorted(snap["overlays"]["standings"], key=lambda e: e["pos"] or 999) if e["number"] in cars]
+                self.assertEqual([r[0] for r in now], tower)
+                was = {r[0]: r for r in live}
+                for r in now:
+                    self.assertEqual(r[2:], was[r[0]][2:])                               # the same stops
+                    self.assertGreaterEqual(r[1], was[r[0]][1])                          # laps never gone back
+                # In the pits or not: as last seen live, not as the replay has them (the other way round, here).
+                self.assertEqual({r["number"]: r["in_pit"] for r in snap["overlays"]["strategy"]["rows"]}, live_pit)
+        # A replay of another session (qualifying): it stays as it was.
+        meta = self.app._session_meta["sessions"]
+        meta[7] = dict(meta[0], SessionNum=7, SessionType="Lone Qualify", SessionName="QUALIFY")
+        held = view()
+        f = read()
+        self.src.read = lambda: replace(f, replay_frames_from_end=9000, replay_session_time=200.0, replay_session_num=7,
+                                        lap=[-1] * len(f.lap), laps_completed=[-1] * len(f.lap), on_pit=[False] * len(f.lap))
+        self.app.tick()
+        self.assertEqual(view(), held)
+        self.assertEqual(len(self.app.command("strategy_pick", {"mode": "top"})["cars"]), 5)  # picks still work, from the live order
+        # Live again: on it goes.
+        self.src.read = read
+        self.run_for(5)
+        self.assertEqual(len(view()), 5)
+
     def test_cars_setting(self):
         s = normalise({"strategy": {"cars": " 95, 73,8,8,x!,007,1,2,3,4,5,6", "order": "nope", "panel_width": 5000}})["strategy"]
         self.assertEqual(s["cars"], "95,73,8,007,1,2,3,4")  # car numbers as they are, no repeats, eight at most

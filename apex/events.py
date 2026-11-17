@@ -206,8 +206,14 @@ class EventDetector:
             # Time stood still, went backwards or jumped (pause, session change,
             # replay skip): start afresh rather than compare across the gap.
             if dt != 0:
+                # Forward (back live after a replay): who was in the pit lane is
+                # kept, so a stop that went on while the replay was up still
+                # ends (or starts) in the log; what it was is then a guess
+                # ("unseen": see _detect_race_events).
+                pits = {idx: dict(p, unseen=True) for idx, p in self._pit.items()} if dt > 0 else {}
                 self.reset()
                 self._session_num = frame.session_num
+                self._pit = pits
             self._prev_time = now
             return []
         self._prev_time = now
@@ -519,12 +525,16 @@ class EventDetector:
             black = bool(_at(frame.car_flags, idx, 0) & FLAG_BLACK)
             pit = self._pit.get(idx)
             if pit is None:
-                self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx), "boxed": on_pit and in_stall, "black": black}
+                self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx), "boxed": on_pit and in_stall, "black": black,
+                                  "unseen": on_pit}  # already in the pit lane: not seen from its entry
             elif on_pit != pit["on"]:
                 if under_way and on_pit:
                     created.append(self._emit("pit_in", idx, frame, drivers, position=pos.get(idx)))
                 elif under_way:
-                    kind = "stop" if pit["boxed"] else "drive_through"
+                    # Part of the visit not seen (the app wasn't watching live,
+                    # a replay was up): no stop in its box seen is no proof it
+                    # didn't stop, so a pit stop unless a penalty went with it.
+                    kind = "stop" if pit["boxed"] or pit.get("unseen") else "drive_through"
                     if pit["black"] and not black:
                         kind = "stop_go" if pit["boxed"] else "drive_through"
                     ev = self._emit("pit_out", idx, frame, drivers, position=pos.get(idx), from_position=pit["pos"],
@@ -532,9 +542,13 @@ class EventDetector:
                     created.append(ev)
                     if pit["black"] and black and pit["boxed"]:  # the flag may go a moment later
                         self._served[idx] = (ev, now + PENALTY_CLEAR_S)
-                self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx), "boxed": on_pit and in_stall, "black": black}
+                # Came into the pit lane while a replay was up (seen in it straight after): its start unseen.
+                self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx), "boxed": on_pit and in_stall, "black": black,
+                                  "unseen": bool(pit.get("unseen")) and on_pit}
             elif on_pit and in_stall:
                 pit["boxed"] = True
+            if pit is not None and pit.get("unseen") and not on_pit and on_pit == pit["on"]:
+                pit["unseen"] = False  # out on track as it was: nothing unseen about its next stop
             served = self._served.get(idx)
             if served is not None:
                 if not black and now <= served[1]:

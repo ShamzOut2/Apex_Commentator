@@ -1070,8 +1070,7 @@ class App:
             self._battle_basis = (rows, snap["championship"], frame.cam_car_idx)
             snap["overlays"]["battle"] = self._battle_snapshot(snap["championship"], active_league)
             snap["overlays"]["duel"] = self._duel_snapshot(snap["overlays"], frame, is_race)
-            snap["overlays"]["strategy"] = self._strategy_snapshot(snap["overlays"], frame, is_race)
-            self._strategy_basis = (snap["overlays"]["standings"] if is_race else [], frame.cam_car_idx)
+            snap["overlays"]["strategy"] = self._strategy_snapshot(snap["overlays"], live_frame, frame, is_race)
             snap["overlays"]["trackmap"] = self._trackmap_snapshot(rows, snap, frame, active_league)
             snap["overlays"]["lights"] = self._lights_now
             starts = self._flag_sectors(self.overlays.get()["flags"]["flag_sectors"])
@@ -1272,36 +1271,57 @@ class App:
             if ev.get("session_num") != session_num:
                 continue
             if ev["type"] == "pit_in":
-                visit = {"lap": ev.get("lap") or 0, "kind": None}
+                visit = {"lap": ev.get("lap") or 0, "kind": None, "out_lap": None}
                 out.setdefault(ev["car_idx"], []).append(visit)
                 open_[ev["car_idx"]] = visit
-            elif ev["type"] == "pit_out" and ev["car_idx"] in open_:
-                open_.pop(ev["car_idx"])["kind"] = ev.get("stop", "stop")
+            elif ev["type"] == "pit_out":
+                visit = open_.pop(ev["car_idx"], None)
+                if visit is None:  # came in unseen (during a replay, say): the lap it came out on
+                    visit = {"lap": ev.get("lap") or 0, "kind": None, "out_lap": None}
+                    out.setdefault(ev["car_idx"], []).append(visit)
+                visit["kind"], visit["out_lap"] = ev.get("stop", "stop"), ev.get("lap") or 0
         return out
 
-    def _strategy_snapshot(self, ov, frame, is_race):
+    def _strategy_snapshot(self, ov, live, frame, is_race):
         """The pit strategy overlay (strategy.html): the cars picked (by number),
         each with the laps it pitted on, where it is now and its stops and
         stint, and the lap scale they're drawn on. None outside a race or
-        with no cars picked."""
+        with no cars picked.
+
+        Always the live race (``live``: iRacing's live frame; ``frame``: what's
+        on screen). A replay on screen doesn't change it: with iRacing's car
+        data live in the replay, it goes on live; a replay of the race with the
+        standings held live (_hold_live), it goes on from them (laps as they're
+        done); a replay of anything else (another session, the race once it's
+        moved on), it stays as it last was live. It's never the replay's."""
         cfg = self.overlays.get()["strategy"]
         penalties_count = self.overlays.get()["general"]["penalty_stops"]
         picked = [n for n in cfg["cars"].split(",") if n]
-        if not is_race or not picked:
+        key = (self._session_meta.get("subsession"), live.session_num)
+        live_now = live.is_live or self._replay_cars_live(live) or (
+            getattr(self, "_held_now", False) and frame.session_num == live.session_num)
+        if live_now:
+            basis = (ov.get("standings") or [], ov.get("progress") or {}) if is_race else None
+            self._strategy_live = (key, basis)
+            # The quick picks go by this running order (and the car on camera).
+            self._strategy_basis = (basis[0] if basis else [], live.cam_car_idx)
+        else:
+            held = getattr(self, "_strategy_live", None)
+            basis = held[1] if held and held[0] == key else None
+        if not basis or not picked:
             return None
-        entries = ov.get("standings") or []
+        entries, progress = basis
         by_number = {}
         for e in entries:
             by_number.setdefault(str(e["number"]), e)
         multi = len({e["class_key"] for e in entries}) > 1
-        session_num = frame.timeline()[0]
+        session_num = live.session_num  # the race's pit stops: never a replayed session's
         pits = self._pit_laps(session_num)
         # Laps done as last known: a car out of the car (retired, or gone)
         # has none in iRacing's data, but its race so far stays drawn.
         done_at = getattr(self, "_strategy_done", None)
         if done_at is None or done_at[0] != session_num:
             done_at = self._strategy_done = (session_num, {})
-        progress = ov.get("progress") or {}
         total = progress.get("laps_total") if progress.get("mode") == "laps" else None
         lead = max((e.get("laps_completed") or 0 for e in entries), default=0)
         rows = []
@@ -1314,14 +1334,18 @@ class App:
             done = done_at[1].get(e["car_idx"], 0)
             # Each visit to the pit lane: a stop (counted), a penalty served
             # (counted only if they count; shown if wanted), or under way (None).
-            visits = []
+            visits, out_lap = [], None
             for v in pits.get(e["car_idx"], []):
                 penalty = v["kind"] in ("drive_through", "stop_go")
+                counted = v["kind"] is not None and (not penalty or penalties_count)
+                if counted:
+                    out_lap = v["out_lap"]  # its stint started then
                 if penalty and not (penalties_count or cfg["show_penalties"]):
                     continue
-                visits.append({"lap": v["lap"], "kind": v["kind"], "counted": v["kind"] is not None and (not penalty or penalties_count)})
+                visits.append({"lap": v["lap"], "kind": v["kind"], "counted": counted})
             rows.append({**{k: e.get(k) for k in ("car_idx", "number", "name", "nickname", "pronouns", "team", "team_logo",
-                                                  "team_logo_small", "class_key", "paint", "stint", "finished")},
+                                                  "team_logo_small", "class_key", "paint", "finished")},
+                         "stint": self._stint(done, out_lap) if (done or e.get("laps_completed") is not None) else None,
                          "pos": e["class_pos"] if cfg["position_shown"] == "class" else e["pos"],
                          "order": e["pos"] or 999,
                          "done": done,
@@ -1966,6 +1990,7 @@ class App:
         each car is put round the lap at its pace (the track map, the live
         timing website). Live: noted for then."""
         num = live.session_num
+        self._held_now = False  # the standings are the live race's, held through a replay (the pit strategy)
         if live.is_live or self._replay_cars_live(live):  # live, or iRacing's car data live in the replay
             self._live_rows = (self._session_meta.get("subsession"), num, rows)
             self._held_order = (num, [r["car_idx"] for r in sorted((r for r in rows if r["pos"] is not None), key=lambda r: r["pos"])])
@@ -1975,6 +2000,7 @@ class App:
         if (not heats.race_kind(session) or live.session_state not in (STATE_RACING, STATE_CHECKERED)
                 or not held or held[:2] != (self._session_meta.get("subsession"), num)):
             return rows  # not a race going on, or not seen live: what's on screen
+        self._held_now = True
         now = live.session_time
         gaps = self.gaps
         now_rows = {r["car_idx"]: r for r in rows}

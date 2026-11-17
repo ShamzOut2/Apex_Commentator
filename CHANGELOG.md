@@ -25,6 +25,13 @@ How each version's entry is written:
   timing website, pit strategy); the pit strategy shows them as red tags and
   the race log names them.
 
+### Fixes
+
+- A pit stop under way as you go into a replay is now finished in the race
+  log when you're back live, so it counts in the Pits and Stint columns
+  (it was left open and never counted). The pit strategy stays on the live
+  race through any replay.
+
 ## v0.7.6
 
 ### Improvements

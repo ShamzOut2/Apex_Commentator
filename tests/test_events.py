@@ -344,6 +344,27 @@ class RaceEventTests(unittest.TestCase):
         self.setUp()
         self.assertEqual(self.visit(box=True, black_until=99)["stop"], "stop")  # stopped with the penalty still to serve
 
+    def test_a_stop_while_a_replay_was_up(self):
+        """Back live after a replay (a jump in race time): a car that was in the
+        pit lane as the replay started and is out now has its exit logged; one
+        seen in the pit lane straight after came in unseen. Neither was seen
+        in its box, but they may have been: pit stops, not drive-throughs."""
+        def car(pit_from, pit_to):
+            return lambda t: (5, (0.60 + t * 0.011) % 1, TRK_APPROACHING_PITS if pit_from <= t < pit_to else TRK_ON_TRACK,
+                              pit_from <= t < pit_to, FLAG_GREEN, 89.0)
+        drive = car(5, 40)  # in the pit lane from 5 s; the replay's up from 10 s to 30 s
+        pits = lambda evs: [(e["type"], e.get("stop")) for e in evs if e["type"].startswith("pit")]  # noqa: E731
+        self.assertEqual(pits(self.race(10, drive) + self.race(20, drive, start=30)), [("pit_in", None), ("pit_out", "stop")])
+        self.setUp()
+        late = car(20, 40)  # came in during the replay
+        self.assertEqual(pits(self.race(10, late) + self.race(20, late, start=30)), [("pit_in", None), ("pit_out", "stop")])
+        # A drive-through after that, all of it seen: a drive-through.
+        self.setUp()
+        self.race(10, drive)
+        later = car(45, 60)
+        self.assertEqual(pits(self.race(40, lambda t: drive(t) if t < 42 else later(t), start=30)),
+                         [("pit_out", "stop"), ("pit_in", None), ("pit_out", "drive_through")])
+
     def test_leaving_the_pits_for_the_grid_isnt_a_pit_stop(self):
         """Before the green, cars go from their pit stalls to the grid: not a
         stop (watching a replay of it counted one for everyone)."""

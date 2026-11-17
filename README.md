@@ -87,6 +87,13 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   timing website, pit strategy); the pit strategy shows them as red tags and
   the race log names them.
 
+### Fixes
+
+- A pit stop under way as you go into a replay is now finished in the race
+  log when you're back live, so it counts in the Pits and Stint columns
+  (it was left open and never counted). The pit strategy stays on the live
+  race through any replay.
+
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
 
@@ -858,6 +865,17 @@ cost to how smoothly things move.
   goes for every count of stops, so they agree: the tower's and timing
   screen's **Pits** and **Stint** columns, the live timing website and the
   pit strategy. The race log says which it was too ("· drive-through").
+
+  **Replays don't change it.** It's always the live race: with iRacing's car
+  data live during a replay (Timing tab: replay car data) it carries on
+  live; in a replay of the race otherwise, its laps follow the live results
+  as the tower's do (in the pits or not as last seen live); in a replay of
+  anything else (qualifying, or the race once the server's moved on) it
+  stays as it last was live. Its stops are never the replay's. A car in the
+  pit lane as a replay starts has its stop finished in the log when you're
+  back live; one that came in while the replay was up is logged when you're
+  back if it's still in the pit lane (a whole stop made while a replay was
+  up, with iRacing's car data the replay's, can't be seen).
 - **Starting lights** (`/lights.html`): a start-light gantry seen in
   perspective, turned 10° to the left (a steel box truss, two posts down to
   a black housing, and for each light a column of two lamps, each a glass
