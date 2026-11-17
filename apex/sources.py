@@ -429,9 +429,16 @@ class MockSource:
             })
         return drivers
 
+    def _race_order(self, i):
+        """Where a car is in iRacing's order: by laps done, then a finished
+        car in the order they took the flag, then the rest by distance."""
+        if self.race_time[i]:
+            return (-self.mock_laps[i], 0, self.race_time[i])
+        return (-self.mock_laps[i], 1, -self.progress[i])
+
     def _results(self):
         """Race results the way iRacing publishes them (updated as laps complete)."""
-        order = sorted(range(self.num_cars), key=lambda i: (-self.mock_laps[i], -self.progress[i]))
+        order = sorted(range(self.num_cars), key=self._race_order)
         return [{
             "Position": pos, "ClassPosition": pos - 1, "CarIdx": i + 1, "LapsComplete": self.mock_laps[i],
             "LapsLed": self.laps_led[i], "FastestTime": round(self.best_lap[i], 4) if self.best_lap[i] > 0 else -1,
@@ -578,7 +585,9 @@ class MockSource:
             f2 = [0.0] * n
             steer = [0.0] * n
             if self.session_kind == "race":
-                order = sorted(range(self.num_cars), key=lambda i: -self.progress[i])
+                # iRacing's position: the order at the line, a finished car's
+                # fixed where it finished (its cool-down lap doesn't move it).
+                order = sorted(range(self.num_cars), key=self._race_order)
                 leader = self.progress[order[0]]
                 for rank, i in enumerate(order, start=1):
                     position[i + 1] = rank

@@ -88,6 +88,11 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   that's finished the race.
 - The Size setting now works for the flags, the starting lights and the
   track map (they stayed the same size).
+- Finishing order: as each car crosses the line after the chequered flag,
+  the tower and timing screen place it by iRacing's own scoring straight
+  away, then take iRacing's official gaps once it publishes them, so a photo
+  finish (two cars 0.016 s apart) is no longer the wrong way round, live or
+  during a replay.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -635,7 +640,13 @@ cost to how smoothly things move.
     turns into the chequered flag.
   - **After the flag**: a driver who's taken the chequered flag keeps their
     place and gap from the moment they crossed the line, whatever they do
-    after (pit, garage, leave): no greying out, no PIT or OUT.
+    after (pit, garage, leave): no greying out, no PIT or OUT. The places
+    among the finishers are **iRacing's own**: its scoring at the line
+    (CarIdxPosition) the moment each crosses, then its official results and
+    race times (to the 10,000th of a second) once it publishes them, so a
+    photo finish comes out as iRacing has it. (The app's own timing at the
+    line works from where iRacing says each car is, a few times a second,
+    good to a few hundredths: not enough to split two cars 0.016 s apart.)
   - **Drivers who leave**: *Keep drivers who leave the session in the
     list* keeps a driver who leaves where they were, on the tower and the
     full screen, greyed out (marked OUT on the full screen); the others

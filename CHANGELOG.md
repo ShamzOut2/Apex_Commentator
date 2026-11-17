@@ -26,6 +26,11 @@ How each version's entry is written:
   that's finished the race.
 - The Size setting now works for the flags, the starting lights and the
   track map (they stayed the same size).
+- Finishing order: as each car crosses the line after the chequered flag,
+  the tower and timing screen place it by iRacing's own scoring straight
+  away, then take iRacing's official gaps once it publishes them, so a photo
+  finish (two cars 0.016 s apart) is no longer the wrong way round, live or
+  during a replay.
 
 ## v0.7.7
 

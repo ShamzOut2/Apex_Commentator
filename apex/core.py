@@ -391,6 +391,7 @@ class App:
         self._flags = SectorFlags()      # the flag overlay: yellow sectors (_watch_start)
         self._lights_now = None
         self._pace_idx = None            # the pace car's CarIdx (session info), if there is one
+        self._finish_pos = {}            # (subsession, session) -> {car: iRacing's position as it finished}
         self._pace_out = None            # the session the pace car's been out on track in
         self._start_seen = None          # what was last logged about the start (_watch_start)
         self._flags_now = None
@@ -1022,6 +1023,8 @@ class App:
                     r["class_pos"] = in_class[r["class_key"]]
             self._add_start_positions(rows, is_race, grid or self._grid_order)
             rows = self._hold_live(live_frame, rows)
+            if is_race:
+                rows = self._official_finish(live_frame, rows)
             self._class_of = {r["car_idx"]: r["class_key"] for r in rows}
             session = self._session(frame)
             snap = {
@@ -2081,6 +2084,86 @@ class App:
                     r["pct"] = round(min(0.995, max(0.0, (now - at[1]) / pace)), 4)
         self._log_passes_at_line(live, num, placed)
         return placed + [r for r in out if r["pos"] is None]
+
+    def _official_finish(self, live, rows):
+        """After the chequered flag: the cars that have finished, in iRacing's
+        order. The app's own timing at the line can't split a photo finish:
+        iRacing sends other cars' positions only a few times a second, so a
+        crossing's time is worked out between two of them, to a few
+        hundredths (and during a replay, from the lap before's crossing plus
+        the lap time); it had two cars 0.016 s apart the wrong way round.
+
+        iRacing's own position for a car (CarIdxPosition, live) is its scoring
+        at the line, to the sim's precision, there the moment it crosses: the
+        order from then. Its results, once it publishes them (ResultsPositions,
+        a moment later, live or during a replay), give its race times too:
+        the gaps to the 10,000th of a second. Finishers take the places they
+        held between them, in iRacing's order; cars still racing stay as they
+        are, live."""
+        num = live.session_num
+        if not (self._race.checkered and self._race.session == num and self._race.finished):
+            return rows
+        session = self._session_meta.get("sessions", {}).get(num, {})
+        official = {}
+        for p in session.get("ResultsPositions") or []:
+            if (isinstance(p, dict) and isinstance(p.get("Time"), (int, float)) and p["Time"] > 0
+                    and isinstance(p.get("Position"), int) and p["Position"] > 0):
+                official[p.get("CarIdx")] = p
+        # iRacing's live position of each finisher (kept: it goes to 0 in the garage).
+        seen = self._finish_pos.setdefault((self._session_meta.get("subsession"), num), {})
+        if live.is_live or self._replay_cars_live(live):
+            for idx in self._race.finished:
+                p = _at(live.position, idx, 0)
+                if p and p > 0:
+                    seen[idx] = p
+
+        def place(idx):
+            return official[idx]["Position"] if idx in official else seen.get(idx)
+        done = [r for r in rows if r["car_idx"] in self._race.finished and r["pos"] is not None and place(r["car_idx"])]
+        if not done:
+            return rows
+        slots = sorted(r["pos"] for r in done)
+        # Their gaps as the app timed them, in order (a car placed behind another
+        # isn't shown closer to the winner), until iRacing's race times are in.
+        timed_gaps = sorted(r["gap"] for r in done if r.get("gap") is not None and r["car_idx"] not in official)
+        done.sort(key=lambda r: (place(r["car_idx"]), r["pos"]))
+        for slot, r in zip(slots, done):
+            r["pos"] = slot
+        untimed = [r for r in done if r.get("gap") is not None and r["car_idx"] not in official]
+        for r, gap in zip(untimed, timed_gaps):
+            r["gap"] = gap
+        # Gaps from iRacing's race times: to the winner, and to the class's
+        # first finisher, on the same lap (a lap or more down: the laps).
+        winner = next((p for p in official.values() if p["Position"] == 1), None)
+        timed = [r for r in done if r["car_idx"] in official]
+        class_first = {}
+        for r in timed:
+            class_first.setdefault(r["class_key"], official[r["car_idx"]])
+
+        def behind(p, first):
+            laps = (first.get("LapsComplete") or 0) - (p.get("LapsComplete") or 0)
+            return max(0, laps), (round(max(0.0, p["Time"] - first["Time"]), 3) if laps <= 0 else None)
+
+        for r in timed:
+            p = official[r["car_idx"]]
+            if winner is not None:
+                r["laps_down"], gap = behind(p, winner)
+                r["gap"] = 0.0 if p is winner else gap if gap is not None else r.get("gap")
+            first = class_first[r["class_key"]]
+            r["class_laps_down"], gap = behind(p, first)
+            r["class_gap"] = 0.0 if p is first else gap if gap is not None else r.get("class_gap")
+        rows.sort(key=lambda r: (r["pos"] is None, r["pos"] or 0))
+        in_class = {}
+        for r in rows:
+            if r["pos"] is None:
+                continue
+            in_class[r["class_key"]] = in_class.get(r["class_key"], 0) + 1
+            r["class_pos"] = in_class[r["class_key"]]
+            if r.get("start_pos"):
+                r["pos_change"] = r["start_pos"] - r["pos"]
+            if r.get("class_start_pos"):
+                r["class_pos_change"] = r["class_start_pos"] - r["class_pos"]
+        return rows
 
     def _line_gaps(self, rows, leader, crossed, gap_key, down_key):
         """Gaps timed at the line (a replay during a race, _hold_live): each
