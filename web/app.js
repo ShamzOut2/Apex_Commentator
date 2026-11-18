@@ -5671,7 +5671,24 @@ $("#upd-token-clear").addEventListener("click", async () => {
   }
 });
 
-// The Licence card on the Home page: the optional Apex Labs key.
+// The Licence card on the Home page: the optional Apex Labs key. Once a key is added (it comes
+// from signing in with Discord) it's hidden, APEX-••••-••••-••••-••••, until Show is pressed, so
+// it isn't on screen while streaming. A new key starts hidden again.
+const licKey = { key: "", shown: false };
+
+function maskKey(key) {
+  return key.split("-").map((part, i) => (i === 0 && part === "APEX" ? part : "•".repeat(part.length))).join("-");
+}
+
+function showLicenceKey() {
+  const shown = licKey.shown && !!licKey.key;
+  $("#lic-key-shown").textContent = shown ? licKey.key : maskKey(licKey.key);
+  $("#lic-key-shown").classList.toggle("masked", !shown);
+  $("#lic-show").textContent = shown ? "Hide" : "Show";
+  $("#lic-show").title = shown ? "Hide the key" : "Show the full key";
+  $("#lic-show").setAttribute("aria-pressed", shown ? "true" : "false");
+}
+
 function renderLicence(st) {
   if (!st) return;
   let text = "No key added";
@@ -5680,7 +5697,9 @@ function renderLicence(st) {
   $("#lic-status").innerHTML = text;
   $("#lic-add-row").hidden = !!st.has_key;
   $("#lic-have-row").hidden = !st.has_key;
-  $("#lic-key-shown").textContent = st.key || "";
+  if ((st.key || "") !== licKey.key) licKey.shown = false;
+  licKey.key = st.key || "";
+  showLicenceKey();
   $("#lic-get").hidden = !!st.has_key;
   $("#lic-manage").hidden = !st.has_key;
   if (st.manage_url) $("#lic-manage").href = st.manage_url;
@@ -5712,6 +5731,10 @@ $("#lic-save").addEventListener("click", async (e) => {
   }
 });
 $("#lic-key").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#lic-save").click(); });
+$("#lic-show").addEventListener("click", () => {
+  licKey.shown = !licKey.shown;
+  showLicenceKey();
+});
 $("#lic-check").addEventListener("click", async (e) => {
   const st = await licenceAction("check", {}, e.currentTarget);
   if (st && st.valid && !st.error) toast("Key checked");

@@ -1,6 +1,6 @@
 """Apex Labs licence key: optional during early access.
 
-People get a free key at https://shamzout2.github.io/Apex-Labs/key/ (Discord
+People get a free key at https://apex-labs-3kf.pages.dev/key/ (Discord
 sign-in) and paste it in Home → Licence. The app sends the key to the Apex
 Labs key service, which answers with a licence signed with Ed25519. The
 licence is kept in ``data/licence.json`` and checked here against the public
@@ -29,7 +29,7 @@ from pathlib import Path
 
 SERVICE = "https://apex-keys.shamzout.workers.dev"
 PUBLIC_KEY = "0oLW-0hzSRd5aBYMf78Bgdb1yJ_xq91Qnrf-6n2P9Lk"
-GET_KEY_URL = "https://shamzout2.github.io/Apex-Labs/key/"
+GET_KEY_URL = "https://apex-labs-3kf.pages.dev/key/"
 APP = "commentator"
 CHECK_EVERY_S = 24 * 3600
 OFFLINE = "Couldn't reach the Apex Labs key service. Your licence keeps working offline; it will check again later."

@@ -11,6 +11,18 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.7.10
+
+### Improvements
+
+- Licence: your key is hidden on the Home page once it's added, so it
+  isn't on screen while you stream. Press Show to see it.
+
+### Fixes
+
+- Licence: "Get your key" opens the Apex Labs website's key page again (it
+  went to an old address that no longer works).
+
 ## v0.7.9
 
 ### New features
