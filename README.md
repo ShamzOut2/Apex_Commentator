@@ -73,13 +73,17 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.9**
+**v0.7.10**
 
-### New features
+### Improvements
 
-- Licence on the Home page: paste your free Apex Labs key (get one with
-  Discord on the Apex Labs website). It's optional during early access and
-  the same key works in Apex Overlays.
+- Licence: your key is hidden on the Home page once it's added, so it
+  isn't on screen while you stream. Press Show to see it.
+
+### Fixes
+
+- Licence: "Get your key" opens the Apex Labs website's key page again (it
+  went to an old address that no longer works).
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

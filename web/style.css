@@ -571,6 +571,8 @@ kbd {
 .updates-card .row { align-items: center; gap: 8px; flex-wrap: wrap; }
 .upd-status { color: var(--muted); }
 .upd-status b { color: var(--accent); }
+.lic-key { font-size: 13px; letter-spacing: .04em; user-select: all; }
+.lic-key.masked { user-select: none; color: var(--muted); }
 .upd-error { color: var(--bad); margin: 8px 0 0; }
 .updates-card details { margin-top: 8px; }
 .updates-card summary { cursor: pointer; color: var(--muted); font-size: 13px; }
