@@ -11,6 +11,14 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.7.9
+
+### New features
+
+- Licence on the Home page: paste your free Apex Labs key (get one with
+  Discord on the Apex Labs website). It's optional during early access and
+  the same key works in Apex Overlays.
+
 ## v0.7.8
 
 ### Fixes

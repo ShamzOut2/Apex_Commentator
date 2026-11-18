@@ -2,4 +2,4 @@
 
 # The release workflow publishes this version when this file changes on main
 # (see .github/workflows/release.yml); CLAUDE.md has the release steps.
-__version__ = "0.7.8"
+__version__ = "0.7.9"
