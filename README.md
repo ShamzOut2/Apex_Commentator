@@ -73,26 +73,13 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.8**
+**Coming in the next update**
 
-### Fixes
+### New features
 
-- Starting lights at a rolling start: they now start as the pace car pulls
-  into the pits and stay lit until the green, wherever iRacing waves it (on
-  an oval it can be well before the line, so they never came up), and the
-  pace car still leading is never taken for the green.
-- Gaps by class (tower, timing screen, Timing tab) no longer go below zero:
-  each car is timed against its class leader.
-- Flags: a sector now goes yellow by itself while a car's stopped in it (it
-  was off unless you ticked it: now it's on for everyone), never for a car
-  that's finished the race.
-- The Size setting now works for the flags, the starting lights and the
-  track map (they stayed the same size).
-- Finishing order: as each car crosses the line after the chequered flag,
-  the tower and timing screen place it by iRacing's own scoring straight
-  away, then take iRacing's official gaps once it publishes them, so a photo
-  finish (two cars 0.016 s apart) is no longer the wrong way round, live or
-  during a replay.
+- Licence on the Home page: paste your free Apex Labs key (get one with
+  Discord on the Apex Labs website). It's optional during early access and
+  the same key works in Apex Overlays.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

@@ -21,6 +21,7 @@ from .tracks import TrackCatalogue
 from .trackmaps import TrackMaps
 from .core import App
 from .league import LeagueStore
+from .licence import Licence
 from .paths import APP_DIR, FROZEN
 from .server import make_server, serve_in_thread
 from .updater import Updater, restart_options, restart_requested
@@ -78,6 +79,8 @@ def build_app(cfg, mock, mock_speed=1.0, mock_session="race", mock_laps=0, mock_
         token=cfg["github_token"] or app.settings.get("github_token", ""), enabled=cfg["update_check"],
         installer_mode=FROZEN, settings=app.settings,
     )
+    # The optional Apex Labs key (Home → Licence): checked at start and once a day.
+    app.licence = Licence(__version__, ROOT / "data" / "licence.json", enabled=cfg["update_check"])
     return app
 
 
@@ -166,6 +169,7 @@ def main(argv=None):
                       "Is another program using it? Change \"port\" in config.json.", error=True)
         return 1
     app.updater.start()
+    app.licence.start()
     app.start()
     serve_in_thread(server)
 
