@@ -118,6 +118,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json(self.app.build_snapshot())
         if path == "/api/stream":
             return self._stream()
+        if path == "/api/overlay-defaults":
+            # Every widget's settings as they come (Widget Settings: what's
+            # been changed, and putting a setting back).
+            from .overlays import DEFAULTS
+            return self._send_json(DEFAULTS)
         if path == "/api/config":
             cfg = self.app.cfg
             return self._send_json({

@@ -3321,6 +3321,22 @@ document.addEventListener("toggle", (e) => {
   } catch (err) { /* storage unavailable */ }
 }, true);
 
+// A setting's label: its name, and what a bracket at its end explains on a
+// grey line under it ("Team logo size (%; 100 = usual)": "Team logo size", "%; 100 = usual").
+function labelHtml(label) {
+  const m = String(label).match(/^([^(]*\S)\s+\(([^()]+(?:\([^()]*\)[^()]*)*)\)$/);
+  if (!m || m[1].length < 3) return `<span class="ov-lab">${label}</span>`;
+  const hint = m[2].charAt(0).toUpperCase() + m[2].slice(1);
+  return `<span class="ov-lab">${m[1]}<small class="ov-hint">${hint}</small></span>`;
+}
+
+// A choice of a few short options: buttons side by side (one lit), not a drop-down.
+let segUid = 0;
+function segmentable(options) {
+  return options.length >= 2 && options.length <= 4 && options.every(([, l]) => String(l).length <= 18)
+    && options.reduce((n, [, l]) => n + String(l).length, 0) <= 44;
+}
+
 // One setting, as its input. `section` is the overlay or board it belongs to.
 function fieldHtml(section, values, [k, label, kind, opts], s) {
   const v = values[k];
@@ -3331,14 +3347,16 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   if (kind === "order") return orderField(k, label, v, opts, values);
   if (kind === "classorder") return classOrderField(k, label, values, s.classes || []);
   if (kind === "colopacity") return opacityField(k, label, v, opts);
-  if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
-  if (kind === "number") {
-    return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
+  if (kind === "bool") {
+    return `<label class="ov-field check">${labelHtml(label)}<span class="switch"><input type="checkbox" role="switch" ${attrs} ${v ? "checked" : ""}><i aria-hidden="true"></i></span></label>`;
   }
-  if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
+  if (kind === "number") {
+    return `<label class="ov-field">${labelHtml(label)}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
+  }
+  if (kind === "text") return `<label class="ov-field">${labelHtml(label)}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
   if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v, k, label);
   if (kind === "groups") return groupPicker(((s.board_options || {}).groups) || [], v, k, label);
-  if (kind === "color") return `<label class="ov-field">${label}<input type="color" ${attrs} value="${esc(v)}"></label>`;
+  if (kind === "color") return `<label class="ov-field">${labelHtml(label)}<input type="color" ${attrs} value="${esc(v)}"></label>`;
   if (kind === "swatches") {
     // Colours from the background image (filled in by fillSwatches once it's loaded).
     return `<div class="ov-field wide swatch-field"><span>${label}</span><div class="swatches" data-swatch-key="${k}"
@@ -3350,7 +3368,12 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
     : kind === "banner" ? [["", "The first of the right shape"], ...((s.league && s.league.banners) || []).map((b, i) =>
       [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
       : opts;
-  return `<label class="ov-field">${label}<select ${attrs}>${options.map(([o, l]) =>
+  if (kind === "select" && segmentable(options)) {
+    const name = `seg-${section}-${k}-${(segUid += 1)}`;
+    return `<div class="ov-field seg-field">${labelHtml(label)}<div class="segs" role="radiogroup">${options.map(([o, l]) =>
+      `<label class="${String(o) === String(v) ? "on" : ""}"><input type="radio" name="${name}" ${attrs} value="${esc(o)}" ${String(o) === String(v) ? "checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></div>`;
+  }
+  return `<label class="ov-field">${labelHtml(label)}<select ${attrs}>${options.map(([o, l]) =>
     `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
 }
 
@@ -3541,7 +3564,7 @@ document.addEventListener("dragend", () => {
 // (the first one open until you choose otherwise).
 function settingsHtml(section, values, groups, s, allOpen = false) {
   const top = "visible" in values
-    ? `<label class="ov-field check ov-visible"><input type="checkbox" data-key="visible" data-kind="bool" ${values.visible ? "checked" : ""}> Showing <span class="hint">(untick to hide it everywhere)</span></label>` : "";
+    ? `<label class="ov-field check ov-visible"><span class="ov-lab">On stream<small class="ov-hint">Off: hidden everywhere</small></span><span class="switch"><input type="checkbox" role="switch" data-key="visible" data-kind="bool" ${values.visible ? "checked" : ""}><i aria-hidden="true"></i></span></label>` : "";
   return top + groups.map(([title, fields], i) => {
     const id = `${section}/${title}`;
     const open = sectionsOpen[id] ?? (allOpen || i === 0);
@@ -3880,6 +3903,151 @@ function widgetGroups(key) {
   return OVERLAY_FIELDS[key] || [["What it shows", BOARD_FIELDS[key]], ["Logo, banner & sponsors", BOARD_BRAND], LOOK];
 }
 
+// ---- Widget Settings: the same four tabs on every widget, Essentials first --
+// Where each setting goes: by its key, else (a setting shown only while
+// another is on) with the one it hangs off, else by its section, else Content.
+const WS_TABS = ["Content", "Look", "Position", "Behaviour"];
+const WS_TAB_OF = Object.fromEntries(Object.entries({
+  Position: ["scale", "offset_x", "offset_y", "width", "name_width", "panel_width", "map_size", "place", "card_scale", "size",
+    "grid_size", "grid_fill", "grid_layout"],
+  Look: ["font", "solid_colors", "accent", "accent_color", "accent_practice", "accent_qualify", "accent_race", "class_colors",
+    "stripe_colors", "show_stripe", "color_number", "team_logo_kind", "logo_scale", "col_opacity_on", "col_bg_color", "col_opacity",
+    "flag_black_bg_color", "flag_meatball_bg_color", "flag_warning_bg_color", "invalid_text_color", "invalid_sector_color",
+    "invalid_line_color", "track_color", "track_width", "dot_size", "colors", "camera", "background", "bg", "podium", "title_wrap",
+    "show_color"],
+  Behaviour: ["reveal", "replay_header", "replay_hide_rows", "finish_flag", "penalty_flags", "stay", "hide_s", "show_s", "hold_s",
+    "race_only", "auto", "settle_s", "interval_s", "visible", "start_from", "step_s", "out_s", "auto_yellow", "clear_s", "practice",
+    "sector_delta_s", "grid_reveal", "grid_scroll", "board_overlays", "board_dim", "penalty_stops", "keep_leader"],
+  Content: ["neighbours"],
+}).flatMap(([tab, keys]) => keys.map((k) => [k, tab])));
+const WS_GROUP_TAB = { "Fastest lap": "Behaviour", "Logo, banner & sponsors": "Look", "Car pictures": "Position" };
+// The settings most people change: shown first (Show all settings for the rest).
+const WS_ESSENTIAL = new Set(["mode", "class_keys", "rows", "rows_class", "name_format", "show_number", "show_team", "show_logo",
+  "show_position", "position_shown", "show_gap", "show_interval", "place", "title", "scale", "offset_x", "offset_y", "bg", "accent",
+  "accent_color", "league_logo", "banner", "sponsors", "visible", "auto", "stay", "hide_s", "count", "who", "race_only", "style",
+  "show_date", "show_winners", "grid_source", "reverse_top", "grid_layout", "grid_reveal", "units", "show_map", "show_air",
+  "show_track_temp", "show_wind", "sponsor_ids", "anchor_id", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
+  "order", "show_stops", "show_penalties", "colors", "labels", "map_size", "start_from", "auto_yellow", "qual_shown", "card_scale",
+  "car_scale", "show_points", "show_drivers", "show_wins", "header_info", "show_series", "show_track", "sponsor_bar", "show_pos_change",
+  "show_pits", "reveal", "replay_header", "fl_flash", "finish_flag", "gap_to", "show_race_points"]);
+// The stored values a field of several parts sets (changed / put back as one).
+const WS_PARTS = { size: ["scale", "font_scale"], background: ["bg", "bg_color", "bg_image", "bg_opacity"] };
+
+// A widget's settings as [{tab, title, fields}] (each field also knows its tab).
+const wsSectionCache = {};
+function wsSections(key) {
+  if (wsSectionCache[key]) return wsSectionCache[key];
+  const out = [];
+  for (const [group, fields] of widgetGroups(key)) {
+    let lastTab = null;
+    const placed = fields.map((f) => {
+      const tab = WS_TAB_OF[f[0]] || (f.when && lastTab) || WS_GROUP_TAB[group] || "Content";
+      if (!f.when) lastTab = tab;
+      return [tab, f];
+    });
+    for (const tab of WS_TABS) {
+      const mine = placed.filter(([t]) => t === tab).map(([, f]) => f);
+      if (!mine.length) continue;
+      let title = group;
+      if (/^Size/.test(group)) title = tab === "Position" ? (/position/.test(group) ? "Size & position" : "Size") : "Background & logos";
+      out.push({ tab, title, group, fields: mine });
+    }
+  }
+  wsSectionCache[key] = out;
+  return out;
+}
+
+// Every widget's defaults (fetched once), to mark what's been changed and put it back.
+let ovDefaults = null;
+fetch("/api/overlay-defaults").then((r) => r.json()).then((d) => {
+  ovDefaults = d;
+  wsKey = "";
+  if (ui.snap && ui.snap.overlays) renderWidgetSettings(ui.snap);
+}).catch(() => {});
+
+function wsFieldKeys(f) { return WS_PARTS[f[2]] || [f[0]]; }
+function wsChanged(section, values, f) {
+  const d = ovDefaults && ovDefaults[f.section || section];
+  if (!d || f[2] === "note") return false;
+  return wsFieldKeys(f).some((k) => k in d && JSON.stringify(values[k] ?? null) !== JSON.stringify(d[k] ?? null));
+}
+function wsEssential(key, f) {
+  const all = wsSections(key).reduce((n, sec) => n + sec.fields.length, 0);
+  return all <= 14 || WS_ESSENTIAL.has(f[0]);
+}
+
+let wsTab = "Content";
+let wsAll = false;
+let wsQuery = "";
+let wsReveal = null;  // a setting found by search: shown even among the Essentials
+try {
+  wsAll = localStorage.getItem("apex.wsAll") === "1";
+  wsTab = WS_TABS.includes(localStorage.getItem("apex.wsTab")) ? localStorage.getItem("apex.wsTab") : "Content";
+} catch (e) { /* storage unavailable */ }
+
+// One setting in Widget Settings: its input, a dot and ↺ when it's been changed,
+// set in from the one it hangs off.
+function wsFieldHtml(key, values, f, s, underParent = true) {
+  const section = f.section || key;
+  const vals = f.section ? ((s.overlays && s.overlays.settings && s.overlays.settings[f.section]) || {}) : values;
+  let html = fieldHtml(section, vals, f, s);
+  if (f.section) html = html.replace(/data-key="/g, `data-section="${f.section}" data-key="`);
+  const changed = wsChanged(key, vals, f);
+  const cls = [changed ? "changed" : "", f.when && underParent ? "child" : "", wsReveal === f[0] ? "found" : ""].filter(Boolean).join(" ");
+  const reset = changed ? `<button type="button" class="ws-reset" data-ws-reset="${f[0]}" ${f.section ? `data-ws-reset-section="${f.section}"` : ""}
+    title="Back to how it came" aria-label="Back to how it came">↺</button>` : "";
+  // Marked on its first element (a size field is two: both go back together).
+  return html.replace(/^(\s*<(\w+))([^>]*?)(?: class="([^"]*)")?([^>]*)>/, (m, open, tag, a1, c, a2) =>
+    `${open}${a1} class="${[c, cls].filter(Boolean).join(" ")}" data-field="${f[0]}"${a2}>${reset}`);
+}
+
+function wsFormHtml(w, values, s) {
+  const secs = wsSections(w.key);
+  const show = (f) => (!f.when || f.when(values)) && (wsAll || wsEssential(w.key, f) || wsChanged(w.key, values, f) || wsReveal === f[0]);
+  const tabs = WS_TABS.filter((t) => secs.some((sec) => sec.tab === t && sec.fields.some((f) => !f.when || f.when(values))));
+  if (!tabs.includes(wsTab)) wsTab = tabs[0];
+  const counts = Object.fromEntries(tabs.map((t) => [t, secs.filter((sec) => sec.tab === t).reduce((n, sec) => n + sec.fields.filter(show).length, 0)]));
+  const changedIn = (t) => secs.some((sec) => sec.tab === t && sec.fields.some((f) => wsChanged(w.key, values, f)));
+  $("#ws-bar").innerHTML = `<div class="ws-tabs" role="tablist">${tabs.map((t) => `<button type="button" role="tab" class="ws-tab ${t === wsTab ? "active" : ""}"
+      aria-selected="${t === wsTab}" data-ws-tab="${t}">${t}<span class="n">${counts[t]}</span>${changedIn(t) ? '<i class="dot-changed" title="Changed settings here"></i>' : ""}</button>`).join("")}</div>
+    <label class="ws-all">Show all settings <span class="switch"><input type="checkbox" id="ws-all" role="switch" ${wsAll ? "checked" : ""}><i aria-hidden="true"></i></span></label>`;
+  const top = "visible" in values
+    ? `<label class="ov-field check ov-visible"><span class="ov-lab">On stream<small class="ov-hint">Off: hidden everywhere</small></span><span class="switch"><input type="checkbox" role="switch" data-key="visible" data-kind="bool" ${values.visible ? "checked" : ""}><i aria-hidden="true"></i></span></label>` : "";
+  let hidden = 0;
+  const body = secs.filter((sec) => sec.tab === wsTab).map((sec) => {
+    const fields = sec.fields.filter((f) => !f.when || f.when(values));
+    const shown = fields.filter(show);
+    hidden += fields.length - shown.length;
+    if (!shown.length) return "";
+    const anyChanged = sec.fields.some((f) => wsChanged(w.key, values, f));
+    return `<section class="ws-sec"><header><b>${esc(sec.title)}</b>${anyChanged
+      ? `<button type="button" class="ws-reset-sec" data-ws-reset-group="${esc(sec.group)}">↺ Reset ${esc(sec.title.toLowerCase())}</button>` : ""}</header>
+      <div class="ov-grid">${shown.map((f, i) => wsFieldHtml(w.key, values, f, s, shown.slice(0, i).some((x) => !x.when))).join("")}</div></section>`;
+  }).join("");
+  return top + body + (!wsAll && hidden ? `<p class="ws-more">${hidden} more on this tab. <button type="button" class="link" data-ws-showall>Show all settings</button></p>` : "")
+    + (body ? "" : '<p class="hint">Nothing here for this widget.</p>');
+}
+
+// Search: every widget's settings, by their names and the line under them.
+function wsSearchHtml(q) {
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const hits = [];
+  for (const w of WIDGETS) {
+    for (const sec of wsSections(w.key)) {
+      for (const f of sec.fields) {
+        if (f[2] === "note") continue;
+        const text = `${f[1]} ${sec.title} ${w.name}`.replace(/<[^>]+>/g, "").toLowerCase();
+        if (words.every((wd) => text.includes(wd))) hits.push({ w, sec, f });
+      }
+    }
+  }
+  const mark = (t) => esc(String(t).replace(/<[^>]+>/g, "")).replace(new RegExp(`(${words.map((wd) => wd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "ig"), "<mark>$1</mark>");
+  $("#ws-bar").innerHTML = `<p class="hint" style="margin:0">${hits.length} setting${hits.length === 1 ? "" : "s"} for “${esc(q)}”</p>`;
+  return hits.length ? `<div class="ws-hits">${hits.slice(0, 120).map(({ w, sec, f }) => `<button type="button" class="ws-hit" data-ws-go="${w.key}" data-ws-go-tab="${sec.tab}" data-ws-go-key="${f[0]}">
+      <span>${mark(f[1])}</span><small>${esc(w.name)} › ${sec.tab} › ${esc(sec.title)}</small></button>`).join("")}</div>`
+    : '<p class="hint">Nothing matches. Try another word, like “colour”, “replay” or “names”.</p>';
+}
+
 const WS_KEY = "apex.widgetSettings";
 let wsWidget = "standings";
 try {
@@ -3937,7 +4105,8 @@ function renderWidgetSettings(s) {
   const w = WIDGET[wsWidget];
   const values = s.overlays.settings[w.key];
   const key = JSON.stringify([w.key, values, s.overlays.settings.general, (s.classes || []).map((c) => [c.key, c.name, c.color]),
-    (s.league && s.league.sponsors) || [], (s.league && s.league.banners) || [], ((s.board_options || {}).groups || []).length]);
+    (s.league && s.league.sponsors) || [], (s.league && s.league.banners) || [], ((s.board_options || {}).groups || []).length,
+    wsTab, wsAll, wsQuery, wsReveal, !!ovDefaults]);
   if (key === wsKey || document.activeElement.closest("#ws-form")) return;
   const changed = !wsKey.startsWith(`["${w.key}"`);
   wsKey = key;
@@ -3960,21 +4129,112 @@ function renderWidgetSettings(s) {
   }
   const form = $("#ws-form");
   form.dataset.overlay = w.key;
-  form.innerHTML = settingsHtml(w.key, values, widgetGroups(w.key), s, true);
+  $(".ws-main").classList.toggle("searching", !!wsQuery);
+  form.innerHTML = wsQuery ? wsSearchHtml(wsQuery) : wsFormHtml(w, values, s);
   if (wsOpenSection) {
-    const group = [...form.querySelectorAll(".ov-group")].find((g) => g.dataset.group === `${w.key}/${wsOpenSection}`);
-    if (group) {
-      group.open = true;
-      group.scrollIntoView({ block: "start" });
-    }
+    const sec = [...form.querySelectorAll(".ws-sec header b")].find((b) => b.textContent === wsOpenSection);
+    if (sec) sec.closest(".ws-sec").scrollIntoView({ block: "start" });
     wsOpenSection = null;
   }
+  if (wsReveal) {
+    const el = form.querySelector(`[data-field="${wsReveal}"]`);
+    if (el) el.scrollIntoView({ block: "center" });
+  }
 }
+
+// Widget Settings: its tabs, Show all settings, putting settings back, search.
+function wsRedraw() {
+  wsKey = "";
+  if (document.activeElement && document.activeElement.closest("#ws-form")) document.activeElement.blur();
+  if (ui.snap && ui.snap.overlays) renderWidgetSettings(ui.snap);
+}
+function wsSave() {
+  try {
+    localStorage.setItem("apex.wsAll", wsAll ? "1" : "0");
+    localStorage.setItem("apex.wsTab", wsTab);
+  } catch (e) { /* storage unavailable */ }
+}
+$("#tab-widget-settings").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.wsTab) {
+    wsTab = b.dataset.wsTab;
+    wsReveal = null;
+    wsSave();
+    return wsRedraw();
+  }
+  if (b.hasAttribute("data-ws-showall")) {
+    wsAll = true;
+    wsSave();
+    b.blur();
+    return wsRedraw();
+  }
+  const d = ovDefaults;
+  if (b.dataset.wsReset && d) {
+    e.preventDefault();
+    const section = b.dataset.wsResetSection || wsWidget;
+    const f = wsSections(wsWidget).flatMap((sec) => sec.fields).find((x) => x[0] === b.dataset.wsReset);
+    const keys = f ? wsFieldKeys(f) : [b.dataset.wsReset];
+    const values = Object.fromEntries(keys.filter((k) => k in (d[section] || {})).map((k) => [k, d[section][k]]));
+    b.blur();
+    resetForms();
+    return cmd("overlay_settings", { overlay: section, values });
+  }
+  if (b.dataset.wsResetGroup && d) {
+    const cur = (ui.snap && ui.snap.overlays.settings) || {};
+    const fields = wsSections(wsWidget).filter((sec) => sec.group === b.dataset.wsResetGroup && sec.tab === wsTab).flatMap((sec) => sec.fields);
+    const by = {};
+    for (const f of fields) {
+      const section = f.section || wsWidget;
+      if (!wsChanged(wsWidget, cur[section] || {}, f)) continue;
+      for (const k of wsFieldKeys(f)) if (k in (d[section] || {})) (by[section] = by[section] || {})[k] = d[section][k];
+    }
+    b.blur();
+    resetForms();
+    for (const [section, values] of Object.entries(by)) cmd("overlay_settings", { overlay: section, values });
+    return;
+  }
+  if (b.dataset.wsGo) {
+    wsQuery = "";
+    $("#ws-search").value = "";
+    wsWidget = b.dataset.wsGo;
+    wsTab = b.dataset.wsGoTab;
+    wsReveal = b.dataset.wsGoKey;
+    try {
+      localStorage.setItem(WS_KEY, wsWidget);
+    } catch (err) { /* storage unavailable */ }
+    return wsRedraw();
+  }
+});
+$("#tab-widget-settings").addEventListener("change", (e) => {
+  if (e.target.id !== "ws-all") return;
+  wsAll = e.target.checked;
+  wsReveal = null;
+  wsSave();
+  wsRedraw();
+});
+$("#ws-search").addEventListener("input", (e) => {
+  wsQuery = e.target.value.trim();
+  wsRedraw();
+});
+$("#ws-search").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    e.target.value = "";
+    wsQuery = "";
+    wsRedraw();
+  }
+});
 
 function openWidgetSettings(key, section = null) {
   if (!WIDGET[key]) return;
   wsWidget = key;
-  wsOpenSection = section;
+  wsQuery = "";
+  wsReveal = null;
+  if ($("#ws-search")) $("#ws-search").value = "";
+  // A section from a widget's card: the tab most of it is on.
+  const sec = section && wsSections(key).find((x) => x.group === section);
+  if (sec) wsTab = sec.tab;
+  wsOpenSection = sec ? sec.title : null;
   wsKey = "";
   try {
     localStorage.setItem(WS_KEY, key);

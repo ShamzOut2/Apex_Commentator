@@ -247,6 +247,22 @@ class ServerTests(unittest.TestCase):
         except urllib.error.HTTPError as e:
             return e.code, json.load(e)
 
+    def test_the_control_panels_fonts_and_widget_defaults(self):
+        """The control panel's two fonts (Inter and Saira Semi Condensed) are
+        bundled files; Widget Settings gets every widget's defaults (what's been
+        changed, and putting a setting back)."""
+        import re
+        from apex.overlays import DEFAULTS
+        from apex.paths import WEB_DIR
+        css = (WEB_DIR / "fonts" / "app.css").read_text()
+        self.assertEqual(set(re.findall(r"font-family: '([^']+)'", css)), {"Inter", "Saira Semi Condensed"})
+        self.assertTrue(all((WEB_DIR / "fonts" / f).is_file() for f in re.findall(r"url\('([^']+)'\)", css)))
+        self.assertIn('@import url("fonts/app.css")', (WEB_DIR / "style.css").read_text())
+        with urllib.request.urlopen(f"{self.base}/api/overlay-defaults", timeout=5) as r:
+            got = json.load(r)
+        self.assertEqual(got, json.loads(json.dumps(DEFAULTS)))
+        self.assertIn("header_info", got["standings"])
+
     def test_the_overlay_fonts_are_served(self):
         """Every font the font setting offers is bundled, and served as a font."""
         import re

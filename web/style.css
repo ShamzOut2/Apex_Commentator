@@ -1089,3 +1089,89 @@ input[type="color"] { padding: 2px; cursor: pointer; }
   .tile, .btn, .tab, .chip, select, input { transition: none; }
   .tile:hover { transform: none; }
 }
+
+/* ==== Settings controls (every settings form) ================================ */
+/* A setting's name, and what it means on a grey line under it. */
+.ov-lab { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ov-hint { color: var(--muted); font-size: 11.5px; font-weight: 400; line-height: 1.35; }
+.ov-field.check { justify-content: space-between; }
+.ov-field.check .ov-lab { flex: 1; }
+
+/* On / off: a switch. */
+.switch { position: relative; display: inline-flex; flex: none; width: 36px; height: 20px; }
+.switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.switch i { position: absolute; inset: 0; border-radius: 20px; background: #343a47; transition: background .15s; pointer-events: none; }
+.switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #c9ced8; transition: transform .15s, background .15s; }
+.switch input:checked + i { background: var(--accent); }
+.switch input:checked + i::after { transform: translateX(16px); background: #fff; }
+.switch input:focus-visible + i { box-shadow: var(--ring); }
+.switch input:disabled + i { opacity: .45; }
+
+/* A few short choices: buttons side by side, one lit. */
+.segs { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; background: var(--field); border: 1px solid var(--line-2); border-radius: var(--radius); justify-self: start; }
+.segs label { position: relative; display: inline-flex; cursor: pointer; }
+.segs input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.segs span { padding: 4px 11px; border-radius: 6px; color: var(--muted); font-size: 13px; white-space: nowrap; transition: background .12s, color .12s; }
+.segs label:hover span { color: var(--text); }
+.segs label.on span, .segs input:checked + span { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.segs input:focus-visible + span { box-shadow: var(--ring); }
+
+/* Widget cards: label left, control right; button rows wrap under the label. */
+.wcard .wq .ov-field.check { justify-content: space-between; }
+.wcard .wq .seg-field { flex-direction: column; align-items: stretch; }
+.wcard .wq .seg-field .segs { align-self: flex-start; }
+.ov-grid .ov-field.check { align-items: center; }
+
+/* ==== Widget Settings: tabs, Essentials, changed settings, search ============ */
+.ws-search input { width: 100%; padding-left: 32px;
+  background: var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Ccircle cx='7' cy='7' r='5' fill='none' stroke='%238d95a6' stroke-width='1.6'/%3E%3Cpath d='M11 11l3.5 3.5' stroke='%238d95a6' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat 10px 50%; }
+.ws-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0 2px; min-height: 36px; }
+.ws-tabs { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.ws-tab { position: relative; border: 0; background: none; color: var(--muted); cursor: pointer; padding: 6px 14px; border-radius: 7px;
+  font-family: var(--f-display); font-weight: 600; font-size: 13.5px; letter-spacing: .07em; text-transform: uppercase; }
+.ws-tab:hover { color: var(--text); }
+.ws-tab.active { background: var(--panel-3); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+.ws-tab .n { margin-left: 6px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ws-tab .dot-changed { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.ws-tab:focus-visible { outline: none; box-shadow: var(--ring); }
+.ws-all { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; cursor: pointer; }
+
+.ws-form { gap: 12px; }
+.ws-sec { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+.ws-sec > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.ws-sec > header b { font-family: var(--f-display); font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.ws-reset-sec { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 4px; }
+.ws-reset-sec:hover { color: var(--accent); }
+.ws-sec .ov-grid { display: block; padding: 0; }
+.ws-sec .ov-grid > :first-child { border-top: 0; }
+.ws-form .ov-field.check > .switch, .ws-form .ov-visible > .switch { justify-self: start; }
+.ws-form .seg-field .segs { justify-self: start; }
+.ws-form .ov-visible { font-weight: 600; }
+
+/* A setting changed from how it came: an orange dot, and ↺ to put it back. */
+.ws-form .ov-field { position: relative; }
+.ws-form .ov-field.changed::before { content: ""; position: absolute; left: 5px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: var(--accent); }
+.ws-form .ov-field.changed { padding-right: 34px; }
+.ws-reset { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); z-index: 2; border: 0; background: none; color: var(--muted);
+  cursor: pointer; font-size: 14px; line-height: 1; padding: 4px 6px; border-radius: 4px; }
+.ws-reset:hover { color: var(--accent); background: var(--accent-soft); }
+/* Shown only while the one above it is on: set in under it. */
+.ws-form .ov-field.child { padding-left: 32px; background: rgba(255, 255, 255, .012); }
+.ws-form .ov-field.child::after { content: ""; position: absolute; left: 16px; top: 0; height: 50%; width: 9px; border-left: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); border-bottom-left-radius: 4px; }
+.ws-form .ov-field.child.changed::before { left: 7px; }
+.ws-form .ov-field.found { animation: ws-found 2s ease-out; }
+@keyframes ws-found { from { background: rgba(255, 122, 26, .22); } to { background: transparent; } }
+.ws-more { color: var(--muted); font-size: 13px; margin: 2px 2px 0; }
+.link { border: 0; background: none; color: var(--info); cursor: pointer; padding: 0; font: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Search results. */
+.ws-hits { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); overflow: hidden; }
+.ws-hit { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 9px 14px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--text); cursor: pointer; font: inherit; }
+.ws-hit:first-child { border-top: 0; }
+.ws-hit:hover, .ws-hit:focus-visible { background: var(--panel-2); outline: none; }
+.ws-hit small { color: var(--muted); font-size: 12px; }
+.ws-hit mark { background: var(--accent-soft); color: var(--accent-2); border-radius: 2px; padding: 0 1px; }
+@media (prefers-reduced-motion: reduce) { .ws-form .ov-field.found { animation: none; } .switch i, .switch i::after { transition: none; } }
+/* A colour: its box and the eyedropper side by side, not across the page. */
+.ws-form .ov-field:has(> input[type="color"]) { grid-template-columns: minmax(170px, 46%) auto auto; justify-content: start; }
+.ws-form .ov-field > input[type="color"]:not([type="checkbox"]):not([type="radio"]) { width: 64px; height: 30px; }

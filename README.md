@@ -63,8 +63,13 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   **Hide board**. **All off / back** takes everything off screen and brings
   it back.
 - **Widget Settings**: every setting of every widget. Pick a widget on the
-  left; its settings are a list of label and value, in sections that open
-  and close, with its OBS links and a live preview beside them.
+  left, or find any setting with **Search every setting**. Every widget has
+  the same four tabs: **Content** (what's on it), **Look** (colours, logos,
+  background), **Position** (size and where it sits) and **Behaviour** (what
+  it does when: the start, replays, flashes). Each opens on the settings most
+  people change; **Show all settings** brings back the rest. Settings you've
+  changed always show, with an orange dot and ↺ to put one back (or a whole
+  section). Its OBS links and a live preview are beside them.
 
 ![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.jpg)
 
@@ -77,6 +82,13 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 
 ### Improvements
 
+- Widget Settings is easier to find your way round: every widget has the
+  same four tabs (Content, Look, Position, Behaviour), opens on the settings
+  most people change (Show all settings for the rest), and a search box finds
+  any setting. Changed settings have an orange dot and ↺ to put them back.
+- Switches for on / off settings and buttons for short choices, with a short
+  name and a grey line under it saying what it does, in Widget Settings, on
+  the widget cards and in the Grid walk tab.
 - Race meetings: put a date on one race and the meeting's other races take
   it too (those with no date yet, or on the date it had before, so moving the
   meeting moves them all). A race given a day of its own keeps it.

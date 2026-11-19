@@ -15,6 +15,13 @@ How each version's entry is written:
 
 ### Improvements
 
+- Widget Settings is easier to find your way round: every widget has the
+  same four tabs (Content, Look, Position, Behaviour), opens on the settings
+  most people change (Show all settings for the rest), and a search box finds
+  any setting. Changed settings have an orange dot and ↺ to put them back.
+- Switches for on / off settings and buttons for short choices, with a short
+  name and a grey line under it saying what it does, in Widget Settings, on
+  the widget cards and in the Grid walk tab.
 - Race meetings: put a date on one race and the meeting's other races take
   it too (those with no date yet, or on the date it had before, so moving the
   meeting moves them all). A race given a day of its own keeps it.
