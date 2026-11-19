@@ -204,10 +204,10 @@ let liveFormKey = "";
 function renderLiveForm(s) {
   const values = s.overlays && s.overlays.settings && s.overlays.settings.live;
   if (!values) return;
-  const key = JSON.stringify(values);
+  const key = JSON.stringify([values, !!ovDefaults]);
   if (key === liveFormKey || document.activeElement.closest("#live-form")) return;
   liveFormKey = key;
-  $("#live-form").innerHTML = settingsHtml("live", values, LIVE_FIELDS, s, true);
+  $("#live-form").innerHTML = plainSettingsHtml("live", values, LIVE_FIELDS, s);
 }
 
 $("#live-on").addEventListener("change", (e) => {
@@ -402,6 +402,31 @@ function renderHome(s) {
   $("#tile-hotkeys").textContent = keysSet ? `${keysSet} keys set` : "No keys set yet";
   $("#tile-gridwalk").textContent = g.visible ? (g.running ? "● On air" : "❚❚ On air, paused") : `${(g.entries || []).length} on the grid`;
   $("#tile-league").textContent = s.league ? `Active: ${s.league.name}` : "No league active";
+  renderChecklist(s, keysSet);
+}
+
+// Home: the race-day checklist. Each line says how it stands and goes to where it's set.
+let checklistKey = "";
+function renderChecklist(s, keysSet) {
+  const ov = s.overlays && s.overlays.settings || {};
+  const onAir = WIDGETS.filter((w) => !w.general && !w.board && ov[w.key] && ov[w.key].visible).map((w) => w.name);
+  const sp = s.spectate || {};
+  const items = [
+    s.connected ? ["good", "iRacing connected", $("#home-session").textContent, "timing", "Timing Screen"]
+      : ["warn", "iRacing not connected", "Join or spectate a session in iRacing: the app connects by itself.", "", ""],
+    s.league ? ["good", `League: ${s.league.name}`, `Its names, ${s.league.teams} teams, classes and logos on every widget.`, "league", "League builder"]
+      : [s.officials && s.officials.on ? "good" : "warn", s.officials && s.officials.on ? "Officials mode" : "No league picked", s.officials && s.officials.on ? "Plain iRacing names and classes." : "Pick your league for names, teams and colours on stream.", "league", "League builder"],
+    [onAir.length ? "good" : "idle", onAir.length ? `On stream: ${onAir.slice(0, 4).join(", ")}${onAir.length > 4 ? ` and ${onAir.length - 4} more` : ""}` : "Nothing on stream yet",
+      "Each overlay is a Browser Source in OBS (its link is in Widget Settings).", "widgets", "Widgets"],
+    [sp.on ? "good" : "idle", sp.on ? "Live timing website online" : "Live timing website off", sp.on ? (sp.url || "Starting…") : "Optional: a timing page for spectators.", "live", "Live timing"],
+    [keysSet ? "good" : "idle", keysSet ? `${keysSet} hotkeys set` : "No hotkeys set", "Keys for cameras, overlays and boards, from any program.", "hotkeys", "Hotkeys"],
+  ];
+  const key = JSON.stringify(items);
+  if (key === checklistKey) return;
+  checklistKey = key;
+  $("#race-checklist").innerHTML = `<h3>Race day</h3>${items.map(([state, title, detail, tab, label]) => `<div class="check-line ${state}">
+    <i aria-hidden="true"></i><div><b>${esc(title)}</b><small>${esc(detail)}</small></div>
+    ${tab ? `<button type="button" class="btn subtle" data-goto="${tab}">${esc(label)} ›</button>` : ""}</div>`).join("")}`;
 }
 
 // -- camera bar -----------------------------------------------------------------
@@ -1316,7 +1341,7 @@ function renderRaceControl(s) {
     table.innerHTML = drivers.map((d) => {
       const cls = classes.get(d.class_key);
       const hold = rcHold[d.car_idx] || { amount: "", unit: "seconds" };
-      return `<tr data-car="${d.car_idx}" class="${d.in_world ? "" : "rc-out"}">
+      return `<tr data-car="${d.car_idx}" class="${d.in_world ? "" : "rc-out"} ${hold.amount ? "rc-typed" : ""}">
         <td class="r">${d.pos || "–"}</td>
         <td><span class="num" style="${cls ? `background:${esc(cls.color)};color:${inkFor(cls.color)}` : ""}">${esc(d.number)}</span></td>
         <td class="rc-name">${esc(d.name)}${d.in_world ? "" : ' <span class="hint">(not in the car)</span>'}</td>
@@ -1581,9 +1606,49 @@ function renderHotkeyList() {
   const summary = set.length ? `<h4 class="hk-section">Keys set (${set.length})</h4><div class="hk-set">${set.map(([kind, id, label, k]) =>
     `<button class="hk-chip" data-hk-kind="${kind}" data-hk="${esc(id)}" data-hk-label="${esc(label)}"><kbd>${esc(keyLabel(k))}</kbd> ${esc(label)}</button>`).join("")}</div>`
     : '<p class="hint">No keys set yet.</p>';
-  $("#hotkey-list").innerHTML = summary + sections.map(([title, html]) => `<h4 class="hk-section">${esc(title)}</h4><div class="hotkey-list">${html}</div>`).join("");
+  $("#hotkey-list").innerHTML = summary + sections.map(([title, html]) => `<details class="hk-group" data-hk-group="${esc(title)}" ${hkFolded.has(title) ? "" : "open"}>
+    <summary class="hk-section">${esc(title)}</summary><div class="hotkey-list">${html}</div></details>`).join("");
   $("#hotkey-prompt").textContent = hotkeyTarget ? `Press a key for ${hotkeyTarget.label}…` : "";
+  hkFilter();
 }
+
+// Hotkeys: find one, only those set, sections folded away (remembered).
+const hkFolded = new Set();
+try {
+  JSON.parse(localStorage.getItem("apex.hkFolded") || "[]").forEach((t) => hkFolded.add(t));
+} catch (e) { /* storage unavailable */ }
+function hkFilter() {
+  const words = ($("#hk-search").value || "").toLowerCase().split(/\s+/).filter(Boolean);
+  const onlySet = $("#hk-only-set").checked;
+  for (const g of document.querySelectorAll("#hotkey-list .hk-group")) {
+    let any = 0;
+    for (const b of g.querySelectorAll(".hotkey-list > *")) {
+      const text = `${g.dataset.hkGroup} ${b.textContent}`.toLowerCase();
+      const k = b.querySelector("kbd");
+      const isSet = k && k.textContent.trim() && k.textContent.trim() !== "–";
+      const show = words.every((w) => text.includes(w)) && (!onlySet || isSet);
+      b.hidden = !show;
+      any += show ? 1 : 0;
+    }
+    g.hidden = !any;
+    if (words.length && any) g.open = true;
+  }
+}
+$("#hk-search").addEventListener("input", hkFilter);
+$("#hk-search").addEventListener("focus", () => {  // typing here, not setting a key
+  if (!hotkeyTarget) return;
+  hotkeyTarget = null;
+  renderHotkeyList();
+});
+$("#hk-only-set").addEventListener("change", hkFilter);
+document.addEventListener("toggle", (e) => {
+  const g = e.target.closest && e.target.closest("details.hk-group");
+  if (!g || g !== e.target || ($("#hk-search").value || "").trim()) return;
+  if (g.open) hkFolded.delete(g.dataset.hkGroup); else hkFolded.add(g.dataset.hkGroup);
+  try {
+    localStorage.setItem("apex.hkFolded", JSON.stringify([...hkFolded]));
+  } catch (err) { /* storage unavailable */ }
+}, true);
 
 // The ⌨ Hotkeys buttons on other tabs: the Hotkeys tab (in a pop-out, with a Back button).
 document.addEventListener("click", (e) => {
@@ -1636,7 +1701,7 @@ function captureHotkey(e) {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (hotkeysOpen() && hotkeyTarget) {
+  if (hotkeysOpen() && hotkeyTarget && !e.target.closest("#hk-search")) {
     e.preventDefault();
     return captureHotkey(e);
   }
@@ -2316,7 +2381,23 @@ function champChange(e, final) {
     c.rounds[+d.round].length = n !== "" && +n > 0 ? `${+n} ${unit}` : "";
   } else if (d.round != null && d.rkey) {
     const rd = c.rounds[+d.round];
+    // The date it had before this change (typing saves as it goes, so not rd's).
+    const before = el.defaultValue;
     rd[d.rkey] = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
+    if (d.rkey === "date" && final) el.defaultValue = el.value;
+    if (d.rkey === "date" && final && rd.event && rd.date) {
+      // A race meeting's races are run the same day: the date goes on the others
+      // with none yet, or still on the date this one had (so moving the meeting
+      // moves them all). One given a day of its own (a feature the day after) keeps it.
+      let first = +d.round;
+      while (first > 0 && c.rounds[first - 1].event === rd.event) first -= 1;
+      const filled = meetingRounds(first).filter((o) => o !== rd && (!o.date || (before && o.date === before)));
+      for (const o of filled) o.date = rd.date;
+      if (filled.length) {
+        rerender = true;
+        toast(`Same date set on ${filled.length === 1 ? "the meeting's other race" : `the meeting's other ${filled.length} races`}`);
+      }
+    }
     if (d.rkey === "track" || d.rkey === "config") {
       // A known track: its layouts fill the Configuration list.
       const g = trackGroup(rd.track);
@@ -2480,7 +2561,7 @@ $("#btn-all-meetings").addEventListener("click", () => {
   for (const [, i] of single.reverse()) toMeeting(c, i, races);
   markChampDirty();
   renderChampionship();
-  toast(`${single.length} round${single.length === 1 ? "" : "s"} made race meetings of ${races} races. Save to keep them.`);
+  toast(`${single.length} round${single.length === 1 ? "" : "s"} made race meetings of ${races} races.`);
 });
 
 $("#btn-add-meeting").addEventListener("click", () => {
@@ -2717,7 +2798,7 @@ function createBuiltRounds() {
   markChampDirty();
   renderChampionship();
   renderBuild();
-  toast(`Made ${made.length} rounds. Save to keep them.`);
+  toast(`Made ${made.length} rounds.`);
 }
 
 $("#btn-add-penalty").addEventListener("click", () => {
@@ -2833,16 +2914,35 @@ const iff = (when, field) => Object.assign(field, { when });
 // A setting kept in another section (shared by several widgets) shown here too:
 // read from and saved to that section.
 const shared = (section, field) => Object.assign(field, { section });
+// A setting set in under another one shown only while it's on (the one it
+// depends on, when that isn't simply the one before it).
+const under = (parent, field) => Object.assign(field, { parent });
 // Team logos' size, where there are team logos.
 const LOGO_KIND = iff((v) => "team_logo_kind" in v, ["team_logo_kind", "Team logo", "select",
   [["full", "The team's full logo"], ["small", "The team's small logo"]]]);
 const LOGO_SIZE = iff((v) => "logo_scale" in v, ["logo_scale", "Team logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]);
 const LOOK = ["Size & background", [["scale", "Size", "size"], LOGO_KIND, LOGO_SIZE, ["bg", "Background", "background"]]];
 // Overlays can also be moved from where they sit (px on the 1920×1080 screen), to keep clear of each other.
-const OFFSET = [["offset_x", "Move right (px; minus moves it left)", "number", { min: -1920, max: 1920, step: 5 }],
-  ["offset_y", "Move down (px; minus moves it up)", "number", { min: -1080, max: 1080, step: 5 }]];
+// One Move setting (right and down, with nudge buttons) for offset_x and offset_y.
+const OFFSET = [["offset_x", "Move (right / down, px on the 1920×1080 screen; minus goes left / up)", "move"]];
 const OVERLAY_LOOK = ["Size, position & background", [["scale", "Size", "size"], LOGO_KIND, LOGO_SIZE, ...OFFSET, ["bg", "Background", "background"]]];
+// Session names: what the tower, the timing screen and every board call each
+// session (kept with the tower's settings, as they always were).
+const SESSION_NAME_FIELDS = [
+  ["Names on stream", [
+    shared("standings", ["title_race", "Race name (blank = RACE)", "text"]),
+    shared("standings", ["title_qualify", "Qualifying name (blank = QUALIFYING)", "text"]),
+    shared("standings", ["title_practice", "Practice / warm-up name (blank = iRacing's)", "text"]),
+    shared("standings", ["title_heat", "Heat race name (blank = iRacing's, e.g. HEAT 1; a number is added for several)", "text"]),
+    shared("standings", ["title_consolation", "Consolation race name (blank = iRacing's)", "text"]),
+    shared("standings", ["title_feature", "Feature race name (blank = iRacing's)", "text"]),
+  ]],
+  ["Race meetings", [
+    shared("standings", ["round_titles", "Heat events: each race takes its round's name from the Championship tab", "select", [["name", "Yes"], ["off", "No"]]]),
+  ]],
+];
 const OVERLAY_FIELDS = {
+  session_names: SESSION_NAME_FIELDS,
   standings: [
     ["What it shows", [
       ["mode", "Show", "select", [["overall", "Overall"], ["class", "By class"]]],
@@ -2865,14 +2965,6 @@ const OVERLAY_FIELDS = {
       ["replay_hide_rows", "Watching a replay: hide the drivers, just the header saying REPLAY (they're back when it's live)", "bool"],
       ["show_series", "Series name (the league's name)", "bool"],
       ["show_track", "Track name", "bool"],
-      ["title_race", "Race name (blank = RACE)", "text"],
-      ["title_qualify", "Qualifying name (blank = QUALIFYING)", "text"],
-      ["title_practice", "Practice / warm-up name (blank = iRacing's)", "text"],
-      ["title_heat", "Heat race name (blank = iRacing's, e.g. HEAT 1; a number is added for several)", "text"],
-      ["title_consolation", "Consolation race name (blank = iRacing's)", "text"],
-      ["title_feature", "Feature race name (blank = iRacing's)", "text"],
-      ["round_titles", "Heat events: name each race as its round is named in the Championship tab (by today's date)", "select",
-        [["name", "Yes"], ["off", "No"]]],
       ["time_left_word", "\"LEFT\" after the time left (12:34 LEFT)", "bool"],
       ["finished_word", "\"FINISHED\" in the header once the race is over (untick: nothing there)", "bool"],
       ["accent", "Accent colour (time / lap, the header's bar and line)", "select", [["default", "Orange"], ["color", "A colour of my own"],
@@ -2890,8 +2982,6 @@ const OVERLAY_FIELDS = {
     ]],
     ["Columns", [
       ["show_gap", "Gap to leader / pole", "bool"],
-      shared("general", ["race_decimals", "Decimal places: race gaps and intervals (every widget and the Timing Screen)", "number", { min: 0, max: 3 }]),
-      shared("general", ["qual_decimals", "Decimal places: qualifying gaps", "number", { min: 1, max: 3 }]),
       iff((v) => v.show_gap, ["leader_cell", "The leader's gap shows", "select", [["leader", "Leader"], ["lap", "Their current lap (Lap 12)"]]]),
       ["show_interval", "Interval to car ahead", "bool"],
       iff((v) => v.show_interval, ["leader_interval", "The leader's interval shows", "select", [["leader", "Leader"],
@@ -2927,8 +3017,9 @@ const OVERLAY_FIELDS = {
       iff((v) => v.penalty_flags, ["flag_warning_bg_color", "Slow-down (warning) tab colour", "color"]),
       ["show_number", "Car numbers", "bool"],
       iff((v) => v.show_number, ["color_number", "Car number on a coloured background (off: just the number)", "bool"]),
-      ["class_colors", "Car number background colour from", "select", [["main", "The driver's main class"],
-        ["secondary", "The driver's secondary class"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
+      under("color_number", iff((v) => (v.show_number && v.color_number) || (v.show_stripe && (v.stripe_colors || "same") === "same"),
+        ["class_colors", "Car number background colour from", "select", [["main", "The driver's main class"],
+        ["secondary", "The driver's secondary class"], ["team", "The driver's team colour (their main class's if the team has none)"]]])),
       ["show_stripe", "Coloured bar by each driver", "bool"],
       iff((v) => v.show_stripe, ["stripe_colors", "Coloured bar's colour from", "select", [["same", "The same as the car number"],
         ["main", "The driver's main class"], ["secondary", "The driver's secondary class"], ["team", "The driver's team colour"]]]),
@@ -2979,6 +3070,13 @@ const OVERLAY_FIELDS = {
     OVERLAY_LOOK,
   ],
   general: [
+    ["Shared by every widget", [
+      ["note", "Every widget on these follows them. A widget given its own (on its page) keeps it: \"Use theme\" there puts it back on these.", "note"],
+      ["theme_name_format", "Names", "select", NAME_FORMATS],
+      ["theme_accent_color", "Accent colour (the tower's header and the boards)", "color"],
+      ["theme_team_logo_kind", "Team logo", "select", [["full", "Full logo"], ["small", "Small logo"]]],
+      ["theme_bg_opacity", "Panel opacity (%; low lets the race show through)", "number", { min: 0, max: 100, step: 5 }],
+    ]],
     ["Gaps & intervals", [
       ["race_decimals", "Decimal places: live race gaps and intervals (tower, timing screen, Timing tab)", "number", { min: 0, max: 3 }],
       ["qual_decimals", "Decimal places: qualifying, the lap tracker, the grid and results boards", "number", { min: 1, max: 3 }],
@@ -3305,6 +3403,22 @@ document.addEventListener("toggle", (e) => {
   } catch (err) { /* storage unavailable */ }
 }, true);
 
+// A setting's label: its name, and what a bracket at its end explains on a
+// grey line under it ("Team logo size (%; 100 = usual)": "Team logo size", "%; 100 = usual").
+function labelHtml(label) {
+  const m = String(label).match(/^([^(]*\S)\s+\(([^()]+(?:\([^()]*\)[^()]*)*)\)$/);
+  if (!m || m[1].length < 3) return `<span class="ov-lab">${label}</span>`;
+  const hint = m[2].charAt(0).toUpperCase() + m[2].slice(1);
+  return `<span class="ov-lab">${m[1]}<small class="ov-hint">${hint}</small></span>`;
+}
+
+// A choice of a few short options: buttons side by side (one lit), not a drop-down.
+let segUid = 0;
+function segmentable(options) {
+  return options.length >= 2 && options.length <= 4 && options.every(([, l]) => String(l).length <= 18)
+    && options.reduce((n, [, l]) => n + String(l).length, 0) <= 44;
+}
+
 // One setting, as its input. `section` is the overlay or board it belongs to.
 function fieldHtml(section, values, [k, label, kind, opts], s) {
   const v = values[k];
@@ -3315,14 +3429,22 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   if (kind === "order") return orderField(k, label, v, opts, values);
   if (kind === "classorder") return classOrderField(k, label, values, s.classes || []);
   if (kind === "colopacity") return opacityField(k, label, v, opts);
-  if (kind === "bool") return `<label class="ov-field check"><input type="checkbox" ${attrs} ${v ? "checked" : ""}> ${label}</label>`;
-  if (kind === "number") {
-    return `<label class="ov-field">${label}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
+  if (kind === "move") {
+    const box = (key, a, b) => `<span class="nudge"><button type="button" data-nudge="${key}" data-by="-10" aria-label="${a}">${a === "Left" ? "◀" : "▲"}</button>
+      <input type="number" data-key="${key}" data-kind="number" min="${key === "offset_x" ? -1920 : -1080}" max="${key === "offset_x" ? 1920 : 1080}" step="5" value="${values[key] ?? 0}" aria-label="${key === "offset_x" ? "Right" : "Down"} (px)">
+      <button type="button" data-nudge="${key}" data-by="10" aria-label="${b}">${b === "Right" ? "▶" : "▼"}</button></span>`;
+    return `<div class="ov-field move-field">${labelHtml(label)}<div class="move-ctl">${box("offset_x", "Left", "Right")}${box("offset_y", "Up", "Down")}</div></div>`;
   }
-  if (kind === "text") return `<label class="ov-field">${label}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
+  if (kind === "bool") {
+    return `<label class="ov-field check">${labelHtml(label)}<span class="switch"><input type="checkbox" role="switch" ${attrs} ${v ? "checked" : ""}><i aria-hidden="true"></i></span></label>`;
+  }
+  if (kind === "number") {
+    return `<label class="ov-field">${labelHtml(label)}<input type="number" ${attrs} min="${opts.min}" max="${opts.max}" step="${opts.step || 1}" value="${v}"></label>`;
+  }
+  if (kind === "text") return `<label class="ov-field">${labelHtml(label)}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
   if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v, k, label);
   if (kind === "groups") return groupPicker(((s.board_options || {}).groups) || [], v, k, label);
-  if (kind === "color") return `<label class="ov-field">${label}<input type="color" ${attrs} value="${esc(v)}"></label>`;
+  if (kind === "color") return `<label class="ov-field">${labelHtml(label)}<input type="color" ${attrs} value="${esc(v)}"></label>`;
   if (kind === "swatches") {
     // Colours from the background image (filled in by fillSwatches once it's loaded).
     return `<div class="ov-field wide swatch-field"><span>${label}</span><div class="swatches" data-swatch-key="${k}"
@@ -3334,7 +3456,12 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
     : kind === "banner" ? [["", "The first of the right shape"], ...((s.league && s.league.banners) || []).map((b, i) =>
       [b.id, b.name || `${b.orientation === "vertical" ? "Vertical" : "Horizontal"} banner ${i + 1}`])]
       : opts;
-  return `<label class="ov-field">${label}<select ${attrs}>${options.map(([o, l]) =>
+  if (kind === "select" && segmentable(options)) {
+    const name = `seg-${section}-${k}-${(segUid += 1)}`;
+    return `<div class="ov-field seg-field">${labelHtml(label)}<div class="segs" role="radiogroup">${options.map(([o, l]) =>
+      `<label class="${String(o) === String(v) ? "on" : ""}"><input type="radio" name="${name}" ${attrs} value="${esc(o)}" ${String(o) === String(v) ? "checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></div>`;
+  }
+  return `<label class="ov-field">${labelHtml(label)}<select ${attrs}>${options.map(([o, l]) =>
     `<option value="${esc(o)}" ${String(o) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
 }
 
@@ -3417,13 +3544,13 @@ function orderField(key, label, value, cols, values) {
   const known = cols.map((c) => c[0]);
   const picked = String(value || "").split(",").filter((k) => known.includes(k));
   const keys = [...picked, ...known.filter((k) => !picked.includes(k))];
-  return `<div class="ov-field wide order-field" data-order-key="${key}"><span>${label} <span class="hint">(drag, or use the arrows)</span></span>
+  return `<div class="ov-field wide order-field" data-order-key="${key}"><span>${label} <span class="hint">(tick to show, drag or use the arrows to order)</span></span>
     <div class="order-list">${keys.map((k, i) => {
       const [, name, flag] = cols.find((c) => c[0] === k);
       const off = flag && !values[flag];
-      return `<span class="order-item ${off ? "off" : ""}" draggable="true" data-col="${k}" title="${off ? "Switched off: it takes this place when it's on" : ""}">
+      return `<span class="order-item ${off ? "off" : ""}" draggable="true" data-col="${k}" title="${off ? "Off: tick it to show it here" : "Drag to move it; untick to hide it"}">
         <button type="button" data-order-move="-1" ${i === 0 ? "disabled" : ""} aria-label="Move earlier">◀</button>
-        <span>${esc(name)}</span>
+        ${flag ? `<input type="checkbox" data-key="${flag}" data-kind="bool" ${values[flag] ? "checked" : ""} aria-label="Show ${esc(name)}">` : ""}<span>${esc(name)}</span>
         <button type="button" data-order-move="1" ${i === keys.length - 1 ? "disabled" : ""} aria-label="Move later">▶</button></span>`;
     }).join("")}</div></div>`;
 }
@@ -3525,7 +3652,7 @@ document.addEventListener("dragend", () => {
 // (the first one open until you choose otherwise).
 function settingsHtml(section, values, groups, s, allOpen = false) {
   const top = "visible" in values
-    ? `<label class="ov-field check ov-visible"><input type="checkbox" data-key="visible" data-kind="bool" ${values.visible ? "checked" : ""}> Showing <span class="hint">(untick to hide it everywhere)</span></label>` : "";
+    ? `<label class="ov-field check ov-visible"><span class="ov-lab">On stream<small class="ov-hint">Off: hidden everywhere</small></span><span class="switch"><input type="checkbox" role="switch" data-key="visible" data-kind="bool" ${values.visible ? "checked" : ""}><i aria-hidden="true"></i></span></label>` : "";
   return top + groups.map(([title, fields], i) => {
     const id = `${section}/${title}`;
     const open = sectionsOpen[id] ?? (allOpen || i === 0);
@@ -3548,7 +3675,10 @@ function renderOverlaySettings(s) {
   const key = JSON.stringify([ov.settings.gridwalk]);
   if (key === overlayFormKey || document.activeElement.closest("#ov-gridwalk")) return;
   overlayFormKey = key;
-  $("#ov-gridwalk").innerHTML = settingsHtml("gridwalk", ov.settings.gridwalk, OVERLAY_FIELDS.gridwalk, s);
+  // Its settings live in Widget Settings (one place for each setting).
+  $("#ov-gridwalk").innerHTML = `<div class="ws-sec gw-settings-link"><header><b>Drivers' cards, car pictures, size</b></header>
+    <p class="hint">The grid walk's look is set in Widget Settings, with a preview: names, what's on each card, the car pictures' size and angle, the background.</p>
+    <p><button type="button" class="btn" data-open-ws="gridwalk">⚙ Grid walk settings</button></p></div>`;
 }
 
 // Any settings form (Widget Settings, a widget's card, the Grid walk tab): a
@@ -3828,8 +3958,10 @@ loadBackgrounds();
 // Every widget, in the order they're listed. ``page``: its OBS page;
 // ``screen``: it has a full-screen version too.
 const WIDGETS = [
-  { key: "general", name: "All overlays & boards", page: "standings", general: true,
-    about: "Settings for every overlay and board: the font, how many decimal places gaps and intervals show, colours, and what the overlays do while a full-screen board is up." },
+  { key: "general", name: "Theme", page: "standings", general: true,
+    about: "What every overlay and board shares: names, the accent colour, team logos, panel opacity, the font and decimal places; and what the overlays do while a full-screen board is up." },
+  { key: "session_names", name: "Session names", page: "standings", general: true,
+    about: "What the tower, the timing screen and every board call each session: your own names for races, qualifying, heats, the consolation and the feature, or a race meeting's round names." },
   { key: "standings", name: "Timing tower", page: "standings", screen: true,
     about: "Race: running order and gap to the leader. Qualifying and practice: fastest clean lap. The full-screen version is a timing screen of its own, with every driver." },
   { key: "laps", name: "Lap tracker", page: "laps", screen: true,
@@ -3864,6 +3996,238 @@ function widgetGroups(key) {
   return OVERLAY_FIELDS[key] || [["What it shows", BOARD_FIELDS[key]], ["Logo, banner & sponsors", BOARD_BRAND], LOOK];
 }
 
+// ---- Widget Settings: the same four tabs on every widget, Essentials first --
+// Where each setting goes: by its key, else (a setting shown only while
+// another is on) with the one it hangs off, else by its section, else Content.
+const WS_TABS = ["Content", "Look", "Position", "Behaviour"];
+const WS_TAB_OF = Object.fromEntries(Object.entries({
+  Position: ["scale", "offset_x", "offset_y", "width", "name_width", "panel_width", "map_size", "place", "card_scale", "size",
+    "grid_size", "grid_fill", "grid_layout"],
+  Look: ["font", "solid_colors", "accent", "accent_color", "accent_practice", "accent_qualify", "accent_race", "class_colors",
+    "stripe_colors", "show_stripe", "color_number", "team_logo_kind", "logo_scale", "col_opacity_on", "col_bg_color", "col_opacity",
+    "flag_black_bg_color", "flag_meatball_bg_color", "flag_warning_bg_color", "invalid_text_color", "invalid_sector_color",
+    "invalid_line_color", "track_color", "track_width", "dot_size", "colors", "camera", "background", "bg", "podium", "title_wrap",
+    "show_color"],
+  Behaviour: ["reveal", "replay_header", "replay_hide_rows", "finish_flag", "penalty_flags", "stay", "hide_s", "show_s", "hold_s",
+    "race_only", "auto", "settle_s", "interval_s", "visible", "start_from", "step_s", "out_s", "auto_yellow", "clear_s", "practice",
+    "sector_delta_s", "grid_reveal", "grid_scroll", "board_overlays", "board_dim", "penalty_stops", "keep_leader"],
+  Content: ["neighbours"],
+}).flatMap(([tab, keys]) => keys.map((k) => [k, tab])));
+const WS_GROUP_TAB = { "Fastest lap": "Behaviour", "Logo, banner & sponsors": "Look", "Car pictures": "Position" };
+// The settings most people change: shown first (Show all settings for the rest).
+const WS_ESSENTIAL = new Set(["mode", "class_keys", "rows", "rows_class", "name_format", "show_number", "show_team", "show_logo",
+  "show_position", "position_shown", "show_gap", "show_interval", "place", "title", "scale", "offset_x", "offset_y", "bg", "accent",
+  "accent_color", "league_logo", "banner", "sponsors", "visible", "auto", "stay", "hide_s", "count", "who", "race_only", "style",
+  "show_date", "show_winners", "grid_source", "reverse_top", "grid_layout", "grid_reveal", "units", "show_map", "show_air",
+  "show_track_temp", "show_wind", "sponsor_ids", "anchor_id", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
+  "order", "show_stops", "show_penalties", "colors", "labels", "map_size", "start_from", "auto_yellow", "qual_shown", "card_scale",
+  "car_scale", "show_points", "show_drivers", "show_wins", "header_info", "column_order", "show_series", "show_track", "sponsor_bar", "show_pos_change",
+  "show_pits", "reveal", "replay_header", "fl_flash", "finish_flag", "gap_to", "show_race_points"]);
+// The stored values a field of several parts sets (changed / put back as one).
+const WS_PARTS = { size: ["scale", "font_scale"], background: ["bg", "bg_color", "bg_image", "bg_opacity"], move: ["offset_x", "offset_y"] };
+
+// A widget's settings as [{tab, title, fields}] (each field also knows its tab).
+const wsSectionCache = {};
+function wsSections(key) {
+  if (wsSectionCache[key]) return wsSectionCache[key];
+  const out = [];
+  for (const [group, fields] of widgetGroups(key)) {
+    let lastTab = null;
+    let lastKey = null;
+    const placed = fields.map((f) => {
+      const tab = WS_TAB_OF[f[0]] || (f.when && lastTab) || WS_GROUP_TAB[group] || "Content";
+      if (f.when && !f.parent) f.parent = lastKey;
+      if (!f.when) {
+        lastTab = tab;
+        lastKey = f[0];
+      }
+      return [tab, f];
+    });
+    for (const tab of WS_TABS) {
+      const mine = placed.filter(([t]) => t === tab).map(([, f]) => f);
+      if (!mine.length) continue;
+      let title = group;
+      if (/^Size/.test(group)) title = tab === "Position" ? (/position/.test(group) ? "Size & position" : "Size") : "Background & logos";
+      out.push({ tab, title, group, fields: mine });
+    }
+  }
+  wsSectionCache[key] = out;
+  return out;
+}
+
+// Every widget's defaults (fetched once), to mark what's been changed and put it back.
+let ovDefaults = null;
+fetch("/api/overlay-defaults").then((r) => r.json()).then((d) => {
+  ovDefaults = d;
+  wsKey = liveFormKey = "";
+  if (ui.snap && ui.snap.overlays) renderWidgetSettings(ui.snap);
+}).catch(() => {});
+
+function wsFieldKeys(f) { return WS_PARTS[f[2]] || [f[0]]; }
+function wsChanged(section, values, f) {
+  const d = ovDefaults && ovDefaults[f.section || section];
+  if (!d || f[2] === "note") return false;
+  return wsFieldKeys(f).some((k) => k in d && JSON.stringify(values[k] ?? null) !== JSON.stringify(d[k] ?? null));
+}
+function wsEssential(key, f) {
+  const all = wsSections(key).reduce((n, sec) => n + sec.fields.length, 0);
+  return all <= 14 || WS_ESSENTIAL.has(f[0]);
+}
+
+let wsTab = "Content";
+let wsAll = false;
+let wsQuery = "";
+let wsReveal = null;  // a setting found by search: shown even among the Essentials
+try {
+  wsAll = localStorage.getItem("apex.wsAll") === "1";
+  wsTab = WS_TABS.includes(localStorage.getItem("apex.wsTab")) ? localStorage.getItem("apex.wsTab") : "Content";
+} catch (e) { /* storage unavailable */ }
+
+// One setting in Widget Settings: its input, a dot and ↺ when it's been changed,
+// set in from the one it hangs off.
+function wsFieldHtml(key, values, f, s, depth = 0) {
+  const section = f.section || key;
+  const vals = f.section ? ((s.overlays && s.overlays.settings && s.overlays.settings[f.section]) || {}) : values;
+  let html = fieldHtml(section, vals, f, s);
+  if (f.section) html = html.replace(/data-key="/g, `data-section="${f.section}" data-key="`);
+  html = themeMark(section, vals, f, s, html);
+  const changed = wsChanged(key, vals, f);
+  const cls = [changed ? "changed" : "", depth ? "child" : "", depth > 1 ? "child2" : "", wsReveal === f[0] ? "found" : ""].filter(Boolean).join(" ");
+  const reset = changed ? `<button type="button" class="ws-reset" data-ws-reset="${esc(JSON.stringify({ [section]: wsFieldKeys(f) }))}"
+    title="Back to how it came" aria-label="Back to how it came">↺</button>` : "";
+  // Marked on its first element (a size field is two: both go back together).
+  return html.replace(/^(\s*<(\w+))([^>]*?)(?: class="([^"]*)")?([^>]*)>/, (m, open, tag, a1, c, a2) =>
+    `${open}${a1} class="${[c, cls].filter(Boolean).join(" ")}" data-field="${f[0]}"${a2}>${reset}`);
+}
+
+function wsFormHtml(w, values, s) {
+  const secs = wsSections(w.key);
+  const show = (f) => (!f.when || f.when(values)) && (wsAll || wsEssential(w.key, f) || wsChanged(w.key, values, f) || wsReveal === f[0]);
+  const tabs = WS_TABS.filter((t) => secs.some((sec) => sec.tab === t && sec.fields.some((f) => !f.when || f.when(values))));
+  if (!tabs.includes(wsTab)) wsTab = tabs[0];
+  const counts = Object.fromEntries(tabs.map((t) => [t, secs.filter((sec) => sec.tab === t).reduce((n, sec) => n + sec.fields.filter(show).length, 0)]));
+  const changedIn = (t) => secs.some((sec) => sec.tab === t && sec.fields.some((f) => wsChanged(w.key, values, f)));
+  $("#ws-bar").innerHTML = `<div class="ws-tabs" role="tablist">${tabs.map((t) => `<button type="button" role="tab" class="ws-tab ${t === wsTab ? "active" : ""}"
+      aria-selected="${t === wsTab}" data-ws-tab="${t}">${t}<span class="n">${counts[t]}</span>${changedIn(t) ? '<i class="dot-changed" title="Changed settings here"></i>' : ""}</button>`).join("")}</div>
+    <label class="ws-all">Show all settings <span class="switch"><input type="checkbox" id="ws-all" role="switch" ${wsAll ? "checked" : ""}><i aria-hidden="true"></i></span></label>`;
+  const top = "visible" in values
+    ? `<label class="ov-field check ov-visible"><span class="ov-lab">On stream<small class="ov-hint">Off: hidden everywhere</small></span><span class="switch"><input type="checkbox" role="switch" data-key="visible" data-kind="bool" ${values.visible ? "checked" : ""}><i aria-hidden="true"></i></span></label>` : "";
+  // A column a chip in a shown column order turns on and off: not a switch as well.
+  const chips = new Set(secs.flatMap((sec) => sec.fields).filter((f) => f[2] === "order" && show(f))
+    .flatMap((f) => f[3].map((c) => c[2]).filter(Boolean)));
+  let hidden = 0;
+  const body = secs.filter((sec) => sec.tab === wsTab).map((sec) => {
+    const fields = sec.fields.filter((f) => (!f.when || f.when(values)) && !chips.has(f[0]));
+    const shown = fields.filter(show);
+    hidden += fields.length - shown.length;
+    if (!shown.length) return "";
+    return wsSectionHtml(w.key, values, sec.title, sec.fields, shown, s);
+  }).join("");
+  return top + body + (!wsAll && hidden ? `<p class="ws-more">${hidden} more on this tab. <button type="button" class="link" data-ws-showall>Show all settings</button></p>` : "")
+    + (body ? "" : '<p class="hint">Nothing here for this widget.</p>');
+}
+
+// A section of settings: its title, ↺ Reset (its changed settings back to how
+// they came), and the settings shown.
+function wsSectionHtml(key, values, title, fields, shown, s) {
+  const all = s.overlays && s.overlays.settings || {};
+  const resets = {};
+  for (const f of fields) {
+    const section = f.section || key;
+    const vals = f.section ? all[f.section] || {} : values;
+    if ((!f.when || f.when(values)) && wsChanged(key, vals, f)) (resets[section] = resets[section] || []).push(...wsFieldKeys(f));
+  }
+  return `<section class="ws-sec"><header><b>${esc(title)}</b>${Object.keys(resets).length
+    ? `<button type="button" class="ws-reset-sec" data-ws-reset="${esc(JSON.stringify(resets))}">↺ Reset ${esc(title.toLowerCase())}</button>` : ""}</header>
+    <div class="ov-grid">${wsNested(shown).map(([f, depth]) => wsFieldHtml(key, values, f, s, depth)).join("")}</div></section>`;
+}
+
+// A settings page with no tabs (Live timing site, Session names…): every
+// section open, the same switches, dots and ↺ as Widget Settings.
+function plainSettingsHtml(key, values, groups, s) {
+  return groups.map(([title, fields]) => {
+    const shown = fields.filter((f) => !f.when || f.when(values));
+    for (const f of fields) if (f.when && !f.parent) f.parent = fields.slice(0, fields.indexOf(f)).reverse().find((x) => !x.when)?.[0];
+    return shown.length ? wsSectionHtml(key, values, title, fields, shown, s) : "";
+  }).join("");
+}
+
+// Putting settings back to how they came (one, or a section's): {section: [keys]}.
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ws-reset]");
+  if (!b || !ovDefaults) return;
+  e.preventDefault();
+  let what = {};
+  try {
+    what = JSON.parse(b.dataset.wsReset);
+  } catch (err) { return; }
+  b.blur();
+  resetForms();
+  for (const [section, keys] of Object.entries(what)) {
+    const d = ovDefaults[section] || {};
+    const values = Object.fromEntries(keys.filter((k) => k in d).map((k) => [k, d[k]]));
+    if (Object.keys(values).length) cmd("overlay_settings", { overlay: section, values });
+  }
+});
+
+// A widget's setting the Theme sets (names, team logo, accent colour, panel
+// opacity): "Theme" while it follows it, else "Use theme" to put it back on it.
+const THEME_OF = { name_format: "name_format", team_logo_kind: "team_logo_kind", accent: "accent_color", bg: "bg_opacity" };
+function themeMark(section, vals, f, s, html) {
+  const key = THEME_OF[f[0]];
+  const general = s.overlays && s.overlays.settings && s.overlays.settings.general;
+  if (!key || !general || ["general", "live", "session_names"].includes(section) || !(key in vals)) return html;
+  const theme = general[`theme_${key}`];
+  const follows = key === "accent_color" ? (vals.accent === "default" && theme === "#ff7a1a") || (vals.accent === "color" && vals.accent_color === theme)
+    : vals[key] === theme;
+  const tag = follows ? '<em class="theme-tag" title="Set in Theme, for every widget on it">Theme</em>'
+    : `<button type="button" class="link theme-use" data-use-theme="${key}" data-use-theme-section="${section}" title="Back on the Theme's (${esc(String(theme))})">Use theme</button>`;
+  // In the setting's name (a background: before its first field).
+  return html.includes('<span class="ov-lab">') ? html.replace(/(<span class="ov-lab">[^<]*)/, `$1${tag}`) : html.replace(/^(\s*<\w+[^>]*>)/, `$1<span class="theme-line">${tag}</span>`);
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-use-theme]");
+  if (!b || !ui.snap) return;
+  e.preventDefault();
+  const key = b.dataset.useTheme;
+  const theme = ui.snap.overlays.settings.general[`theme_${key}`];
+  const values = key === "accent_color" ? { accent: theme === "#ff7a1a" ? "default" : "color", accent_color: theme } : { [key]: theme };
+  b.blur();
+  resetForms();
+  cmd("overlay_settings", { overlay: b.dataset.useThemeSection, values });
+});
+
+// How far in each setting sits: one step under the one it depends on, when
+// that's shown above it in the same section (two at most).
+function wsNested(fields) {
+  const depth = {};
+  return fields.map((f, i) => {
+    const up = f.parent && fields.slice(0, i).some((x) => x[0] === f.parent) ? depth[f.parent] + 1 : 0;
+    depth[f[0]] = Math.min(up, 2);
+    return [f, depth[f[0]]];
+  });
+}
+
+// Search: every widget's settings, by their names and the line under them.
+function wsSearchHtml(q) {
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const hits = [];
+  for (const w of WIDGETS) {
+    for (const sec of wsSections(w.key)) {
+      for (const f of sec.fields) {
+        if (f[2] === "note") continue;
+        const text = `${f[1]} ${sec.title} ${w.name}`.replace(/<[^>]+>/g, "").toLowerCase();
+        if (words.every((wd) => text.includes(wd))) hits.push({ w, sec, f });
+      }
+    }
+  }
+  const mark = (t) => esc(String(t).replace(/<[^>]+>/g, "")).replace(new RegExp(`(${words.map((wd) => wd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "ig"), "<mark>$1</mark>");
+  $("#ws-bar").innerHTML = `<p class="hint" style="margin:0">${hits.length} setting${hits.length === 1 ? "" : "s"} for “${esc(q)}”</p>`;
+  return hits.length ? `<div class="ws-hits">${hits.slice(0, 120).map(({ w, sec, f }) => `<button type="button" class="ws-hit" data-ws-go="${w.key}" data-ws-go-tab="${sec.tab}" data-ws-go-key="${f[0]}">
+      <span>${mark(f[1])}</span><small>${esc(w.name)} › ${sec.tab} › ${esc(sec.title)}</small></button>`).join("")}</div>`
+    : '<p class="hint">Nothing matches. Try another word, like “colour”, “replay” or “names”.</p>';
+}
+
 const WS_KEY = "apex.widgetSettings";
 let wsWidget = "standings";
 try {
@@ -3875,7 +4239,7 @@ let wsOpenSection = null;  // a section to open (from a widget's ⚙ Settings)
 
 // Every settings form redraws next time (after a change, so it shows what was saved).
 function resetForms() {
-  overlayFormKey = wsKey = wqKey = "";
+  overlayFormKey = wsKey = wqKey = liveFormKey = "";
 }
 
 // The quick settings on a widget's card: its fields by key, as in Widget Settings.
@@ -3919,9 +4283,10 @@ function renderWidgets(s) {
 function renderWidgetSettings(s) {
   renderWsCopy(s);
   const w = WIDGET[wsWidget];
-  const values = s.overlays.settings[w.key];
+  const values = s.overlays.settings[w.key] || {};
   const key = JSON.stringify([w.key, values, s.overlays.settings.general, (s.classes || []).map((c) => [c.key, c.name, c.color]),
-    (s.league && s.league.sponsors) || [], (s.league && s.league.banners) || [], ((s.board_options || {}).groups || []).length]);
+    (s.league && s.league.sponsors) || [], (s.league && s.league.banners) || [], ((s.board_options || {}).groups || []).length,
+    wsTab, wsAll, wsQuery, wsReveal, !!ovDefaults]);
   if (key === wsKey || document.activeElement.closest("#ws-form")) return;
   const changed = !wsKey.startsWith(`["${w.key}"`);
   wsKey = key;
@@ -3944,21 +4309,92 @@ function renderWidgetSettings(s) {
   }
   const form = $("#ws-form");
   form.dataset.overlay = w.key;
-  form.innerHTML = settingsHtml(w.key, values, widgetGroups(w.key), s, true);
+  $(".ws-main").classList.toggle("searching", !!wsQuery);
+  if (wsQuery) form.innerHTML = wsSearchHtml(wsQuery);
+  else if (w.general) {
+    // Theme and Session names: short pages, every setting on one page (no tabs).
+    $("#ws-bar").innerHTML = "";
+    form.innerHTML = plainSettingsHtml(w.key, values, widgetGroups(w.key), s);
+  } else form.innerHTML = wsFormHtml(w, values, s);
   if (wsOpenSection) {
-    const group = [...form.querySelectorAll(".ov-group")].find((g) => g.dataset.group === `${w.key}/${wsOpenSection}`);
-    if (group) {
-      group.open = true;
-      group.scrollIntoView({ block: "start" });
-    }
+    const sec = [...form.querySelectorAll(".ws-sec header b")].find((b) => b.textContent === wsOpenSection);
+    if (sec) sec.closest(".ws-sec").scrollIntoView({ block: "start" });
     wsOpenSection = null;
   }
+  if (wsReveal) {
+    const el = form.querySelector(`[data-field="${wsReveal}"]`);
+    if (el) el.scrollIntoView({ block: "center" });
+  }
 }
+
+// Widget Settings: its tabs, Show all settings, putting settings back, search.
+function wsRedraw() {
+  wsKey = "";
+  if (document.activeElement && document.activeElement.closest("#ws-form")) document.activeElement.blur();
+  if (ui.snap && ui.snap.overlays) renderWidgetSettings(ui.snap);
+}
+function wsSave() {
+  try {
+    localStorage.setItem("apex.wsAll", wsAll ? "1" : "0");
+    localStorage.setItem("apex.wsTab", wsTab);
+  } catch (e) { /* storage unavailable */ }
+}
+$("#tab-widget-settings").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.wsTab) {
+    wsTab = b.dataset.wsTab;
+    wsReveal = null;
+    wsSave();
+    return wsRedraw();
+  }
+  if (b.hasAttribute("data-ws-showall")) {
+    wsAll = true;
+    wsSave();
+    b.blur();
+    return wsRedraw();
+  }
+  if (b.dataset.wsGo) {
+    wsQuery = "";
+    $("#ws-search").value = "";
+    wsWidget = b.dataset.wsGo;
+    wsTab = b.dataset.wsGoTab;
+    wsReveal = b.dataset.wsGoKey;
+    try {
+      localStorage.setItem(WS_KEY, wsWidget);
+    } catch (err) { /* storage unavailable */ }
+    return wsRedraw();
+  }
+});
+$("#tab-widget-settings").addEventListener("change", (e) => {
+  if (e.target.id !== "ws-all") return;
+  wsAll = e.target.checked;
+  wsReveal = null;
+  wsSave();
+  wsRedraw();
+});
+$("#ws-search").addEventListener("input", (e) => {
+  wsQuery = e.target.value.trim();
+  wsRedraw();
+});
+$("#ws-search").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    e.target.value = "";
+    wsQuery = "";
+    wsRedraw();
+  }
+});
 
 function openWidgetSettings(key, section = null) {
   if (!WIDGET[key]) return;
   wsWidget = key;
-  wsOpenSection = section;
+  wsQuery = "";
+  wsReveal = null;
+  if ($("#ws-search")) $("#ws-search").value = "";
+  // A section from a widget's card: the tab most of it is on.
+  const sec = section && wsSections(key).find((x) => x.group === section);
+  if (sec) wsTab = sec.tab;
+  wsOpenSection = sec ? sec.title : null;
   wsKey = "";
   try {
     localStorage.setItem(WS_KEY, key);
@@ -4935,11 +5371,9 @@ function renderTeams() {
 
 document.querySelectorAll(".league-picker").forEach((sel) => sel.addEventListener("change", (e) => {
   if (!e.target.value) return;
-  if (champ.dirty && !confirm("Leave without saving the championship changes?")) {
-    e.target.value = ui.editing ? ui.editing.id : "";
-    return;
-  }
-  openLeague(e.target.value).catch((err) => toast(err.message, true));
+  // What's being edited is saved first (it saves as you go).
+  const id = e.target.value;
+  autosaveNow().then(() => openLeague(id)).catch((err) => toast(err.message, true));
 }));
 
 $("#btn-add-team").addEventListener("click", () => {
@@ -5437,7 +5871,7 @@ $("#edit-strip-class").addEventListener("change", (e) => {
     }
   }
   renderRoster();
-  toast(filled ? `Filled ${filled} nicknames with names minus their class tag. Save to keep them.`
+  toast(filled ? `Filled ${filled} nicknames with names minus their class tag.`
     : "No empty nicknames to fill. Overlays will show names without the class tag.");
 });
 
@@ -5511,10 +5945,11 @@ $("#league-list").addEventListener("click", async (e) => {
   if (dup) {
     e.stopPropagation();
     try {
+      await autosaveNow();
       const r = await api(`/api/leagues/${encodeURIComponent(dup.dataset.duplicate)}/duplicate`, { method: "POST", body: {} });
       await loadLeagues();
       openEditor(r.league);
-      toast(`Made "${r.league.name}": rename it and save`);
+      toast(`Made "${r.league.name}": rename it (it saves as you go)`);
     } catch (err) {
       toast(err.message, true);
     }
@@ -5534,6 +5969,7 @@ $("#league-list").addEventListener("click", async (e) => {
   const li = e.target.closest("li[data-league]");
   if (li) {
     try {
+      await autosaveNow();  // the league being edited, saved before another opens
       openEditor(await api(`/api/leagues/${encodeURIComponent(li.dataset.league)}`));
     } catch (err) {
       toast(err.message, true);
@@ -5854,3 +6290,262 @@ document.addEventListener("keydown", (e) => {
 
 connectStream();
 checkForUpdate();
+
+// A drop-down (⚙ View) closes when you click anywhere else.
+document.addEventListener("click", (e) => {
+  for (const d of document.querySelectorAll("details.view-menu[open]")) if (!d.contains(e.target)) d.open = false;
+});
+
+// A button that opens a widget's settings (data-open-ws="key").
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-open-ws]");
+  if (b) openWidgetSettings(b.dataset.openWs);
+});
+
+// ---- Search (Ctrl+K): a tab, a setting, a driver to watch, or something to do --
+let cmdkItems = [];
+let cmdkPick = 0;
+function cmdkAll() {
+  const items = [];
+  document.querySelectorAll(".tabs .tab").forEach((t) => items.push({ kind: "Tab", label: t.textContent.replace(/\s+/g, " ").trim(), run: () => showPage(t.dataset.tab) }));
+  for (const [group, list] of hotkeyActions()) {
+    for (const [, label, fn] of list) items.push({ kind: group.replace(/ \(.*\)$/, ""), label, run: fn });
+  }
+  for (const d of (ui.snap && ui.snap.drivers) || []) {
+    if (d.car_idx == null || !d.name) continue;
+    items.push({ kind: "Watch", label: `#${d.number} ${d.name}`, sub: d.team || "", run: () => cmd("watch", { car_idx: d.car_idx }) });
+  }
+  for (const w of WIDGETS) {
+    for (const sec of wsSections(w.key)) {
+      for (const f of sec.fields) {
+        if (f[2] === "note") continue;
+        items.push({ kind: "Setting", label: String(f[1]).replace(/<[^>]+>/g, ""), sub: `${w.name}${w.general ? "" : ` › ${sec.tab}`} › ${sec.title}`,
+          run: () => {
+            wsQuery = "";
+            if ($("#ws-search")) $("#ws-search").value = "";
+            wsWidget = w.key;
+            wsTab = sec.tab;
+            wsReveal = f[0];
+            showPage("widget-settings");
+            wsRedraw();
+          } });
+      }
+    }
+  }
+  return items;
+}
+function cmdkRender() {
+  const words = $("#cmdk-q").value.toLowerCase().split(/\s+/).filter(Boolean);
+  const all = cmdkAll();
+  cmdkItems = words.length
+    ? all.filter((it) => { const t = `${it.label} ${it.sub || ""} ${it.kind}`.toLowerCase(); return words.every((w) => t.includes(w)); }).slice(0, 60)
+    : all.filter((it) => it.kind === "Tab");
+  cmdkPick = Math.min(cmdkPick, Math.max(0, cmdkItems.length - 1));
+  $("#cmdk-list").innerHTML = cmdkItems.length ? cmdkItems.map((it, i) => `<button type="button" role="option" class="cmdk-item ${i === cmdkPick ? "on" : ""}" data-cmdk="${i}" aria-selected="${i === cmdkPick}">
+      <span class="k">${esc(it.kind)}</span><span class="l">${esc(it.label)}${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</span></button>`).join("")
+    : '<p class="hint" style="padding:12px 16px;margin:0">Nothing found. Try another word: a driver\'s name, "replay", "standings"…</p>';
+  const on = $("#cmdk-list .cmdk-item.on");
+  if (on) on.scrollIntoView({ block: "nearest" });
+}
+function cmdkOpen() {
+  $("#cmdk").hidden = false;
+  $("#cmdk-q").value = "";
+  cmdkPick = 0;
+  cmdkRender();
+  $("#cmdk-q").focus();
+}
+function cmdkClose() { $("#cmdk").hidden = true; }
+function cmdkGo(i) {
+  const it = cmdkItems[i];
+  if (!it) return;
+  cmdkClose();
+  it.run();
+}
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    e.stopPropagation();
+    if ($("#cmdk").hidden) cmdkOpen(); else cmdkClose();
+  }
+}, true);
+$("#cmdk-open").addEventListener("click", cmdkOpen);
+$("#cmdk-q").addEventListener("input", () => { cmdkPick = 0; cmdkRender(); });
+$("#cmdk-q").addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    cmdkPick = (cmdkPick + (e.key === "ArrowDown" ? 1 : -1) + cmdkItems.length) % Math.max(1, cmdkItems.length);
+    cmdkRender();
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    cmdkGo(cmdkPick);
+  } else if (e.key === "Escape") cmdkClose();
+});
+$("#cmdk").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-cmdk]");
+  if (b) return cmdkGo(+b.dataset.cmdk);
+  if (e.target.id === "cmdk") cmdkClose();
+});
+
+// ---- League builder, Teams and Championship save as you go -----------------
+// What's being edited is looked at every second or so: once it's stayed the
+// same for a moment and differs from what was last saved, it's saved (without
+// redrawing what you're typing in). "Undo" puts back what was there before.
+const AUTOSAVE_TABS = new Set(["league", "teams", "championship"]);
+let autoSaved = null;   // the league as last saved (or opened)
+let autoSeen = null;    // as it was at the last look
+let autoBusy = false;
+let autoUndo = null;    // what it was before the last save, for Undo
+function editorJson() {
+  try {
+    return ui.editing ? JSON.stringify(readEditor()) : null;
+  } catch (e) {
+    return null;
+  }
+}
+function autosaveStatus(text, undo = false) {
+  document.querySelectorAll("[data-autosave]").forEach((el) => {
+    el.innerHTML = `${esc(text)}${undo ? ' · <button type="button" class="link" data-autosave-undo>Undo</button>' : ""}`;
+    el.classList.toggle("saving", text === "Saving…");
+  });
+}
+const openEditorBase = openEditor;
+openEditor = function (profile) {  // a league opened (or reloaded): that's what's saved
+  openEditorBase(profile);
+  autoSaved = autoSeen = editorJson();
+  champ.dirty = false;
+  $("#champ-dirty").hidden = true;
+};
+setInterval(async () => {
+  const panel = document.querySelector(".panel.active");
+  if (!panel || !AUTOSAVE_TABS.has(panel.id.slice(4)) || !ui.editing || autoBusy) return;
+  if (!ui.editing.id && !$("#edit-name").value.trim()) return;  // a new league: once it has a name
+  const now = editorJson();
+  if (now === null || now === autoSaved) {
+    autoSeen = now;
+    return;
+  }
+  if (now !== autoSeen) {  // still changing: wait until it's still
+    autoSeen = now;
+    return;
+  }
+  await autosave(now);
+}, 1100);
+async function autosave(now) {
+  autoBusy = true;
+  const before = autoSaved;
+  autosaveStatus("Saving…");
+  try {
+    const { league } = await api("/api/leagues", { method: "POST", body: JSON.parse(now) });
+    if (ui.editing && !ui.editing.id) ui.editing.id = league.id;
+    autoSaved = autoSeen = editorJson();
+    autoUndo = before;
+    champ.dirty = false;
+    $("#champ-dirty").hidden = true;
+    autosaveStatus("Saved", !!before);
+    loadLeagues();
+    if ($("#tab-championship").classList.contains("active")) loadChampStandings();
+  } catch (err) {
+    autoSaved = now;  // not again until it changes
+    autosaveStatus("Not saved");
+    toast(err.message, true);
+  } finally {
+    autoBusy = false;
+  }
+}
+// Anything not saved yet, saved now (leaving the tab, picking another league).
+async function autosaveNow() {
+  if (!ui.editing || (!ui.editing.id && !$("#edit-name").value.trim())) return;
+  const now = editorJson();
+  if (now !== null && now !== autoSaved && !autoBusy) await autosave(now);
+}
+const showPageBase = showPage;
+showPage = function (name) {
+  const panel = document.querySelector(".panel.active");
+  if (panel && AUTOSAVE_TABS.has(panel.id.slice(4))) autosaveNow();
+  return showPageBase(name);
+};
+window.addEventListener("beforeunload", () => {
+  const now = editorJson();
+  if (ui.editing && ui.editing.id && now !== null && now !== autoSaved) {
+    navigator.sendBeacon("/api/leagues", new Blob([now], { type: "application/json" }));
+  }
+});
+document.addEventListener("click", async (e) => {
+  if (!e.target.closest("[data-autosave-undo]") || !autoUndo || autoBusy) return;
+  autoBusy = true;
+  try {
+    const { league } = await api("/api/leagues", { method: "POST", body: JSON.parse(autoUndo) });
+    autoUndo = null;
+    ui.editing = league;
+    await loadLeagues();
+    openEditor(league);
+    autosaveStatus("Undone");
+    if ($("#tab-championship").classList.contains("active")) loadChampStandings();
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    autoBusy = false;
+  }
+});
+
+// Move: ◀ ▶ ▲ ▼ nudge a widget 10 px at a time.
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-nudge]");
+  if (!b) return;
+  const form = b.closest(".ov-form");
+  const input = b.parentElement.querySelector("input");
+  if (!form || !input) return;
+  const v = Math.max(+input.min, Math.min(+input.max, (+input.value || 0) + +b.dataset.by));
+  input.value = v;
+  b.blur();
+  resetForms();
+  cmd("overlay_settings", { overlay: input.dataset.section || form.dataset.overlay, values: { [b.dataset.nudge]: v } });
+});
+
+// Widget Settings: click part of the preview to open its settings (the tower's
+// header, its columns, a driver's number…; a board's header, banner, rows).
+const PREVIEW_PARTS = [
+  [".fin-flag", "Behaviour", "Drivers"],
+  [".tower-sponsor-slot, .tower-head, .head-box .head-text", "Content", "Header"],
+  [".srow .num, .srow .stripe", "Look", "Drivers"],
+  [".srow .c, .srow .r, .head-row", "Content", "Columns"],
+  [".srow", "Content", "Drivers"],
+  [".bhead, .banner, .sponsors, .league-logo", "Look", "Logo, banner & sponsors"],
+];
+function previewClick(e) {
+  const w = WIDGET[wsWidget];
+  if (!w || w.general) return;
+  const secs = wsSections(w.key);
+  let tab = "Position";
+  let group = null;
+  for (const [sel, t, g] of PREVIEW_PARTS) {
+    if (e.target.closest && e.target.closest(sel) && secs.some((sec) => sec.tab === t && sec.group === g)) {
+      tab = t;
+      group = g;
+      break;
+    }
+  }
+  if (!secs.some((sec) => sec.tab === tab)) return;
+  wsTab = tab;
+  wsReveal = null;
+  wsOpenSection = group ? (secs.find((sec) => sec.tab === tab && sec.group === group) || {}).title || null : null;
+  wsSave();
+  window.focus();  // keys (Ctrl+K…) back to the app, not the preview
+  wsRedraw();
+}
+$("#ws-frame").addEventListener("load", () => {
+  try {
+    const doc = $("#ws-frame").contentDocument;
+    doc.addEventListener("click", previewClick);
+    doc.addEventListener("keydown", (e) => {  // Ctrl+K with the preview clicked
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        window.focus();
+        cmdkOpen();
+      }
+    });
+    const style = doc.createElement("style");
+    style.textContent = "body { cursor: pointer; }";
+    doc.head.appendChild(style);
+  } catch (err) { /* another origin: no clicks */ }
+});

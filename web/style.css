@@ -1,19 +1,36 @@
+@import url("fonts/app.css");
+
+/* The look: a pit-wall timing console. Graphite with a cool blue bias, in
+   layers (page, panel, raised); the brand orange for what's live or chosen.
+   Inter for reading and controls; Saira Semi Condensed (narrow, squared, the
+   type of timing screens) for headings, labels, tabs and the numbers. */
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --panel-2: #1e222b;
-  --line: #2a2f3a;
-  --text: #e6e8ec;
-  --muted: #8b93a3;
+  --bg: #0c0e12;
+  --panel: #14171d;
+  --panel-2: #1b1f27;
+  --panel-3: #232833;
+  --field: #10131a;
+  --line: #262b36;
+  --line-2: #323947;
+  --text: #e8eaef;
+  --muted: #8d95a6;
   --accent: #ff7a1a;
+  --accent-2: #ff9a4d;
   --accent-ink: #1a0d00;
+  --accent-soft: rgba(255, 122, 26, .14);
   --good: #3ecf8e;
   --warn: #f5c542;
   --bad: #ff5d5d;
   --info: #5aa9ff;
   --watch: rgba(255, 122, 26, 0.14);
-  --radius: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 6px 18px -10px rgba(0, 0, 0, .6);
+  --ring: 0 0 0 3px rgba(255, 122, 26, .28);
+  --f-text: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-display: "Saira Semi Condensed", "Inter", system-ui, sans-serif;
   font-size: 14px;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -22,7 +39,9 @@ html, body { margin: 0; height: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--f-text);
+  font-feature-settings: "cv11", "ss03";
+  -webkit-font-smoothing: antialiased;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -933,3 +952,334 @@ td.c-make .make-logo { height: 18px; max-width: 36px; object-fit: contain; verti
 .clock-btn { border: 0; background: none; color: inherit; font: inherit; padding: 0 2px; cursor: pointer;
   font-variant-numeric: tabular-nums; border-bottom: 1px dotted var(--muted); }
 .clock-btn:hover { color: var(--text); }
+
+/* ==== The look (fonts, surfaces, controls) ===================================
+   Over the layout rules above: what things look like, not where they go. */
+
+/* Type: Saira for headings, labels, tabs and timing; Inter for the rest. */
+h1, h2, h3, h4, .home-title, .modal h2, .tile b, .ws-head h2 {
+  font-family: var(--f-display); font-weight: 700; letter-spacing: .01em; text-wrap: balance;
+}
+h2 { font-size: 24px; line-height: 1.15; }
+h3 { font-size: 17px; }
+.home-title { font-size: 32px; letter-spacing: 0; }
+.label, .section-title, .hk-section, .league-side h3, .ws-list h5, .wcard h4, .board-group h4,
+.grid th, .update-notes h4, .obs-kind, .tabtable th {
+  font-family: var(--f-display); font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+}
+.grid th { font-size: 11.5px; }
+.pos, .num, .c-time, .grid td.c-time, .cls-pos, .chg, .rewind-secs, .clock-btn, .events .when, .log-line .when,
+.round-head .round-num, .dual-code, .tile-status, .standings-table td.c-rd, .champ-table td.c-num {
+  font-family: var(--f-display); font-variant-numeric: tabular-nums;
+}
+.pos { font-weight: 700; font-size: 15px; }
+.num { font-weight: 700; letter-spacing: .02em; }
+code, kbd { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.hint { line-height: 1.45; }
+
+/* Top bar: a thin accent line along the top, like a broadcast graphic. */
+.topbar {
+  background: linear-gradient(180deg, #171b22, #12151b);
+  border-bottom: 1px solid var(--line); box-shadow: 0 1px 0 rgba(0, 0, 0, .4);
+  padding: 9px 16px;
+}
+.topbar::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 2px;
+  background: linear-gradient(90deg, var(--accent) 0, var(--accent) 120px, transparent 420px);
+}
+.brand { font-family: var(--f-display); font-size: 17px; letter-spacing: .03em; }
+.session-line { font-size: 13px; }
+.badge { font-family: var(--f-display); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 11.5px; padding: 3px 10px; }
+.mode-switch { background: var(--panel-2); }
+
+/* Tabs: Saira capitals; the one open underlined with a slanted stripe. */
+.tabs { padding: 0 16px; gap: 0; background: #101318; }
+.tab {
+  position: relative; font-family: var(--f-display); font-weight: 600; font-size: 13.5px; letter-spacing: .07em;
+  text-transform: uppercase; padding: 11px 14px 10px; border-bottom: 0; transition: color .15s;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); }
+.tab.active::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 3px;
+  background: var(--accent); transform: skewX(-24deg); border-radius: 1px;
+}
+
+/* Surfaces: panels in layers, softly lifted. */
+.league-editor, .ov-group, .wcard, .wboards, .board-group, .overlay-card, .updates-card, .dual-side, .class-card, .team-card,
+.round-card, .build-rounds, .rc-bar, .rc-log, .champ-kind, .scheme, .battle-pick, .banner-card, .sponsor-card, .ws-list,
+.league-list li, .team-row, .events li, .race-log li, .tile, .modal {
+  border-radius: var(--radius-lg); box-shadow: var(--shadow);
+}
+.league-list li, .team-row, .events li, .race-log li, .banner-card, .sponsor-card { border-radius: var(--radius); }
+.tile { background: linear-gradient(160deg, var(--panel-2), var(--panel)); transition: border-color .15s, transform .15s; }
+.tile:hover { transform: translateY(-2px); }
+.tile-icon { font-size: 24px; filter: saturate(.9); }
+.modal { background: var(--panel-2); border-color: var(--line-2); box-shadow: 0 24px 70px rgba(0, 0, 0, .6); }
+.modal-backdrop { background: rgba(5, 6, 9, .6); backdrop-filter: blur(4px); }
+.toast { border-radius: 999px; padding: 9px 18px; background: var(--panel-3); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+
+/* Buttons: quiet by default; the main one orange, with a cut corner. */
+.btn {
+  background: var(--panel-2); border-color: var(--line-2); border-radius: var(--radius); padding: 6px 12px;
+  font-weight: 500; transition: background .15s, border-color .15s, color .15s;
+}
+.btn:hover { background: var(--panel-3); border-color: #475064; }
+.btn.subtle { background: transparent; border-color: var(--line); }
+.btn.subtle:hover { background: var(--panel-2); }
+.btn.primary, .btn.primary:hover {
+  background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+}
+.btn.primary:hover { background: var(--accent-2); }
+.btn.cam.active { background: var(--accent-soft); }
+.wbtn { border-radius: var(--radius); font-family: var(--f-display); font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
+.live-btn { font-family: var(--f-display); }
+
+/* Fields: dark wells; an orange ring when you're in one. */
+select, input, textarea {
+  background: var(--field); border-color: var(--line-2); border-radius: var(--radius); padding: 6px 9px;
+  transition: border-color .15s, box-shadow .15s;
+}
+select:hover, input:hover, textarea:hover { border-color: #475064; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+.btn:focus-visible, .tab:focus-visible, .chip:focus-visible, .wbtn:focus-visible { outline: none; box-shadow: var(--ring); }
+input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--accent); }
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; padding: 0; box-shadow: none; }
+input[type="color"] { padding: 2px; cursor: pointer; }
+
+/* Chips and segmented buttons. */
+.chip { background: var(--panel-2); border-color: var(--line-2); padding: 4px 12px; font-weight: 500; transition: background .15s, border-color .15s; }
+.chip:hover { border-color: #475064; }
+.chip.active { background: var(--accent); color: var(--accent-ink); }
+.seg { background: var(--field); border-color: var(--line-2); border-radius: var(--radius); padding: 2px; gap: 2px; }
+.seg button { border-radius: 6px; }
+.seg button + button { border-left: 0; }
+.seg button.active { background: var(--accent); }
+
+/* Tables: room to breathe, a soft hover, the camera car on an orange edge. */
+.grid th { background: var(--bg); border-bottom-color: var(--line-2); padding: 8px 6px; }
+.grid td { border-bottom-color: rgba(38, 43, 54, .7); padding: 6px; }
+.standings tbody tr:hover td { background: rgba(255, 255, 255, .035); }
+.num { background: var(--panel-3); border-radius: 4px; }
+
+/* Settings sections (Widget Settings, the Widgets tab, Grid walk). */
+.ov-group { background: var(--panel); border-color: var(--line); overflow: hidden; }
+.ov-group > summary { font-family: var(--f-display); font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 10px 14px; }
+.ov-group[open] > summary { border-bottom: 1px solid var(--line); }
+.ws-form .ov-field, .ws-form .ov-visible { padding: 9px 14px; border-top-color: rgba(38, 43, 54, .7); }
+.ws-form .ov-field:hover { background: rgba(255, 255, 255, .015); }
+.ws-list { background: var(--panel); padding: 8px; }
+.ws-item { border-radius: 6px; transition: background .12s; }
+.ws-item.active { background: var(--accent); color: var(--accent-ink); }
+
+/* Widgets tab cards: a coloured stripe on top when on air. */
+.wcard { background: var(--panel); border-top-width: 3px; }
+.wcard.on { border-top-color: var(--good); box-shadow: var(--shadow), 0 -6px 18px -14px var(--good); }
+.wcard h4 { font-size: 13px; }
+
+/* Thin scrollbars that match. */
+* { scrollbar-width: thin; scrollbar-color: #343b49 transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #343b49; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: #465064; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tile, .btn, .tab, .chip, select, input { transition: none; }
+  .tile:hover { transform: none; }
+}
+
+/* ==== Settings controls (every settings form) ================================ */
+/* A setting's name, and what it means on a grey line under it. */
+.ov-lab { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ov-hint { color: var(--muted); font-size: 11.5px; font-weight: 400; line-height: 1.35; }
+.ov-field.check { justify-content: space-between; }
+.ov-field.check .ov-lab { flex: 1; }
+
+/* On / off: a switch. */
+.switch { position: relative; display: inline-flex; flex: none; width: 36px; height: 20px; }
+.switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.switch i { position: absolute; inset: 0; border-radius: 20px; background: #343a47; transition: background .15s; pointer-events: none; }
+.switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #c9ced8; transition: transform .15s, background .15s; }
+.switch input:checked + i { background: var(--accent); }
+.switch input:checked + i::after { transform: translateX(16px); background: #fff; }
+.switch input:focus-visible + i { box-shadow: var(--ring); }
+.switch input:disabled + i { opacity: .45; }
+
+/* A few short choices: buttons side by side, one lit. */
+.segs { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; background: var(--field); border: 1px solid var(--line-2); border-radius: var(--radius); justify-self: start; }
+.segs label { position: relative; display: inline-flex; cursor: pointer; }
+.segs input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.segs span { padding: 4px 11px; border-radius: 6px; color: var(--muted); font-size: 13px; white-space: nowrap; transition: background .12s, color .12s; }
+.segs label:hover span { color: var(--text); }
+.segs label.on span, .segs input:checked + span { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.segs input:focus-visible + span { box-shadow: var(--ring); }
+
+/* Widget cards: label left, control right; button rows wrap under the label. */
+.wcard .wq .ov-field.check { justify-content: space-between; }
+.wcard .wq .seg-field { flex-direction: column; align-items: stretch; }
+.wcard .wq .seg-field .segs { align-self: flex-start; }
+.ov-grid .ov-field.check { align-items: center; }
+
+/* ==== Widget Settings: tabs, Essentials, changed settings, search ============ */
+.ws-search input { width: 100%; padding-left: 32px;
+  background: var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Ccircle cx='7' cy='7' r='5' fill='none' stroke='%238d95a6' stroke-width='1.6'/%3E%3Cpath d='M11 11l3.5 3.5' stroke='%238d95a6' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat 10px 50%; }
+.ws-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0 2px; min-height: 36px; }
+.ws-tabs { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.ws-tab { position: relative; border: 0; background: none; color: var(--muted); cursor: pointer; padding: 6px 14px; border-radius: 7px;
+  font-family: var(--f-display); font-weight: 600; font-size: 13.5px; letter-spacing: .07em; text-transform: uppercase; }
+.ws-tab:hover { color: var(--text); }
+.ws-tab.active { background: var(--panel-3); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+.ws-tab .n { margin-left: 6px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ws-tab .dot-changed { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.ws-tab:focus-visible { outline: none; box-shadow: var(--ring); }
+.ws-all { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; cursor: pointer; }
+
+.ws-form { gap: 12px; }
+.ws-sec { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+.ws-sec > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.ws-sec > header b { font-family: var(--f-display); font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.ws-reset-sec { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 4px; }
+.ws-reset-sec:hover { color: var(--accent); }
+.ws-sec .ov-grid { display: block; padding: 0; }
+.ws-sec .ov-grid > :first-child { border-top: 0; }
+.ws-form .ov-field.check > .switch, .ws-form .ov-visible > .switch { justify-self: start; }
+.ws-form .seg-field .segs { justify-self: start; }
+.ws-form .ov-visible { font-weight: 600; }
+
+/* A setting changed from how it came: an orange dot, and ↺ to put it back. */
+.ws-form .ov-field { position: relative; }
+.ws-form .ov-field.changed::before { content: ""; position: absolute; left: 5px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: var(--accent); }
+.ws-form .ov-field.changed { padding-right: 34px; }
+.ws-reset { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); z-index: 2; border: 0; background: none; color: var(--muted);
+  cursor: pointer; font-size: 14px; line-height: 1; padding: 4px 6px; border-radius: 4px; }
+.ws-reset:hover { color: var(--accent); background: var(--accent-soft); }
+/* Shown only while the one above it is on: set in under it. */
+.ws-form .ov-field.child { padding-left: 32px; background: rgba(255, 255, 255, .012); }
+.ws-form .ov-field.child::after { content: ""; position: absolute; left: 16px; top: 0; height: 50%; width: 9px; border-left: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); border-bottom-left-radius: 4px; }
+.ws-form .ov-field.child.changed::before { left: 7px; }
+.ws-form .ov-field.found { animation: ws-found 2s ease-out; }
+@keyframes ws-found { from { background: rgba(255, 122, 26, .22); } to { background: transparent; } }
+.ws-more { color: var(--muted); font-size: 13px; margin: 2px 2px 0; }
+.link { border: 0; background: none; color: var(--info); cursor: pointer; padding: 0; font: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Search results. */
+.ws-hits { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); overflow: hidden; }
+.ws-hit { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 9px 14px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--text); cursor: pointer; font: inherit; }
+.ws-hit:first-child { border-top: 0; }
+.ws-hit:hover, .ws-hit:focus-visible { background: var(--panel-2); outline: none; }
+.ws-hit small { color: var(--muted); font-size: 12px; }
+.ws-hit mark { background: var(--accent-soft); color: var(--accent-2); border-radius: 2px; padding: 0 1px; }
+@media (prefers-reduced-motion: reduce) { .ws-form .ov-field.found { animation: none; } .switch i, .switch i::after { transition: none; } }
+/* A colour: its box and the eyedropper side by side, not across the page. */
+.ws-form .ov-field:has(> input[type="color"]) { grid-template-columns: minmax(170px, 46%) auto auto; justify-content: start; }
+.ws-form .ov-field > input[type="color"]:not([type="checkbox"]):not([type="radio"]) { width: 64px; height: 30px; }
+.ws-form .ov-field.child2 { padding-left: 50px; }
+.ws-form .ov-field.child2::after { left: 34px; }
+
+/* Timing Screen: ⚙ View, the list's look in a drop-down. */
+.view-menu { position: relative; }
+.view-menu > summary { list-style: none; cursor: pointer; }
+.view-menu > summary::-webkit-details-marker { display: none; }
+.view-menu[open] > summary { border-color: var(--accent); color: var(--text); }
+.view-pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 340px; display: flex; flex-direction: column;
+  background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--radius-lg); box-shadow: 0 18px 40px rgba(0, 0, 0, .55); overflow: hidden;
+}
+.battle-settings .vrow, .vrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--text); cursor: default; }
+.vrow:first-child { border-top: 0; }
+.vrow input[type="number"] { width: 76px; }
+.vrow select { max-width: 140px; }
+.vrow input[type="color"] { width: 48px; height: 28px; }
+.battle-settings .vrow input[type="color"] { width: 48px; height: 28px; }
+
+/* Theme: a setting following it, or a link to put it back on it. */
+.theme-tag { display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 10px; background: rgba(90, 169, 255, .14); color: var(--info);
+  font-style: normal; font-size: 11px; font-weight: 600; letter-spacing: .02em; vertical-align: 1px; }
+.theme-use { margin-left: 8px; font-size: 12px; }
+.theme-line { display: block; margin-bottom: 4px; }
+.gw-settings-link { padding-bottom: 4px; }
+.gw-settings-link .hint, .gw-settings-link p { margin: 10px 14px; }
+
+/* ==== Tabs in three groups, and Search (Ctrl+K) ============================== */
+.tabs { align-items: flex-end; flex-wrap: wrap; row-gap: 0; }
+.tab-group { position: relative; display: inline-flex; align-items: flex-end; padding: 16px 0 0 10px; margin-left: 10px; border-left: 1px solid var(--line); }
+.tab-group > small { position: absolute; top: 5px; left: 22px; font-family: var(--f-display); font-size: 10px; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: #5f6778; white-space: nowrap; pointer-events: none; }
+.tabs > .tab { padding-top: 27px; }
+.cmdk-open { margin: 0 0 7px auto; align-self: flex-end; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
+  border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--field); color: var(--muted); cursor: pointer; font: inherit; font-size: 12.5px; }
+.cmdk-open:hover { color: var(--text); border-color: #475064; }
+.cmdk-open kbd { margin-left: 0; }
+@media (max-width: 1250px) { .tab-group > small { display: none; } .tab-group { padding-top: 0; } .tabs > .tab { padding-top: 11px; } }
+
+/* Home: the race-day checklist. */
+.checklist { margin: 18px 0; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+.checklist h3 { margin: 0; padding: 11px 16px; border-bottom: 1px solid var(--line); font-size: 15px; letter-spacing: .06em; text-transform: uppercase; }
+.check-line { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-top: 1px solid var(--line); }
+.check-line:first-of-type { border-top: 0; }
+.check-line > i { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #4a5263; }
+.check-line.good > i { background: var(--good); box-shadow: 0 0 8px rgba(62, 207, 142, .5); }
+.check-line.warn > i { background: var(--warn); }
+.check-line > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.check-line small { color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Search (Ctrl+K). */
+.cmdk-backdrop { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px;
+  background: rgba(5, 6, 9, .6); backdrop-filter: blur(4px); }
+.cmdk { width: min(640px, 100%); background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, .6); overflow: hidden; }
+.cmdk > input { width: 100%; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 15px 18px; font-size: 16px; }
+.cmdk > input:focus { box-shadow: none; }
+.cmdk-list { max-height: min(52vh, 460px); overflow: auto; padding: 6px; display: flex; flex-direction: column; }
+.cmdk-item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.cmdk-item.on, .cmdk-item:hover { background: var(--panel-3); }
+.cmdk-item.on { box-shadow: inset 2px 0 0 var(--accent); }
+.cmdk-item .k { flex: none; width: 92px; font-family: var(--f-display); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cmdk-item .l { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cmdk-item small { color: var(--muted); font-size: 12px; }
+.cmdk-foot { margin: 0; padding: 8px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+/* Editors: "Saved" where the Save button was. */
+.autosave { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.autosave::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--good); margin-right: 3px; }
+.autosave.saving::before { background: var(--warn); animation: pulse 1s infinite; }
+
+/* Hotkeys: find, only those set, folding sections. */
+.hk-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin: 4px 0 10px; }
+.hk-tools input[type="search"] { flex: 1; min-width: 240px; max-width: 460px; }
+.hk-group > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.hk-group > summary::-webkit-details-marker { display: none; }
+.hk-group > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+.hk-group[open] > summary::before { transform: rotate(90deg); }
+.hk-group > summary:hover { color: var(--text); }
+
+/* Race control: a clean driver list; a driver's penalty buttons on the row
+   you point at (or tab to), and on any row with a stop & hold being typed. */
+.rc-table tbody .rc-pen > *, .rc-table tbody .rc-hold > * { opacity: 0; transition: opacity .12s; }
+.rc-table tbody tr:hover .rc-pen > *, .rc-table tbody tr:hover .rc-hold > *,
+.rc-table tbody tr:focus-within .rc-pen > *, .rc-table tbody tr:focus-within .rc-hold > *,
+.rc-table tbody tr.rc-typed .rc-hold > * { opacity: 1; }
+.rc-table tbody tr:hover td, .rc-table tbody tr:focus-within td { background: rgba(255, 255, 255, .03); }
+@media (hover: none) { .rc-table tbody .rc-pen > *, .rc-table tbody .rc-hold > * { opacity: 1; } }
+.th-hint { text-transform: none; letter-spacing: 0; font-family: var(--f-text); font-weight: 400; color: #5f6778; }
+
+/* Sub-tabs (Championship, League builder): the same look as Widget Settings' tabs. */
+#champ-views, .league-tabs { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+#champ-views .chip, .league-tabs .chip { border: 0; background: none; color: var(--muted); border-radius: 7px; padding: 6px 14px;
+  font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .07em; text-transform: uppercase; }
+#champ-views .chip:hover, .league-tabs .chip:hover { color: var(--text); }
+#champ-views .chip.active, .league-tabs .chip.active { background: var(--panel-3); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* Move: right and down, each with nudge buttons. */
+.move-ctl { display: flex; flex-wrap: wrap; gap: 8px; }
+.nudge { display: inline-flex; align-items: center; gap: 2px; }
+.nudge input { width: 72px; text-align: center; }
+.nudge button { border: 1px solid var(--line-2); background: var(--panel-2); color: var(--muted); border-radius: 6px; width: 26px; height: 30px; cursor: pointer; font-size: 10px; }
+.nudge button:hover { color: var(--text); border-color: #475064; }
+.ws-form .move-field { align-items: center; }
+/* Column chips: a tick in each. */
+.order-item input[type="checkbox"] { width: 14px; height: 14px; margin: 0 2px 0 4px; cursor: pointer; }
+/* Search in the top bar; the Theme tag a small pill under a setting's name. */
+.topbar .cmdk-open { margin: 0 6px 0 0; align-self: center; }
+.ov-lab .theme-tag, .ov-lab .theme-use { align-self: flex-start; margin: 3px 0 0; }

@@ -13,6 +13,7 @@
     <div class="brand"><span id="status-dot" class="dot"></span><img class="brand-icon" src="brand/apex-commentator-icon.svg" alt="">Apex Commentator</div>
     <div id="session-line" class="session-line">Waiting for iRacing…</div>
     <div class="topbar-right">
+      <button class="cmdk-open" id="cmdk-open" type="button" title="Find a setting, a tab, a driver or something to do">Search <kbd>Ctrl</kbd><kbd>K</kbd></button>
       <button id="update-badge" class="badge update" hidden title="A new version is available">Update available</button>
       <div class="mode-switch" role="group" aria-label="What's on screen uses">
         <button id="league-badge" class="badge" data-mode="league" title="On screen: the active league's names, classes and settings">No league</button>
@@ -30,16 +31,23 @@
 
   <nav class="tabs" role="tablist">
     <button class="tab" data-tab="home">Home</button>
-    <button class="tab" data-tab="hotkeys">Hotkeys</button>
-    <button class="tab" data-tab="league">League builder</button>
-    <button class="tab" data-tab="teams">Teams</button>
-    <button class="tab" data-tab="championship">Championship</button>
-    <button class="tab" data-tab="racecontrol">Race control</button>
-    <button class="tab" data-tab="timing">Timing Screen</button>
-    <button class="tab" data-tab="live">Live timing</button>
-    <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
-    <button class="tab" data-tab="widgets">Widgets</button>
-    <button class="tab" data-tab="widget-settings">Widget Settings</button>
+    <span class="tab-group"><small>Before the race</small>
+      <button class="tab" data-tab="league">League builder</button>
+      <button class="tab" data-tab="teams">Teams</button>
+      <button class="tab" data-tab="championship">Championship</button>
+    </span>
+    <span class="tab-group"><small>On air</small>
+      <button class="tab" data-tab="timing">Timing Screen</button>
+      <button class="tab" data-tab="widgets">Widgets</button>
+      <button class="tab" data-tab="gridwalk">Grid walk <span id="gridwalk-badge" class="count"></span></button>
+      <button class="tab" data-tab="racecontrol">Race control</button>
+    </span>
+    <span class="tab-group"><small>Set up</small>
+      <button class="tab" data-tab="widget-settings">Widget Settings</button>
+      <button class="tab" data-tab="live">Live timing</button>
+      <button class="tab" data-tab="hotkeys">Hotkeys</button>
+      <button class="tab" data-tab="app">App</button>
+    </span>
   </nav>
 
   <main id="main">
@@ -86,6 +94,14 @@
           </button>
         </div>
         <p class="hint">On stream: the grid walk is a Browser Source at <code id="home-obs-url"></code>; the other overlays and boards are in the Widgets tab (their links and every setting in Widget Settings).</p>
+        <div class="checklist" id="race-checklist" aria-label="Race-day checklist"></div>
+      </div>
+    </section>
+
+    <section id="tab-app" class="panel">
+      <div class="home">
+        <h2>App</h2>
+        <p class="hint">The app's own settings: the live timing website, commentating with someone on another PC, moving your leagues and settings, your licence and updates.</p>
         <div class="updates-card" id="home-live">
           <div class="row"><h3>Live timing website</h3><span id="home-live-state" class="upd-status"></span></div>
           <p class="hint">A live timing page for spectators: put it online, copy its link and choose how it looks in the
@@ -214,22 +230,29 @@
           <div class="toolbar">
             <div class="chips" id="class-filter"></div>
             <div class="battle-settings">
-              <label title="How far behind iRacing the app and every overlay show the race (0 = straight away)">Delay
-                <input type="number" id="data-delay" min="0" max="10" step="0.5"> s</label>
-              <label title="Highlight drivers this close to the car ahead">Battle ≤
-                <input type="number" id="battle-gap" min="0.05" max="3" step="0.05"> s</label>
-              <label title="Colour battles flash in">Colour <input type="color" id="battle-color"></label>
-              <label title="How names show in this list">Names
-                <select id="timing-names">
-                  <option value="full">Full name</option><option value="initial_last">D. Price</option>
-                  <option value="last_initial">Price D.</option><option value="last">Last name</option>
-                </select></label>
-              <label title="Decimal places of race gaps and intervals (here, the tower and every widget)">Decimals
-                <select id="timing-decimals"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
-              <label class="toggle" title="The league's nickname by the name"><input type="checkbox" id="timing-nick"> Nicknames</label>
-              <label class="toggle" title="Drivers who leave the session stay in the list, marked LEFT"><input type="checkbox" id="timing-left"> Drivers who left</label>
               <span class="seg" id="timing-cols" title="One list, or the field in two lists side by side (all on one page; Last, Best and Pit hide to fit)">
                 <button type="button" data-cols="1">1 list</button><button type="button" data-cols="2">2 lists</button></span>
+              <details class="view-menu">
+                <summary class="btn subtle" title="How this list looks, and the delay">⚙ View</summary>
+                <div class="view-pop">
+                  <label class="vrow"><span class="ov-lab">Delay<small class="ov-hint">Seconds behind iRacing, for the app and every overlay (0 = straight away)</small></span>
+                    <input type="number" id="data-delay" min="0" max="10" step="0.5"></label>
+                  <label class="vrow"><span class="ov-lab">Battle gap<small class="ov-hint">Seconds: drivers this close to the car ahead light up</small></span>
+                    <input type="number" id="battle-gap" min="0.05" max="3" step="0.05"></label>
+                  <label class="vrow"><span class="ov-lab">Battle colour</span><input type="color" id="battle-color"></label>
+                  <label class="vrow"><span class="ov-lab">Names</span>
+                    <select id="timing-names">
+                      <option value="full">Full name</option><option value="initial_last">D. Price</option>
+                      <option value="last_initial">Price D.</option><option value="last">Last name</option>
+                    </select></label>
+                  <label class="vrow"><span class="ov-lab">Decimal places<small class="ov-hint">Race gaps and intervals: here, the tower and every widget</small></span>
+                    <select id="timing-decimals"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+                  <label class="vrow"><span class="ov-lab">Nicknames<small class="ov-hint">The league's nickname by the name</small></span>
+                    <span class="switch"><input type="checkbox" role="switch" id="timing-nick"><i aria-hidden="true"></i></span></label>
+                  <label class="vrow"><span class="ov-lab">Drivers who left<small class="ov-hint">Kept in the list, marked LEFT</small></span>
+                    <span class="switch"><input type="checkbox" role="switch" id="timing-left"><i aria-hidden="true"></i></span></label>
+                </div>
+              </details>
             </div>
           </div>
           <div class="table-wrap">
@@ -384,6 +407,10 @@
         ahead/behind). Plain keys work when an Apex Commentator window is in front; keys pressed with <b>Ctrl</b> or
         <b>Alt</b> (and Shift if you like), e.g. <kbd>Ctrl+Alt+1</kbd>, work whichever program is in front, iRacing and
         OBS included (🌐).</p>
+      <div class="hk-tools">
+        <input id="hk-search" type="search" placeholder="Find a hotkey (camera, tower, starting grid…)" autocomplete="off" aria-label="Find a hotkey">
+        <label class="ws-all">Only keys that are set <span class="switch"><input type="checkbox" role="switch" id="hk-only-set"><i aria-hidden="true"></i></span></label>
+      </div>
       <div id="hotkey-list" class="hotkey-sections"></div>
       <p id="hotkey-prompt" class="hint"></p>
       </div>
@@ -407,7 +434,7 @@
         <div class="league-editor" id="league-editor" hidden>
           <div class="row league-head">
             <input id="edit-name" class="grow" placeholder="League name" aria-label="League name">
-            <button id="btn-save-league" class="btn primary">Save</button>
+            <button id="btn-save-league" class="btn primary" hidden>Save</button><span class="autosave" data-autosave aria-live="polite">Saves as you go</span>
             <button id="btn-activate-league" class="btn">Use in overlay</button>
             <button id="btn-copy-settings" class="btn subtle" title="Bring another league's points and rules, classes, teams, logos and sponsors, or calendar into this one: no exporting or importing">⇆ Copy settings from…</button>
             <button class="btn subtle" data-export="league" title="Everything about this league, images included, to import on this PC or another">⤓ Export league</button>
@@ -500,7 +527,7 @@
           <label class="btn subtle">⤒ Import teams…<input type="file" accept=".json,application/json" data-import="teams" hidden></label>
           <label class="btn subtle" title="Drivers, teams and classes from any spreadsheet, e.g. a sign-up sheet: iRacing ID, name, car number, team, class">⤒ Import a sign-up sheet (CSV)…<input type="file" accept=".csv,text/csv,.txt" data-csv hidden></label>
           <button id="btn-add-team" class="btn subtle">+ Add team</button>
-          <button id="btn-save-teams" class="btn primary">Save</button>
+          <button id="btn-save-teams" class="btn primary" hidden>Save</button><span class="autosave" data-autosave aria-live="polite">Saves as you go</span>
         </div>
         <p class="hint">Teams show on the standings overlay, the lap tracker and the grid walk. The short name is used where
           space is tight; the colour is optional (the driver's class colour is used without one). Changes are saved with
@@ -662,7 +689,7 @@
             any two drivers and the track map. It goes out through Cloudflare, so nobody sees this PC's address, and it
             only shows the timing (names, numbers, teams, classes, places, gaps, laps, sectors, tyres): never iRacing
             IDs, notes or anything about you, and nothing on it can change the app.</p>
-          <label class="check"><input type="checkbox" id="live-on"> Put the live timing online</label>
+          <label class="ov-field check live-online"><span class="ov-lab">Put the live timing online<small class="ov-hint">Spectators open its link in their browser</small></span><span class="switch"><input type="checkbox" role="switch" id="live-on"><i aria-hidden="true"></i></span></label>
           <div id="live-info" hidden>
             <p class="obs-url"><span class="obs-kind">Link</span><code id="live-url">Starting…</code>
               <button class="btn subtle" data-copy="live-url">Copy</button>
@@ -693,6 +720,7 @@
       <div class="ws">
         <aside class="ws-side">
           <h3>Widgets</h3>
+          <div class="ws-search"><input id="ws-search" type="search" placeholder="Search every setting" aria-label="Search every setting" autocomplete="off"></div>
           <nav id="ws-list" class="ws-list" aria-label="Widgets"></nav>
           <div class="ws-tools">
             <p class="hint" id="ws-league-note">Each league keeps its own widget settings: picking a league brings in its own.</p>
@@ -713,10 +741,11 @@
               <div id="ws-links" class="ws-links"></div>
             </div>
           </div>
+          <div id="ws-bar" class="ws-bar"></div>
           <div class="ws-body">
             <div id="ws-form" class="ov-form ws-form" data-overlay="standings"></div>
             <div class="ws-preview"><div class="preview-frame"><iframe id="ws-frame" title="Preview" loading="lazy"></iframe></div>
-              <p class="hint">Preview: changes show here (and on stream) straight away.</p></div>
+              <p class="hint">Preview: changes show here (and on stream) straight away. Click part of it to open its settings.</p></div>
           </div>
         </div>
       </div>
@@ -743,7 +772,7 @@
           <div class="rc-drivers">
             <div class="row rc-tools"><input id="rc-filter" placeholder="Find a driver or car number" aria-label="Find a driver"></div>
             <div class="table-scroll"><table class="grid rc-table">
-              <thead><tr><th class="r">Pos</th><th>#</th><th>Driver</th><th>Penalties</th><th>Stop &amp; hold</th></tr></thead>
+              <thead><tr><th class="r">Pos</th><th>#</th><th>Driver</th><th>Penalties <span class="th-hint">(point at a driver)</span></th><th>Stop &amp; hold</th></tr></thead>
               <tbody id="rc-rows"></tbody>
             </table></div>
             <p id="rc-empty" class="hint">No drivers yet: they show once iRacing is connected.</p>
@@ -762,11 +791,11 @@
           <h2>Championship</h2>
           <label class="field">League <select id="champ-league" class="league-picker" aria-label="League"></select></label>
           <span class="grow"></span>
-          <span id="champ-dirty" class="hint" hidden>Unsaved changes</span>
+          <span id="champ-dirty" class="hint" hidden></span>
           <button class="btn subtle" data-export="championship" title="Points rules, calendar, every round's results and penalties">⤓ Export championship</button>
           <button class="btn subtle" data-export="standings" title="Every championship table as a spreadsheet (CSV)">⤓ Standings (CSV)</button>
           <label class="btn subtle">⤒ Import championship…<input type="file" accept=".json,application/json" data-import="championship" hidden></label>
-          <button id="btn-save-champ" class="btn primary">Save</button>
+          <button id="btn-save-champ" class="btn primary" hidden>Save</button><span class="autosave" data-autosave aria-live="polite">Saves as you go</span>
         </div>
         <div id="champ-views" class="chips champ-views">
           <button class="chip active" data-champ-view="standings">Standings</button>
@@ -898,6 +927,13 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="common.js"></script>
+  <div id="cmdk" class="cmdk-backdrop" hidden>
+    <div class="cmdk" role="dialog" aria-modal="true" aria-label="Search">
+      <input id="cmdk-q" type="search" placeholder="Find a tab, a setting, a driver or something to do…" autocomplete="off" aria-label="Search">
+      <div id="cmdk-list" class="cmdk-list" role="listbox"></div>
+      <p class="cmdk-foot"><kbd>↑</kbd><kbd>↓</kbd> pick · <kbd>Enter</kbd> go · <kbd>Esc</kbd> close</p>
+    </div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>

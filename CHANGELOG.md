@@ -11,6 +11,51 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.9.0
+
+### New features
+
+- Search from anywhere (Ctrl+K, or Search at the top): a tab, any setting, a
+  driver to watch, or something to do.
+- Theme (Widget Settings): names, accent colour, team logos and panel
+  opacity set once for every widget; a widget given its own keeps it, with
+  "Use theme" to put it back.
+- Session names have a page of their own (Widget Settings): race,
+  qualifying, heat, consolation and feature names, used by the tower, the
+  timing screen and every board.
+- Home is a race-day checklist (iRacing, the league, what's on stream, live
+  timing, hotkeys); the app's own settings (live timing, dual commentary,
+  import & export, licence, updates) are in a new App tab.
+
+### Improvements
+
+- The tabs are in three groups: Before the race, On air, Set up.
+- Widget Settings is easier to find your way round: every widget has the
+  same four tabs (Content, Look, Position, Behaviour), opens on the settings
+  most people change (Show all settings for the rest), and a search box finds
+  any setting. Changed settings have an orange dot and ↺ to put them back.
+- Switches for on / off settings and buttons for short choices, with a short
+  name and a grey line under it saying what it does, everywhere settings are.
+- A setting that only matters while another is on sits under it (e.g. the
+  car number's colour under "Car number on a coloured background").
+- League builder, Teams and Championship save as you go, with Undo; no more
+  Save buttons.
+- The tower's columns are chips to tick and drag; one Move setting (with
+  nudge buttons) for where a widget sits; click part of a widget's preview
+  to open its settings.
+- Timing Screen: the list's look (delay, battle gap, names, decimals…) is
+  under ⚙ View. Race control shows a driver's penalty buttons on the row you
+  point at. Hotkeys: search, only the keys set, and sections that fold.
+- The Live timing tab's settings and the grid walk's settings are laid out
+  like Widget Settings; the grid walk's are in one place (Widget Settings).
+- Race meetings: put a date on one race and the meeting's other races take
+  it too (those with no date yet, or on the date it had before, so moving the
+  meeting moves them all). A race given a day of its own keeps it.
+- A fresh look for the app: two fonts (Inter for text, Saira Semi Condensed
+  for headings, tabs and timing numbers), layered panels, clearer buttons and
+  fields, and the open tab marked with an orange stripe. The overlays on
+  stream are unchanged.
+
 ## v0.8.0
 
 ### Fixes
