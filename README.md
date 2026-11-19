@@ -73,17 +73,14 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.7.10**
-
-### Improvements
-
-- Licence: your key is hidden on the Home page once it's added, so it
-  isn't on screen while you stream. Press Show to see it.
+**v0.8.0**
 
 ### Fixes
 
-- Licence: "Get your key" opens the Apex Labs website's key page again (it
-  went to an old address that no longer works).
+- Race meetings raced on a different day from their rounds' dates now take
+  their round names on the tower and boards (not iRacing's HEAT 1): the app
+  looks for the meeting at that track, and an earlier round left without
+  results (or still marked Live) no longer takes its place.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

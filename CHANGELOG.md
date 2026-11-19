@@ -11,6 +11,15 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v0.8.0
+
+### Fixes
+
+- Race meetings raced on a different day from their rounds' dates now take
+  their round names on the tower and boards (not iRacing's HEAT 1): the app
+  looks for the meeting at that track, and an earlier round left without
+  results (or still marked Live) no longer takes its place.
+
 ## v0.7.10
 
 ### Improvements
