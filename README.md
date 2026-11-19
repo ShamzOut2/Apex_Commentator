@@ -73,14 +73,14 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 ## What's new
 
 <!-- whats-new:start -->
-**v0.8.0**
+**Coming in the next update**
 
-### Fixes
+### Improvements
 
-- Race meetings raced on a different day from their rounds' dates now take
-  their round names on the tower and boards (not iRacing's HEAT 1): the app
-  looks for the meeting at that track, and an earlier round left without
-  results (or still marked Live) no longer takes its place.
+- A fresh look for the app: two fonts (Inter for text, Saira Semi Condensed
+  for headings, tabs and timing numbers), layered panels, clearer buttons and
+  fields, and the open tab marked with an orange stripe. The overlays on
+  stream are unchanged.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

@@ -1,19 +1,36 @@
+@import url("fonts/app.css");
+
+/* The look: a pit-wall timing console. Graphite with a cool blue bias, in
+   layers (page, panel, raised); the brand orange for what's live or chosen.
+   Inter for reading and controls; Saira Semi Condensed (narrow, squared, the
+   type of timing screens) for headings, labels, tabs and the numbers. */
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --panel-2: #1e222b;
-  --line: #2a2f3a;
-  --text: #e6e8ec;
-  --muted: #8b93a3;
+  --bg: #0c0e12;
+  --panel: #14171d;
+  --panel-2: #1b1f27;
+  --panel-3: #232833;
+  --field: #10131a;
+  --line: #262b36;
+  --line-2: #323947;
+  --text: #e8eaef;
+  --muted: #8d95a6;
   --accent: #ff7a1a;
+  --accent-2: #ff9a4d;
   --accent-ink: #1a0d00;
+  --accent-soft: rgba(255, 122, 26, .14);
   --good: #3ecf8e;
   --warn: #f5c542;
   --bad: #ff5d5d;
   --info: #5aa9ff;
   --watch: rgba(255, 122, 26, 0.14);
-  --radius: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 6px 18px -10px rgba(0, 0, 0, .6);
+  --ring: 0 0 0 3px rgba(255, 122, 26, .28);
+  --f-text: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-display: "Saira Semi Condensed", "Inter", system-ui, sans-serif;
   font-size: 14px;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -22,7 +39,9 @@ html, body { margin: 0; height: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--f-text);
+  font-feature-settings: "cv11", "ss03";
+  -webkit-font-smoothing: antialiased;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -933,3 +952,140 @@ td.c-make .make-logo { height: 18px; max-width: 36px; object-fit: contain; verti
 .clock-btn { border: 0; background: none; color: inherit; font: inherit; padding: 0 2px; cursor: pointer;
   font-variant-numeric: tabular-nums; border-bottom: 1px dotted var(--muted); }
 .clock-btn:hover { color: var(--text); }
+
+/* ==== The look (fonts, surfaces, controls) ===================================
+   Over the layout rules above: what things look like, not where they go. */
+
+/* Type: Saira for headings, labels, tabs and timing; Inter for the rest. */
+h1, h2, h3, h4, .home-title, .modal h2, .tile b, .ws-head h2 {
+  font-family: var(--f-display); font-weight: 700; letter-spacing: .01em; text-wrap: balance;
+}
+h2 { font-size: 24px; line-height: 1.15; }
+h3 { font-size: 17px; }
+.home-title { font-size: 32px; letter-spacing: 0; }
+.label, .section-title, .hk-section, .league-side h3, .ws-list h5, .wcard h4, .board-group h4,
+.grid th, .update-notes h4, .obs-kind, .tabtable th {
+  font-family: var(--f-display); font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+}
+.grid th { font-size: 11.5px; }
+.pos, .num, .c-time, .grid td.c-time, .cls-pos, .chg, .rewind-secs, .clock-btn, .events .when, .log-line .when,
+.round-head .round-num, .dual-code, .tile-status, .standings-table td.c-rd, .champ-table td.c-num {
+  font-family: var(--f-display); font-variant-numeric: tabular-nums;
+}
+.pos { font-weight: 700; font-size: 15px; }
+.num { font-weight: 700; letter-spacing: .02em; }
+code, kbd { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.hint { line-height: 1.45; }
+
+/* Top bar: a thin accent line along the top, like a broadcast graphic. */
+.topbar {
+  background: linear-gradient(180deg, #171b22, #12151b);
+  border-bottom: 1px solid var(--line); box-shadow: 0 1px 0 rgba(0, 0, 0, .4);
+  padding: 9px 16px;
+}
+.topbar::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 2px;
+  background: linear-gradient(90deg, var(--accent) 0, var(--accent) 120px, transparent 420px);
+}
+.brand { font-family: var(--f-display); font-size: 17px; letter-spacing: .03em; }
+.session-line { font-size: 13px; }
+.badge { font-family: var(--f-display); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 11.5px; padding: 3px 10px; }
+.mode-switch { background: var(--panel-2); }
+
+/* Tabs: Saira capitals; the one open underlined with a slanted stripe. */
+.tabs { padding: 0 16px; gap: 0; background: #101318; }
+.tab {
+  position: relative; font-family: var(--f-display); font-weight: 600; font-size: 13.5px; letter-spacing: .07em;
+  text-transform: uppercase; padding: 11px 14px 10px; border-bottom: 0; transition: color .15s;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); }
+.tab.active::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 3px;
+  background: var(--accent); transform: skewX(-24deg); border-radius: 1px;
+}
+
+/* Surfaces: panels in layers, softly lifted. */
+.league-editor, .ov-group, .wcard, .wboards, .board-group, .overlay-card, .updates-card, .dual-side, .class-card, .team-card,
+.round-card, .build-rounds, .rc-bar, .rc-log, .champ-kind, .scheme, .battle-pick, .banner-card, .sponsor-card, .ws-list,
+.league-list li, .team-row, .events li, .race-log li, .tile, .modal {
+  border-radius: var(--radius-lg); box-shadow: var(--shadow);
+}
+.league-list li, .team-row, .events li, .race-log li, .banner-card, .sponsor-card { border-radius: var(--radius); }
+.tile { background: linear-gradient(160deg, var(--panel-2), var(--panel)); transition: border-color .15s, transform .15s; }
+.tile:hover { transform: translateY(-2px); }
+.tile-icon { font-size: 24px; filter: saturate(.9); }
+.modal { background: var(--panel-2); border-color: var(--line-2); box-shadow: 0 24px 70px rgba(0, 0, 0, .6); }
+.modal-backdrop { background: rgba(5, 6, 9, .6); backdrop-filter: blur(4px); }
+.toast { border-radius: 999px; padding: 9px 18px; background: var(--panel-3); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+
+/* Buttons: quiet by default; the main one orange, with a cut corner. */
+.btn {
+  background: var(--panel-2); border-color: var(--line-2); border-radius: var(--radius); padding: 6px 12px;
+  font-weight: 500; transition: background .15s, border-color .15s, color .15s;
+}
+.btn:hover { background: var(--panel-3); border-color: #475064; }
+.btn.subtle { background: transparent; border-color: var(--line); }
+.btn.subtle:hover { background: var(--panel-2); }
+.btn.primary, .btn.primary:hover {
+  background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+}
+.btn.primary:hover { background: var(--accent-2); }
+.btn.cam.active { background: var(--accent-soft); }
+.wbtn { border-radius: var(--radius); font-family: var(--f-display); font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
+.live-btn { font-family: var(--f-display); }
+
+/* Fields: dark wells; an orange ring when you're in one. */
+select, input, textarea {
+  background: var(--field); border-color: var(--line-2); border-radius: var(--radius); padding: 6px 9px;
+  transition: border-color .15s, box-shadow .15s;
+}
+select:hover, input:hover, textarea:hover { border-color: #475064; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+.btn:focus-visible, .tab:focus-visible, .chip:focus-visible, .wbtn:focus-visible { outline: none; box-shadow: var(--ring); }
+input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--accent); }
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; padding: 0; box-shadow: none; }
+input[type="color"] { padding: 2px; cursor: pointer; }
+
+/* Chips and segmented buttons. */
+.chip { background: var(--panel-2); border-color: var(--line-2); padding: 4px 12px; font-weight: 500; transition: background .15s, border-color .15s; }
+.chip:hover { border-color: #475064; }
+.chip.active { background: var(--accent); color: var(--accent-ink); }
+.seg { background: var(--field); border-color: var(--line-2); border-radius: var(--radius); padding: 2px; gap: 2px; }
+.seg button { border-radius: 6px; }
+.seg button + button { border-left: 0; }
+.seg button.active { background: var(--accent); }
+
+/* Tables: room to breathe, a soft hover, the camera car on an orange edge. */
+.grid th { background: var(--bg); border-bottom-color: var(--line-2); padding: 8px 6px; }
+.grid td { border-bottom-color: rgba(38, 43, 54, .7); padding: 6px; }
+.standings tbody tr:hover td { background: rgba(255, 255, 255, .035); }
+.num { background: var(--panel-3); border-radius: 4px; }
+
+/* Settings sections (Widget Settings, the Widgets tab, Grid walk). */
+.ov-group { background: var(--panel); border-color: var(--line); overflow: hidden; }
+.ov-group > summary { font-family: var(--f-display); font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 10px 14px; }
+.ov-group[open] > summary { border-bottom: 1px solid var(--line); }
+.ws-form .ov-field, .ws-form .ov-visible { padding: 9px 14px; border-top-color: rgba(38, 43, 54, .7); }
+.ws-form .ov-field:hover { background: rgba(255, 255, 255, .015); }
+.ws-list { background: var(--panel); padding: 8px; }
+.ws-item { border-radius: 6px; transition: background .12s; }
+.ws-item.active { background: var(--accent); color: var(--accent-ink); }
+
+/* Widgets tab cards: a coloured stripe on top when on air. */
+.wcard { background: var(--panel); border-top-width: 3px; }
+.wcard.on { border-top-color: var(--good); box-shadow: var(--shadow), 0 -6px 18px -14px var(--good); }
+.wcard h4 { font-size: 13px; }
+
+/* Thin scrollbars that match. */
+* { scrollbar-width: thin; scrollbar-color: #343b49 transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #343b49; border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: #465064; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tile, .btn, .tab, .chip, select, input { transition: none; }
+  .tile:hover { transform: none; }
+}

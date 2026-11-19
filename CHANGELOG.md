@@ -11,6 +11,15 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- A fresh look for the app: two fonts (Inter for text, Saira Semi Condensed
+  for headings, tabs and timing numbers), layered panels, clearer buttons and
+  fields, and the open tab marked with an orange stripe. The overlays on
+  stream are unchanged.
+
 ## v0.8.0
 
 ### Fixes
