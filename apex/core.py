@@ -777,7 +777,8 @@ class App:
         champ = championship.normalise(league.get("championship"))
         rounds = champ["rounds"]
         key = self._session_meta.get("subsession")
-        matched = heats.match_rounds(races, rounds, self._today(), champ["live_round"], key)
+        track = {"id": self._session_meta.get("track_id"), "name": self._session_meta.get("track")}
+        matched = heats.match_rounds(races, rounds, self._today(), champ["live_round"], key, track)
         if not matched and len(races) == 1:
             # One race in this iRacing event, but a race of a meeting (the
             # meeting's races run as events of their own): the round it counts as.

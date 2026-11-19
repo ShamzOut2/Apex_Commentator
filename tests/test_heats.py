@@ -63,6 +63,33 @@ class MatchTests(unittest.TestCase):
         plain = [{"name": "Round 1", "results": [1]}, {"name": "Round 2"}, {"name": "Round 3"}, {"name": "Round 4"}]
         self.assertEqual(heats.match_rounds(races, plain, DAY), {2: 1, 3: 2})
 
+    def test_the_meeting_when_the_day_isnt_its_date(self):
+        """Raced on another day than the rounds' date (or with no dates): a
+        round left without results before it (one called off, say), or a
+        round still marked Live after its race was saved, doesn't take the
+        meeting's place."""
+        done = [{"driver": "x"}]
+        rounds = [{"id": "a", "name": "Round 1", "track": "Silverstone", "results": done},
+                  {"id": "b", "name": "Called off", "track": "Oulton Park"},
+                  {"id": "c", "name": "Sprint", "event": "Thruxton", "track": "Thruxton", "format": "heat2", "date": "2026-11-22"},
+                  {"id": "d", "name": "Main", "event": "Thruxton", "track": "Thruxton", "format": "heat2", "date": "2026-11-22"},
+                  {"id": "e", "name": "Sprint", "event": "Snetterton", "track": "Snetterton", "format": "heat2"},
+                  {"id": "f", "name": "Main", "event": "Snetterton", "track": "Snetterton", "format": "heat2"}]
+        races = [race(2, "heat"), race(3, "feature")]
+        thruxton = {"id": None, "name": "Thruxton Circuit"}
+        # By the event's track: its meeting still to be run.
+        self.assertEqual(heats.match_rounds(races, rounds, DAY, track=thruxton), {2: 2, 3: 3})
+        self.assertEqual(heats.match_rounds(races, rounds, DAY, track={"id": None, "name": "Snetterton Circuit"}), {2: 4, 3: 5})
+        # Or by iRacing's track id, when the rounds have it.
+        by_id = [dict(rd, track_id=ids) for rd, ids in zip(rounds, (1, 2, 3, 3, 4, 4))]
+        self.assertEqual(heats.match_rounds(races, by_id, DAY, track={"id": 4, "name": "Thruxton Circuit"}), {2: 4, 3: 5})
+        # No track to go by: the first meeting set to a heat format still to be run.
+        self.assertEqual(heats.match_rounds(races, rounds, DAY, track={"id": None, "name": "Brands Hatch"}), {2: 2, 3: 3})
+        self.assertEqual(heats.match_rounds(races, rounds, DAY), {2: 2, 3: 3})
+        # The round marked Live: its meeting, but not once its race has been run.
+        self.assertEqual(heats.match_rounds(races, rounds, DAY, live_id="e", track=thruxton), {2: 4, 3: 5})
+        self.assertEqual(heats.match_rounds(races, rounds, DAY, live_id="a", track=thruxton), {2: 2, 3: 3})
+
     def test_by_kind_then_order(self):
         # Rounds listed in another order: each race goes with its kind's round.
         rounds = [{"name": "Feature", "date": "2026-11-05"}, {"name": "Heat 1", "date": "2026-11-05"},

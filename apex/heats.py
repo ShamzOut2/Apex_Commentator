@@ -10,6 +10,7 @@ race first), so the overlays and boards name each race after its round and
 its results go to that round.
 """
 
+import re
 from datetime import timedelta
 
 HEAT_KINDS = ("heat", "consolation", "feature")
@@ -67,7 +68,7 @@ def _kind_of_name(text):
     return next((kind for kind, words in WORDS if any(w in text for w in words)), None)
 
 
-def match_rounds(races, rounds, today, live_id="", event_key=None):
+def match_rounds(races, rounds, today, live_id="", event_key=None, track=None):
     """{session number: index into ``rounds``} for an event's races.
 
     ``races``: [{"num", "kind"}] in order; ``rounds``: the championship's rounds
@@ -79,8 +80,11 @@ def match_rounds(races, rounds, today, live_id="", event_key=None):
     A race whose results went into a round (this event's) keeps that round.
     The rest are matched in order to the rounds dated today (or yesterday,
     for an event that runs past midnight); without any, to the race meeting
-    of the round marked Live (``live_id``), else the first meeting with a
-    round still to be run (a round of its own: it and the ones after it)."""
+    of the round marked Live (``live_id``), else the first meeting still to be
+    run at this event's track (``track``: {"id", "name"}), else (a heat
+    event) the first meeting set to a 2- or 3-race heat still to be run, else
+    the first meeting with a round still to be run (a round of its own: it
+    and the ones after it)."""
     if not races or (len(races) < 2 and not any(r["kind"] in HEAT_KINDS for r in races)):
         return {}
     linked = {}
@@ -89,7 +93,8 @@ def match_rounds(races, rounds, today, live_id="", event_key=None):
             num = str(rd.get("session") or "").rpartition(":")
             if num[0] == str(event_key) and num[2].isdigit():
                 linked[int(num[2])] = i
-    pool = _dated(rounds, today) or _meeting_of(rounds, live_id, len(races), set(linked.values()))
+    heat_event = any(r["kind"] in HEAT_KINDS for r in races)
+    pool = _dated(rounds, today) or _meeting_of(rounds, live_id, len(races), set(linked.values()), track, heat_event)
     out, free = {}, [i for i in pool if i not in linked.values()]
     # A meeting with its format set: the races go with its rounds by kind.
     fmt_at = next((i for i in pool if rounds[i].get("format") in FORMATS), None)
@@ -171,14 +176,39 @@ def _dated(rounds, today):
     return []
 
 
-def _meeting_of(rounds, live_id, count, linked):
+def _norm(text):
+    return re.sub(r"[^a-z0-9]+", " ", str(text or "").lower()).strip()
+
+
+def at_track(rd, track):
+    """Whether a round is at the event's track ({"id", "name"}): the same
+    iRacing track, or names that are one in the other ("Thruxton" for
+    "Thruxton Circuit")."""
+    if not track:
+        return False
+    if isinstance(rd.get("track_id"), int) and isinstance(track.get("id"), int):
+        return rd["track_id"] == track["id"]
+    mine, theirs = _norm(rd.get("track")), _norm(track.get("name"))
+    return bool(mine and theirs) and (f" {mine} " in f" {theirs} " or f" {theirs} " in f" {mine} ")
+
+
+def _meeting_of(rounds, live_id, count, linked, track=None, heat_event=False):
     """The rounds an event is (none of them dated today): the race meeting of
-    the round marked Live, else of the first round still to be run (or
-    already holding one of this event's races). A round that's no meeting:
-    it and the ``count`` - 1 after it."""
-    start = next((i for i, rd in enumerate(rounds) if live_id and rd.get("id") == live_id), None)
+    the round marked Live (still to be run), else of the first round still to be run (or
+    already holding one of this event's races) at the event's track, else
+    (a heat event) of the first set to a 2- or 3-race heat, else the first.
+    (A round left without results, one called off say, mustn't take the
+    meeting's place.) A round that's no meeting: it and the ``count`` - 1
+    after it."""
+    todo = [i for i, rd in enumerate(rounds) if not rd.get("results") or i in linked]
+    # The round marked Live (not one left marked after its race was run and saved).
+    start = next((i for i in todo if live_id and rounds[i].get("id") == live_id), None)
     if start is None:
-        start = next((i for i, rd in enumerate(rounds) if not rd.get("results") or i in linked), None)
+        start = next((i for i in todo if at_track(rounds[i], track)), None)
+    if start is None and heat_event:
+        start = next((i for i in todo if rounds[i].get("format") in ("heat2", "heat3")), None)
+    if start is None:
+        start = todo[0] if todo else None
     if start is None:
         return []
     event = rounds[start].get("event")
