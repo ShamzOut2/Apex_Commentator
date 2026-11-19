@@ -60,6 +60,10 @@ DEFAULTS = {
     # board_dim percent) or "hide" (back when the board goes). Overlays set
     # to stay (the sponsors' stay) are never dimmed or hidden.
     "general": {"race_decimals": 1, "qual_decimals": 3, "board_overlays": "stay", "board_dim": 35,
+                # The theme: what most widgets share, set once (set_theme). A widget
+                # whose own value is the theme's follows it; one set otherwise keeps it.
+                "theme_name_format": "full", "theme_team_logo_kind": "full",
+                "theme_accent_color": "#ff7a1a", "theme_bg_opacity": 100,
                 # Class, team and accent colours as picked at any opacity (off: they fade with the panels).
                 "solid_colors": True,
                 # The font every overlay and board uses (FONTS; web/fonts/overlay), its text
@@ -509,6 +513,10 @@ CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "s
            "order": ("position", "picked"), "scale_to": ("race", "so_far")}
 
 
+# The settings a theme value can set for every widget (general "theme_<key>").
+THEME_KEYS = ("name_format", "team_logo_kind", "accent_color", "bg_opacity")
+
+
 def normalise(settings):
     out = {}
     settings = settings if isinstance(settings, dict) else {}
@@ -529,7 +537,7 @@ def _value(key, value, default):
             lo, hi = LIMITS.get(key, (value, value))
             return min(max(value, lo), hi)
         value = str(value)[:600 if key in ("drivers", "class_keys") else 200]
-        if key.endswith("bg_color") or key.startswith("accent_") or key.startswith("invalid_") or key == "track_color":
+        if key.endswith("bg_color") or key.startswith("accent_") or key.startswith("invalid_") or key in ("track_color", "theme_accent_color"):
             return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else default
         if key == "bg_image":
             return value if re.fullmatch(r"(bg-[0-9a-f]{12}\.(png|jpg|webp|svg))?", value) else default
@@ -556,7 +564,8 @@ def _value(key, value, default):
             return value if re.fullmatch(r"[A-Za-z0-9:_ .\-]{1,80}", value) else default
         if key in ("sponsor_ids", "sponsor_bar_ids"):
             return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
-        return value if key not in CHOICES or value in CHOICES[key] else default
+        choices = CHOICES.get(key[6:] if key.startswith("theme_") else key)
+        return value if choices is None or value in choices else default
     except (TypeError, ValueError):
         return default
 
@@ -665,6 +674,43 @@ class OverlaySettings:
             self._leagues_path.write_text(json.dumps(self.leagues), encoding="utf-8")
         except OSError as e:
             print(f"[apex] couldn't save overlay settings: {e}")
+
+    def set_theme(self, key, value):
+        """A theme value (THEME_KEYS) set: every widget on the old one takes
+        the new one (an accent colour: those on the usual accent or the old
+        colour); a widget with a value of its own keeps it. Returns the
+        sections changed."""
+        if key not in THEME_KEYS:
+            raise ValueError(f"Unknown theme setting '{key}'")
+        with self._lock:
+            settings = {section: dict(values) for section, values in self.settings.items()}
+            general = settings["general"]
+            old = general[f"theme_{key}"]
+            general[f"theme_{key}"] = value
+            settings = normalise(settings)
+            if str(settings["general"][f"theme_{key}"]).lower() != str(value).lower():
+                raise ValueError(f"Not a {key.replace('_', ' ')}: {value}")  # nothing changes
+            value = settings["general"][f"theme_{key}"]
+            changed = []
+            for section, values in settings.items():
+                if section in ("general", "live") or key not in values:
+                    continue
+                if key == "accent_color":
+                    if "accent" not in values:
+                        continue
+                    following = values["accent"] == "default" or (values["accent"] == "color" and values["accent_color"] == old)
+                    if following and values["accent_color"] != value:
+                        values["accent"] = "color" if value != DEFAULTS[section]["accent_color"] else "default"
+                        values["accent_color"] = value
+                        changed.append(section)
+                elif values[key] == old and old != value:
+                    values[key] = value
+                    changed.append(section)
+            self.settings = normalise(settings)
+            if self.league is not None:
+                self.leagues[self.league] = self.settings
+            self._save()
+        return changed
 
     def update(self, section, values):
         if section not in DEFAULTS:

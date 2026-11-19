@@ -174,3 +174,39 @@ class PerLeagueSettingsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ThemeTests(unittest.TestCase):
+    """Widget Settings → Theme: a value set once for every widget on it; a
+    widget given its own keeps it ("Use theme" puts it back on the theme)."""
+
+    def test_widgets_on_the_theme_follow_it_and_their_own_stay(self):
+        from apex.overlays import OverlaySettings
+        with tempfile.TemporaryDirectory() as tmp:
+            app = App(MockSource(seed=1), dict(DEFAULTS), LeagueStore(tmp))
+            app.overlays = OverlaySettings()
+            app.command("overlay_settings", {"overlay": "board_grid", "values": {"name_format": "last"}})  # its own
+            app.command("overlay_settings", {"overlay": "general", "values": {"theme_name_format": "initial_last"}})
+            s = app.overlays.get()
+            self.assertEqual(s["general"]["theme_name_format"], "initial_last")
+            self.assertEqual(s["driver"]["name_format"], "initial_last")         # was the theme's ("full")
+            self.assertEqual(s["board_results"]["name_format"], "initial_last")
+            self.assertEqual(s["board_grid"]["name_format"], "last")             # its own: kept
+            self.assertEqual(s["standings"]["name_format"], "last_initial")      # the tower's own default: kept
+            self.assertEqual(s["live"]["name_format"], "full")                   # the website: not a widget
+            # The accent colour: those on the usual accent (or the old colour) take it.
+            app.command("overlay_settings", {"overlay": "board_results", "values": {"accent": "color", "accent_color": "#123456"}})
+            app.command("overlay_settings", {"overlay": "general", "values": {"theme_accent_color": "#00AAFF"}})
+            s = app.overlays.get()
+            self.assertEqual((s["standings"]["accent"], s["standings"]["accent_color"]), ("color", "#00aaff"))
+            self.assertEqual(s["board_results"]["accent_color"], "#123456")
+            # Back to orange: they go back to the usual accent.
+            app.command("overlay_settings", {"overlay": "general", "values": {"theme_accent_color": "#ff7a1a"}})
+            s = app.overlays.get()
+            self.assertEqual((s["standings"]["accent"], s["board_calendar"]["accent"]), ("default", "default"))
+            # Nonsense isn't saved, and changes nothing.
+            from apex.core import CommandError
+            with self.assertRaises(CommandError):
+                app.command("overlay_settings", {"overlay": "general", "values": {"theme_name_format": "shouting"}})
+            s = app.overlays.get()
+            self.assertEqual((s["general"]["theme_name_format"], s["driver"]["name_format"]), ("initial_last", "initial_last"))

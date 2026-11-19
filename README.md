@@ -51,8 +51,28 @@ OBS dock.
   stop & hold, clear), the grid timer, starting the race and messages to
   every driver, sent to iRacing as its admin commands.
 
-The tabs, in order: Home, Hotkeys, League builder, Teams, Championship, Race
-control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
+The tabs, grouped by when you use them: **Home**; **Before the race**
+(League builder, Teams, Championship); **On air** (Timing Screen, Widgets,
+Grid walk, Race control); **Set up** (Widget Settings, Live timing, Hotkeys,
+App). **Search** (top right, or <kbd>Ctrl</kbd>+<kbd>K</kbd> from any tab)
+finds a tab, any setting, a driver to watch, or something to do ("Show the
+starting grid", "Clear all penalties"…).
+
+- **Home**: a race-day checklist (iRacing connected, the league, what's on
+  stream, the live timing website, hotkeys), each line going to where it's
+  set, and a tile for each tool.
+- **App**: the app's own settings: the live timing website, dual
+  commentary, import & export, your licence and updates.
+- The **League builder**, **Teams** and **Championship** save as you go:
+  "Saved" shows where the Save button was, with **Undo** for the last change.
+  Changes not saved yet are saved before you leave the tab or open another
+  league.
+- **Race control**: the list of drivers, each one's penalty buttons on the
+  row you point at.
+- **Hotkeys**: find one, show only the keys you've set, fold sections away.
+- **Timing Screen**: the cameras and replay buttons along the top; how the
+  list looks (delay, battle gap and colour, names, decimals, nicknames,
+  drivers who left) under **⚙ View**.
 
 - **Widgets**: a dashboard of every overlay and board, a card each: big
   **Show** / **Hide** buttons (the card lights up while it's on screen), the
@@ -69,7 +89,19 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
   it does when: the start, replays, flashes). Each opens on the settings most
   people change; **Show all settings** brings back the rest. Settings you've
   changed always show, with an orange dot and ↺ to put one back (or a whole
-  section). Its OBS links and a live preview are beside them.
+  section). Its OBS links and a live preview are beside them: click part of
+  the preview (the tower's header, a column, a board's banner) to open its
+  settings. The tower's columns are chips: tick one to show it, drag it (or
+  use its arrows) to move it. **Move** shifts a widget right / down, with
+  ◀ ▶ ▲ ▼ to nudge it 10 px at a time.
+  - **Theme** (at the top of the list): what every widget shares, set once:
+    names, the accent colour, team logos, panel opacity, the font and decimal
+    places. A widget on the theme follows it; one given its own value keeps it
+    (its setting says **Theme**, or **Use theme** to put it back on it).
+  - **Session names**: your names for races, qualifying, practice, heats,
+    the consolation and the feature, and whether a race meeting's races take
+    their round names. The tower, the timing screen and every board use them.
+  - The grid walk's settings are here too (⚙ Grid walk settings on its tab).
 
 ![timing screen: camera bar, standings with battles, race log, replay controls](docs/timing.jpg)
 
@@ -80,15 +112,41 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- Search from anywhere (Ctrl+K, or Search at the top): a tab, any setting, a
+  driver to watch, or something to do.
+- Theme (Widget Settings): names, accent colour, team logos and panel
+  opacity set once for every widget; a widget given its own keeps it, with
+  "Use theme" to put it back.
+- Session names have a page of their own (Widget Settings): race,
+  qualifying, heat, consolation and feature names, used by the tower, the
+  timing screen and every board.
+- Home is a race-day checklist (iRacing, the league, what's on stream, live
+  timing, hotkeys); the app's own settings (live timing, dual commentary,
+  import & export, licence, updates) are in a new App tab.
+
 ### Improvements
 
+- The tabs are in three groups: Before the race, On air, Set up.
 - Widget Settings is easier to find your way round: every widget has the
   same four tabs (Content, Look, Position, Behaviour), opens on the settings
   most people change (Show all settings for the rest), and a search box finds
   any setting. Changed settings have an orange dot and ↺ to put them back.
 - Switches for on / off settings and buttons for short choices, with a short
-  name and a grey line under it saying what it does, in Widget Settings, on
-  the widget cards and in the Grid walk tab.
+  name and a grey line under it saying what it does, everywhere settings are.
+- A setting that only matters while another is on sits under it (e.g. the
+  car number's colour under "Car number on a coloured background").
+- League builder, Teams and Championship save as you go, with Undo; no more
+  Save buttons.
+- The tower's columns are chips to tick and drag; one Move setting (with
+  nudge buttons) for where a widget sits; click part of a widget's preview
+  to open its settings.
+- Timing Screen: the list's look (delay, battle gap, names, decimals…) is
+  under ⚙ View. Race control shows a driver's penalty buttons on the row you
+  point at. Hotkeys: search, only the keys set, and sections that fold.
+- The Live timing tab's settings and the grid walk's settings are laid out
+  like Widget Settings; the grid walk's are in one place (Widget Settings).
 - Race meetings: put a date on one race and the meeting's other races take
   it too (those with no date yet, or on the date it had before, so moving the
   meeting moves them all). A race given a day of its own keeps it.

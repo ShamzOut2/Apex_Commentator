@@ -1175,3 +1175,111 @@ input[type="color"] { padding: 2px; cursor: pointer; }
 /* A colour: its box and the eyedropper side by side, not across the page. */
 .ws-form .ov-field:has(> input[type="color"]) { grid-template-columns: minmax(170px, 46%) auto auto; justify-content: start; }
 .ws-form .ov-field > input[type="color"]:not([type="checkbox"]):not([type="radio"]) { width: 64px; height: 30px; }
+.ws-form .ov-field.child2 { padding-left: 50px; }
+.ws-form .ov-field.child2::after { left: 34px; }
+
+/* Timing Screen: ⚙ View, the list's look in a drop-down. */
+.view-menu { position: relative; }
+.view-menu > summary { list-style: none; cursor: pointer; }
+.view-menu > summary::-webkit-details-marker { display: none; }
+.view-menu[open] > summary { border-color: var(--accent); color: var(--text); }
+.view-pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 340px; display: flex; flex-direction: column;
+  background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--radius-lg); box-shadow: 0 18px 40px rgba(0, 0, 0, .55); overflow: hidden;
+}
+.battle-settings .vrow, .vrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--text); cursor: default; }
+.vrow:first-child { border-top: 0; }
+.vrow input[type="number"] { width: 76px; }
+.vrow select { max-width: 140px; }
+.vrow input[type="color"] { width: 48px; height: 28px; }
+.battle-settings .vrow input[type="color"] { width: 48px; height: 28px; }
+
+/* Theme: a setting following it, or a link to put it back on it. */
+.theme-tag { display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 10px; background: rgba(90, 169, 255, .14); color: var(--info);
+  font-style: normal; font-size: 11px; font-weight: 600; letter-spacing: .02em; vertical-align: 1px; }
+.theme-use { margin-left: 8px; font-size: 12px; }
+.theme-line { display: block; margin-bottom: 4px; }
+.gw-settings-link { padding-bottom: 4px; }
+.gw-settings-link .hint, .gw-settings-link p { margin: 10px 14px; }
+
+/* ==== Tabs in three groups, and Search (Ctrl+K) ============================== */
+.tabs { align-items: flex-end; flex-wrap: wrap; row-gap: 0; }
+.tab-group { position: relative; display: inline-flex; align-items: flex-end; padding: 16px 0 0 10px; margin-left: 10px; border-left: 1px solid var(--line); }
+.tab-group > small { position: absolute; top: 5px; left: 22px; font-family: var(--f-display); font-size: 10px; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: #5f6778; white-space: nowrap; pointer-events: none; }
+.tabs > .tab { padding-top: 27px; }
+.cmdk-open { margin: 0 0 7px auto; align-self: flex-end; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
+  border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--field); color: var(--muted); cursor: pointer; font: inherit; font-size: 12.5px; }
+.cmdk-open:hover { color: var(--text); border-color: #475064; }
+.cmdk-open kbd { margin-left: 0; }
+@media (max-width: 1250px) { .tab-group > small { display: none; } .tab-group { padding-top: 0; } .tabs > .tab { padding-top: 11px; } }
+
+/* Home: the race-day checklist. */
+.checklist { margin: 18px 0; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+.checklist h3 { margin: 0; padding: 11px 16px; border-bottom: 1px solid var(--line); font-size: 15px; letter-spacing: .06em; text-transform: uppercase; }
+.check-line { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-top: 1px solid var(--line); }
+.check-line:first-of-type { border-top: 0; }
+.check-line > i { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #4a5263; }
+.check-line.good > i { background: var(--good); box-shadow: 0 0 8px rgba(62, 207, 142, .5); }
+.check-line.warn > i { background: var(--warn); }
+.check-line > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.check-line small { color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Search (Ctrl+K). */
+.cmdk-backdrop { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px;
+  background: rgba(5, 6, 9, .6); backdrop-filter: blur(4px); }
+.cmdk { width: min(640px, 100%); background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, .6); overflow: hidden; }
+.cmdk > input { width: 100%; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 15px 18px; font-size: 16px; }
+.cmdk > input:focus { box-shadow: none; }
+.cmdk-list { max-height: min(52vh, 460px); overflow: auto; padding: 6px; display: flex; flex-direction: column; }
+.cmdk-item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.cmdk-item.on, .cmdk-item:hover { background: var(--panel-3); }
+.cmdk-item.on { box-shadow: inset 2px 0 0 var(--accent); }
+.cmdk-item .k { flex: none; width: 92px; font-family: var(--f-display); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cmdk-item .l { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cmdk-item small { color: var(--muted); font-size: 12px; }
+.cmdk-foot { margin: 0; padding: 8px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+/* Editors: "Saved" where the Save button was. */
+.autosave { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.autosave::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--good); margin-right: 3px; }
+.autosave.saving::before { background: var(--warn); animation: pulse 1s infinite; }
+
+/* Hotkeys: find, only those set, folding sections. */
+.hk-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin: 4px 0 10px; }
+.hk-tools input[type="search"] { flex: 1; min-width: 240px; max-width: 460px; }
+.hk-group > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.hk-group > summary::-webkit-details-marker { display: none; }
+.hk-group > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+.hk-group[open] > summary::before { transform: rotate(90deg); }
+.hk-group > summary:hover { color: var(--text); }
+
+/* Race control: a clean driver list; a driver's penalty buttons on the row
+   you point at (or tab to), and on any row with a stop & hold being typed. */
+.rc-table tbody .rc-pen > *, .rc-table tbody .rc-hold > * { opacity: 0; transition: opacity .12s; }
+.rc-table tbody tr:hover .rc-pen > *, .rc-table tbody tr:hover .rc-hold > *,
+.rc-table tbody tr:focus-within .rc-pen > *, .rc-table tbody tr:focus-within .rc-hold > *,
+.rc-table tbody tr.rc-typed .rc-hold > * { opacity: 1; }
+.rc-table tbody tr:hover td, .rc-table tbody tr:focus-within td { background: rgba(255, 255, 255, .03); }
+@media (hover: none) { .rc-table tbody .rc-pen > *, .rc-table tbody .rc-hold > * { opacity: 1; } }
+.th-hint { text-transform: none; letter-spacing: 0; font-family: var(--f-text); font-weight: 400; color: #5f6778; }
+
+/* Sub-tabs (Championship, League builder): the same look as Widget Settings' tabs. */
+#champ-views, .league-tabs { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+#champ-views .chip, .league-tabs .chip { border: 0; background: none; color: var(--muted); border-radius: 7px; padding: 6px 14px;
+  font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .07em; text-transform: uppercase; }
+#champ-views .chip:hover, .league-tabs .chip:hover { color: var(--text); }
+#champ-views .chip.active, .league-tabs .chip.active { background: var(--panel-3); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* Move: right and down, each with nudge buttons. */
+.move-ctl { display: flex; flex-wrap: wrap; gap: 8px; }
+.nudge { display: inline-flex; align-items: center; gap: 2px; }
+.nudge input { width: 72px; text-align: center; }
+.nudge button { border: 1px solid var(--line-2); background: var(--panel-2); color: var(--muted); border-radius: 6px; width: 26px; height: 30px; cursor: pointer; font-size: 10px; }
+.nudge button:hover { color: var(--text); border-color: #475064; }
+.ws-form .move-field { align-items: center; }
+/* Column chips: a tick in each. */
+.order-item input[type="checkbox"] { width: 14px; height: 14px; margin: 0 2px 0 4px; cursor: pointer; }
+/* Search in the top bar; the Theme tag a small pill under a setting's name. */
+.topbar .cmdk-open { margin: 0 6px 0 0; align-self: center; }
+.ov-lab .theme-tag, .ov-lab .theme-use { align-self: flex-start; margin: 3px 0 0; }

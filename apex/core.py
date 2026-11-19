@@ -3909,6 +3909,11 @@ class App:
 
     def cmd_overlay_settings(self, overlay, values):
         try:
+            values = dict(values or {})
+            if overlay == "general":
+                # The theme: set on every widget that follows it (overlays.set_theme).
+                for key in [k for k in values if k.startswith("theme_")]:
+                    self.overlays.set_theme(key[6:], values.pop(key))
             settings = self.overlays.update(overlay, values)
             self._apply_sectors()
             return {"settings": settings}
