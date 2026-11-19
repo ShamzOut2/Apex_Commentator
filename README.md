@@ -110,7 +110,7 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**Coming in the next update**
+**v0.9.0**
 
 ### New features
 
