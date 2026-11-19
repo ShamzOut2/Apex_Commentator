@@ -16,6 +16,7 @@
 * ``POST /api/export/show``      ``{"path"}``: show an export in the file manager
 * ``POST /api/import?what=...&league=...&round=...``  import a file (raw body)
 * ``GET  /api/update``           update status; ``POST /api/update/{check,skip,install}``
+* ``GET  /api/licence``          Apex Labs key status; ``POST /api/licence/{set,check,remove}``
 * ``POST /api/calendar/scan?day_first=1``  a calendar image (raw PNG body) read into rounds
 * ``POST /api/calendar/parse``     ``{"text", "day_first"}``: pasted calendar text into rounds
 * ``POST /api/client_error``     ``{"page", "message", "source", "line", "stack"}``: a page's error, into apex.log
@@ -35,6 +36,7 @@ from .core import CommandError
 from .makes import catalogue as makes_catalogue
 from .league import LOGO_TYPES, MAX_IMAGE_BYTES, LeagueError, logo_library, profile_from_session
 from .paths import WEB_DIR
+from .licence import LicenceError
 from .updater import UpdateError, request_restart
 
 MAX_BODY = 2 * 1024 * 1024
@@ -125,6 +127,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/update":
             updater = getattr(self.app, "updater", None)
             return self._send_json(updater.status() if updater else {"enabled": False})
+        if path == "/api/licence":
+            licence = getattr(self.app, "licence", None)
+            return self._send_json(licence.status() if licence else {"enabled": False})
         if path == "/api/events":  # the whole race log (the snapshot has the newest)
             with self.app._lock:
                 events = list(self.app.detector.events)
@@ -190,6 +195,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._client_error(body)
         if path.startswith("/api/update/"):
             return self._update_action(path.rsplit("/", 1)[1], body)
+        if path.startswith("/api/licence/"):
+            return self._licence_action(path.rsplit("/", 1)[1], body)
         if path == "/api/export":
             return self._export(body)
         if path == "/api/export/show":
@@ -407,6 +414,21 @@ class Handler(BaseHTTPRequestHandler):
             # An installer reopens the app itself; a file update needs a relaunch.
             request_restart(relaunch=not updater.installer_mode)
             return self._send_json({"ok": True, "version": version, "restarting": True})
+        return self._error("Not found", HTTPStatus.NOT_FOUND)
+
+    def _licence_action(self, action, body):
+        licence = getattr(self.app, "licence", None)
+        if licence is None:
+            return self._error("Licence keys aren't available here")
+        try:
+            if action == "set":
+                return self._send_json({"ok": True, **licence.set_key(body.get("key"))})
+            if action == "check":
+                return self._send_json({"ok": True, **licence.refresh()})
+            if action == "remove":
+                return self._send_json({"ok": True, **licence.remove()})
+        except LicenceError as e:
+            return self._error(str(e))
         return self._error("Not found", HTTPStatus.NOT_FOUND)
 
     def _upload_image(self, league_id, target):

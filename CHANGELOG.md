@@ -11,7 +11,7 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
-## Unreleased
+## v0.8.0
 
 ### Fixes
 
@@ -19,6 +19,26 @@ How each version's entry is written:
   their round names on the tower and boards (not iRacing's HEAT 1): the app
   looks for the meeting at that track, and an earlier round left without
   results (or still marked Live) no longer takes its place.
+
+## v0.7.10
+
+### Improvements
+
+- Licence: your key is hidden on the Home page once it's added, so it
+  isn't on screen while you stream. Press Show to see it.
+
+### Fixes
+
+- Licence: "Get your key" opens the Apex Labs website's key page again (it
+  went to an old address that no longer works).
+
+## v0.7.9
+
+### New features
+
+- Licence on the Home page: paste your free Apex Labs key (get one with
+  Discord on the Apex Labs website). It's optional during early access and
+  the same key works in Apex Overlays.
 
 ## v0.7.8
 

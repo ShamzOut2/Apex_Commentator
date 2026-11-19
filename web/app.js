@@ -5671,6 +5671,80 @@ $("#upd-token-clear").addEventListener("click", async () => {
   }
 });
 
+// The Licence card on the Home page: the optional Apex Labs key. Once a key is added (it comes
+// from signing in with Discord) it's hidden, APEX-••••-••••-••••-••••, until Show is pressed, so
+// it isn't on screen while streaming. A new key starts hidden again.
+const licKey = { key: "", shown: false };
+
+function maskKey(key) {
+  return key.split("-").map((part, i) => (i === 0 && part === "APEX" ? part : "•".repeat(part.length))).join("-");
+}
+
+function showLicenceKey() {
+  const shown = licKey.shown && !!licKey.key;
+  $("#lic-key-shown").textContent = shown ? licKey.key : maskKey(licKey.key);
+  $("#lic-key-shown").classList.toggle("masked", !shown);
+  $("#lic-show").textContent = shown ? "Hide" : "Show";
+  $("#lic-show").title = shown ? "Hide the key" : "Show the full key";
+  $("#lic-show").setAttribute("aria-pressed", shown ? "true" : "false");
+}
+
+function renderLicence(st) {
+  if (!st) return;
+  let text = "No key added";
+  if (st.valid) text = `<b>${esc(st.tier_name || "Licensed")}</b> · registered to ${esc(st.user || "you")}`;
+  else if (st.has_key) text = "Key added, not confirmed yet";
+  $("#lic-status").innerHTML = text;
+  $("#lic-add-row").hidden = !!st.has_key;
+  $("#lic-have-row").hidden = !st.has_key;
+  if ((st.key || "") !== licKey.key) licKey.shown = false;
+  licKey.key = st.key || "";
+  showLicenceKey();
+  $("#lic-get").hidden = !!st.has_key;
+  $("#lic-manage").hidden = !st.has_key;
+  if (st.manage_url) $("#lic-manage").href = st.manage_url;
+  $("#lic-error").hidden = !st.error;
+  $("#lic-error").textContent = st.error || "";
+}
+
+async function licenceAction(path, body = {}, button = null) {
+  if (button) button.disabled = true;
+  try {
+    const st = await api(`/api/licence/${path}`, { method: "POST", body });
+    renderLicence(st);
+    return st;
+  } catch (err) {
+    toast(err.message, true);
+    return null;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+$("#lic-save").addEventListener("click", async (e) => {
+  const key = $("#lic-key").value.trim();
+  if (!key) return toast("Paste your key first", true);
+  const st = await licenceAction("set", { key }, e.currentTarget);
+  if (st) {
+    $("#lic-key").value = "";
+    toast(st.valid ? `Key added: ${st.tier_name}` : "Key added");
+  }
+});
+$("#lic-key").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#lic-save").click(); });
+$("#lic-show").addEventListener("click", () => {
+  licKey.shown = !licKey.shown;
+  showLicenceKey();
+});
+$("#lic-check").addEventListener("click", async (e) => {
+  const st = await licenceAction("check", {}, e.currentTarget);
+  if (st && st.valid && !st.error) toast("Key checked");
+});
+$("#lic-remove").addEventListener("click", async (e) => {
+  const st = await licenceAction("remove", {}, e.currentTarget);
+  if (st) toast("Key removed from this PC");
+});
+api("/api/licence").then(renderLicence).catch(() => {});
+
 function showUpdate(status, force = false) {
   update.status = status;
   const available = status && status.available && !status.installed;
