@@ -2316,7 +2316,23 @@ function champChange(e, final) {
     c.rounds[+d.round].length = n !== "" && +n > 0 ? `${+n} ${unit}` : "";
   } else if (d.round != null && d.rkey) {
     const rd = c.rounds[+d.round];
+    // The date it had before this change (typing saves as it goes, so not rd's).
+    const before = el.defaultValue;
     rd[d.rkey] = el.type === "checkbox" ? el.checked : el.type === "number" ? +el.value : el.value;
+    if (d.rkey === "date" && final) el.defaultValue = el.value;
+    if (d.rkey === "date" && final && rd.event && rd.date) {
+      // A race meeting's races are run the same day: the date goes on the others
+      // with none yet, or still on the date this one had (so moving the meeting
+      // moves them all). One given a day of its own (a feature the day after) keeps it.
+      let first = +d.round;
+      while (first > 0 && c.rounds[first - 1].event === rd.event) first -= 1;
+      const filled = meetingRounds(first).filter((o) => o !== rd && (!o.date || (before && o.date === before)));
+      for (const o of filled) o.date = rd.date;
+      if (filled.length) {
+        rerender = true;
+        toast(`Same date set on ${filled.length === 1 ? "the meeting's other race" : `the meeting's other ${filled.length} races`}`);
+      }
+    }
     if (d.rkey === "track" || d.rkey === "config") {
       // A known track: its layouts fill the Configuration list.
       const g = trackGroup(rd.track);

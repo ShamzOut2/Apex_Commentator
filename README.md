@@ -77,6 +77,9 @@ control, Timing Screen, Live timing, Grid walk, Widgets and Widget Settings.
 
 ### Improvements
 
+- Race meetings: put a date on one race and the meeting's other races take
+  it too (those with no date yet, or on the date it had before, so moving the
+  meeting moves them all). A race given a day of its own keeps it.
 - A fresh look for the app: two fonts (Inter for text, Saira Semi Condensed
   for headings, tabs and timing numbers), layered panels, clearer buttons and
   fields, and the open tab marked with an orange stripe. The overlays on
