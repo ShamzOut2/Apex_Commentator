@@ -19,6 +19,10 @@ How each version's entry is written:
   layout…" to type one in, and Calendar & results has "Your own tracks and
   layouts" to add a missing track or layout (or take one off). They're kept
   for every league.
+- Board sponsors in one place: Theme › Board sponsors sets where, which
+  sponsors and how big for every board, with a switch per board. A board can
+  still show its own logos ("Which logos: This board's own"). Boards that
+  already had sponsors keep the same look.
 
 ### Improvements
 

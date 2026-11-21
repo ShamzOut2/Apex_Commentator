@@ -6,6 +6,7 @@ They're changed from the app's Overlays tab and kept in
 
 import json
 import re
+from collections import Counter
 import threading
 from pathlib import Path
 
@@ -64,6 +65,11 @@ DEFAULTS = {
                 # whose own value is the theme's follows it; one set otherwise keeps it.
                 "theme_name_format": "full", "theme_team_logo_kind": "full",
                 "theme_accent_color": "#ff7a1a", "theme_bg_opacity": 100,
+                # The boards' sponsor logos, set once: where (board_sponsors), which
+                # (board_sponsor_ids, "" = all) and how big. Each board shows them
+                # (sponsor_show) as these (sponsor_mode "theme") or as its own ("own":
+                # its sponsors, sponsor_ids and sponsor_size).
+                "board_sponsors": "bottom", "board_sponsor_ids": "", "board_sponsor_size": 100,
                 # Class, team and accent colours as picked at any opacity (off: they fade with the panels).
                 "solid_colors": True,
                 # The font every overlay and board uses (FONTS; web/fonts/overlay), its text
@@ -385,7 +391,7 @@ DEFAULTS = {
     # sponsor logos go, the same places as a banner) and sponsor_ids (which,
     # as for the sponsors overlay).
     "board_championship": {**LOGO, **COLUMN_OPACITY, **PAGING, 
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
         "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
@@ -394,7 +400,7 @@ DEFAULTS = {
         "show_wins": False, "show_penalty": False,
     },
     "board_teams": {**LOGO, **COLUMN_OPACITY, **PAGING, 
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
         "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
@@ -402,9 +408,9 @@ DEFAULTS = {
         "show_drivers": True,  # the drivers who scored for the team, under its name
         "show_gap": True, "show_ahead": False, "show_wins": False, "show_penalty": False,
     },
-    "board_makes": {**COLUMN_OPACITY, **PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND, "rows": 12, "show_logo": True,
+    "board_makes": {**COLUMN_OPACITY, **PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND, "rows": 12, "show_logo": True,
                     "show_gap": True, "show_wins": True},
-    "board_calendar": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+    "board_calendar": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
                        "rows": 24,  # race meetings a page
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
@@ -420,7 +426,7 @@ DEFAULTS = {
                        "date_format": "weekday_short",
                        "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
     "board_results": {**LOGO, **COLUMN_OPACITY, **PAGING, 
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
         "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True,
@@ -435,7 +441,7 @@ DEFAULTS = {
     # Qualifying results (board.html): a qualifying session of the iRacing event,
     # by best lap, overall or a class.
     "board_qualifying": {**LOGO, **COLUMN_OPACITY, **PAGING,
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
         "name_format": "full",
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         "show_best": True, "show_gap": True, "show_interval": True, "show_laps": False,
@@ -447,7 +453,7 @@ DEFAULTS = {
     # class (reverse_in_class). grid_layout: "list" or "grid" (two staggered
     # columns, as cars line up).
     "board_grid": {**LOGO, **COLUMN_OPACITY, **PAGING, "keep_leader": False,  # a grid's pages follow on (no pole at the top of each)
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "none", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
         "name_format": "full",
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         # Where the grid comes from: "auto" (a heat: qualifying; a consolation
@@ -472,7 +478,7 @@ DEFAULTS = {
     # either side (air and track temperature, wind speed and direction); the
     # sponsors along the bottom. title: the header's round line ("" = the
     # league's round this race counts as).
-    "board_track": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100,
+    "board_track": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": True, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100,
                     **BACKGROUND,
                     "title": "",
                     "units": "metric",       # "metric" (C, km/h, km) or "imperial" (F, mph, mi)
@@ -504,10 +510,10 @@ DEFAULTS = {
 LIMITS = {"panel_width": (700, 1840), "gap_s": (0.1, 30.0), "settle_s": (0.0, 3.0), "ahead": (0, 6), "behind": (0, 6), "dot_size": (40, 250), "map_size": (150, 1400),
           "track_width": (40, 300), "grid_size": (50, 250), "font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1, 3), "board_dim": (0, 90), "sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
-          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "sponsor_size": (40, 250), "delay_s": (0.0, 300.0), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
+          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "sponsor_size": (40, 250), "board_sponsor_size": (40, 250), "delay_s": (0.0, 300.0), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
           "lights": (3, 8), "step_s": (0.3, 3.0), "out_s": (0.0, 10.0), "flag_sectors": (2, 9), "clear_s": (0.0, 10.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
-CHOICES = {"follow": ("delay", "now"), "board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
+CHOICES = {"follow": ("delay", "now"), "board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"), "board_sponsors": ("top", "bottom", "left", "right"), "sponsor_mode": ("theme", "own"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary", "team"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both", "class_both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
@@ -523,9 +529,36 @@ CHOICES = {"follow": ("delay", "now"), "board_overlays": ("stay", "dim", "hide")
 THEME_KEYS = ("name_format", "team_logo_kind", "accent_color", "bg_opacity")
 
 
+def _board_sponsors_once(settings):
+    """Settings from before the boards' sponsors were set in one place: each
+    board keeps the logos it showed. The most used place, sponsors and size
+    become the one place's; the boards showing just those follow it, the
+    others keep their own."""
+    general = settings.get("general") if isinstance(settings.get("general"), dict) else {}
+    if "board_sponsors" in general:
+        return settings
+    boards = {k: v for k, v in settings.items()
+              if k.startswith("board_") and isinstance(v, dict) and "sponsors" in v and "sponsor_show" not in v}
+    if not boards:
+        return settings
+
+    def look(v):
+        return (v.get("sponsors"), _value("sponsor_ids", v.get("sponsor_ids", ""), ""), _value("sponsor_size", v.get("sponsor_size", 100), 100))
+    places = CHOICES["board_sponsors"]
+    shown = [look(v) for v in boards.values() if v.get("sponsors") in places]
+    theme = Counter(shown).most_common(1)[0][0] if shown else ("bottom", "", 100)
+    out = {**settings, "general": {**general, "board_sponsors": theme[0], "board_sponsor_ids": theme[1], "board_sponsor_size": theme[2]}}
+    for key, v in boards.items():
+        on = v.get("sponsors") in places
+        out[key] = {**v, "sponsor_show": on, "sponsor_mode": "theme" if not on or look(v) == theme else "own",
+                    "sponsors": v["sponsors"] if on else "bottom"}
+    return out
+
+
 def normalise(settings):
     out = {}
     settings = settings if isinstance(settings, dict) else {}
+    settings = _board_sponsors_once(settings)
     for section, defaults in DEFAULTS.items():
         given = settings.get(section) if isinstance(settings.get(section), dict) else {}
         if section == "standings" and "leader_interval" not in given and given.get("interval_leader") == "lap":
@@ -568,7 +601,7 @@ def _value(key, value, default):
             return ",".join(dict.fromkeys(keys[:30]))
         if key == "group":
             return value if re.fullmatch(r"[A-Za-z0-9:_ .\-]{1,80}", value) else default
-        if key in ("sponsor_ids", "sponsor_bar_ids"):
+        if key in ("sponsor_ids", "sponsor_bar_ids", "board_sponsor_ids"):
             return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
         choices = CHOICES.get(key[6:] if key.startswith("theme_") else key)
         return value if choices is None or value in choices else default

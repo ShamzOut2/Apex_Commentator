@@ -3118,6 +3118,13 @@ const OVERLAY_FIELDS = {
       ["theme_team_logo_kind", "Team logo", "select", [["full", "Full logo"], ["small", "Small logo"]]],
       ["theme_bg_opacity", "Panel opacity (%; low lets the race show through)", "number", { min: 0, max: 100, step: 5 }],
     ]],
+    ["Board sponsors", [
+      ["note", "Set once, for every board: a board shows these unless it's given its own logos (on its page, Logo, banner & sponsors).", "note"],
+      ["board_sponsor_list", "Shown on", "boardsponsors"],
+      ["board_sponsors", "Where", "select", [["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"], ["right", "Down the right"]]],
+      ["board_sponsor_ids", "Which sponsors", "sponsors"],
+      ["board_sponsor_size", "Sponsor logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }],
+    ]],
     ["Gaps & intervals", [
       ["race_decimals", "Decimal places: live race gaps and intervals (tower, timing screen, Timing tab)", "number", { min: 0, max: 3 }],
       ["qual_decimals", "Decimal places: qualifying, the lap tracker, the grid and results boards", "number", { min: 1, max: 3 }],
@@ -3396,6 +3403,22 @@ document.addEventListener("change", async (e) => {
   }
 });
 
+// The Theme's Board sponsors: each board's sponsor logos on / off, and which
+// of them have logos of their own instead of these (a link to that board).
+function boardSponsorList(s) {
+  const all = (s.overlays && s.overlays.settings) || {};
+  return `<div class="ov-field wide bsp-list">${labelHtml("Shown on (each board can also be switched on its own page)")}<div>${Object.entries(BOARD_SECTION_NAMES).map(([k, name]) => {
+    const b = all[k] || {};
+    return `<div class="bsp-row"><label class="check"><span class="switch"><input type="checkbox" role="switch" data-bsp="${k}" ${b.sponsor_show ? "checked" : ""}
+      aria-label="Sponsor logos on ${esc(name)}"><i aria-hidden="true"></i></span><span>${esc(name)}</span></label>${b.sponsor_show && b.sponsor_mode === "own"
+      ? `<button type="button" class="link" data-open-ws="${k}" data-open-ws-section="Logo, banner & sponsors" title="This board shows logos of its own, not these">its own logos</button>` : ""}</div>`;
+  }).join("")}</div></div>`;
+}
+document.addEventListener("change", (e) => {
+  const box = e.target.closest("[data-bsp]");
+  if (box) cmd("overlay_settings", { overlay: box.dataset.bsp, values: { sponsor_show: box.checked } });
+});
+
 // Tick boxes for which of the league's sponsors to show ("" = all, "none" = none).
 function sponsorPicker(sponsors, value, key = "sponsor_ids", label = "Sponsors") {
   if (!sponsors.length) return '<p class="hint">No sponsor logos in the active league yet (League builder).</p>';
@@ -3469,6 +3492,10 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   const v = values[k];
   const attrs = `data-key="${k}" data-kind="${kind === "banner" || kind === "class" || kind === "sponsor" ? "select" : kind}"`;
   if (kind === "note") return `<p class="hint ov-field wide">${esc(label)}</p>`;
+  if (kind === "bsptheme") {
+    return `<p class="hint ov-field wide">${esc(label)} <button type="button" class="link" data-open-ws="general" data-open-ws-section="Board sponsors">Theme › Board sponsors</button></p>`;
+  }
+  if (kind === "boardsponsors") return boardSponsorList(s);
   if (kind === "background") return backgroundFields(section, values);
   if (kind === "size") return sizeField(v, values);
   if (kind === "order") return orderField(k, label, v, opts, values);
@@ -3748,15 +3775,20 @@ document.addEventListener("change", (e) => {
 // boards: the full-screen championship, calendar and results screens
 // ---------------------------------------------------------------------------
 
+// Where a board's sponsor logos go.
+const SPONSOR_PLACES = [["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"], ["right", "Down the right"]];
+
 // Every board: the league logo in its header, and a banner where (and which).
 const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   ["banner", "Banner", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"],
     ["right", "Down the right"]]],
   iff((v) => v.banner !== "none", ["banner_id", "Which banner", "banner"]),
-  ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
-    ["left", "Down the left"], ["right", "Down the right"]]],
-  iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"]),
-  iff((v) => v.sponsors !== "none", ["sponsor_size", "Sponsor logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]),
+  ["sponsor_show", "Sponsor logos", "bool"],
+  iff((v) => v.sponsor_show, ["sponsor_mode", "Which logos", "select", [["theme", "The boards' sponsors"], ["own", "This board's own"]]]),
+  iff((v) => v.sponsor_show && v.sponsor_mode !== "own", ["bsp_theme", "Where, which and how big: set once for every board in", "bsptheme"]),
+  iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsors", "Where", "select", SPONSOR_PLACES]),
+  iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsor_ids", "Which sponsors", "sponsors"]),
+  iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsor_size", "Sponsor logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]),
   ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"],
   ["show_league", "League name in the header", "bool"],
   ["accent", "Accent colour (the line under the header…)", "select", [["default", "The championship's class colour (else orange)"],
@@ -4071,7 +4103,7 @@ const WS_ESSENTIAL = new Set(["mode", "class_keys", "rows", "rows_class", "name_
   "show_position", "position_shown", "show_gap", "show_interval", "place", "title", "scale", "offset_x", "offset_y", "bg", "accent",
   "accent_color", "league_logo", "banner", "sponsors", "visible", "auto", "stay", "hide_s", "count", "who", "race_only", "style",
   "show_date", "show_winners", "grid_source", "reverse_top", "grid_layout", "grid_reveal", "units", "show_map", "show_air",
-  "show_track_temp", "show_wind", "follow", "sponsor_ids", "anchor_id", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
+  "show_track_temp", "show_wind", "follow", "sponsor_ids", "anchor_id", "sponsor_show", "sponsor_mode", "bsp_theme", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
   "order", "show_stops", "show_penalties", "colors", "labels", "map_size", "start_from", "auto_yellow", "qual_shown", "card_scale",
   "car_scale", "show_points", "show_drivers", "show_wins", "header_info", "column_order", "show_series", "show_track", "sponsor_bar", "show_pos_change",
   "show_pits", "reveal", "replay_header", "fl_flash", "finish_flag", "gap_to", "show_race_points"]);
@@ -6354,7 +6386,7 @@ document.addEventListener("click", (e) => {
 // A button that opens a widget's settings (data-open-ws="key").
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-open-ws]");
-  if (b) openWidgetSettings(b.dataset.openWs);
+  if (b) openWidgetSettings(b.dataset.openWs, b.dataset.openWsSection || null);
 });
 
 // ---- Search (Ctrl+K): a tab, a setting, a driver to watch, or something to do --

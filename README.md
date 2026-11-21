@@ -118,6 +118,10 @@ starting grid", "Clear all penalties"…).
   layout…" to type one in, and Calendar & results has "Your own tracks and
   layouts" to add a missing track or layout (or take one off). They're kept
   for every league.
+- Board sponsors in one place: Theme › Board sponsors sets where, which
+  sponsors and how big for every board, with a switch per board. A board can
+  still show its own logos ("Which logos: This board's own"). Boards that
+  already had sponsors keep the same look.
 
 ### Improvements
 
@@ -1415,8 +1419,14 @@ Under *What each board shows*, every board can be set up separately:
 - the league logo in its header;
 - a league banner across the top or bottom or down either side, and which
   banner;
-- the league's sponsor logos along any edge, which sponsors, and their
-  size (*Sponsor logo size*, %; each sponsor's own size on top of it);
+- the league's sponsor logos (*Sponsor logos* on or off). Where they go,
+  which sponsors and how big are set once for every board in **Theme ›
+  Board sponsors**, which also has the on / off switch for each board; one
+  logo change there changes every board. A board can have its own instead
+  (*Which logos*: *This board's own*): along any edge, which sponsors, and
+  their size (*Sponsor logo size*, %; each sponsor's own size on top of it).
+  Boards set up before this keep their look: the sponsors most of them
+  showed became the Theme's, and a board that showed others keeps its own;
 - the board's own columns: car numbers, team names and logos, car badges,
   gaps, wins, penalty points, points from the last few rounds, laps, places
   gained, fastest lap (purple), points scored;

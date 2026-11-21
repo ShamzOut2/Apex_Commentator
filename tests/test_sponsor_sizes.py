@@ -21,7 +21,7 @@ class SponsorSizeTests(unittest.TestCase):
         self.assertEqual(boards.sponsors(lg, "")[0]["scale"], 140)
         settings = overlay_settings({"board_results": {"sponsors": "bottom", "sponsor_size": 150}})
         b = boards.build(lg, {"kind": "results", "params": {"group": "overall", "round": "r1"}}, settings)
-        self.assertEqual((b["settings"]["sponsor_size"], b["sponsors"]["logos"][0]["scale"]), (150, 140))
+        self.assertEqual((b["sponsors"]["size"], b["sponsors"]["logos"][0]["scale"]), (150, 140))
         self.assertEqual(overlay_settings({"board_grid": {"sponsor_size": 1000}})["board_grid"]["sponsor_size"], 250)
 
 
