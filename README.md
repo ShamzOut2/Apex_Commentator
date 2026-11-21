@@ -138,6 +138,9 @@ starting grid", "Clear all penalties"…).
   quickly, or dragging one, is always saved.
 - Qualifying: every driver's best lap on the Timing Screen, as the tower has
   them (from iRacing's results when its live data has none).
+- New fastest lap flash: no longer seems to split in half as it comes in
+  (the light across it is drawn smoothly, the pill slides in without
+  scaling, and "New fastest lap" is gone before the name and time come in).
 - Pit strategy and pit counts: a stop for meatball repairs counts as a stop,
   and so does a stop that served a penalty with service at the same time
   (shown "+SG" / "+DT" on the strategy).
