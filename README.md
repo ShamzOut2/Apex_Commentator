@@ -110,28 +110,15 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**v1.0.0**
+**Coming in the next update**
 
 ### New features
 
-- Championship: your own tracks and layouts. A layout list has "+ Another
-  layout…" to type one in, and Calendar & results has "Your own tracks and
-  layouts" to add a missing track or layout (or take one off). They're kept
-  for every league.
-- Board sponsors in one place: Theme › Board sponsors sets where, which
-  sponsors and how big for every board, with a switch per board. A board can
-  still show its own logos ("Which logos: This board's own"). Boards that
-  already had sponsors keep the same look.
-
-### Improvements
-
-- Race control has a Pop out button, like the Timing Screen.
-- Timing Screen: "▦ Show" picks what each window shows (camera buttons,
-  driver list, race log, replay controls) and which columns the driver list
-  has. A popped-out window keeps its own, so it can show just the race log.
-- Hockenheim's Short A and Short B layouts are in the track list.
-- Grid walk: car pictures go much bigger (Car picture size up to 2000%, each
-  row up to 1000%).
+- Championship time penalties: Penalties has a Time (s) column. The seconds go
+  on the driver's race time in that round, the finishing order is put right and
+  the points follow it.
+- Championship: Clear results on each race, to take its results off and import
+  or type them again.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -1657,7 +1644,18 @@ standings update from what's saved.
     Check those statuses by hand.
   - Everything can be corrected by hand, including DSQ and extra points
     (+ or −) for a round. The points column shows what each result scored.
+  - **⌫ Clear results** (on a round with results) takes that race's results
+    off and keeps the round, to import or type them again. Penalties given
+    for it stay.
 - **Penalties**
+  - *Time* (seconds, for one round) is added to the driver's race time in
+    that race. The finishing order is put back in race-time order among the
+    cars that covered the same number of laps (a car never drops behind one
+    that covered fewer), and everyone's points, the bonuses that go by
+    position, the finishing order board's gaps and the next race's grid (a
+    race meeting) follow it. It needs the race times or gaps, which races
+    saved or imported from iRacing have. The round's results show the
+    penalty (+5 s) by the place the driver crossed the line in.
   - *Points off* are taken from the driver's total (and their team's) and are
     never dropped.
   - *Licence points* are a running tally per driver, shown in the standings.

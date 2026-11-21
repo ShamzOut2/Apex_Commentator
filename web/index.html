@@ -866,10 +866,12 @@
         </div>
 
         <div class="champ-view" data-view="penalties" hidden>
-          <p class="hint">Post-race penalties. <b>Points</b> come off the driver's championship total (and their team's)
-            and are never dropped. <b>Licence points</b> are a running tally per driver, shown in the standings.</p>
+          <p class="hint">Post-race penalties. <b>Time</b> (seconds) is added to the driver's race time in that round: the
+            finishing order is put back in race-time order among the cars on the same lap, and everyone's points follow it.
+            <b>Points</b> come off the driver's championship total (and their team's) and are never dropped.
+            <b>Licence points</b> are a running tally per driver, shown in the standings.</p>
           <table class="grid champ-table">
-            <thead><tr><th>Driver</th><th>Round</th><th class="c-num">Points off</th><th class="c-num">Licence pts</th><th>Reason</th><th></th></tr></thead>
+            <thead><tr><th>Driver</th><th>Round</th><th class="c-num" title="Seconds added to their race time in that round">Time (s)</th><th class="c-num">Points off</th><th class="c-num">Licence pts</th><th>Reason</th><th></th></tr></thead>
             <tbody id="champ-penalties"></tbody>
           </table>
           <button id="btn-add-penalty" class="btn subtle">+ Add penalty</button>

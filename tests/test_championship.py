@@ -628,3 +628,42 @@ class TeamSwitchTests(unittest.TestCase):
         r = ch.normalise_result({"driver": "cust:1", "name": "D1", "team": "Red"})
         self.assertEqual(r["team"], "Red")
         self.assertEqual(ch.normalise_result({"driver": "cust:1"})["team"], "")
+
+
+class TimePenaltyTests(unittest.TestCase):
+    def rounds(self):
+        # a, b, c on the lead lap (a won by 2 s from b, c 6 s back); d a lap down.
+        rs = [dict(res("a", 1), gap=0.0, race_time=1800.0), dict(res("b", 2), gap=2.0, race_time=1802.0),
+              dict(res("c", 3), gap=6.0, race_time=1806.0), dict(res("d", 4, laps=19), gap=40.0, race_time=1840.0)]
+        return [{"id": "r1", "name": "R1", "results": rs}]
+
+    def test_time_penalty_re_orders_and_re_scores(self):
+        p = profile(rounds=self.rounds(), penalties=[{"driver": "a", "round_id": "r1", "seconds": 5, "reason": "Track limits"}])
+        rows, _ = table(p)
+        # a: 1805 s, between b (1802) and c (1806): second.
+        self.assertEqual([rows[d]["points"] for d in "abcd"], [18, 25, 15, 12])
+        out = ch.round_results(p, p["championship"]["rounds"][0], ch.OVERALL)
+        self.assertEqual([(r["driver"], r["rank"], r["gap"], r["time_penalty"], r["raced_position"]) for r in out],
+                         [("b", 1, 0.0, 0, 2), ("a", 2, 3.0, 5, 1), ("c", 3, 4.0, 0, 3), ("d", 4, 38.0, 0, 4)])
+        self.assertEqual(out[1]["race_time"], 1805.0)
+
+    def test_a_lapped_car_stays_behind_and_points_penalties_still_count(self):
+        p = profile(rounds=self.rounds(), penalties=[{"driver": "c", "round_id": "r1", "seconds": 60, "points": 2}])
+        rows, _ = table(p)
+        self.assertEqual([rows[d]["points"] for d in "abcd"], [25, 18, 15 - 2, 12])  # c still third: d is a lap down
+
+    def test_gaps_only_and_without_a_round(self):
+        rounds = self.rounds()
+        for r in rounds[0]["results"]:
+            r["race_time"] = None
+        p = profile(rounds=rounds, penalties=[{"driver": "b", "round_id": "r1", "seconds": 4.5},
+                                               {"driver": "c", "round_id": "", "seconds": 30}])  # no round: no effect
+        self.assertEqual([r["driver"] for r in ch.round_results(p, p["championship"]["rounds"][0], ch.OVERALL)], ["a", "c", "b", "d"])
+        self.assertEqual(p["championship"]["penalties"][0]["seconds"], 4.5)
+
+    def test_removing_the_penalty_puts_it_back(self):
+        p = profile(rounds=self.rounds(), penalties=[{"driver": "a", "round_id": "r1", "seconds": 5}])
+        champ = dict(p["championship"], penalties=[])
+        again = ch.normalise(champ)
+        self.assertNotIn("time_penalty", again["rounds"][0]["results"][0])
+        self.assertEqual(ch.classified(again["rounds"][0]["results"]), again["rounds"][0]["results"])

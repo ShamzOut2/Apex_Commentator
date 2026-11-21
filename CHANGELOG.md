@@ -11,6 +11,16 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- Championship time penalties: Penalties has a Time (s) column. The seconds go
+  on the driver's race time in that round, the finishing order is put right and
+  the points follow it.
+- Championship: Clear results on each race, to take its results off and import
+  or type them again.
+
 ## v1.0.0
 
 ### New features

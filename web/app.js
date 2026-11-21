@@ -2087,6 +2087,9 @@ function renderChampRounds() {
     const pts = roundPoints(rd.id);
     const classIds = [...new Set([...classes.filter((x) => !isSecondary(x)).map((x) => x.id), ...(rd.results || []).map((r) => r.class_id).filter(Boolean)])];
     const results = (rd.results || []).map((r, j) => [r, j]).sort((a, b) => (a[0].position || 999) - (b[0].position || 999));
+    // Time penalties for this race (Penalties): the finishing order and points take them into account.
+    const timePen = {};
+    for (const p of c.penalties || []) if (p.round_id === rd.id && +p.seconds > 0) timePen[p.driver] = (timePen[p.driver] || 0) + +p.seconds;
     return `<div class="round-card ${open ? "open" : ""}">
       <div class="round-head">
         <span class="round-num">R${i + 1}</span>
@@ -2109,6 +2112,7 @@ function renderChampRounds() {
         <button class="btn" data-round-toggle="${esc(rd.id)}">${open ? "Close" : "Results"}</button>
         <button class="btn" data-round-import="${i}" title="Fill this round with the results of the race session you're in">⤓ Import from session</button>
         ${rd.event ? "" : `<button class="btn subtle" data-round-meeting="${i}" title="Make this round a race meeting of several races (heat races, say), each a round of its own. Its results stay with the first race.">⇉ Race meeting</button>`}
+        ${(rd.results || []).length ? `<button class="btn subtle" data-round-clear="${i}" title="Take this race's results off: the round stays, to import or type them again">⌫ Clear results</button>` : ""}
         <button class="btn icon danger" data-round-delete="${i}" title="Delete round">✕</button>
       </div>
       ${open ? `<div class="row transfer-row"><span class="hint">This round's results:</span>
@@ -2119,7 +2123,8 @@ function renderChampRounds() {
       <div class="table-scroll"><table class="grid champ-table results-table">
         <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored in each championship (after saving)">Pts</th><th></th></tr></thead>
         <tbody>${results.map(([r, j]) => `<tr>
-          <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"></td>
+          <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"
+            title="Where they crossed the line">${timePen[r.driver] ? `<span class="tag pen-time" title="Time penalty (Penalties): the finishing order and points take it into account">+${fmtPts(timePen[r.driver])} s</span>` : ""}</td>
           <td><select data-round="${i}" data-res="${j}" data-key="driver">${rosterOptions(r.driver, r.name)}</select></td>
           <td><select data-round="${i}" data-res="${j}" data-key="class_id"><option value="">—</option>${classIds.map((id) => `<option value="${esc(id)}" ${id === r.class_id ? "selected" : ""}>${esc(champClassName(id))}</option>`).join("")}</select></td>
           <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="start_position" value="${r.start_position ?? ""}"></td>
@@ -2214,11 +2219,13 @@ function renderChampPenalties() {
       <td><select data-pen="${i}" data-key="driver">${rosterOptions(p.driver, names[p.driver])}</select></td>
       <td><select data-pen="${i}" data-key="round_id"><option value="">—</option>${c.rounds.map((rd, k) =>
         `<option value="${esc(rd.id)}" ${rd.id === p.round_id ? "selected" : ""}>R${k + 1} ${esc(rd.name)}</option>`).join("")}</select></td>
+      <td><input type="number" class="c-num ${p.seconds && !p.round_id ? "bad-input" : ""}" min="0" max="3600" step="1" data-pen="${i}" data-key="seconds" value="${p.seconds || 0}"
+        title="${p.seconds && !p.round_id ? "Pick the round: a time penalty is for one race" : "Seconds added to their race time in that round"}"></td>
       <td><input type="number" class="c-num" min="0" step="0.5" data-pen="${i}" data-key="points" value="${p.points || 0}"></td>
       <td><input type="number" class="c-num" min="0" data-pen="${i}" data-key="licence" value="${p.licence || 0}"></td>
       <td><input class="grow" data-pen="${i}" data-key="reason" value="${esc(p.reason || "")}" placeholder="e.g. Avoidable contact, T1 lap 1"></td>
       <td><button class="btn icon danger" data-pen-delete="${i}" title="Remove">✕</button></td>
-    </tr>`).join("") : '<tr><td colspan="6" class="hint">No penalties.</td></tr>';
+    </tr>`).join("") : '<tr><td colspan="7" class="hint">No penalties.</td></tr>';
 }
 
 // -- rules -------------------------------------------------------------------------
@@ -2567,6 +2574,13 @@ $("#tab-championship").addEventListener("click", async (e) => {
     c.rounds.splice(+d.roundDelete, 1);
     c.penalties = c.penalties.filter((p) => p.round_id !== rd.id);
     if (c.live_round === rd.id) c.live_round = "";
+  } else if (d.roundClear != null) {
+    const rd = c.rounds[+d.roundClear];
+    const pens = c.penalties.filter((p) => p.round_id === rd.id).length;
+    if (!confirm(`Clear the results of ${rd.name}? The round stays, to import or type its results again.` +
+      (pens ? ` Its ${pens} penalt${pens === 1 ? "y stays" : "ies stay"} (Penalties).` : ""))) return;
+    rd.results = [];
+    rd.session = "";  // free to take the results of a race again (Import from session, or saved after the race)
   } else if (d.resAdd != null) {
     const rd = c.rounds[+d.resAdd];
     rd.results = rd.results || [];
@@ -2900,7 +2914,7 @@ function createBuiltRounds() {
 $("#btn-add-penalty").addEventListener("click", () => {
   if (!ui.editing) return toast("Pick a league first", true);
   const c = champData();
-  c.penalties.push({ id: newId(), driver: "", round_id: c.rounds.length ? c.rounds[c.rounds.length - 1].id : "", points: 0, licence: 0, reason: "" });
+  c.penalties.push({ id: newId(), driver: "", round_id: c.rounds.length ? c.rounds[c.rounds.length - 1].id : "", seconds: 0, points: 0, licence: 0, reason: "" });
   markChampDirty();
   renderChampionship();
 });

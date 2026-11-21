@@ -811,7 +811,8 @@ class App:
             entry = self.leagues.lookup(d["cust_id"], d["number"], league)
             if entry:
                 by_key.setdefault(driver_key(entry), idx)
-        done = sorted((r for r in rounds[i - 1]["results"] if r["status"] != "dns"), key=lambda r: r["position"] or 10_000)
+        done = sorted((r for r in championship.classified(rounds[i - 1]["results"]) if r["status"] != "dns"),
+                      key=lambda r: r["position"] or 10_000)
         out = {}
         for r in done:
             idx = by_key.get(r["driver"])
