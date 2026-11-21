@@ -87,6 +87,26 @@ class TrackTests(unittest.TestCase):
             hits = TrackCatalogue(f"{tmp}/t.json").search("mock raceway")
             self.assertEqual((hits[0]["id"], hits[0]["config"]), (999, "Grand Prix"))
 
+    def test_your_own_tracks_and_layouts(self):
+        """A track or layout missing from the list, added by hand: in the lists
+        from then on (kept), and taken off again; the built-in ones stay."""
+        hock = lambda t: next(g for g in t.grouped() if g["track"].startswith("Hockenheim"))  # noqa: E731
+        self.assertIn("Short A", [c["config"] for c in hock(TrackCatalogue())["configs"]])
+        with tempfile.TemporaryDirectory() as tmp:
+            t = TrackCatalogue(f"{tmp}/t.json")
+            self.assertFalse(t.add("Hockenheimring Baden-Württemberg", "Short A"))  # already in the list
+            self.assertTrue(t.add("Hockenheimring Baden-Württemberg", "  Club   Loop "))
+            self.assertTrue(t.add("Local Kart Track", ""))
+            again = TrackCatalogue(f"{tmp}/t.json")
+            self.assertIn("Club Loop", [c["config"] for c in hock(again)["configs"]])
+            self.assertEqual(again.status()["custom"], [{"track": "Hockenheimring Baden-Württemberg", "config": "Club Loop"},
+                                                        {"track": "Local Kart Track", "config": ""}])
+            self.assertTrue(again.remove("hockenheimring baden-württemberg", "club loop"))
+            self.assertFalse(again.remove("Hockenheimring Baden-Württemberg", "Grand Prix"))  # not one of yours
+            self.assertNotIn("Club Loop", [c["config"] for c in hock(TrackCatalogue(f"{tmp}/t.json"))["configs"]])
+            with self.assertRaises(ValueError):
+                again.add("  ", "X")
+
 
 class BoardTests(unittest.TestCase):
     def setUp(self):

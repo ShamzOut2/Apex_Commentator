@@ -1288,3 +1288,7 @@ input[type="color"] { padding: 2px; cursor: pointer; }
 .unsaved::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
 .unsaved[hidden] { display: none; }
 #wflag-sc.lit { background: #ffd23f; color: #15130a; border-color: #ffd23f; }
+/* Championship › Your own tracks and layouts. */
+.mt-list { list-style: none; margin: 8px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.mt-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
+.mt-list li.hint { border: 0; background: none; padding: 0; }

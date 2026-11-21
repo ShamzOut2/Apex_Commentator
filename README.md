@@ -110,40 +110,18 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**v0.9.1**
+**Coming in the next update**
 
 ### New features
 
-- Flags: a safety car (an SC board, "Safety Car") shows by itself while
-  iRacing has a full course caution, and can be sent out by hand (Safety car
-  button on the Flags card, or a hotkey).
-- Grid walk: a fourth position option, class first (P1 GT3, with P3 overall
-  under it).
-- Driver on camera: choose whether it changes with the delay (as the Timing
-  Screen and every other overlay) or as the camera cuts.
+- Championship: your own tracks and layouts. A layout list has "+ Another
+  layout…" to type one in, and Calendar & results has "Your own tracks and
+  layouts" to add a missing track or layout (or take one off). They're kept
+  for every league.
 
 ### Improvements
 
-- League builder, Teams and Championship have their Save button back, with
-  "Unsaved changes" by it; switching league asks before losing changes.
-- Hide all leaves the starting lights and the flags ready: they still come
-  up by themselves at the start and for a yellow.
-
-### Fixes
-
-- Starting grid: Automatic and "as the cars line up" take iRacing's grid as
-  it set it; a reverse number (or a round's Reverse grid) no longer turns it
-  round again. The reverse settings only show for the other sources.
-- Column order (Widget Settings and the widget cards): moving a column twice
-  quickly, or dragging one, is always saved.
-- Qualifying: every driver's best lap on the Timing Screen, as the tower has
-  them (from iRacing's results when its live data has none).
-- New fastest lap flash: no longer seems to split in half as it comes in
-  (the light across it is drawn smoothly, the pill slides in without
-  scaling, and "New fastest lap" is gone before the name and time come in).
-- Pit strategy and pit counts: a stop for meatball repairs counts as a stop,
-  and so does a stop that served a penalty with service at the same time
-  (shown "+SG" / "+DT" on the strategy).
+- Hockenheim's Short A and Short B layouts are in the track list.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

@@ -11,6 +11,19 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- Championship: your own tracks and layouts. A layout list has "+ Another
+  layout…" to type one in, and Calendar & results has "Your own tracks and
+  layouts" to add a missing track or layout (or take one off). They're kept
+  for every league.
+
+### Improvements
+
+- Hockenheim's Short A and Short B layouts are in the track list.
+
 ## v0.9.1
 
 ### New features

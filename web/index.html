@@ -822,6 +822,15 @@
             round marked <b>live</b> (by default the first round without results).</p>
           <p class="hint"><span id="track-source"></span></p>
           <datalist id="track-names"></datalist>
+          <details class="build-rounds my-tracks" id="my-tracks">
+            <summary>Your own tracks and layouts</summary>
+            <p class="hint">A track or layout missing from the list (Hockenheim's Short A, say): add it here and it's in
+              every round's track and layout lists, for every league. One typed into a round is kept here too.</p>
+            <div class="row"><input id="mt-track" list="track-names" placeholder="Track (pick or type)" aria-label="Track">
+              <input id="mt-config" placeholder="Layout (blank: one layout)" aria-label="Layout">
+              <button type="button" class="btn" id="mt-add">Add</button></div>
+            <ul id="mt-list" class="mt-list"></ul>
+          </details>
           <details class="build-rounds" id="build-rounds">
             <summary>Build the rounds from a calendar</summary>
             <p class="hint">Fill in the season in one go: by scanning the league's calendar graphic, or from its text

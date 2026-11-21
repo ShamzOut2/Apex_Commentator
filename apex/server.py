@@ -267,6 +267,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._import_meeting(path.split("/")[3], [str(r) for r in body.get("round_ids") or []])
             if path.startswith("/api/leagues/") and path.endswith("/championship/import"):
                 return self._import_round(path.split("/")[3], str(body.get("round_id") or ""))
+            if path == "/api/tracks":
+                # A track or layout of your own; {"remove": true} takes one of yours off.
+                try:
+                    if body.get("remove"):
+                        gone = self.app.tracks.remove(body.get("track"), body.get("config"))
+                        return self._send_json({"ok": True, "removed": gone, "tracks": self.app.tracks.grouped(), **self.app.tracks.status()})
+                    added = self.app.tracks.add(body.get("track"), body.get("config"))
+                except ValueError as e:
+                    return self._error(str(e))
+                return self._send_json({"ok": True, "added": added, "tracks": self.app.tracks.grouped(), **self.app.tracks.status()})
             if path == "/api/leagues/from-session":
                 drivers = self.app.build_snapshot().get("drivers") or []
                 if not drivers:

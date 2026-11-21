@@ -1974,25 +1974,52 @@ function lengthField(rd, i) {
       `<option value="${v}" ${unit === v ? "selected" : ""}>${l}</option>`).join("")}</select></span>`;
 }
 
-function configField(rd, attrs) {
+// A round's own (``other``): "+ Another layout…" at the end, to type one the
+// list hasn't got (remembered for next time, Your own tracks).
+function configField(rd, attrs, other = false) {
   const g = trackGroup(rd.track);
-  if (!g) {
-    return `<input ${attrs} value="${esc(rd.config || "")}" placeholder="Configuration" aria-label="Configuration">`;
+  if (!g || rd._typing) {
+    return `<input ${attrs} value="${esc(rd.config || "")}" placeholder="${rd._typing ? "Type the layout" : "Configuration"}" aria-label="Configuration">`;
   }
   const configs = g.configs.map((c) => c.config);
   const current = rd.config || "";
   const extra = current && !configs.includes(current) ? `<option selected>${esc(current)}</option>`
     : !current && !configs.includes("") ? '<option value="" selected>Pick a layout</option>' : "";
   return `<select ${attrs} aria-label="Configuration">${extra}${configs.map((c) =>
-    `<option value="${esc(c)}" ${c === current ? "selected" : ""}>${esc(c || "(one layout)")}</option>`).join("")}</select>`;
+    `<option value="${esc(c)}" ${c === current ? "selected" : ""}>${esc(c || "(one layout)")}</option>`).join("")}${other
+    ? '<option value="__other__">＋ Another layout…</option>' : ""}</select>`;
+}
+
+// A track or layout typed in that the list hasn't got: kept as one of yours.
+async function rememberTrack(track, config) {
+  track = String(track || "").trim();
+  config = String(config || "").trim();
+  if (!track) return;
+  const g = trackGroup(track);
+  if (g && g.configs.some((c) => c.config === config)) return;
+  try {
+    const r = await api("/api/tracks", { method: "POST", body: { track, config } });
+    if (r.added) toast(`${track}${config ? ` · ${config}` : ""} added to your tracks`);
+    trackList.groups = r.tracks;
+    trackList.status = r;
+    $("#track-names").innerHTML = r.tracks.map((x) => `<option value="${esc(x.track)}"></option>`).join("");
+    renderTrackStatus();
+  } catch (err) {
+    toast(err.message, true);
+  }
 }
 
 function renderTrackStatus() {
   const st = trackList.status;
   if (!st) return;
+  // Your own tracks and layouts, each with ✕ to take it off again.
+  const mine = st.custom || [];
+  $("#mt-list").innerHTML = mine.length ? mine.map((t) => `<li><span>${esc(t.track)}${t.config ? ` · ${esc(t.config)}` : ""}</span>
+      <button type="button" class="btn icon danger" data-mt-remove="${esc(JSON.stringify([t.track, t.config]))}" title="Take it off the list" aria-label="Remove">✕</button></li>`).join("")
+    : '<li class="hint">None yet. Add a track or layout the list hasn\'t got (or type one into a round: it\'s kept here).</li>';
   $("#track-source").textContent = st.official
-    ? `${st.official} official layouts from iRacing${st.seen ? `, plus ${st.seen} seen in sessions` : ""}. A track not in the list can be typed in.`
-    : `Built-in list of iRacing tracks${st.seen ? `, plus ${st.seen} layouts seen in sessions` : ""}. A track not in the list can be typed in.`;
+    ? `${st.official} official layouts from iRacing${st.seen ? `, plus ${st.seen} seen in sessions` : ""}. A track or layout not in the list can be typed in (or added under Your own tracks).`
+    : `Built-in list of iRacing tracks${st.seen ? `, plus ${st.seen} layouts seen in sessions` : ""}. A track or layout not in the list can be typed in (or added under Your own tracks).`;
 }
 
 function renderChampRounds() {
@@ -2010,7 +2037,7 @@ function renderChampRounds() {
         <span class="round-num">R${i + 1}</span>
         <input data-round="${i}" data-rkey="name" value="${esc(rd.name)}" placeholder="Round name" aria-label="Round name">
         <input data-round="${i}" data-rkey="track" class="track-input" list="track-names" value="${esc(rd.track || "")}" placeholder="Track (type to search)" aria-label="Track">
-        ${configField(rd, `data-round="${i}" data-rkey="config"`)}
+        ${configField(rd, `data-round="${i}" data-rkey="config"`, true)}
         <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
         <input type="time" data-round="${i}" data-rkey="time" value="${esc(rd.time || "")}" aria-label="Start time" title="Start time">
         ${lengthField(rd, i)}
@@ -2399,10 +2426,23 @@ function champChange(e, final) {
         toast(`Same date set on ${filled.length === 1 ? "the meeting's other race" : `the meeting's other ${filled.length} races`}`);
       }
     }
+    if (d.rkey === "config" && el.value === "__other__") {
+      // + Another layout…: a box to type it in.
+      rd.config = "";
+      rd._typing = true;
+      renderChampionship();
+      const box = document.querySelector(`[data-round="${d.round}"][data-rkey="config"]`);
+      if (box) box.focus();
+      return;
+    }
     if (d.rkey === "track" || d.rkey === "config") {
       // A known track: its layouts fill the Configuration list.
       const g = trackGroup(rd.track);
-      if (g && d.rkey === "track" && final) rd.config = g.configs[0].config;
+      if (g && d.rkey === "track" && final && !rd._typing) rd.config = g.configs[0].config;
+      // Typed in and not in the list: remembered (Your own tracks).
+      if (final && el.tagName === "INPUT" && rd.track && (d.rkey === "config" || (!g && rd.config))) {
+        rememberTrack(rd.track, rd.config).then(() => { delete rd._typing; renderChampionship(); });
+      }
       const layout = g && g.configs.find((x) => x.config === rd.config);
       rd.track_id = layout ? layout.id : null;
       if (final) rerender = true;
@@ -6499,4 +6539,28 @@ $("#ws-frame").addEventListener("load", () => {
     style.textContent = "body { cursor: pointer; }";
     doc.head.appendChild(style);
   } catch (err) { /* another origin: no clicks */ }
+});
+
+// Championship › Your own tracks and layouts: add one, take one off.
+$("#mt-add").addEventListener("click", async () => {
+  const track = $("#mt-track").value.trim();
+  if (!track) return toast("Type the track's name", true);
+  await rememberTrack(track, $("#mt-config").value);
+  $("#mt-config").value = "";
+  if (champ.view === "rounds") renderChampRounds();
+});
+$("#mt-list").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-mt-remove]");
+  if (!b) return;
+  const [track, config] = JSON.parse(b.dataset.mtRemove);
+  try {
+    const r = await api("/api/tracks", { method: "POST", body: { track, config, remove: true } });
+    trackList.groups = r.tracks;
+    trackList.status = r;
+    $("#track-names").innerHTML = r.tracks.map((x) => `<option value="${esc(x.track)}"></option>`).join("");
+    renderTrackStatus();
+    if (champ.view === "rounds") renderChampRounds();
+  } catch (err) {
+    toast(err.message, true);
+  }
 });
