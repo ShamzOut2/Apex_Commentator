@@ -54,7 +54,7 @@ Dover Motor Speedway |
 Eldora Speedway |
 Fair Grounds Speedway | Oval; Dirt
 Fuji International Speedway | Grand Prix; Grand Prix (No Chicane)
-Hockenheimring Baden-Württemberg | Grand Prix; National A; National B; Outer
+Hockenheimring Baden-Württemberg | Grand Prix; National A; National B; Outer; Short A; Short B
 Homestead Miami Speedway | Oval; Road Course A; Road Course B; Indycar Oval
 Hungaroring |
 Indianapolis Motor Speedway | Oval; Road Course; Moto; Legacy Oval
@@ -150,7 +150,7 @@ class TrackCatalogue:
     def __init__(self, path=None):
         self.path = Path(path) if path else None
         self._lock = threading.Lock()
-        self.saved = {"iracing": [], "seen": [], "fetched_at": None}
+        self.saved = {"iracing": [], "seen": [], "custom": [], "fetched_at": None}
         if self.path:
             try:
                 data = json.loads(self.path.read_text(encoding="utf-8"))
@@ -171,7 +171,7 @@ class TrackCatalogue:
     def all(self):
         """Every known track layout, official data first; duplicates merged."""
         merged = {}
-        for t in self.saved["iracing"] + self.saved["seen"] + _parse_builtin():
+        for t in self.saved["iracing"] + self.saved["seen"] + self.saved["custom"] + _parse_builtin():
             merged.setdefault(_key(t), t)
         return sorted(merged.values(), key=lambda t: (_norm(t["track"]), _norm(t["config"])))
 
@@ -190,7 +190,37 @@ class TrackCatalogue:
 
     def status(self):
         return {"official": len(self.saved["iracing"]), "seen": len(self.saved["seen"]),
-                "builtin": len(_parse_builtin()), "fetched_at": self.saved["fetched_at"]}
+                "builtin": len(_parse_builtin()), "fetched_at": self.saved["fetched_at"],
+                "custom": [{"track": t["track"], "config": t["config"]} for t in self.saved["custom"]]}
+
+    def add(self, track, config=""):
+        """A track or layout of your own (one missing from the list): kept for
+        every league, in the track and layout lists from then on. Returns
+        whether it was new."""
+        track, config = " ".join(str(track or "").split())[:80], " ".join(str(config or "").split())[:80]
+        if not track:
+            raise ValueError("A track needs a name")
+        entry = {"id": None, "track": track, "config": config, "source": "custom"}
+        with self._lock:
+            if any(_key(t) == _key(entry) for t in self.all_locked()):
+                return False
+            self.saved["custom"].append(entry)
+            self._write()
+        return True
+
+    def remove(self, track, config=""):
+        """One of your own taken off the list again (the built-in and iRacing's stay)."""
+        key = _key({"track": track, "config": config or ""})
+        with self._lock:
+            kept = [t for t in self.saved["custom"] if _key(t) != key]
+            gone = len(kept) != len(self.saved["custom"])
+            self.saved["custom"] = kept
+            if gone:
+                self._write()
+        return gone
+
+    def all_locked(self):
+        return self.saved["iracing"] + self.saved["seen"] + self.saved["custom"] + _parse_builtin()
 
     def remember(self, track_id, track, config):
         """Note a track the app has seen in a session."""

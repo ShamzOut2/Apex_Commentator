@@ -214,13 +214,25 @@
             <span class="s-free">FREE</span><span class="s-sync">SYNC</span></button>
           <button class="btn subtle" data-sync-widget title="Put this switch on your screen, on top of iRacing">⧉ On my screen</button>
         </div>
-        <div class="group">
+        <div class="group cam-ctl">
           <button class="btn" data-cmd="step_car" data-direction="-1" title="Car ahead (↑)">▲ Ahead</button>
           <button class="btn" data-cmd="step_car" data-direction="1" title="Car behind (↓)">▼ Behind</button>
           <button class="btn" data-cmd="watch_special" data-mode="leader">Leader</button>
           <button class="btn" data-cmd="watch_special" data-mode="exciting" title="iRacing picks the most exciting car">Exciting</button>
           <button class="btn" data-cmd="watch_special" data-mode="incident" title="iRacing's incident camera">Incident cam</button>
+        </div>
+        <div class="group cam-tools">
           <button class="btn subtle" id="btn-hotkeys" data-open-hotkeys title="Keyboard shortcuts for cameras, overlays and boards">⌨ Hotkeys</button>
+          <details class="view-menu" id="timing-show">
+            <summary class="btn subtle" title="What this window shows: its parts, and the driver list's columns">▦ Show</summary>
+            <div class="view-pop show-pop">
+              <p class="vhead">In this window <small>(each window keeps its own: pop one out for just the race log, say)</small></p>
+              <div id="timing-parts" class="show-ticks"></div>
+              <p class="vhead">Driver list columns</p>
+              <div id="timing-colpick" class="show-ticks cols"></div>
+              <div class="vrow"><button type="button" class="link" id="timing-show-all">Show everything</button></div>
+            </div>
+          </details>
           <button class="btn subtle" data-popout="timing" title="Open the timing screen in a window of its own">⧉ Pop out</button>
         </div>
       </div>
@@ -753,7 +765,8 @@
 
     <section id="tab-racecontrol" class="panel">
       <div class="home wide">
-        <div class="row teams-head"><h2>Race control</h2><span id="rc-status" class="hint"></span></div>
+        <div class="row teams-head"><h2>Race control</h2><span id="rc-status" class="hint"></span>
+          <button class="btn subtle rc-popout" data-popout="racecontrol" title="Open race control in a window of its own">⧉ Pop out</button></div>
         <p class="hint">Penalties and race commands go to iRacing as its admin chat commands (<code>!black</code>, <code>!clear</code>…):
           you need to be an admin of the session in iRacing. They're typed into the sim's chat for you.</p>
         <div class="rc-bar">
@@ -822,6 +835,15 @@
             round marked <b>live</b> (by default the first round without results).</p>
           <p class="hint"><span id="track-source"></span></p>
           <datalist id="track-names"></datalist>
+          <details class="build-rounds my-tracks" id="my-tracks">
+            <summary>Your own tracks and layouts</summary>
+            <p class="hint">A track or layout missing from the list (Hockenheim's Short A, say): add it here and it's in
+              every round's track and layout lists, for every league. One typed into a round is kept here too.</p>
+            <div class="row"><input id="mt-track" list="track-names" placeholder="Track (pick or type)" aria-label="Track">
+              <input id="mt-config" placeholder="Layout (blank: one layout)" aria-label="Layout">
+              <button type="button" class="btn" id="mt-add">Add</button></div>
+            <ul id="mt-list" class="mt-list"></ul>
+          </details>
           <details class="build-rounds" id="build-rounds">
             <summary>Build the rounds from a calendar</summary>
             <p class="hint">Fill in the season in one go: by scanning the league's calendar graphic, or from its text

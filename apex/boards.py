@@ -77,12 +77,19 @@ def sponsors(league, ids):
             for s in league.get("sponsors", []) if wanted is None or s["id"] in wanted]
 
 
-def _sponsor_strip(league, settings):
-    """Sponsor logos on this board, or None."""
-    if settings["sponsors"] == "none":
+def _sponsor_strip(league, settings, general):
+    """Sponsor logos on this board, or None: the boards' own (general
+    board_sponsors…) or, set to "own", this board's."""
+    if not settings.get("sponsor_show"):
         return None
-    logos = sponsors(league, settings["sponsor_ids"])
-    return {"place": settings["sponsors"], "logos": logos} if logos else None
+    if settings.get("sponsor_mode") == "own":
+        place, ids, size = settings["sponsors"], settings["sponsor_ids"], settings["sponsor_size"]
+    else:
+        place, ids, size = general.get("board_sponsors", "bottom"), general.get("board_sponsor_ids", ""), general.get("board_sponsor_size", 100)
+    if place not in ("top", "bottom", "left", "right"):
+        return None
+    logos = sponsors(league, ids)
+    return {"place": place, "size": size, "logos": logos} if logos else None
 
 
 def build(league, board, settings, live_results=None):
@@ -98,7 +105,7 @@ def build(league, board, settings, live_results=None):
     if settings.get("general", {}).get("strip_name_numbers"):
         league = dict(league, _strip_numbers=True)
     out = {"kind": kind, "group": params.get("group") or "", "overall": (params.get("group") or championship.OVERALL) == championship.OVERALL, "round": params.get("round") or "", "league": league["name"], "title": TITLES[kind], "subtitle": "",
-           "banner": _banner(league, cfg), "sponsors": _sponsor_strip(league, cfg), "settings": cfg, "accent": None, "group_logo": None,
+           "banner": _banner(league, cfg), "sponsors": _sponsor_strip(league, cfg, settings.get("general") or {}), "settings": cfg, "accent": None, "group_logo": None,
            "league_logo": logo_url(league["id"], league.get("logo")) if cfg["league_logo"] and league.get("logo") else None}
     group = params.get("group") or championship.OVERALL
     if kind in ("championship", "makes", "results", "qualifying", "grid"):

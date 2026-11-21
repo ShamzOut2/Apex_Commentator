@@ -141,10 +141,6 @@ class GridWalkTests(unittest.TestCase):
             self.walk.move(keys, "zz", 1)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class GridWalkSettingsKeptTests(unittest.TestCase):
     def test_seconds_per_pair_kept_and_used(self):
         import tempfile
@@ -164,3 +160,14 @@ class GridWalkSettingsKeptTests(unittest.TestCase):
             again.load_gridwalk_settings()
             self.assertEqual(again.gridwalk.interval, 15)
             self.assertTrue(clock)
+
+
+class CarSizeTests(unittest.TestCase):
+    def test_cars_can_be_made_much_bigger(self):
+        from apex.overlays import normalise
+        gw = normalise({"gridwalk": {"car_scale": 1800, "car_scale_top": 900, "car_scale_bottom": 5000}})["gridwalk"]
+        self.assertEqual((gw["car_scale"], gw["car_scale_top"], gw["car_scale_bottom"]), (1800, 900, 1000))
+
+
+if __name__ == "__main__":
+    unittest.main()

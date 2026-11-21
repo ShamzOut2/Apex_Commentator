@@ -11,6 +11,29 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v1.0.0
+
+### New features
+
+- Championship: your own tracks and layouts. A layout list has "+ Another
+  layout…" to type one in, and Calendar & results has "Your own tracks and
+  layouts" to add a missing track or layout (or take one off). They're kept
+  for every league.
+- Board sponsors in one place: Theme › Board sponsors sets where, which
+  sponsors and how big for every board, with a switch per board. A board can
+  still show its own logos ("Which logos: This board's own"). Boards that
+  already had sponsors keep the same look.
+
+### Improvements
+
+- Race control has a Pop out button, like the Timing Screen.
+- Timing Screen: "▦ Show" picks what each window shows (camera buttons,
+  driver list, race log, replay controls) and which columns the driver list
+  has. A popped-out window keeps its own, so it can show just the race log.
+- Hockenheim's Short A and Short B layouts are in the track list.
+- Grid walk: car pictures go much bigger (Car picture size up to 2000%, each
+  row up to 1000%).
+
 ## v0.9.1
 
 ### New features

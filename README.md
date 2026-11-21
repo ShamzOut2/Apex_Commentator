@@ -110,40 +110,28 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**v0.9.1**
+**v1.0.0**
 
 ### New features
 
-- Flags: a safety car (an SC board, "Safety Car") shows by itself while
-  iRacing has a full course caution, and can be sent out by hand (Safety car
-  button on the Flags card, or a hotkey).
-- Grid walk: a fourth position option, class first (P1 GT3, with P3 overall
-  under it).
-- Driver on camera: choose whether it changes with the delay (as the Timing
-  Screen and every other overlay) or as the camera cuts.
+- Championship: your own tracks and layouts. A layout list has "+ Another
+  layout…" to type one in, and Calendar & results has "Your own tracks and
+  layouts" to add a missing track or layout (or take one off). They're kept
+  for every league.
+- Board sponsors in one place: Theme › Board sponsors sets where, which
+  sponsors and how big for every board, with a switch per board. A board can
+  still show its own logos ("Which logos: This board's own"). Boards that
+  already had sponsors keep the same look.
 
 ### Improvements
 
-- League builder, Teams and Championship have their Save button back, with
-  "Unsaved changes" by it; switching league asks before losing changes.
-- Hide all leaves the starting lights and the flags ready: they still come
-  up by themselves at the start and for a yellow.
-
-### Fixes
-
-- Starting grid: Automatic and "as the cars line up" take iRacing's grid as
-  it set it; a reverse number (or a round's Reverse grid) no longer turns it
-  round again. The reverse settings only show for the other sources.
-- Column order (Widget Settings and the widget cards): moving a column twice
-  quickly, or dragging one, is always saved.
-- Qualifying: every driver's best lap on the Timing Screen, as the tower has
-  them (from iRacing's results when its live data has none).
-- New fastest lap flash: no longer seems to split in half as it comes in
-  (the light across it is drawn smoothly, the pill slides in without
-  scaling, and "New fastest lap" is gone before the name and time come in).
-- Pit strategy and pit counts: a stop for meatball repairs counts as a stop,
-  and so does a stop that served a penalty with service at the same time
-  (shown "+SG" / "+DT" on the strategy).
+- Race control has a Pop out button, like the Timing Screen.
+- Timing Screen: "▦ Show" picks what each window shows (camera buttons,
+  driver list, race log, replay controls) and which columns the driver list
+  has. A popped-out window keeps its own, so it can show just the race log.
+- Hockenheim's Short A and Short B layouts are in the track list.
+- Grid walk: car pictures go much bigger (Car picture size up to 2000%, each
+  row up to 1000%).
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -305,6 +293,12 @@ pointing at `http://localhost:8191`, and paste its token and address under
 own, without the tabs, so it can sit on another monitor while the main window
 shows something else. Camera hotkeys work in whichever window has focus.
 
+**▦ Show** (beside it) picks what this window shows: the camera buttons, the
+driver list, the race log and the replay controls (the list or the log stays),
+and which of the driver list's columns (Driver always shows). Each window keeps
+its own, so the main window can keep the full screen while a popped-out one
+shows just the race log, or just the list with a few columns.
+
 - **Standings**: Pos (overall), Cls (position in class, underlined in the class
   colour), **+/−** (places gained or lost since the start, within the class
   when a class is picked), car number, driver and team, lap, gap to the
@@ -448,6 +442,8 @@ The **Race control** tab runs the session from the app. Everything goes to
 iRacing as its admin chat commands, typed into the sim's chat and sent for
 you (no need to press Enter), so you need to be an admin of the session in
 iRacing (the host, or promoted by the host). iRacing must be open on this PC.
+**⧉ Pop out** (top right) opens it in a window of its own, like the Timing
+Screen's.
 
 Along the top:
 - **Clear all penalties** (`!clearall`), after a check that you mean it.
@@ -1437,8 +1433,14 @@ Under *What each board shows*, every board can be set up separately:
 - the league logo in its header;
 - a league banner across the top or bottom or down either side, and which
   banner;
-- the league's sponsor logos along any edge, which sponsors, and their
-  size (*Sponsor logo size*, %; each sponsor's own size on top of it);
+- the league's sponsor logos (*Sponsor logos* on or off). Where they go,
+  which sponsors and how big are set once for every board in **Theme ›
+  Board sponsors**, which also has the on / off switch for each board; one
+  logo change there changes every board. A board can have its own instead
+  (*Which logos*: *This board's own*): along any edge, which sponsors, and
+  their size (*Sponsor logo size*, %; each sponsor's own size on top of it).
+  Boards set up before this keep their look: the sponsors most of them
+  showed became the Theme's, and a board that showed others keeps its own;
 - the board's own columns: car numbers, team names and logos, car badges,
   gaps, wins, penalty points, points from the last few rounds, laps, places
   gained, fastest lap (purple), points scored;

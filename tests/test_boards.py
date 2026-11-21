@@ -87,6 +87,26 @@ class TrackTests(unittest.TestCase):
             hits = TrackCatalogue(f"{tmp}/t.json").search("mock raceway")
             self.assertEqual((hits[0]["id"], hits[0]["config"]), (999, "Grand Prix"))
 
+    def test_your_own_tracks_and_layouts(self):
+        """A track or layout missing from the list, added by hand: in the lists
+        from then on (kept), and taken off again; the built-in ones stay."""
+        hock = lambda t: next(g for g in t.grouped() if g["track"].startswith("Hockenheim"))  # noqa: E731
+        self.assertIn("Short A", [c["config"] for c in hock(TrackCatalogue())["configs"]])
+        with tempfile.TemporaryDirectory() as tmp:
+            t = TrackCatalogue(f"{tmp}/t.json")
+            self.assertFalse(t.add("Hockenheimring Baden-Württemberg", "Short A"))  # already in the list
+            self.assertTrue(t.add("Hockenheimring Baden-Württemberg", "  Club   Loop "))
+            self.assertTrue(t.add("Local Kart Track", ""))
+            again = TrackCatalogue(f"{tmp}/t.json")
+            self.assertIn("Club Loop", [c["config"] for c in hock(again)["configs"]])
+            self.assertEqual(again.status()["custom"], [{"track": "Hockenheimring Baden-Württemberg", "config": "Club Loop"},
+                                                        {"track": "Local Kart Track", "config": ""}])
+            self.assertTrue(again.remove("hockenheimring baden-württemberg", "club loop"))
+            self.assertFalse(again.remove("Hockenheimring Baden-Württemberg", "Grand Prix"))  # not one of yours
+            self.assertNotIn("Club Loop", [c["config"] for c in hock(TrackCatalogue(f"{tmp}/t.json"))["configs"]])
+            with self.assertRaises(ValueError):
+                again.add("  ", "X")
+
 
 class BoardTests(unittest.TestCase):
     def setUp(self):
@@ -148,8 +168,41 @@ class BoardTests(unittest.TestCase):
         lg = league(sponsors=[{"id": "a1", "file": "sponsor-1.png", "name": "Acme"}, {"id": "b2", "file": "sponsor-2.png"}])
         settings = overlay_settings({"board_championship": {"sponsors": "bottom", "sponsor_ids": "b2"}})
         b = boards.build(lg, {"kind": "championship", "params": {}}, settings)
-        self.assertEqual(b["sponsors"], {"place": "bottom", "logos": [{"id": "b2", "name": "", "url": "/api/logos/lg/sponsor-2.png", "scale": 100}]})
+        self.assertEqual(b["sponsors"], {"place": "bottom", "size": 100, "logos": [{"id": "b2", "name": "", "url": "/api/logos/lg/sponsor-2.png", "scale": 100}]})
         self.assertIsNone(boards.build(lg, {"kind": "teams", "params": {}}, settings)["sponsors"])  # off by default
+
+    def test_board_sponsors_set_once(self):
+        lg = league(sponsors=[{"id": "a1", "file": "sponsor-1.png", "name": "Acme"}, {"id": "b2", "file": "sponsor-2.png"}])
+        champ = {"kind": "championship", "params": {}}
+        settings = overlay_settings({"general": {"board_sponsors": "top", "board_sponsor_ids": "a1", "board_sponsor_size": 140},
+                                     "board_championship": {"sponsor_show": True}, "board_teams": {"sponsor_show": False}})
+        self.assertEqual(settings["board_championship"]["sponsor_mode"], "theme")
+        b = boards.build(lg, champ, settings)["sponsors"]
+        self.assertEqual((b["place"], b["size"], [x["id"] for x in b["logos"]]), ("top", 140, ["a1"]))
+        self.assertIsNone(boards.build(lg, {"kind": "teams", "params": {}}, settings)["sponsors"])
+        # One change in the theme: every board on it follows.
+        settings["general"]["board_sponsor_ids"] = "b2"
+        self.assertEqual([x["id"] for x in boards.build(lg, champ, settings)["sponsors"]["logos"]], ["b2"])
+        # A board with its own logos keeps them.
+        settings["board_championship"].update(sponsor_mode="own", sponsors="left", sponsor_ids="a1", sponsor_size=90)
+        b = boards.build(lg, champ, settings)["sponsors"]
+        self.assertEqual((b["place"], b["size"], [x["id"] for x in b["logos"]]), ("left", 90, ["a1"]))
+
+    def test_board_sponsors_from_before(self):
+        # Settings saved before: the most used look becomes the theme's, those boards
+        # follow it, a board with another look keeps its own, a "none" board is off.
+        old = {"general": {"race_decimals": 1},
+               "board_championship": {"sponsors": "bottom", "sponsor_ids": "b2", "sponsor_size": 100},
+               "board_teams": {"sponsors": "bottom", "sponsor_ids": "b2", "sponsor_size": 100},
+               "board_results": {"sponsors": "top", "sponsor_ids": "", "sponsor_size": 120},
+               "board_grid": {"sponsors": "none", "sponsor_ids": "", "sponsor_size": 100}}
+        s = overlay_settings(old)
+        self.assertEqual((s["general"]["board_sponsors"], s["general"]["board_sponsor_ids"]), ("bottom", "b2"))
+        mode = lambda k: (s[k]["sponsor_show"], s[k]["sponsor_mode"])
+        self.assertEqual([mode(k) for k in ("board_championship", "board_teams", "board_results", "board_grid")],
+                         [(True, "theme"), (True, "theme"), (True, "own"), (False, "theme")])
+        self.assertEqual((s["board_results"]["sponsors"], s["board_results"]["sponsor_size"]), ("top", 120))
+        self.assertEqual(overlay_settings(s), s)  # once only
 
     def test_options_and_banner(self):
         opts = boards.options(league())
@@ -273,6 +326,8 @@ class BoardTests(unittest.TestCase):
             app.popout = lambda page, name: opened.append((page, name)) or True
             self.assertEqual(app.command("popout", {"page": "timing"}), {"opened": True})
             self.assertEqual(opened, [("timing", "Timing Screen")])
+            self.assertEqual(app.command("popout", {"page": "racecontrol"}), {"opened": True})
+            self.assertEqual(opened[-1], ("racecontrol", "Race control"))
             with self.assertRaises(CommandError):
                 app.command("popout", {"page": "league"})
 

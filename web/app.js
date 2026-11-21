@@ -755,6 +755,61 @@ $("#timing-cols").addEventListener("click", (e) => {
 });
 applyTimingCols();
 
+// What the Timing Screen shows in this window (each window its own: the app's,
+// and a popped-out one): its parts, and the driver list's columns.
+const TIMING_PARTS = [["cameras", "Camera buttons"], ["list", "Driver list"], ["log", "Race log"], ["replay", "Replay controls"]];
+// The driver list's cells, in order (Driver always shows).
+const TIMING_COLS = [["pos", "Pos"], ["cls", "Class position"], ["chg", "+/− places"], ["num", "Car number"], ["make", "Car make"],
+  ["driver", "Driver"], ["lap", "Lap"], ["gap", "Gap"], ["int", "Interval"], ["last", "Last lap"], ["best", "Best lap"],
+  ["pit", "Pit stops"], ["stint", "Stint"], ["tyre", "Tyre"], ["flag", "Flag"], ["pen", "Penalty"], ["inc", "Incidents"]];
+const SHOW_KEY = `apex.timingShow.${POPOUT === "timing" ? "popout" : "main"}`;
+let timingHide = new Set();
+try {
+  timingHide = new Set(JSON.parse(localStorage.getItem(SHOW_KEY)) || []);
+} catch (e) { /* storage unavailable */ }
+
+function applyTimingShow() {
+  // The driver list or the race log: never neither.
+  if (timingHide.has("list") && timingHide.has("log")) timingHide.delete("list");
+  timingHide.delete("driver");
+  for (const [k] of TIMING_PARTS) $("#tab-timing").classList.toggle(`hide-${k}`, timingHide.has(k));
+  let style = document.getElementById("timing-col-style");
+  if (!style) {
+    style = document.head.appendChild(document.createElement("style"));
+    style.id = "timing-col-style";
+  }
+  style.textContent = TIMING_COLS.map(([k], i) => timingHide.has(k) ? `#std-lists tr > :nth-child(${i + 1}) { display: none; }` : "").join("\n");
+  const tick = ([k, label]) => `<label class="check"><input type="checkbox" data-show="${k}" ${timingHide.has(k) ? "" : "checked"}
+    ${(k === "list" && timingHide.has("log")) || (k === "log" && timingHide.has("list")) ? "disabled" : ""}><span>${esc(label)}</span></label>`;
+  $("#timing-parts").innerHTML = TIMING_PARTS.map(tick).join("");
+  $("#timing-colpick").innerHTML = TIMING_COLS.filter(([k]) => k !== "driver").map(tick).join("");
+  const n = timingHide.size;
+  $("#timing-show > summary").innerHTML = `▦ Show${n ? ` <span class="count">${n} hidden</span>` : ""}`;
+}
+function saveTimingShow() {
+  try {
+    localStorage.setItem(SHOW_KEY, JSON.stringify([...timingHide]));
+  } catch (e) { /* storage unavailable */ }
+  applyTimingShow();
+  updateBattleHints();
+}
+$("#timing-show").addEventListener("change", (e) => {
+  const box = e.target.closest("[data-show]");
+  if (!box) return;
+  if (box.checked) timingHide.delete(box.dataset.show);
+  else timingHide.add(box.dataset.show);
+  saveTimingShow();
+});
+$("#timing-show-all").addEventListener("click", () => {
+  timingHide.clear();
+  saveTimingShow();
+});
+document.addEventListener("click", (e) => {
+  const menu = $("#timing-show");
+  if (menu.open && !menu.contains(e.target)) menu.open = false;
+});
+applyTimingShow();
+
 // -- race log -------------------------------------------------------------------
 
 const LOG_LABELS = {
@@ -1974,25 +2029,52 @@ function lengthField(rd, i) {
       `<option value="${v}" ${unit === v ? "selected" : ""}>${l}</option>`).join("")}</select></span>`;
 }
 
-function configField(rd, attrs) {
+// A round's own (``other``): "+ Another layout…" at the end, to type one the
+// list hasn't got (remembered for next time, Your own tracks).
+function configField(rd, attrs, other = false) {
   const g = trackGroup(rd.track);
-  if (!g) {
-    return `<input ${attrs} value="${esc(rd.config || "")}" placeholder="Configuration" aria-label="Configuration">`;
+  if (!g || rd._typing) {
+    return `<input ${attrs} value="${esc(rd.config || "")}" placeholder="${rd._typing ? "Type the layout" : "Configuration"}" aria-label="Configuration">`;
   }
   const configs = g.configs.map((c) => c.config);
   const current = rd.config || "";
   const extra = current && !configs.includes(current) ? `<option selected>${esc(current)}</option>`
     : !current && !configs.includes("") ? '<option value="" selected>Pick a layout</option>' : "";
   return `<select ${attrs} aria-label="Configuration">${extra}${configs.map((c) =>
-    `<option value="${esc(c)}" ${c === current ? "selected" : ""}>${esc(c || "(one layout)")}</option>`).join("")}</select>`;
+    `<option value="${esc(c)}" ${c === current ? "selected" : ""}>${esc(c || "(one layout)")}</option>`).join("")}${other
+    ? '<option value="__other__">＋ Another layout…</option>' : ""}</select>`;
+}
+
+// A track or layout typed in that the list hasn't got: kept as one of yours.
+async function rememberTrack(track, config) {
+  track = String(track || "").trim();
+  config = String(config || "").trim();
+  if (!track) return;
+  const g = trackGroup(track);
+  if (g && g.configs.some((c) => c.config === config)) return;
+  try {
+    const r = await api("/api/tracks", { method: "POST", body: { track, config } });
+    if (r.added) toast(`${track}${config ? ` · ${config}` : ""} added to your tracks`);
+    trackList.groups = r.tracks;
+    trackList.status = r;
+    $("#track-names").innerHTML = r.tracks.map((x) => `<option value="${esc(x.track)}"></option>`).join("");
+    renderTrackStatus();
+  } catch (err) {
+    toast(err.message, true);
+  }
 }
 
 function renderTrackStatus() {
   const st = trackList.status;
   if (!st) return;
+  // Your own tracks and layouts, each with ✕ to take it off again.
+  const mine = st.custom || [];
+  $("#mt-list").innerHTML = mine.length ? mine.map((t) => `<li><span>${esc(t.track)}${t.config ? ` · ${esc(t.config)}` : ""}</span>
+      <button type="button" class="btn icon danger" data-mt-remove="${esc(JSON.stringify([t.track, t.config]))}" title="Take it off the list" aria-label="Remove">✕</button></li>`).join("")
+    : '<li class="hint">None yet. Add a track or layout the list hasn\'t got (or type one into a round: it\'s kept here).</li>';
   $("#track-source").textContent = st.official
-    ? `${st.official} official layouts from iRacing${st.seen ? `, plus ${st.seen} seen in sessions` : ""}. A track not in the list can be typed in.`
-    : `Built-in list of iRacing tracks${st.seen ? `, plus ${st.seen} layouts seen in sessions` : ""}. A track not in the list can be typed in.`;
+    ? `${st.official} official layouts from iRacing${st.seen ? `, plus ${st.seen} seen in sessions` : ""}. A track or layout not in the list can be typed in (or added under Your own tracks).`
+    : `Built-in list of iRacing tracks${st.seen ? `, plus ${st.seen} layouts seen in sessions` : ""}. A track or layout not in the list can be typed in (or added under Your own tracks).`;
 }
 
 function renderChampRounds() {
@@ -2010,7 +2092,7 @@ function renderChampRounds() {
         <span class="round-num">R${i + 1}</span>
         <input data-round="${i}" data-rkey="name" value="${esc(rd.name)}" placeholder="Round name" aria-label="Round name">
         <input data-round="${i}" data-rkey="track" class="track-input" list="track-names" value="${esc(rd.track || "")}" placeholder="Track (type to search)" aria-label="Track">
-        ${configField(rd, `data-round="${i}" data-rkey="config"`)}
+        ${configField(rd, `data-round="${i}" data-rkey="config"`, true)}
         <input type="date" data-round="${i}" data-rkey="date" value="${esc(rd.date || "")}" aria-label="Date">
         <input type="time" data-round="${i}" data-rkey="time" value="${esc(rd.time || "")}" aria-label="Start time" title="Start time">
         ${lengthField(rd, i)}
@@ -2399,10 +2481,23 @@ function champChange(e, final) {
         toast(`Same date set on ${filled.length === 1 ? "the meeting's other race" : `the meeting's other ${filled.length} races`}`);
       }
     }
+    if (d.rkey === "config" && el.value === "__other__") {
+      // + Another layout…: a box to type it in.
+      rd.config = "";
+      rd._typing = true;
+      renderChampionship();
+      const box = document.querySelector(`[data-round="${d.round}"][data-rkey="config"]`);
+      if (box) box.focus();
+      return;
+    }
     if (d.rkey === "track" || d.rkey === "config") {
       // A known track: its layouts fill the Configuration list.
       const g = trackGroup(rd.track);
-      if (g && d.rkey === "track" && final) rd.config = g.configs[0].config;
+      if (g && d.rkey === "track" && final && !rd._typing) rd.config = g.configs[0].config;
+      // Typed in and not in the list: remembered (Your own tracks).
+      if (final && el.tagName === "INPUT" && rd.track && (d.rkey === "config" || (!g && rd.config))) {
+        rememberTrack(rd.track, rd.config).then(() => { delete rd._typing; renderChampionship(); });
+      }
       const layout = g && g.configs.find((x) => x.config === rd.config);
       rd.track_id = layout ? layout.id : null;
       if (final) rerender = true;
@@ -3078,6 +3173,13 @@ const OVERLAY_FIELDS = {
       ["theme_team_logo_kind", "Team logo", "select", [["full", "Full logo"], ["small", "Small logo"]]],
       ["theme_bg_opacity", "Panel opacity (%; low lets the race show through)", "number", { min: 0, max: 100, step: 5 }],
     ]],
+    ["Board sponsors", [
+      ["note", "Set once, for every board: a board shows these unless it's given its own logos (on its page, Logo, banner & sponsors).", "note"],
+      ["board_sponsor_list", "Shown on", "boardsponsors"],
+      ["board_sponsors", "Where", "select", [["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"], ["right", "Down the right"]]],
+      ["board_sponsor_ids", "Which sponsors", "sponsors"],
+      ["board_sponsor_size", "Sponsor logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }],
+    ]],
     ["Gaps & intervals", [
       ["race_decimals", "Decimal places: live race gaps and intervals (tower, timing screen, Timing tab)", "number", { min: 0, max: 3 }],
       ["qual_decimals", "Decimal places: qualifying, the lap tracker, the grid and results boards", "number", { min: 1, max: 3 }],
@@ -3137,12 +3239,12 @@ const OVERLAY_FIELDS = {
       iff((v) => v.qual_shown !== "none", ["track_qual", "Also painted on the track, under each box's number", "bool"]),
       ["show_status", "NOT ON TRACK / NOT IN SESSION tag", "bool"],
       ["card_scale", "Card size (%; 100 = usual)", "number", { min: 40, max: 200, step: 5 }]]],
-    ["Car pictures", [["car_scale", "Car picture size (%; 100 = usual, up to 600)", "number", { min: 40, max: 600, step: 5 }],
-      ["car_scale_top", "Top row of cars (P1, P3…): size (% of the above, up to 400)", "number", { min: 40, max: 400, step: 5 }],
+    ["Car pictures", [["car_scale", "Car picture size (%; 100 = usual, up to 2000)", "number", { min: 40, max: 2000, step: 5 }],
+      ["car_scale_top", "Top row of cars (P1, P3…): size (% of the above, up to 1000)", "number", { min: 40, max: 1000, step: 5 }],
       ["car_top_x", "Top row: move right (px; minus moves left)", "number", { min: -1920, max: 1920, step: 5 }],
       ["car_top_y", "Top row: move down (px; minus moves up)", "number", { min: -1080, max: 1080, step: 5 }],
       ["car_top_rotate", "Top row: turn the pictures (degrees; plus is clockwise) to line up with the boxes", "number", { min: -45, max: 45, step: 0.5 }],
-      ["car_scale_bottom", "Bottom row of cars (P2, P4…): size (% of the above, up to 400)", "number", { min: 40, max: 400, step: 5 }],
+      ["car_scale_bottom", "Bottom row of cars (P2, P4…): size (% of the above, up to 1000)", "number", { min: 40, max: 1000, step: 5 }],
       ["car_bottom_x", "Bottom row: move right (px; minus moves left)", "number", { min: -1920, max: 1920, step: 5 }],
       ["car_bottom_y", "Bottom row: move down (px; minus moves up)", "number", { min: -1080, max: 1080, step: 5 }],
       ["car_bottom_rotate", "Bottom row: turn the pictures (degrees; plus is clockwise)", "number", { min: -45, max: 45, step: 0.5 }],
@@ -3356,6 +3458,22 @@ document.addEventListener("change", async (e) => {
   }
 });
 
+// The Theme's Board sponsors: each board's sponsor logos on / off, and which
+// of them have logos of their own instead of these (a link to that board).
+function boardSponsorList(s) {
+  const all = (s.overlays && s.overlays.settings) || {};
+  return `<div class="ov-field wide bsp-list">${labelHtml("Shown on (each board can also be switched on its own page)")}<div>${Object.entries(BOARD_SECTION_NAMES).map(([k, name]) => {
+    const b = all[k] || {};
+    return `<div class="bsp-row"><label class="check"><span class="switch"><input type="checkbox" role="switch" data-bsp="${k}" ${b.sponsor_show ? "checked" : ""}
+      aria-label="Sponsor logos on ${esc(name)}"><i aria-hidden="true"></i></span><span>${esc(name)}</span></label>${b.sponsor_show && b.sponsor_mode === "own"
+      ? `<button type="button" class="link" data-open-ws="${k}" data-open-ws-section="Logo, banner & sponsors" title="This board shows logos of its own, not these">its own logos</button>` : ""}</div>`;
+  }).join("")}</div></div>`;
+}
+document.addEventListener("change", (e) => {
+  const box = e.target.closest("[data-bsp]");
+  if (box) cmd("overlay_settings", { overlay: box.dataset.bsp, values: { sponsor_show: box.checked } });
+});
+
 // Tick boxes for which of the league's sponsors to show ("" = all, "none" = none).
 function sponsorPicker(sponsors, value, key = "sponsor_ids", label = "Sponsors") {
   if (!sponsors.length) return '<p class="hint">No sponsor logos in the active league yet (League builder).</p>';
@@ -3429,6 +3547,10 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   const v = values[k];
   const attrs = `data-key="${k}" data-kind="${kind === "banner" || kind === "class" || kind === "sponsor" ? "select" : kind}"`;
   if (kind === "note") return `<p class="hint ov-field wide">${esc(label)}</p>`;
+  if (kind === "bsptheme") {
+    return `<p class="hint ov-field wide">${esc(label)} <button type="button" class="link" data-open-ws="general" data-open-ws-section="Board sponsors">Theme › Board sponsors</button></p>`;
+  }
+  if (kind === "boardsponsors") return boardSponsorList(s);
   if (kind === "background") return backgroundFields(section, values);
   if (kind === "size") return sizeField(v, values);
   if (kind === "order") return orderField(k, label, v, opts, values);
@@ -3708,15 +3830,20 @@ document.addEventListener("change", (e) => {
 // boards: the full-screen championship, calendar and results screens
 // ---------------------------------------------------------------------------
 
+// Where a board's sponsor logos go.
+const SPONSOR_PLACES = [["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"], ["right", "Down the right"]];
+
 // Every board: the league logo in its header, and a banner where (and which).
 const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   ["banner", "Banner", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"], ["left", "Down the left"],
     ["right", "Down the right"]]],
   iff((v) => v.banner !== "none", ["banner_id", "Which banner", "banner"]),
-  ["sponsors", "Sponsor logos", "select", [["none", "None"], ["top", "Across the top"], ["bottom", "Across the bottom"],
-    ["left", "Down the left"], ["right", "Down the right"]]],
-  iff((v) => v.sponsors !== "none", ["sponsor_ids", "Which sponsors", "sponsors"]),
-  iff((v) => v.sponsors !== "none", ["sponsor_size", "Sponsor logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]),
+  ["sponsor_show", "Sponsor logos", "bool"],
+  iff((v) => v.sponsor_show, ["sponsor_mode", "Which logos", "select", [["theme", "The boards' sponsors"], ["own", "This board's own"]]]),
+  iff((v) => v.sponsor_show && v.sponsor_mode !== "own", ["bsp_theme", "Where, which and how big: set once for every board in", "bsptheme"]),
+  iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsors", "Where", "select", SPONSOR_PLACES]),
+  iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsor_ids", "Which sponsors", "sponsors"]),
+  iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsor_size", "Sponsor logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]),
   ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"],
   ["show_league", "League name in the header", "bool"],
   ["accent", "Accent colour (the line under the header…)", "select", [["default", "The championship's class colour (else orange)"],
@@ -4031,7 +4158,7 @@ const WS_ESSENTIAL = new Set(["mode", "class_keys", "rows", "rows_class", "name_
   "show_position", "position_shown", "show_gap", "show_interval", "place", "title", "scale", "offset_x", "offset_y", "bg", "accent",
   "accent_color", "league_logo", "banner", "sponsors", "visible", "auto", "stay", "hide_s", "count", "who", "race_only", "style",
   "show_date", "show_winners", "grid_source", "reverse_top", "grid_layout", "grid_reveal", "units", "show_map", "show_air",
-  "show_track_temp", "show_wind", "follow", "sponsor_ids", "anchor_id", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
+  "show_track_temp", "show_wind", "follow", "sponsor_ids", "anchor_id", "sponsor_show", "sponsor_mode", "bsp_theme", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
   "order", "show_stops", "show_penalties", "colors", "labels", "map_size", "start_from", "auto_yellow", "qual_shown", "card_scale",
   "car_scale", "show_points", "show_drivers", "show_wins", "header_info", "column_order", "show_series", "show_track", "sponsor_bar", "show_pos_change",
   "show_pits", "reveal", "replay_header", "fl_flash", "finish_flag", "gap_to", "show_race_points"]);
@@ -4834,7 +4961,8 @@ document.addEventListener("click", async (e) => {
 });
 if (POPOUT) {
   document.body.classList.add("popout");
-  document.title = `${POPOUT[0].toUpperCase()}${POPOUT.slice(1)} – Apex Commentator`;
+  const names = { timing: "Timing Screen", widgets: "Widgets", racecontrol: "Race control" };
+  document.title = `${names[POPOUT] || POPOUT[0].toUpperCase() + POPOUT.slice(1)} – Apex Commentator`;
 }
 showPage(POPOUT || (() => {
   try {
@@ -6314,7 +6442,7 @@ document.addEventListener("click", (e) => {
 // A button that opens a widget's settings (data-open-ws="key").
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-open-ws]");
-  if (b) openWidgetSettings(b.dataset.openWs);
+  if (b) openWidgetSettings(b.dataset.openWs, b.dataset.openWsSection || null);
 });
 
 // ---- Search (Ctrl+K): a tab, a setting, a driver to watch, or something to do --
@@ -6499,4 +6627,28 @@ $("#ws-frame").addEventListener("load", () => {
     style.textContent = "body { cursor: pointer; }";
     doc.head.appendChild(style);
   } catch (err) { /* another origin: no clicks */ }
+});
+
+// Championship › Your own tracks and layouts: add one, take one off.
+$("#mt-add").addEventListener("click", async () => {
+  const track = $("#mt-track").value.trim();
+  if (!track) return toast("Type the track's name", true);
+  await rememberTrack(track, $("#mt-config").value);
+  $("#mt-config").value = "";
+  if (champ.view === "rounds") renderChampRounds();
+});
+$("#mt-list").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-mt-remove]");
+  if (!b) return;
+  const [track, config] = JSON.parse(b.dataset.mtRemove);
+  try {
+    const r = await api("/api/tracks", { method: "POST", body: { track, config, remove: true } });
+    trackList.groups = r.tracks;
+    trackList.status = r;
+    $("#track-names").innerHTML = r.tracks.map((x) => `<option value="${esc(x.track)}"></option>`).join("");
+    renderTrackStatus();
+    if (champ.view === "rounds") renderChampRounds();
+  } catch (err) {
+    toast(err.message, true);
+  }
 });

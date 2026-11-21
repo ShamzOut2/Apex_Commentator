@@ -339,7 +339,7 @@ function render(snap) {
   } else if (b.kind === "grid" && b.settings.grid_layout === "grid") {
     // Fewer drivers on screen: bigger slots (and everything in them).
     const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
-      - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? Math.round(30 + 80 * (+b.settings.sponsor_size || 100) / 100) : 0);
+      - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? Math.round(30 + 80 * (+b.sponsors.size || 100) / 100) : 0);
     const pairs = Math.max(1, Math.ceil(Math.max(b.rows.length, +b.settings.rows || 1) / 2));
     // Filling the page (grid_fill) as they come, however few; then the size picked by hand.
     const fit = Math.floor((space - 10 * (pairs - 1)) / (pairs + 0.6));
@@ -350,7 +350,7 @@ function render(snap) {
   } else {
     // Long lists go into two columns rather than shrinking past readable.
     const space = ROW_SPACE - (b.banner && b.banner.orientation === "horizontal" ? 150 : 0)
-      - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? Math.round(30 + 80 * (+b.settings.sponsor_size || 100) / 100) : 0);
+      - (b.sponsors && (b.sponsors.place === "top" || b.sponsors.place === "bottom") ? Math.round(30 + 80 * (+b.sponsors.size || 100) / 100) : 0);
     const cols = columns(b);
     const split = b.rows.length > 20 ? 2 : 1;
     // The starting grid: fewer drivers on screen, bigger name plates.
@@ -372,7 +372,7 @@ function render(snap) {
     if (b.banner && b.banner.place === place) parts.push(`<div class="banner ${b.banner.orientation}"><img src="${esc(b.banner.url)}" alt=""></div>`);
     if (b.sponsors && b.sponsors.place === place) {
       // The board's sponsor logo size (sponsor_size, %) times each logo's own scale.
-      parts.push(`<div class="sponsors" style="--sp-size:${(+b.settings.sponsor_size || 100) / 100}">${b.sponsors.logos.map((l) =>
+      parts.push(`<div class="sponsors" style="--sp-size:${(+b.sponsors.size || 100) / 100}">${b.sponsors.logos.map((l) =>
         `<img src="${esc(l.url)}" alt="${esc(l.name)}" style="--k:${(l.scale || 100) / 100}">`).join("")}</div>`);
     }
     if (!parts.length) return "";

@@ -320,6 +320,18 @@ kbd {
   flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
   gap: 12px; padding: 8px 12px;
 }
+.cam-bar .cam-tools { margin-left: auto; }
+/* What this window shows (▦ Show). */
+#tab-timing.hide-cameras #cam-buttons, #tab-timing.hide-cameras #cam-sync, #tab-timing.hide-cameras .cam-ctl,
+#tab-timing.hide-replay .media-bar, #tab-timing.hide-list .standings-pane, #tab-timing.hide-log .log-pane { display: none; }
+#tab-timing.hide-list .timing-body, #tab-timing.hide-log .timing-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.show-pop { width: 380px; }
+.show-pop .vhead { margin: 0; padding: 10px 14px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.show-pop .vhead small { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.show-ticks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 4px 14px 10px; }
+.show-ticks label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+.show-ticks input:disabled + span { color: var(--muted); }
+.rc-popout { margin-left: auto; }
 .standings-pane, .log-pane { display: flex; flex-direction: column; min-height: 0; }
 .table-scroll, .race-log { flex: 1; min-height: 0; overflow: auto; }
 .battle-settings { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 12px; align-items: center; min-width: 0; }
@@ -621,6 +633,10 @@ kbd {
 .sponsor-pick > div { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; }
 .sponsor-pick label { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; }
 .sponsor-pick img { height: 20px; max-width: 60px; object-fit: contain; }
+.bsp-list > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 18px; margin-top: 6px; }
+.bsp-row { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.bsp-row label.check { display: inline-flex; align-items: center; gap: 8px; font-weight: 400; }
+.bsp-row .link { font-size: 12px; }
 .banner-fields { display: flex; flex-direction: column; gap: 6px; }
 .banner-fields input { width: 160px; }
 .round-head .track-input { width: 240px; }
@@ -1288,3 +1304,7 @@ input[type="color"] { padding: 2px; cursor: pointer; }
 .unsaved::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
 .unsaved[hidden] { display: none; }
 #wflag-sc.lit { background: #ffd23f; color: #15130a; border-color: #ffd23f; }
+/* Championship › Your own tracks and layouts. */
+.mt-list { list-style: none; margin: 8px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.mt-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
+.mt-list li.hint { border: 0; background: none; padding: 0; }
