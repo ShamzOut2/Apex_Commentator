@@ -579,6 +579,16 @@ class TeamAndMakeDropTests(unittest.TestCase):
         d1 = next(d for g in table["groups"] for d in g["drivers"] if d["driver"] == "cust:1")
         self.assertEqual(d1["points"], 20)  # 10 + 4 + 10, the 4 dropped
         del profile["championship"]["rules"]["team_drops"]
+        # The drivers' drop rounds: each driver's dropped round brings the team nothing
+        # (d1 and d2 drop R2, d3 R1, d4 its first 3-point round, R1).
+        profile["championship"]["rules"]["team_drop_mode"] = "drivers"
+        teams = {t["team"]: t for t in ch.standings(profile)["teams"]}
+        self.assertEqual([r["points"] for r in teams["Red"]["rounds"]], [16, 0, 14])
+        self.assertEqual([r["points"] for r in teams["Blue"]["rounds"]], [0, 16, 9])
+        self.assertEqual([r["dropped"] for r in teams["Blue"]["rounds"]], [False] * 3)
+        self.assertEqual({d["driver"]: d["points"] for d in teams["Blue"]["drivers"]}, {"cust:3": 16, "cust:4": 9})
+        self.assertEqual(ch.normalise_rules({"team_drops": False})["team_drop_mode"], "none")  # older saves
+        del profile["championship"]["rules"]["team_drop_mode"]
         # No drop rounds: everything counts.
         profile["championship"]["rules"]["drop_rounds"] = 0
         self.assertEqual({m["make"]: m["points"] for m in ch.make_standings(profile, "gt3")}, {"Ferrari": 37, "BMW": 32})

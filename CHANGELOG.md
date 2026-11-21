@@ -21,6 +21,12 @@ How each version's entry is written:
 - Championship: Clear results on each race, to take its results off and import
   or type them again.
 
+### Improvements
+
+- Team championship drop rounds: choose the team's own (its worst rounds
+  don't count) or the drivers' (each driver's dropped rounds don't count for
+  the team), or none.
+
 ### Fixes
 
 - Drivers short of the race distance (Must complete this % of the race) no

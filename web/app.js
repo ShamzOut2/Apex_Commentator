@@ -2326,7 +2326,10 @@ function renderChampRules() {
     ${r.team_best ? `<label class="ov-field">How many of its drivers count (the best N)
       <input type="number" min="1" max="20" data-rule="team_best" value="${r.team_best}"></label>` : ""}
     <label class="ov-field check" title="A race meeting (heats, a sprint and a feature…) counts as one for the teams: each driver's points over the meeting added up, and the team's best N over the meeting count"><input type="checkbox" data-rule="team_meetings" ${r.team_meetings ? "checked" : ""}> Teams: a race meeting counts as one (the best N over the whole meeting)</label>
-    ${r.drop_rounds > 0 ? `<label class="ov-field check" title="Off: every round counts for the teams, the drop rounds only for the drivers"><input type="checkbox" data-rule="team_drops" ${r.team_drops !== false ? "checked" : ""}> Teams: drop rounds apply to the teams too (untick: every round counts for them)</label>` : ""}
+    ${r.drop_rounds > 0 ? `<label class="ov-field">Teams: drop rounds
+      <select data-rule="team_drop_mode" title="The team's own: the team's worst rounds don't count. The drivers': each driver's dropped rounds don't count for their team. None: every round counts for the teams">${[
+        ["team", "The team's own worst rounds"], ["drivers", "Each driver's dropped rounds"], ["none", "None (every round counts)"]].map(([v, l]) =>
+        `<option value="${v}" ${(r.team_drop_mode || (r.team_drops === false ? "none" : "team")) === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
     ${r.scoring === "both" ? `<label class="ov-field">Team championship counts its drivers'
       <select data-rule="team_points">${[["overall", "Overall points"], ["class", "Class points"]].map(([v, l]) =>
         `<option value="${v}" ${(r.team_points || "overall") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}

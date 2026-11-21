@@ -120,6 +120,12 @@ starting grid", "Clear all penalties"…).
 - Championship: Clear results on each race, to take its results off and import
   or type them again.
 
+### Improvements
+
+- Team championship drop rounds: choose the team's own (its worst rounds
+  don't count) or the drivers' (each driver's dropped rounds don't count for
+  the team), or none.
+
 ### Fixes
 
 - Drivers short of the race distance (Must complete this % of the race) no
@@ -1551,9 +1557,15 @@ standings update from what's saved.
     and a feature…) are added up and the team's best N over the whole meeting
     count. With *Both*, teams count their drivers' overall points, or class
     points if you choose. Secondary classes never count for teams. With
-    drop rounds set, a team's worst rounds drop too, unless you untick
-    **Teams: drop rounds apply to the teams too**: then every round counts
-    for the teams, and the drop rounds are the drivers' only.
+    drop rounds set, **Teams: drop rounds** picks how they apply to the
+    teams:
+    - **The team's own**: the team's worst rounds (its total for the round)
+      don't count.
+    - **The drivers'**: each driver's dropped rounds don't count for their
+      team, so the team adds up only what counts for its drivers. A team can
+      then have points from every round, less what each driver dropped.
+    - **None**: every round counts for the teams, and the drop rounds are the
+      drivers' only.
   - **A driver changing team mid-season**: each race result keeps the team
     the driver raced for (saved with the results, from the roster at the
     time). Change their team (League builder or Teams) after they've raced

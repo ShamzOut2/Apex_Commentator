@@ -54,6 +54,7 @@ STATUSES = ("finished", "dnf", "dsq", "dns")
 SCORING = ("class", "overall", "both", "sum", "overall_class")
 SECONDARY_SCORING = ("own", "class", "overall")
 OVERALL = "overall"  # the key of the overall championship
+TEAM_DROP_MODES = ("team", "drivers", "none")
 
 DEFAULT_RULES = {
     "points": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
@@ -79,7 +80,11 @@ DEFAULT_RULES = {
     "dnf_scores": True,         # a DNF still scores the points for where it was classified
     "team_best": 0,             # team championship: best N drivers per team per round (0 = all, added together)
     "team_meetings": False,     # a race meeting's races as one: the best N over the meeting (their points added up)
-    "team_drops": True,         # the drop rounds apply to the teams too (off: every round counts for them)
+    # How the drop rounds apply to the teams: "team" (the team's own worst rounds
+    # don't count), "drivers" (each driver's dropped rounds don't count for the
+    # team: the team adds up what counts for its drivers) or "none" (every round).
+    "team_drop_mode": "team",
+    "team_drops": True,         # older saves: False = "none"
     "team_points": "overall",   # "both": teams score their drivers' "overall" or "class" points
 }
 
@@ -153,7 +158,8 @@ def normalise_rules(rules):
         "dnf_scores": True,
         "team_best": _num(rules.get("team_best"), 0, lo=0, hi=20, cast=int),
         "team_meetings": bool(rules.get("team_meetings")),
-        "team_drops": bool(rules.get("team_drops", True)),
+        "team_drop_mode": (rules.get("team_drop_mode") if rules.get("team_drop_mode") in TEAM_DROP_MODES
+                           else "team" if rules.get("team_drops", True) else "none"),
         "team_points": "class" if rules.get("team_points") == "class" else "overall",
     }
 
@@ -733,6 +739,17 @@ def _team_standings(profile, scored, per_round, rules, penalties):
     rounds, wins, by_round = {}, {}, {}
     # Each round on its own, or (team_meetings) a race meeting's races as one:
     # the drivers that count are picked on what they scored over the meeting.
+    # Drop rounds by driver: each driver's worst rounds (on the points that count
+    # for their team) bring the team nothing.
+    driver_drops = {}
+    if rules["team_drop_mode"] == "drivers":
+        mine = {}
+        for rd in scored:
+            for r in rd["results"]:
+                res = per_round[rd["id"]].get(_team_group(r, rules), {}).get(r["driver"])
+                if res:
+                    mine.setdefault(r["driver"], {})[rd["id"]] = res["total"]
+        driver_drops = {d: _dropped(scored, pts, rules) for d, pts in mine.items()}
     units = []
     for rd in scored:
         if rules["team_meetings"] and rd.get("event") and units and units[-1][0] == rd["event"]:
@@ -748,7 +765,8 @@ def _team_standings(profile, scored, per_round, rules, penalties):
                 team = (r.get("team") or (roster.get(r["driver"]) or {}).get("team") or "").strip()
                 res = per_round[rd["id"]].get(_team_group(r, rules), {}).get(r["driver"])
                 if team and res and team.lower() not in left_out:
-                    per_team.setdefault(team, {}).setdefault(r["driver"], {})[rd["id"]] = (res["total"], res["rank"])
+                    total = 0 if rd["id"] in driver_drops.get(r["driver"], ()) else res["total"]
+                    per_team.setdefault(team, {}).setdefault(r["driver"], {})[rd["id"]] = (total, res["rank"])
         for team, drivers in per_team.items():
             # Best N (by their points over the unit), or all of them added together.
             ranked_drivers = sorted(drivers, key=lambda d: -sum(p for p, _ in drivers[d].values()))
@@ -762,11 +780,11 @@ def _team_standings(profile, scored, per_round, rules, penalties):
                 for total, driver in got:
                     m = by_round.setdefault(team, {}).setdefault(rd["id"], {})
                     m[driver] = m.get(driver, 0) + total
-    # Drop rounds: a team's worst rounds don't count (nor what its drivers scored
-    # in them), unless the teams count every round (team_drops off).
+    # Drop rounds (team_drop_mode "team"): a team's worst rounds don't count (nor
+    # what its drivers scored in them).
     totals, members, dropped = {}, {}, {}
     for team, per in rounds.items():
-        dropped[team] = _dropped(scored, per, rules) if rules["team_drops"] else set()
+        dropped[team] = _dropped(scored, per, rules) if rules["team_drop_mode"] == "team" else set()
         totals[team] = sum(p for rid, p in per.items() if rid not in dropped[team])
         for rid, scores in by_round.get(team, {}).items():
             if rid in dropped[team]:
