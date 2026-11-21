@@ -332,6 +332,8 @@ kbd {
 .show-ticks label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
 .show-ticks input:disabled + span { color: var(--muted); }
 .rc-popout { margin-left: auto; }
+.tag.pen-time { margin-left: 6px; background: rgba(255, 80, 80, .16); color: var(--bad, #ff6b6b); }
+.bad-input { border-color: var(--bad, #ff6b6b) !important; }
 .standings-pane, .log-pane { display: flex; flex-direction: column; min-height: 0; }
 .table-scroll, .race-log { flex: 1; min-height: 0; overflow: auto; }
 .battle-settings { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 12px; align-items: center; min-width: 0; }

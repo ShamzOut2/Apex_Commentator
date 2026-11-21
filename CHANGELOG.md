@@ -11,6 +11,32 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v1.0.1
+
+### New features
+
+- Championship time penalties: Penalties has a Time (s) column. The seconds go
+  on the driver's race time in that round, the finishing order is put right and
+  the points follow it.
+- Championship: Clear results on each race, to take its results off and import
+  or type them again.
+
+### Improvements
+
+- Team championship drop rounds: choose the team's own (its worst rounds
+  don't count) or the drivers' (each driver's dropped rounds don't count for
+  the team), or none.
+
+### Fixes
+
+- Grid walk: car pictures now really get bigger with Car picture size (they
+  stopped at the picture file's own size, around 200%). The most is 600% again
+  (each row up to 400%).
+- Drivers short of the race distance (Must complete this % of the race) no
+  longer get points, or show points on the finishing order board, for a race
+  shown straight from the iRacing event. The "DNFs score the points for where
+  they're classified" box is gone: the race distance decides who scores.
+
 ## v1.0.0
 
 ### New features

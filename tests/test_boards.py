@@ -153,6 +153,18 @@ class BoardTests(unittest.TestCase):
         self.assertEqual((b["round_names"], b["rows"][0]["rounds"]), (["R1"], [16]))
         self.assertTrue(boards.options(league())["has_teams"])
 
+    def test_live_race_result_short_of_the_distance_scores_nothing(self):
+        lg = league()
+        lg["championship"]["rules"]["classified_pct"] = 75
+        results = [ch.normalise_result(r) for r in (res("cust:1", 1, "pro"), res("cust:2", 2, "pro", laps=5))]  # 5 of 10 laps
+        board = {"kind": "results", "params": {"round": "live", "group": "pro"}}
+        over = boards.build(lg, board, overlay_settings({}), {"name": "Race", "race": True, "results": results, "over": True})
+        self.assertEqual([(r["driver"], r["points"], r["status"]) for r in over["rows"]],
+                         [("cust:1", 10, "finished"), ("cust:2", None, "dnf")])
+        # Mid-race (not over yet): nobody has covered the distance, everyone where they are.
+        running = boards.build(lg, board, overlay_settings({}), {"name": "Race", "race": True, "results": results, "over": False})
+        self.assertEqual([r["points"] for r in running["rows"]], [10, 6])
+
     def test_sponsors(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = LeagueStore(tmp)

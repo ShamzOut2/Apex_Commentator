@@ -2087,6 +2087,9 @@ function renderChampRounds() {
     const pts = roundPoints(rd.id);
     const classIds = [...new Set([...classes.filter((x) => !isSecondary(x)).map((x) => x.id), ...(rd.results || []).map((r) => r.class_id).filter(Boolean)])];
     const results = (rd.results || []).map((r, j) => [r, j]).sort((a, b) => (a[0].position || 999) - (b[0].position || 999));
+    // Time penalties for this race (Penalties): the finishing order and points take them into account.
+    const timePen = {};
+    for (const p of c.penalties || []) if (p.round_id === rd.id && +p.seconds > 0) timePen[p.driver] = (timePen[p.driver] || 0) + +p.seconds;
     return `<div class="round-card ${open ? "open" : ""}">
       <div class="round-head">
         <span class="round-num">R${i + 1}</span>
@@ -2109,6 +2112,7 @@ function renderChampRounds() {
         <button class="btn" data-round-toggle="${esc(rd.id)}">${open ? "Close" : "Results"}</button>
         <button class="btn" data-round-import="${i}" title="Fill this round with the results of the race session you're in">⤓ Import from session</button>
         ${rd.event ? "" : `<button class="btn subtle" data-round-meeting="${i}" title="Make this round a race meeting of several races (heat races, say), each a round of its own. Its results stay with the first race.">⇉ Race meeting</button>`}
+        ${(rd.results || []).length ? `<button class="btn subtle" data-round-clear="${i}" title="Take this race's results off: the round stays, to import or type them again">⌫ Clear results</button>` : ""}
         <button class="btn icon danger" data-round-delete="${i}" title="Delete round">✕</button>
       </div>
       ${open ? `<div class="row transfer-row"><span class="hint">This round's results:</span>
@@ -2119,7 +2123,8 @@ function renderChampRounds() {
       <div class="table-scroll"><table class="grid champ-table results-table">
         <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Class</th><th class="c-num">Start</th><th class="c-num">Laps</th><th class="c-num">Led</th><th>Fastest lap</th><th class="c-num">Inc</th><th>Status</th><th class="c-num" title="Extra points given (+) or taken (−) for this round">+/− pts</th><th class="c-num" title="Points scored in each championship (after saving)">Pts</th><th></th></tr></thead>
         <tbody>${results.map(([r, j]) => `<tr>
-          <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"></td>
+          <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="position" value="${r.position ?? ""}"
+            title="Where they crossed the line">${timePen[r.driver] ? `<span class="tag pen-time" title="Time penalty (Penalties): the finishing order and points take it into account">+${fmtPts(timePen[r.driver])} s</span>` : ""}</td>
           <td><select data-round="${i}" data-res="${j}" data-key="driver">${rosterOptions(r.driver, r.name)}</select></td>
           <td><select data-round="${i}" data-res="${j}" data-key="class_id"><option value="">—</option>${classIds.map((id) => `<option value="${esc(id)}" ${id === r.class_id ? "selected" : ""}>${esc(champClassName(id))}</option>`).join("")}</select></td>
           <td><input type="number" class="c-num" min="1" data-round="${i}" data-res="${j}" data-key="start_position" value="${r.start_position ?? ""}"></td>
@@ -2214,11 +2219,13 @@ function renderChampPenalties() {
       <td><select data-pen="${i}" data-key="driver">${rosterOptions(p.driver, names[p.driver])}</select></td>
       <td><select data-pen="${i}" data-key="round_id"><option value="">—</option>${c.rounds.map((rd, k) =>
         `<option value="${esc(rd.id)}" ${rd.id === p.round_id ? "selected" : ""}>R${k + 1} ${esc(rd.name)}</option>`).join("")}</select></td>
+      <td><input type="number" class="c-num ${p.seconds && !p.round_id ? "bad-input" : ""}" min="0" max="3600" step="1" data-pen="${i}" data-key="seconds" value="${p.seconds || 0}"
+        title="${p.seconds && !p.round_id ? "Pick the round: a time penalty is for one race" : "Seconds added to their race time in that round"}"></td>
       <td><input type="number" class="c-num" min="0" step="0.5" data-pen="${i}" data-key="points" value="${p.points || 0}"></td>
       <td><input type="number" class="c-num" min="0" data-pen="${i}" data-key="licence" value="${p.licence || 0}"></td>
       <td><input class="grow" data-pen="${i}" data-key="reason" value="${esc(p.reason || "")}" placeholder="e.g. Avoidable contact, T1 lap 1"></td>
       <td><button class="btn icon danger" data-pen-delete="${i}" title="Remove">✕</button></td>
-    </tr>`).join("") : '<tr><td colspan="6" class="hint">No penalties.</td></tr>';
+    </tr>`).join("") : '<tr><td colspan="7" class="hint">No penalties.</td></tr>';
 }
 
 // -- rules -------------------------------------------------------------------------
@@ -2319,11 +2326,13 @@ function renderChampRules() {
     ${r.team_best ? `<label class="ov-field">How many of its drivers count (the best N)
       <input type="number" min="1" max="20" data-rule="team_best" value="${r.team_best}"></label>` : ""}
     <label class="ov-field check" title="A race meeting (heats, a sprint and a feature…) counts as one for the teams: each driver's points over the meeting added up, and the team's best N over the meeting count"><input type="checkbox" data-rule="team_meetings" ${r.team_meetings ? "checked" : ""}> Teams: a race meeting counts as one (the best N over the whole meeting)</label>
-    ${r.drop_rounds > 0 ? `<label class="ov-field check" title="Off: every round counts for the teams, the drop rounds only for the drivers"><input type="checkbox" data-rule="team_drops" ${r.team_drops !== false ? "checked" : ""}> Teams: drop rounds apply to the teams too (untick: every round counts for them)</label>` : ""}
+    ${r.drop_rounds > 0 ? `<label class="ov-field">Teams: drop rounds
+      <select data-rule="team_drop_mode" title="The team's own: the team's worst rounds don't count. The drivers': each driver's dropped rounds don't count for their team. None: every round counts for the teams">${[
+        ["team", "The team's own worst rounds"], ["drivers", "Each driver's dropped rounds"], ["none", "None (every round counts)"]].map(([v, l]) =>
+        `<option value="${v}" ${(r.team_drop_mode || (r.team_drops === false ? "none" : "team")) === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
     ${r.scoring === "both" ? `<label class="ov-field">Team championship counts its drivers'
       <select data-rule="team_points">${[["overall", "Overall points"], ["class", "Class points"]].map(([v, l]) =>
         `<option value="${v}" ${(r.team_points || "overall") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
-    <label class="ov-field check"><input type="checkbox" data-rule="dnf_scores" ${r.dnf_scores !== false ? "checked" : ""}> DNFs score the points for where they're classified</label>
     <h3 class="section-title wide">Bonus points <span class="hint">(0 = not used; negative numbers take points off)</span></h3>
     ${champ.bonuses.map(([k, label]) => `<label class="ov-field">${esc(label)}
       <input type="number" step="0.5" data-bonus="${k}" value="${b[k] || 0}"></label>`).join("")}`;
@@ -2567,6 +2576,13 @@ $("#tab-championship").addEventListener("click", async (e) => {
     c.rounds.splice(+d.roundDelete, 1);
     c.penalties = c.penalties.filter((p) => p.round_id !== rd.id);
     if (c.live_round === rd.id) c.live_round = "";
+  } else if (d.roundClear != null) {
+    const rd = c.rounds[+d.roundClear];
+    const pens = c.penalties.filter((p) => p.round_id === rd.id).length;
+    if (!confirm(`Clear the results of ${rd.name}? The round stays, to import or type its results again.` +
+      (pens ? ` Its ${pens} penalt${pens === 1 ? "y stays" : "ies stay"} (Penalties).` : ""))) return;
+    rd.results = [];
+    rd.session = "";  // free to take the results of a race again (Import from session, or saved after the race)
   } else if (d.resAdd != null) {
     const rd = c.rounds[+d.resAdd];
     rd.results = rd.results || [];
@@ -2900,7 +2916,7 @@ function createBuiltRounds() {
 $("#btn-add-penalty").addEventListener("click", () => {
   if (!ui.editing) return toast("Pick a league first", true);
   const c = champData();
-  c.penalties.push({ id: newId(), driver: "", round_id: c.rounds.length ? c.rounds[c.rounds.length - 1].id : "", points: 0, licence: 0, reason: "" });
+  c.penalties.push({ id: newId(), driver: "", round_id: c.rounds.length ? c.rounds[c.rounds.length - 1].id : "", seconds: 0, points: 0, licence: 0, reason: "" });
   markChampDirty();
   renderChampionship();
 });
@@ -3239,12 +3255,12 @@ const OVERLAY_FIELDS = {
       iff((v) => v.qual_shown !== "none", ["track_qual", "Also painted on the track, under each box's number", "bool"]),
       ["show_status", "NOT ON TRACK / NOT IN SESSION tag", "bool"],
       ["card_scale", "Card size (%; 100 = usual)", "number", { min: 40, max: 200, step: 5 }]]],
-    ["Car pictures", [["car_scale", "Car picture size (%; 100 = usual, up to 2000)", "number", { min: 40, max: 2000, step: 5 }],
-      ["car_scale_top", "Top row of cars (P1, P3…): size (% of the above, up to 1000)", "number", { min: 40, max: 1000, step: 5 }],
+    ["Car pictures", [["car_scale", "Car picture size (%; 100 = usual, up to 600)", "number", { min: 40, max: 600, step: 5 }],
+      ["car_scale_top", "Top row of cars (P1, P3…): size (% of the above, up to 400)", "number", { min: 40, max: 400, step: 5 }],
       ["car_top_x", "Top row: move right (px; minus moves left)", "number", { min: -1920, max: 1920, step: 5 }],
       ["car_top_y", "Top row: move down (px; minus moves up)", "number", { min: -1080, max: 1080, step: 5 }],
       ["car_top_rotate", "Top row: turn the pictures (degrees; plus is clockwise) to line up with the boxes", "number", { min: -45, max: 45, step: 0.5 }],
-      ["car_scale_bottom", "Bottom row of cars (P2, P4…): size (% of the above, up to 1000)", "number", { min: 40, max: 1000, step: 5 }],
+      ["car_scale_bottom", "Bottom row of cars (P2, P4…): size (% of the above, up to 400)", "number", { min: 40, max: 400, step: 5 }],
       ["car_bottom_x", "Bottom row: move right (px; minus moves left)", "number", { min: -1920, max: 1920, step: 5 }],
       ["car_bottom_y", "Bottom row: move down (px; minus moves up)", "number", { min: -1080, max: 1080, step: 5 }],
       ["car_bottom_rotate", "Bottom row: turn the pictures (degrees; plus is clockwise)", "number", { min: -45, max: 45, step: 0.5 }],

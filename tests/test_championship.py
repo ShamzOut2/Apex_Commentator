@@ -234,11 +234,20 @@ class ScoringTests(unittest.TestCase):
             "rules": {"points": [5]}, "rounds": [{"id": "r1", "results": [res("a", 1)]}], "penalties": []}}
         self.assertEqual(ch.standings(p)["groups"][0]["drivers"][0]["points"], 5)
 
-    def test_dnf_doesnt_score_when_off(self):
-        p = profile({"points": [10, 8], "dnf_scores": False},
-                    [{"id": "r1", "results": [res("a", 1), res("b", 2, status="dnf")]}])
-        self.assertEqual(table(p)[0]["b"]["points"], 0)
-        self.assertEqual(repr(table(p)[1]["groups"][0]["drivers"][1]["rounds"][0]["points"]), "0")  # not 0.0
+    def test_the_race_distance_decides_who_scores(self):
+        # "DNFs score" is no longer a choice (an old save's False is ignored): a DNF that
+        # covered the distance scores for its place; one short of it scores nothing.
+        rounds = [{"id": "r1", "results": [res("a", 1), res("b", 2, status="dnf", laps=16), res("c", 3, status="dnf", laps=10),
+                                           res("d", 4, laps=12)]}]
+        p = profile({"points": [10, 8, 6, 4], "classified_pct": 75, "dnf_scores": False}, rounds)
+        rows, st = table(p)
+        self.assertEqual([rows[x]["points"] for x in "abcd"], [10, 8, 0, 0])
+        self.assertEqual(repr(st["groups"][0]["drivers"][-1]["rounds"][0]["points"]), "0")  # not 0.0
+        self.assertTrue(p["championship"]["rules"]["dnf_scores"])
+        # The finishing order board: no points shown for the cars short of the distance.
+        out = ch.round_results(p, p["championship"]["rounds"][0], st["groups"][0]["key"])
+        self.assertEqual([(r["driver"], r["points"], r["short"]) for r in out],
+                         [("a", 10, False), ("b", 8, False), ("c", None, True), ("d", None, True)])
 
     def test_classes_score_separately(self):
         classes = [{"id": "pro", "name": "Pro", "color": "#ff0000"}, {"id": "am", "name": "Am", "color": "#0000ff"}]
@@ -570,6 +579,16 @@ class TeamAndMakeDropTests(unittest.TestCase):
         d1 = next(d for g in table["groups"] for d in g["drivers"] if d["driver"] == "cust:1")
         self.assertEqual(d1["points"], 20)  # 10 + 4 + 10, the 4 dropped
         del profile["championship"]["rules"]["team_drops"]
+        # The drivers' drop rounds: each driver's dropped round brings the team nothing
+        # (d1 and d2 drop R2, d3 R1, d4 its first 3-point round, R1).
+        profile["championship"]["rules"]["team_drop_mode"] = "drivers"
+        teams = {t["team"]: t for t in ch.standings(profile)["teams"]}
+        self.assertEqual([r["points"] for r in teams["Red"]["rounds"]], [16, 0, 14])
+        self.assertEqual([r["points"] for r in teams["Blue"]["rounds"]], [0, 16, 9])
+        self.assertEqual([r["dropped"] for r in teams["Blue"]["rounds"]], [False] * 3)
+        self.assertEqual({d["driver"]: d["points"] for d in teams["Blue"]["drivers"]}, {"cust:3": 16, "cust:4": 9})
+        self.assertEqual(ch.normalise_rules({"team_drops": False})["team_drop_mode"], "none")  # older saves
+        del profile["championship"]["rules"]["team_drop_mode"]
         # No drop rounds: everything counts.
         profile["championship"]["rules"]["drop_rounds"] = 0
         self.assertEqual({m["make"]: m["points"] for m in ch.make_standings(profile, "gt3")}, {"Ferrari": 37, "BMW": 32})
@@ -628,3 +647,42 @@ class TeamSwitchTests(unittest.TestCase):
         r = ch.normalise_result({"driver": "cust:1", "name": "D1", "team": "Red"})
         self.assertEqual(r["team"], "Red")
         self.assertEqual(ch.normalise_result({"driver": "cust:1"})["team"], "")
+
+
+class TimePenaltyTests(unittest.TestCase):
+    def rounds(self):
+        # a, b, c on the lead lap (a won by 2 s from b, c 6 s back); d a lap down.
+        rs = [dict(res("a", 1), gap=0.0, race_time=1800.0), dict(res("b", 2), gap=2.0, race_time=1802.0),
+              dict(res("c", 3), gap=6.0, race_time=1806.0), dict(res("d", 4, laps=19), gap=40.0, race_time=1840.0)]
+        return [{"id": "r1", "name": "R1", "results": rs}]
+
+    def test_time_penalty_re_orders_and_re_scores(self):
+        p = profile(rounds=self.rounds(), penalties=[{"driver": "a", "round_id": "r1", "seconds": 5, "reason": "Track limits"}])
+        rows, _ = table(p)
+        # a: 1805 s, between b (1802) and c (1806): second.
+        self.assertEqual([rows[d]["points"] for d in "abcd"], [18, 25, 15, 12])
+        out = ch.round_results(p, p["championship"]["rounds"][0], ch.OVERALL)
+        self.assertEqual([(r["driver"], r["rank"], r["gap"], r["time_penalty"], r["raced_position"]) for r in out],
+                         [("b", 1, 0.0, 0, 2), ("a", 2, 3.0, 5, 1), ("c", 3, 4.0, 0, 3), ("d", 4, 38.0, 0, 4)])
+        self.assertEqual(out[1]["race_time"], 1805.0)
+
+    def test_a_lapped_car_stays_behind_and_points_penalties_still_count(self):
+        p = profile(rounds=self.rounds(), penalties=[{"driver": "c", "round_id": "r1", "seconds": 60, "points": 2}])
+        rows, _ = table(p)
+        self.assertEqual([rows[d]["points"] for d in "abcd"], [25, 18, 15 - 2, 12])  # c still third: d is a lap down
+
+    def test_gaps_only_and_without_a_round(self):
+        rounds = self.rounds()
+        for r in rounds[0]["results"]:
+            r["race_time"] = None
+        p = profile(rounds=rounds, penalties=[{"driver": "b", "round_id": "r1", "seconds": 4.5},
+                                               {"driver": "c", "round_id": "", "seconds": 30}])  # no round: no effect
+        self.assertEqual([r["driver"] for r in ch.round_results(p, p["championship"]["rounds"][0], ch.OVERALL)], ["a", "c", "b", "d"])
+        self.assertEqual(p["championship"]["penalties"][0]["seconds"], 4.5)
+
+    def test_removing_the_penalty_puts_it_back(self):
+        p = profile(rounds=self.rounds(), penalties=[{"driver": "a", "round_id": "r1", "seconds": 5}])
+        champ = dict(p["championship"], penalties=[])
+        again = ch.normalise(champ)
+        self.assertNotIn("time_penalty", again["rounds"][0]["results"][0])
+        self.assertEqual(ch.classified(again["rounds"][0]["results"]), again["rounds"][0]["results"])

@@ -110,28 +110,31 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**v1.0.0**
+**v1.0.1**
 
 ### New features
 
-- Championship: your own tracks and layouts. A layout list has "+ Another
-  layout…" to type one in, and Calendar & results has "Your own tracks and
-  layouts" to add a missing track or layout (or take one off). They're kept
-  for every league.
-- Board sponsors in one place: Theme › Board sponsors sets where, which
-  sponsors and how big for every board, with a switch per board. A board can
-  still show its own logos ("Which logos: This board's own"). Boards that
-  already had sponsors keep the same look.
+- Championship time penalties: Penalties has a Time (s) column. The seconds go
+  on the driver's race time in that round, the finishing order is put right and
+  the points follow it.
+- Championship: Clear results on each race, to take its results off and import
+  or type them again.
 
 ### Improvements
 
-- Race control has a Pop out button, like the Timing Screen.
-- Timing Screen: "▦ Show" picks what each window shows (camera buttons,
-  driver list, race log, replay controls) and which columns the driver list
-  has. A popped-out window keeps its own, so it can show just the race log.
-- Hockenheim's Short A and Short B layouts are in the track list.
-- Grid walk: car pictures go much bigger (Car picture size up to 2000%, each
-  row up to 1000%).
+- Team championship drop rounds: choose the team's own (its worst rounds
+  don't count) or the drivers' (each driver's dropped rounds don't count for
+  the team), or none.
+
+### Fixes
+
+- Grid walk: car pictures now really get bigger with Car picture size (they
+  stopped at the picture file's own size, around 200%). The most is 600% again
+  (each row up to 400%).
+- Drivers short of the race distance (Must complete this % of the race) no
+  longer get points, or show points on the finishing order board, for a race
+  shown straight from the iRacing event. The "DNFs score the points for where
+  they're classified" box is gone: the race distance decides who scores.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -1547,17 +1550,25 @@ standings update from what's saved.
   - The fastest-lap bonus can be limited to the top N finishers.
   - **Race distance to score** (75% by default): a driver must complete this
     share of their class winner's laps. Anyone short is a DNF and scores no
-    points or bonuses. 0 turns it off.
-  - Whether DNFs score for where they're classified.
+    points or bonuses, and the finishing order board shows no points by
+    their name (a race from the iRacing event too, once it's over). A car
+    that retired after covering it scores for where it's classified. 0
+    turns it off.
   - **Team championship**: each round counts **all the team's drivers,
     added together**, or **its best N drivers**. **A race meeting counts as
     one** (tick it): each driver's points over the meeting (heats, a sprint
     and a feature…) are added up and the team's best N over the whole meeting
     count. With *Both*, teams count their drivers' overall points, or class
     points if you choose. Secondary classes never count for teams. With
-    drop rounds set, a team's worst rounds drop too, unless you untick
-    **Teams: drop rounds apply to the teams too**: then every round counts
-    for the teams, and the drop rounds are the drivers' only.
+    drop rounds set, **Teams: drop rounds** picks how they apply to the
+    teams:
+    - **The team's own**: the team's worst rounds (its total for the round)
+      don't count.
+    - **The drivers'**: each driver's dropped rounds don't count for their
+      team, so the team adds up only what counts for its drivers. A team can
+      then have points from every round, less what each driver dropped.
+    - **None**: every round counts for the teams, and the drop rounds are the
+      drivers' only.
   - **A driver changing team mid-season**: each race result keeps the team
     the driver raced for (saved with the results, from the roster at the
     time). Change their team (League builder or Teams) after they've raced
@@ -1657,7 +1668,18 @@ standings update from what's saved.
     Check those statuses by hand.
   - Everything can be corrected by hand, including DSQ and extra points
     (+ or −) for a round. The points column shows what each result scored.
+  - **⌫ Clear results** (on a round with results) takes that race's results
+    off and keeps the round, to import or type them again. Penalties given
+    for it stay.
 - **Penalties**
+  - *Time* (seconds, for one round) is added to the driver's race time in
+    that race. The finishing order is put back in race-time order among the
+    cars that covered the same number of laps (a car never drops behind one
+    that covered fewer), and everyone's points, the bonuses that go by
+    position, the finishing order board's gaps and the next race's grid (a
+    race meeting) follow it. It needs the race times or gaps, which races
+    saved or imported from iRacing have. The round's results show the
+    penalty (+5 s) by the place the driver crossed the line in.
   - *Points off* are taken from the driver's total (and their team's) and are
     never dropped.
   - *Licence points* are a running tally per driver, shown in the standings.
