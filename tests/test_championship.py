@@ -234,11 +234,20 @@ class ScoringTests(unittest.TestCase):
             "rules": {"points": [5]}, "rounds": [{"id": "r1", "results": [res("a", 1)]}], "penalties": []}}
         self.assertEqual(ch.standings(p)["groups"][0]["drivers"][0]["points"], 5)
 
-    def test_dnf_doesnt_score_when_off(self):
-        p = profile({"points": [10, 8], "dnf_scores": False},
-                    [{"id": "r1", "results": [res("a", 1), res("b", 2, status="dnf")]}])
-        self.assertEqual(table(p)[0]["b"]["points"], 0)
-        self.assertEqual(repr(table(p)[1]["groups"][0]["drivers"][1]["rounds"][0]["points"]), "0")  # not 0.0
+    def test_the_race_distance_decides_who_scores(self):
+        # "DNFs score" is no longer a choice (an old save's False is ignored): a DNF that
+        # covered the distance scores for its place; one short of it scores nothing.
+        rounds = [{"id": "r1", "results": [res("a", 1), res("b", 2, status="dnf", laps=16), res("c", 3, status="dnf", laps=10),
+                                           res("d", 4, laps=12)]}]
+        p = profile({"points": [10, 8, 6, 4], "classified_pct": 75, "dnf_scores": False}, rounds)
+        rows, st = table(p)
+        self.assertEqual([rows[x]["points"] for x in "abcd"], [10, 8, 0, 0])
+        self.assertEqual(repr(st["groups"][0]["drivers"][-1]["rounds"][0]["points"]), "0")  # not 0.0
+        self.assertTrue(p["championship"]["rules"]["dnf_scores"])
+        # The finishing order board: no points shown for the cars short of the distance.
+        out = ch.round_results(p, p["championship"]["rounds"][0], st["groups"][0]["key"])
+        self.assertEqual([(r["driver"], r["points"], r["short"]) for r in out],
+                         [("a", 10, False), ("b", 8, False), ("c", None, True), ("d", None, True)])
 
     def test_classes_score_separately(self):
         classes = [{"id": "pro", "name": "Pro", "color": "#ff0000"}, {"id": "am", "name": "Am", "color": "#0000ff"}]

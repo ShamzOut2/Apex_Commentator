@@ -120,6 +120,13 @@ starting grid", "Clear all penalties"…).
 - Championship: Clear results on each race, to take its results off and import
   or type them again.
 
+### Fixes
+
+- Drivers short of the race distance (Must complete this % of the race) no
+  longer get points, or show points on the finishing order board, for a race
+  shown straight from the iRacing event. The "DNFs score the points for where
+  they're classified" box is gone: the race distance decides who scores.
+
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
 
@@ -1534,8 +1541,10 @@ standings update from what's saved.
   - The fastest-lap bonus can be limited to the top N finishers.
   - **Race distance to score** (75% by default): a driver must complete this
     share of their class winner's laps. Anyone short is a DNF and scores no
-    points or bonuses. 0 turns it off.
-  - Whether DNFs score for where they're classified.
+    points or bonuses, and the finishing order board shows no points by
+    their name (a race from the iRacing event too, once it's over). A car
+    that retired after covering it scores for where it's classified. 0
+    turns it off.
   - **Team championship**: each round counts **all the team's drivers,
     added together**, or **its best N drivers**. **A race meeting counts as
     one** (tick it): each driver's points over the meeting (heats, a sprint

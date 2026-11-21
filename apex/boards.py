@@ -187,8 +187,10 @@ def build(league, board, settings, live_results=None):
         source = params.get("round") or "latest"
         live = (source == "live" or source.startswith("session:")) and live_results is not None
         if live:
+            # Mid-race nobody has covered the distance yet; once the race is over,
+            # the race-distance rule applies (a car short of it: DNF, no points).
             rd = {"id": "live", "name": live_results["name"], "track": "", "multiplier": 1.0,
-                  "results": live_results["results"], "provisional": True}
+                  "results": live_results["results"], "provisional": not live_results.get("over")}
             out["title"] = "Running order" if source == "live" else f"{live_results['name']} result"  # named as the tower names it
         else:
             scored = [r for r in champ["rounds"] if r["results"]]

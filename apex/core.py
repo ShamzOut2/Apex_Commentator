@@ -3857,7 +3857,10 @@ class App:
         # A race: its round's name, as the tower's header gives it.
         name = (self._race_title(self.leagues.active(), num, session) if race
                 else str(session.get("SessionName") or session.get("SessionType") or "Session").title())
-        return {"name": name, "race": race, "results": results}
+        # Over (an earlier race, or this one once its leader has the flag): the
+        # race-distance rule applies, as it does to the saved results.
+        over = num != frame.session_num or self._won(frame)
+        return {"name": name, "race": race, "results": results, "over": over}
 
     def _board_snapshot(self, active_league, session_board):
         """(board, options): cached until the league, the board or its settings change."""

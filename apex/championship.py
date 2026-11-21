@@ -148,7 +148,9 @@ def normalise_rules(rules):
                     for sc in (rules.get("schemes") or []) if isinstance(sc, dict)][:50],
         "fastest_lap_top": _num(rules.get("fastest_lap_top"), 0, lo=0, hi=200, cast=int),
         "classified_pct": _num(rules.get("classified_pct", DEFAULT_RULES["classified_pct"]), 0, lo=0, hi=100),
-        "dnf_scores": bool(rules.get("dnf_scores", True)),
+        # A DNF that covered the race distance (classified_pct) scores for where
+        # it's classified; one short of it scores nothing. Always: no longer a choice.
+        "dnf_scores": True,
         "team_best": _num(rules.get("team_best"), 0, lo=0, hi=20, cast=int),
         "team_meetings": bool(rules.get("team_meetings")),
         "team_drops": bool(rules.get("team_drops", True)),
@@ -903,7 +905,9 @@ def round_results(profile, rd, group):
             "make": r.get("make") or info.get("car_make", ""),
             "start": grid.get(r["driver"]), "laps": r["laps"], "laps_led": r["laps_led"],
             "fastest_lap": r["fastest_lap"], "has_fastest": best is not None and r["fastest_lap"] == best,
-            "status": s["status"], "short": s["short"], "points": s["total"], "gap": r.get("gap"),
+            # Short of the race distance: no points (none shown), unless given some by hand.
+            "status": s["status"], "short": s["short"],
+            "points": None if s["short"] and not s["total"] else s["total"], "gap": r.get("gap"),
             "race_time": r.get("race_time"),
             # A time penalty: the seconds, and the place they crossed the line in.
             "time_penalty": r.get("time_penalty") or 0, "raced_position": r.get("raced_position", r["position"]),

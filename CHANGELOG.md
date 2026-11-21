@@ -21,6 +21,13 @@ How each version's entry is written:
 - Championship: Clear results on each race, to take its results off and import
   or type them again.
 
+### Fixes
+
+- Drivers short of the race distance (Must complete this % of the race) no
+  longer get points, or show points on the finishing order board, for a race
+  shown straight from the iRacing event. The "DNFs score the points for where
+  they're classified" box is gone: the race distance decides who scores.
+
 ## v1.0.0
 
 ### New features
