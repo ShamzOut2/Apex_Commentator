@@ -39,20 +39,21 @@ function stopsHtml(stops, scale, laneW) {
   const groups = [];
   for (const s of [...stops].filter((v) => v.kind).sort((a, b) => a.lap - b.lap)) {
     const last = groups[groups.length - 1];
-    if (last && last.kind === s.kind && ((s.lap - last.laps[0]) / Math.max(1, scale)) * laneW < STOP_GAP_PX) last.laps.push(s.lap);
-    else groups.push({ kind: s.kind, laps: [s.lap] });
+    if (last && last.kind === s.kind && !last.served && !s.served && ((s.lap - last.laps[0]) / Math.max(1, scale)) * laneW < STOP_GAP_PX) last.laps.push(s.lap);
+    else groups.push({ kind: s.kind, served: s.served || null, laps: [s.lap] });
   }
   // Left to right, a tag that would cover the one before it (a stop and a
   // penalty a lap apart) moves along just enough to sit beside it.
   let edge = -Infinity;  // the right-hand end of the last tag (px)
   return groups.map((g) => {
     const pen = PENALTY[g.kind];
-    const text = `${pen ? `${pen[0]} ` : ""}L${g.laps.join(" · ")}`;
+    const also = !pen && g.served ? PENALTY[g.served] : null;  // a stop that served a penalty too: "L14 +SG"
+    const text = `${pen ? `${pen[0]} ` : ""}L${g.laps.join(" · ")}${also ? ` +${also[0]}` : ""}`;
     const width = 20 + text.length * 8.5;  // about, at the standard size
     const at = (along(g.laps[0], scale) / 100) * laneW;
     const shift = Math.max(0, edge + 4 - (at - width / 2));
     edge = at + shift + width / 2;
-    return `<span class="st-stop ${pen ? "pen" : ""}" style="left:calc(${along(g.laps[0], scale)}% + ${Math.round(shift)}px)"${pen ? ` title="${pen[1]}"` : ""}>${pen ? `<b>${pen[0]}</b> ` : ""}L${g.laps.join(" · ")}</span>`;
+    return `<span class="st-stop ${pen ? "pen" : ""}" style="left:calc(${along(g.laps[0], scale)}% + ${Math.round(shift)}px)"${pen ? ` title="${pen[1]}"` : ""}>${pen ? `<b>${pen[0]}</b> ` : ""}L${g.laps.join(" · ")}${also ? ` <b class="also" title="${also[1]} served at this stop">+${also[0]}</b>` : ""}</span>`;
   }).join("");
 }
 

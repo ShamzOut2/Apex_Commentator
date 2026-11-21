@@ -219,6 +219,9 @@ DEFAULTS = {
     # "Who's this": a board at the bottom centre for the driver on camera (driver.html).
     "driver": {**LOGO, 
         "visible": True,
+        # When the camera moves to someone: "delay" changes with the data delay
+        # (as everything else, for a stream that's behind too), "now" straight away.
+        "follow": "delay",
         "show_tyre": True,        # the tyres on (dry white, wet blue)
         "hide_s": 8.0,            # seconds it stays up after the camera moves to someone (0 = while they're on camera)
         "stay": False,            # stay up for as long as the camera's on them (hide_s not used)
@@ -226,7 +229,7 @@ DEFAULTS = {
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
         "show_class": True,       # the class, in multiclass races
         "show_position": True,    # P3 (their place overall)
-        "position_shown": "overall",  # "overall" (P3), "class" (P1, the class under it) or "both" (P3, and P1 GT3 under it)
+        "position_shown": "overall",  # "overall" (P3), "class" (P1, the class under it), "both" (P3, and P1 GT3 under it) or "class_both" (P1 GT3, and P3 overall under it: the grid walk)
         "pos_class_name": True,       # the class's name with the class position ("P1 GT3", or just "P1")
         "class_colors": "main",   # colours from the driver's main or secondary class (see standings)
         "team_place": "under",    # "under": the team logo by the team name, the car badge at the end; "end": those two swapped
@@ -333,6 +336,9 @@ DEFAULTS = {
         # sector under a full course caution. (A new key, so it's on for
         # everyone: "auto" was the old one, off.)
         "auto_yellow": True,
+        # The safety car (a board, "Safety Car") while iRacing has a full course
+        # caution; it can also be sent out by hand (button, hotkey).
+        "sc_auto": True,
         "hold_s": 10.0, "clear_s": 3.0,
         "place": "top-right",
         "show_map": True,         # the track outline with the yellow sectors marked
@@ -501,10 +507,10 @@ LIMITS = {"panel_width": (700, 1840), "gap_s": (0.1, 30.0), "settle_s": (0.0, 3.
           "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "sponsor_size": (40, 250), "delay_s": (0.0, 300.0), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
           "lights": (3, 8), "step_s": (0.3, 3.0), "out_s": (0.0, 10.0), "flag_sectors": (2, 9), "clear_s": (0.0, 10.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
-CHOICES = {"board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
+CHOICES = {"follow": ("delay", "now"), "board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
-           "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary", "team"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
+           "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary", "team"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both", "class_both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS,
            "font": FONTS,
            "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "anchor_side": ("first", "last"), "fl_flash_many": ("stack", "queue"), "gap_shown": ("ahead", "camera"),

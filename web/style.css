@@ -1283,3 +1283,8 @@ input[type="color"] { padding: 2px; cursor: pointer; }
 /* Search in the top bar; the Theme tag a small pill under a setting's name. */
 .topbar .cmdk-open { margin: 0 6px 0 0; align-self: center; }
 .ov-lab .theme-tag, .ov-lab .theme-use { align-self: flex-start; margin: 3px 0 0; }
+/* "Unsaved changes" by the Save button. */
+.unsaved { display: inline-flex; align-items: center; gap: 6px; color: var(--warn); font-size: 12.5px; white-space: nowrap; }
+.unsaved::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+.unsaved[hidden] { display: none; }
+#wflag-sc.lit { background: #ffd23f; color: #15130a; border-color: #ffd23f; }

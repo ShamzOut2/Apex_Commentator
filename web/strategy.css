@@ -57,3 +57,4 @@
 .st-n.stint { color: var(--muted); }
 .strategy .bt-row.in-pit { background: rgba(255, 210, 63, calc(.08 * var(--bg-k, 1))); }
 .strategy .bt-row.gone { opacity: .55; }
+.st-stop b.also { color: var(--red); font-weight: 900; letter-spacing: .04em; }

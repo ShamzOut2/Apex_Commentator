@@ -229,6 +229,8 @@ function placeHtml(e, cfg, cls) {
   const name = cfg.pos_class_name !== false && cls.name ? esc(cls.name) : "";
   if (which === "class" && e.class_pos) return `<span class="p">P${e.class_pos}</span>${name ? `<span class="cp">${name}</span>` : ""}`;
   if (which === "both" && e.class_pos) return `<span class="p">P${e.grid_pos}</span><span class="cp">P${e.class_pos}${name ? ` ${name}` : ""}</span>`;
+  // Class first: P1 GT3 big, P3 overall under it.
+  if (which === "class_both" && e.class_pos) return `<span class="p">P${e.class_pos}${name ? `<small class="pc"> ${name}</small>` : ""}</span><span class="cp">P${e.grid_pos} overall</span>`;
   return `<span class="p">P${e.grid_pos}</span>`;
 }
 

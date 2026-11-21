@@ -468,7 +468,11 @@ class GridBoardTests(unittest.TestCase):
         self.assertEqual([r["number"] for r in b["rows"]][:len(qual)], [str(n) for n in qual])
         self.assertEqual(b["rows"][0]["pos"], 1)
         self.assertIn("starting grid", b["title"])
-        b = self.grid(reverse_top=3)
+        # Automatic (and as the cars line up): iRacing's grid as it set it, never turned round on top.
+        for how in ("auto", "current"):
+            b = self.grid(reverse_top=3, grid_source=how)
+            self.assertEqual([r["number"] for r in b["rows"]][:4], [str(n) for n in qual[:4]], how)
+        b = self.grid(reverse_top=3, grid_source="qualifying")
         self.assertEqual([r["number"] for r in b["rows"]][:4], [str(n) for n in [qual[2], qual[1], qual[0], qual[3]]])
         self.assertEqual(b["rows"][0]["pos"], 1)  # the places are the new grid's
 
@@ -591,6 +595,8 @@ class GridBoardTests(unittest.TestCase):
         rounds[2].update(reverse_grid=True, reverse_top=4)
         self.app.leagues.save(dict(league, championship={"rounds": rounds}))
         self.app._today = lambda: date(2026, 11, 5)
+        self.assertEqual([r["number"] for r in grid_of(3)["rows"]][:5], [number(i) for i in consi[:5]])  # Automatic: never reversed
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"grid_source": "previous"}})
         b = grid_of(3)
         self.assertEqual([r["number"] for r in b["rows"]][:5], [number(i) for i in consi[3::-1] + consi[4:5]])
         self.assertEqual(b["title"], "Feature · starting grid")
@@ -701,7 +707,7 @@ class GridBoardTests(unittest.TestCase):
         self.app.leagues.save(dict(league, championship={"rounds": rounds}))
         sessions = self.app._session_meta["sessions"]
         race = next(n for n, x in sessions.items() if "race" in str(x.get("SessionType", "")).lower())
-        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 0}})
+        self.app.command("overlay_settings", {"overlay": "board_grid", "values": {"rows": 64, "reverse_top": 0, "grid_source": "previous"}})
         self.app.command("board_show", {"kind": "grid", "group": "", "round": f"session:{race}"})
         number = lambda idx: self.app._drivers[idx]["number"]  # noqa: E731
         want = [number(i) for i in finish[2::-1] + finish[3:]]

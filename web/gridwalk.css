@@ -237,3 +237,5 @@ body.panel-image .gw-title::before, body.panel-image .gw-info::before {
 body.desktop *, body.desktop *::before, body.desktop *::after { box-shadow: none !important; filter: none !important; }
 /* Pronouns sit right up against the name (the gap between the name's other parts stays). */
 .gw-info .name > .pronouns { margin-left: -6px; padding-top: .12em; }
+/* Class first: "P1 GT3" with the class name smaller beside the place. */
+.gw-info .pos .p .pc { font-size: .42em; font-weight: 800; letter-spacing: .04em; vertical-align: .35em; }

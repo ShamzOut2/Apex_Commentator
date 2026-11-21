@@ -66,6 +66,7 @@ PAIR_FORGET_S = 1.0
 MIN_BASELINE_SPEED = 15.0  # m/s; below this a car is not "at speed"
 RECOVERY_SETTLE_S = 5.0    # back on track this long before counting places lost
 PENALTY_CLEAR_S = 10.0     # a penalty flag going this soon after a pit exit: that visit served it
+SERVICE_S = 6.0            # stopped in its box this long, a penalty served or not: a pit stop (service), not just a stop & go
 TIME_JUMP_S = 2.0          # a bigger jump means a replay skip: start afresh
 SPEED_BINS = 250           # the track split into this many pieces for "usual speed here"
 SPEED_BIN_MIN_SAMPLES = 8  # samples in a piece before its usual speed counts
@@ -522,11 +523,21 @@ class EventDetector:
             # "drive_through" or a "stop_go" (stopped in the box).
             on_pit = bool(_at(frame.on_pit, idx, False))
             in_stall = _at(frame.surface, idx, TRK_NOT_IN_WORLD) == TRK_IN_PIT_STALL
-            black = bool(_at(frame.car_flags, idx, 0) & FLAG_BLACK)
+            # A penalty to serve: the black flag, not the meatball (that's for
+            # repairs: a pit stop, not a penalty).
+            cflags = _at(frame.car_flags, idx, 0) or 0
+            black = bool(cflags & FLAG_BLACK) and not cflags & FLAG_REPAIR
             pit = self._pit.get(idx)
+            if pit is not None and pit["on"] and on_pit:
+                # How long it's stood in its box (a stop & go is a moment; a stop
+                # with service, a penalty served at it or not, is longer).
+                if in_stall and pit.get("stall_at") is None:
+                    pit["stall_at"] = now
+                elif not in_stall and pit.get("stall_at") is not None:
+                    pit["stall_s"] = pit.get("stall_s", 0.0) + now - pit.pop("stall_at")
             if pit is None:
                 self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx), "boxed": on_pit and in_stall, "black": black,
-                                  "unseen": on_pit}  # already in the pit lane: not seen from its entry
+                                  "unseen": on_pit, "stall_at": now if on_pit and in_stall else None}  # already in the pit lane: not seen from its entry
             elif on_pit != pit["on"]:
                 if under_way and on_pit:
                     created.append(self._emit("pit_in", idx, frame, drivers, position=pos.get(idx)))
@@ -535,16 +546,20 @@ class EventDetector:
                     # a replay was up): no stop in its box seen is no proof it
                     # didn't stop, so a pit stop unless a penalty went with it.
                     kind = "stop" if pit["boxed"] or pit.get("unseen") else "drive_through"
+                    stall = pit.get("stall_s", 0.0) + (now - pit["stall_at"] if pit.get("stall_at") is not None else 0.0)
+                    serviced = stall >= SERVICE_S  # stood long enough for service: a stop, whatever it served too
+                    served = None
                     if pit["black"] and not black:
-                        kind = "stop_go" if pit["boxed"] else "drive_through"
+                        served = "stop_go" if pit["boxed"] else "drive_through"
+                        kind = "stop" if pit["boxed"] and serviced else served
                     ev = self._emit("pit_out", idx, frame, drivers, position=pos.get(idx), from_position=pit["pos"],
-                                    duration=round(now - pit["since"], 1), stop=kind)
+                                    duration=round(now - pit["since"], 1), stop=kind, **({"served": served} if served else {}))
                     created.append(ev)
                     if pit["black"] and black and pit["boxed"]:  # the flag may go a moment later
-                        self._served[idx] = (ev, now + PENALTY_CLEAR_S)
+                        self._served[idx] = (ev, now + PENALTY_CLEAR_S, serviced)
                 # Came into the pit lane while a replay was up (seen in it straight after): its start unseen.
                 self._pit[idx] = {"on": on_pit, "since": now, "pos": pos.get(idx), "boxed": on_pit and in_stall, "black": black,
-                                  "unseen": bool(pit.get("unseen")) and on_pit}
+                                  "unseen": bool(pit.get("unseen")) and on_pit, "stall_at": now if on_pit and in_stall else None}
             elif on_pit and in_stall:
                 pit["boxed"] = True
             if pit is not None and pit.get("unseen") and not on_pit and on_pit == pit["on"]:
@@ -552,7 +567,9 @@ class EventDetector:
             served = self._served.get(idx)
             if served is not None:
                 if not black and now <= served[1]:
-                    served[0]["stop"] = "stop_go"
+                    served[0]["served"] = "stop_go"
+                    if not served[2]:  # a moment in the box: the stop & go, not a stop with service
+                        served[0]["stop"] = "stop_go"
                 if not black or now > served[1] or on_pit:
                     del self._served[idx]
 

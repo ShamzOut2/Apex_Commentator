@@ -11,6 +11,38 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### New features
+
+- Flags: a safety car (an SC board, "Safety Car") shows by itself while
+  iRacing has a full course caution, and can be sent out by hand (Safety car
+  button on the Flags card, or a hotkey).
+- Grid walk: a fourth position option, class first (P1 GT3, with P3 overall
+  under it).
+- Driver on camera: choose whether it changes with the delay (as the Timing
+  Screen and every other overlay) or as the camera cuts.
+
+### Improvements
+
+- League builder, Teams and Championship have their Save button back, with
+  "Unsaved changes" by it; switching league asks before losing changes.
+- Hide all leaves the starting lights and the flags ready: they still come
+  up by themselves at the start and for a yellow.
+
+### Fixes
+
+- Starting grid: Automatic and "as the cars line up" take iRacing's grid as
+  it set it; a reverse number (or a round's Reverse grid) no longer turns it
+  round again. The reverse settings only show for the other sources.
+- Column order (Widget Settings and the widget cards): moving a column twice
+  quickly, or dragging one, is always saved.
+- Qualifying: every driver's best lap on the Timing Screen, as the tower has
+  them (from iRacing's results when its live data has none).
+- Pit strategy and pit counts: a stop for meatball repairs counts as a stop,
+  and so does a stop that served a penalty with service at the same time
+  (shown "+SG" / "+DT" on the strategy).
+
 ## v0.9.0
 
 ### New features
