@@ -295,3 +295,28 @@ class TrackBoardTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SafetyCarTests(unittest.TestCase):
+    """The flags widget's safety car: by itself under iRacing's full course
+    caution (sc_auto), or sent out by hand (flags:sc); Clear brings it in."""
+
+    KW = dict(starts=[0.0, 0.33, 0.66], cars={}, track_m=4000, auto=True, racing=True)
+
+    def test_from_iracings_caution_and_by_hand(self):
+        f = SectorFlags()
+        out = f.update("race", 1.0, caution=True, sc_auto=True, **self.KW)
+        self.assertEqual((out["text"], out["sc"], out["sectors"]), ("Safety Car", True, [1, 2, 3]))
+        self.assertTrue(f.update("race", 2.0, caution=False, sc_auto=True, **self.KW)["clear"])  # in: Track Clear
+        self.assertFalse(f.update("race", 1.0e3, caution=True, sc_auto=False, **self.KW)["sc"])  # off: every sector yellow
+        f.toggle_sc()
+        self.assertTrue(f.update("race", 1.1e3, caution=False, sc_auto=False, **self.KW)["sc"])
+        f.clear()
+        self.assertFalse(f.sc)
+        self.assertTrue(f.update("race", 1.2e3, caution=False, sc_auto=False, **self.KW)["clear"])
+
+    def test_the_hotkey(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = App(MockSource(seed=1), dict(DEFAULTS), LeagueStore(tmp))
+            self.assertEqual(app.command("hotkey", {"action": "flags:sc"}), {"sc": True})
+            self.assertEqual(app.command("hotkey", {"action": "flags:sc"}), {"sc": False})

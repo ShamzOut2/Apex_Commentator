@@ -434,7 +434,7 @@
         <div class="league-editor" id="league-editor" hidden>
           <div class="row league-head">
             <input id="edit-name" class="grow" placeholder="League name" aria-label="League name">
-            <button id="btn-save-league" class="btn primary" hidden>Save</button><span class="autosave" data-autosave aria-live="polite">Saves as you go</span>
+            <span class="unsaved" data-unsaved hidden aria-live="polite">Unsaved changes</span><button id="btn-save-league" class="btn primary">Save</button>
             <button id="btn-activate-league" class="btn">Use in overlay</button>
             <button id="btn-copy-settings" class="btn subtle" title="Bring another league's points and rules, classes, teams, logos and sponsors, or calendar into this one: no exporting or importing">⇆ Copy settings from…</button>
             <button class="btn subtle" data-export="league" title="Everything about this league, images included, to import on this PC or another">⤓ Export league</button>
@@ -527,7 +527,7 @@
           <label class="btn subtle">⤒ Import teams…<input type="file" accept=".json,application/json" data-import="teams" hidden></label>
           <label class="btn subtle" title="Drivers, teams and classes from any spreadsheet, e.g. a sign-up sheet: iRacing ID, name, car number, team, class">⤒ Import a sign-up sheet (CSV)…<input type="file" accept=".csv,text/csv,.txt" data-csv hidden></label>
           <button id="btn-add-team" class="btn subtle">+ Add team</button>
-          <button id="btn-save-teams" class="btn primary" hidden>Save</button><span class="autosave" data-autosave aria-live="polite">Saves as you go</span>
+          <span class="unsaved" data-unsaved hidden aria-live="polite">Unsaved changes</span><button id="btn-save-teams" class="btn primary">Save</button>
         </div>
         <p class="hint">Teams show on the standings overlay, the lap tracker and the grid walk. The short name is used where
           space is tight; the colour is optional (the driver's class colour is used without one). Changes are saved with
@@ -610,11 +610,11 @@
             <div class="wfoot"><span class="desk" data-desk="lights"></span><button class="btn subtle" data-wsettings="lights">⚙ Settings</button></div>
           </div>
           <div class="wcard" data-widget="flags">
-            <h4>Flags <span id="wflag-state" class="count"></span></h4>
+            <h4>Flags &amp; safety car <span id="wflag-state" class="count"></span></h4>
             <div class="wbtns"><button class="wbtn" data-wshow="flags" title="Shows while a sector's yellow">On</button><button class="wbtn" data-whide="flags" title="Never shows">Off</button></div>
             <div class="wbtns small" id="wflag-sectors"></div>
-            <div class="wbtns small"><button class="btn subtle" data-wall="flags:all" title="Every sector yellow">All sectors</button><button class="btn subtle" data-wall="flags:clear" title="Every yellow off: Track Clear">Clear</button></div>
-            <div class="ov-form wq" data-overlay="flags" data-quick="auto_yellow,flag_sectors"></div>
+            <div class="wbtns small"><button class="btn subtle" data-wall="flags:all" title="Every sector yellow">All sectors</button><button class="btn subtle" id="wflag-sc" data-wall="flags:sc" title="The safety car out / in">Safety car</button><button class="btn subtle" data-wall="flags:clear" title="Every yellow off (and the safety car in): Track Clear">Clear</button></div>
+            <div class="ov-form wq" data-overlay="flags" data-quick="sc_auto,auto_yellow,flag_sectors"></div>
             <div class="wfoot"><span class="desk" data-desk="flags"></span><button class="btn subtle" data-wsettings="flags">⚙ Settings</button></div>
           </div>
           <div class="wcard" data-widget="sponsors">
@@ -795,7 +795,7 @@
           <button class="btn subtle" data-export="championship" title="Points rules, calendar, every round's results and penalties">⤓ Export championship</button>
           <button class="btn subtle" data-export="standings" title="Every championship table as a spreadsheet (CSV)">⤓ Standings (CSV)</button>
           <label class="btn subtle">⤒ Import championship…<input type="file" accept=".json,application/json" data-import="championship" hidden></label>
-          <button id="btn-save-champ" class="btn primary" hidden>Save</button><span class="autosave" data-autosave aria-live="polite">Saves as you go</span>
+          <span class="unsaved" data-unsaved hidden aria-live="polite">Unsaved changes</span><button id="btn-save-champ" class="btn primary">Save</button>
         </div>
         <div id="champ-views" class="chips champ-views">
           <button class="chip active" data-champ-view="standings">Standings</button>

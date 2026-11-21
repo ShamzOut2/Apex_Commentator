@@ -138,9 +138,17 @@ class HotkeyActionTests(unittest.TestCase):
         self.press("board:off")
         for k in app.TOGGLE_ALL:
             app.cmd_overlay_settings(k, {"visible": False})
-        self.press("all:toggle")  # nothing up: every overlay comes on
-        self.assertTrue(all(ov(k) for k in app.TOGGLE_ALL))
+        self.press("all:toggle")  # nothing up: every overlay comes on (not the lights and flags: left as they are)
+        self.assertTrue(all(ov(k) for k in app.TOGGLE_ALL if k not in app.STAY_READY))
+        self.assertFalse(any(ov(k) for k in app.STAY_READY))
+        # The lights and flags left ready: everything off doesn't switch them off.
+        for k in app.STAY_READY:
+            app.cmd_overlay_settings(k, {"visible": True})
         self.press("all:toggle")
+        self.assertTrue(all(ov(k) for k in app.STAY_READY))
+        self.press("all:overlays")
+        self.press("all:overlays")
+        self.assertTrue(all(ov(k) for k in app.STAY_READY))
 
     def test_overlays_and_boards_apart(self):
         app = self.app

@@ -55,3 +55,8 @@ body.panel-image .flag::before {
 @keyframes fl-in { from { opacity: 0; transform: translateX(30px) scale(.97); } }
 @keyframes fl-leave { to { opacity: 0; transform: translateX(24px) scale(.97); } }
 .fl-hint { position: absolute; top: 40px; left: 50%; translate: -50% 0; padding: 10px 16px; border-radius: 8px; background: rgba(0, 0, 0, .55); color: var(--muted); font-size: 18px; }
+
+/* The safety car: an SC board, on the yellow. */
+.fl-sc .board { fill: var(--flag); stroke: #15130a; stroke-width: 2.5; }
+.fl-sc text { font: 900 30px/1 system-ui, sans-serif; fill: #15130a; letter-spacing: .04em; }
+.flag.sc .fl-text { letter-spacing: .08em; text-transform: uppercase; }

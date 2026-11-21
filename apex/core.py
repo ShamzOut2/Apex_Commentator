@@ -991,6 +991,15 @@ class App:
                     "progress": self.gaps.position(idx, self._line(frame.timeline(), idx, (lap + pct) if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1), frame.timeline()[1]),
                 })
                 rows.append(row)
+            # A best lap iRacing's car data hasn't got (it can be blank for a
+            # car not out on track just now): the session's official results,
+            # else the app's own timing, as the tower has it.
+            official_best = None
+            for row in rows:
+                if not row.get("best_lap"):
+                    if official_best is None:
+                        official_best = self._official_best(self._session(frame))
+                    row["best_lap"] = official_best.get(row["car_idx"]) or self.laps.best(row["car_idx"]) or row.get("best_lap")
             # A race's starting grid, as the starting grid board has it
             # (qualifying, the race before's finish, reversed…): the order
             # before the green, and where each car started from.
@@ -1291,6 +1300,7 @@ class App:
                     visit = {"lap": ev.get("lap") or 0, "kind": None, "out_lap": None}
                     out.setdefault(ev["car_idx"], []).append(visit)
                 visit["kind"], visit["out_lap"] = ev.get("stop", "stop"), ev.get("lap") or 0
+                visit["served"] = ev.get("served") if visit["kind"] == "stop" else None  # a penalty served at the stop too
         return out
 
     def _strategy_snapshot(self, ov, live, frame, is_race):
@@ -1353,7 +1363,9 @@ class App:
                     out_lap = v["out_lap"]  # its stint started then
                 if penalty and not (penalties_count or cfg["show_penalties"]):
                     continue
-                visits.append({"lap": v["lap"], "kind": v["kind"], "counted": counted})
+                visits.append({"lap": v["lap"], "kind": v["kind"], "counted": counted,
+                               # A stop that served a penalty too: shown with it, if penalties are.
+                               "served": v.get("served") if (penalties_count or cfg["show_penalties"]) else None})
             rows.append({**{k: e.get(k) for k in ("car_idx", "number", "name", "nickname", "pronouns", "team", "team_logo",
                                                   "team_logo_small", "class_key", "paint", "finished")},
                          "stint": self._stint(done, out_lap) if (done or e.get("laps_completed") is not None) else None,
@@ -2354,7 +2366,8 @@ class App:
             # A car that's taken the chequered flag stopping (or crawling round) isn't a hazard.
             done=self._race.finished if self._race.session == num else (),
             caution=bool(frame.session_flags & CAUTION_FLAGS),
-            racing=frame.session_state in (STATE_RACING, STATE_CHECKERED), hold_s=fcfg["hold_s"], clear_s=fcfg["clear_s"])
+            racing=frame.session_state in (STATE_RACING, STATE_CHECKERED), hold_s=fcfg["hold_s"], clear_s=fcfg["clear_s"],
+            sc_auto=fcfg["sc_auto"] and frame.is_live)
 
     def _log_start(self, key, frame, race, final_lap, was):
         """apex.log: what iRacing says before a race's start (its session state,
@@ -2782,7 +2795,9 @@ class App:
                 out[key] = old[key]
         if "overlays" in old and "overlays" in snap:
             out["overlays"] = {**old["overlays"], "settings": snap["overlays"]["settings"]}
-            out["overlays"]["driver"] = self._card_on_camera(snap["overlays"].get("driver"), old["overlays"].get("driver"), old_cards)
+            if snap["overlays"]["settings"].get("driver", {}).get("follow") == "now":
+                # The board changes as the camera cuts (the rest of it from the delay).
+                out["overlays"]["driver"] = self._card_on_camera(snap["overlays"].get("driver"), old["overlays"].get("driver"), old_cards)
         return out
 
     @staticmethod
@@ -3396,9 +3411,14 @@ class App:
                          "show_make", "show_pit_status", "show_stripe", "show_fastest_icon")
     TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits", "duel", "strategy", "trackmap", "lights", "flags")
 
+    # Only ever on screen when they're needed (the lights at a start, the flags
+    # while a sector's yellow): everything-off / on leaves them ready, as they are.
+    STAY_READY = ("lights", "flags")
+
     def _toggled(self, ov):
-        """The overlays everything-off / on takes: not the sponsors set to stay."""
-        return [k for k in self.TOGGLE_ALL if not (k == "sponsors" and ov.get(k, {}).get("stay"))]
+        """The overlays everything-off / on takes: not the sponsors set to stay,
+        nor the starting lights and flags (they come up by themselves)."""
+        return [k for k in self.TOGGLE_ALL if k not in self.STAY_READY and not (k == "sponsors" and ov.get(k, {}).get("stay"))]
 
     def cmd_toggle_all(self):
         """Every overlay, the board and the grid walk off screen at once; again,
@@ -3781,7 +3801,9 @@ class App:
         n = cfg["reverse_top"]
         if matched and matched[1].get("reverse_grid"):
             n = matched[1].get("reverse_top") or 0
-        if note in ("current positions", "iRacing's grid"):
+        if note in ("current positions", "iRacing's grid") or cfg["grid_source"] in ("auto", "current"):
+            # iRacing's grid as it set it (Automatic, or as the cars line up):
+            # reversed already if the race is, so nothing turned round on top.
             n = 0
         if n > 0:
             if cfg["reverse_in_class"]:
@@ -3895,6 +3917,11 @@ class App:
         """The flag overlay's yellow sectors: "s1".."s9" (that sector on / off),
         "all" (every sector), "clear" (none: the track's clear)."""
         count = self.overlays.get()["flags"]["flag_sectors"]
+        if step == "sc":
+            out = self._flags.toggle_sc()
+            if self._frame is not None:
+                self._watch_start(self._frame)
+            return {"sc": out}
         if step == "all":
             sectors = self._flags.set_all(count)
         elif step == "clear":

@@ -4,7 +4,8 @@ import unittest
 from apex.config import DEFAULTS
 from apex.events import EventDetector
 from apex.sources import (
-    FLAG_BLACK, FLAG_CAUTION, FLAG_FURLED, FLAG_GREEN, Frame, STATE_RACING, TRK_APPROACHING_PITS, TRK_IN_PIT_STALL, TRK_OFF_TRACK,
+    FLAG_BLACK,
+    FLAG_REPAIR, FLAG_CAUTION, FLAG_FURLED, FLAG_GREEN, Frame, STATE_RACING, TRK_APPROACHING_PITS, TRK_IN_PIT_STALL, TRK_OFF_TRACK,
     TRK_ON_TRACK,
 )
 
@@ -320,14 +321,15 @@ class RaceEventTests(unittest.TestCase):
         self.assertAlmostEqual(pit_out["duration"], 28.0, delta=0.2)
         self.assertEqual((pit_out["from_position"], pit_out["position"]), (1, 3))
 
-    def visit(self, box, black_until=None, seconds=40):
-        """Car 1 down the pit lane from 2 s to 30 s, in its pit box from 10 s to
-        20 s if ``box``; a black flag (a penalty) until ``black_until``."""
+    def visit(self, box, black_until=None, seconds=40, box_s=10, flag=None):
+        """Car 1 down the pit lane from 2 s to 30 s, in its pit box from 10 s
+        for ``box_s`` seconds if ``box``; a black flag (a penalty; ``flag``
+        another) until ``black_until``."""
         def car(t):
-            flags = FLAG_GREEN | (FLAG_BLACK if black_until is not None and t < black_until else 0)
+            flags = FLAG_GREEN | ((flag or FLAG_BLACK) if black_until is not None and t < black_until else 0)
             if t < 2 or t >= 30:
                 return (5, (0.60 + t * 0.011) % 1, TRK_ON_TRACK, False, flags, 89.0)
-            surface = TRK_IN_PIT_STALL if box and 10 <= t < 20 else TRK_APPROACHING_PITS
+            surface = TRK_IN_PIT_STALL if box and 10 <= t < 10 + box_s else TRK_APPROACHING_PITS
             return (5, 0.62 + (t - 2) * 0.001, surface, True, flags, 89.0)
         return next(e for e in self.race(seconds, car) if e["type"] == "pit_out")
 
@@ -338,11 +340,21 @@ class RaceEventTests(unittest.TestCase):
         self.setUp()
         self.assertEqual(self.visit(box=False, black_until=29)["stop"], "drive_through")  # a drive-through penalty served
         self.setUp()
-        self.assertEqual(self.visit(box=True, black_until=29)["stop"], "stop_go")  # stopped in the box, penalty gone
+        self.assertEqual(self.visit(box=True, box_s=2, black_until=29)["stop"], "stop_go")  # a moment in the box, penalty gone
         self.setUp()
-        self.assertEqual(self.visit(box=True, black_until=33)["stop"], "stop_go")  # the flag goes just after the exit
+        self.assertEqual(self.visit(box=True, box_s=2, black_until=33)["stop"], "stop_go")  # the flag goes just after the exit
         self.setUp()
         self.assertEqual(self.visit(box=True, black_until=99)["stop"], "stop")  # stopped with the penalty still to serve
+        # A stop with service that served the penalty too (10 s in the box): a pit stop, the penalty noted.
+        self.setUp()
+        ev = self.visit(box=True, box_s=10, black_until=29)
+        self.assertEqual((ev["stop"], ev.get("served")), ("stop", "stop_go"))
+        self.setUp()
+        ev = self.visit(box=True, box_s=10, black_until=33)
+        self.assertEqual((ev["stop"], ev.get("served")), ("stop", "stop_go"))
+        # The meatball (repairs: iRacing's black flag with the repair one): a pit stop, not a penalty.
+        self.setUp()
+        self.assertEqual(self.visit(box=True, box_s=2, black_until=29, flag=FLAG_BLACK | FLAG_REPAIR)["stop"], "stop")
 
     def test_a_stop_while_a_replay_was_up(self):
         """Back live after a replay (a jump in race time): a car that was in the

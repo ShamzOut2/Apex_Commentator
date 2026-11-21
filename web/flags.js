@@ -61,24 +61,32 @@ function mapSvg(f) {
   return `<svg class="fl-map" viewBox="0 0 150 150" aria-hidden="true"><polyline class="base" points="${line(0, 1)}"/>${hot}</svg>`;
 }
 
+// The safety car: an SC board (yellow, as the marshals show it).
+const SC_SVG = `<svg class="fl-cloth fl-sc" viewBox="0 0 96 92" aria-hidden="true">
+  <rect x="45" y="58" width="6" height="32" rx="3" fill="#c9ced8"/>
+  <rect x="6" y="8" width="84" height="54" rx="7" class="board"/>
+  <text x="48" y="36" text-anchor="middle" dominant-baseline="central">SC</text></svg>`;
+
 function draw(f, cfg) {
   setPanels(cfg);
   setSize(cfg);
   if (f.map !== mapId && cfg.show_map) loadMap(f.map);
   const strip = Array.from({ length: f.count }, (_, i) => `<span class="${f.sectors.includes(i + 1) ? "on" : ""}">S${i + 1}</span>`).join("");
-  const inner = `${FLAG_SVG}<div class="fl-main"><div class="fl-kind">${f.clear ? "Green flag" : "Yellow flag"}</div>
-    <div class="fl-text">${esc(f.text)}</div><div class="fl-strip">${strip}</div></div>${cfg.show_map ? mapSvg(f) : ""}`;
-  const key = [cfg.place, cfg.visible, f.clear, f.text, f.count, cfg.show_map, !!points].join("|");
+  const kind = f.sc ? "Full course caution" : f.clear ? "Green flag" : "Yellow flag";
+  const inner = `${f.sc ? SC_SVG : FLAG_SVG}<div class="fl-main"><div class="fl-kind">${kind}</div>
+    <div class="fl-text">${esc(f.text)}</div>${f.sc ? "" : `<div class="fl-strip">${strip}</div>`}</div>${cfg.show_map ? mapSvg(f) : ""}`;
+  const key = [cfg.place, cfg.visible, f.clear, f.sc, f.text, f.count, cfg.show_map, !!points].join("|");
   if (box && key === shownKey) return;
-  const fresh = !box || box.classList.contains("clear") !== !!f.clear;
+  const look = f.sc ? "sc" : f.clear ? "clear" : "";
+  const fresh = !box || (box.dataset.look || "") !== look;
   shownKey = key;
   if (!fresh) {
-    box.className = `flag ${esc(cfg.place)} ${f.clear ? "clear" : ""} ${cfg.visible ? "" : "hidden-preview"}`;
+    box.className = `flag ${esc(cfg.place)} ${look} ${cfg.visible ? "" : "hidden-preview"}`;
     box.innerHTML = inner;
     return;
   }
   leave(true);
-  stage.insertAdjacentHTML("beforeend", `<div class="flag panel-in ${esc(cfg.place)} ${f.clear ? "clear" : ""} ${cfg.visible ? "" : "hidden-preview"}">${inner}</div>`);
+  stage.insertAdjacentHTML("beforeend", `<div class="flag panel-in ${esc(cfg.place)} ${look} ${cfg.visible ? "" : "hidden-preview"}" data-look="${look}">${inner}</div>`);
   box = stage.lastElementChild;
   const el = box;
   setTimeout(() => el.classList.remove("panel-in"), 550);
@@ -105,7 +113,7 @@ function render(snap) {
   }
   leave();
   if (PREVIEW && !stage.querySelector(".fl-hint")) {
-    stage.insertAdjacentHTML("beforeend", '<div class="fl-hint">No yellow flags right now (press a sector\'s hotkey, or turn Auto on)</div>');
+    stage.insertAdjacentHTML("beforeend", '<div class="fl-hint">No yellow flags or safety car right now (press a sector\'s hotkey or Safety car, or turn Auto on)</div>');
   }
 }
 

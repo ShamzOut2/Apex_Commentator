@@ -63,10 +63,10 @@ starting grid", "Clear all penalties"…).
   set, and a tile for each tool.
 - **App**: the app's own settings: the live timing website, dual
   commentary, import & export, your licence and updates.
-- The **League builder**, **Teams** and **Championship** save as you go:
-  "Saved" shows where the Save button was, with **Undo** for the last change.
-  Changes not saved yet are saved before you leave the tab or open another
-  league.
+- The **League builder**, **Teams** and **Championship** keep your changes
+  until **Save** ("Unsaved changes" shows by it while there are some, and
+  switching to another league asks first). Points & rules save as they're
+  changed.
 - **Race control**: the list of drivers, each one's penalty buttons on the
   row you point at.
 - **Hotkeys**: find one, show only the keys you've set, fold sections away.
@@ -110,50 +110,40 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**v0.9.0**
+**v0.9.1**
 
 ### New features
 
-- Search from anywhere (Ctrl+K, or Search at the top): a tab, any setting, a
-  driver to watch, or something to do.
-- Theme (Widget Settings): names, accent colour, team logos and panel
-  opacity set once for every widget; a widget given its own keeps it, with
-  "Use theme" to put it back.
-- Session names have a page of their own (Widget Settings): race,
-  qualifying, heat, consolation and feature names, used by the tower, the
-  timing screen and every board.
-- Home is a race-day checklist (iRacing, the league, what's on stream, live
-  timing, hotkeys); the app's own settings (live timing, dual commentary,
-  import & export, licence, updates) are in a new App tab.
+- Flags: a safety car (an SC board, "Safety Car") shows by itself while
+  iRacing has a full course caution, and can be sent out by hand (Safety car
+  button on the Flags card, or a hotkey).
+- Grid walk: a fourth position option, class first (P1 GT3, with P3 overall
+  under it).
+- Driver on camera: choose whether it changes with the delay (as the Timing
+  Screen and every other overlay) or as the camera cuts.
 
 ### Improvements
 
-- The tabs are in three groups: Before the race, On air, Set up.
-- Widget Settings is easier to find your way round: every widget has the
-  same four tabs (Content, Look, Position, Behaviour), opens on the settings
-  most people change (Show all settings for the rest), and a search box finds
-  any setting. Changed settings have an orange dot and ↺ to put them back.
-- Switches for on / off settings and buttons for short choices, with a short
-  name and a grey line under it saying what it does, everywhere settings are.
-- A setting that only matters while another is on sits under it (e.g. the
-  car number's colour under "Car number on a coloured background").
-- League builder, Teams and Championship save as you go, with Undo; no more
-  Save buttons.
-- The tower's columns are chips to tick and drag; one Move setting (with
-  nudge buttons) for where a widget sits; click part of a widget's preview
-  to open its settings.
-- Timing Screen: the list's look (delay, battle gap, names, decimals…) is
-  under ⚙ View. Race control shows a driver's penalty buttons on the row you
-  point at. Hotkeys: search, only the keys set, and sections that fold.
-- The Live timing tab's settings and the grid walk's settings are laid out
-  like Widget Settings; the grid walk's are in one place (Widget Settings).
-- Race meetings: put a date on one race and the meeting's other races take
-  it too (those with no date yet, or on the date it had before, so moving the
-  meeting moves them all). A race given a day of its own keeps it.
-- A fresh look for the app: two fonts (Inter for text, Saira Semi Condensed
-  for headings, tabs and timing numbers), layered panels, clearer buttons and
-  fields, and the open tab marked with an orange stripe. The overlays on
-  stream are unchanged.
+- League builder, Teams and Championship have their Save button back, with
+  "Unsaved changes" by it; switching league asks before losing changes.
+- Hide all leaves the starting lights and the flags ready: they still come
+  up by themselves at the start and for a yellow.
+
+### Fixes
+
+- Starting grid: Automatic and "as the cars line up" take iRacing's grid as
+  it set it; a reverse number (or a round's Reverse grid) no longer turns it
+  round again. The reverse settings only show for the other sources.
+- Column order (Widget Settings and the widget cards): moving a column twice
+  quickly, or dragging one, is always saved.
+- Qualifying: every driver's best lap on the Timing Screen, as the tower has
+  them (from iRacing's results when its live data has none).
+- New fastest lap flash: no longer seems to split in half as it comes in
+  (the light across it is drawn smoothly, the pill slides in without
+  scaling, and "New fastest lap" is gone before the name and time come in).
+- Pit strategy and pit counts: a stop for meatball repairs counts as a stop,
+  and so does a stop that served a penalty with service at the same time
+  (shown "+SG" / "+DT" on the strategy).
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

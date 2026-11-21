@@ -504,7 +504,9 @@ class DataDelayTests(unittest.TestCase):
 
             def snap(i, car, pick=0):
                 return {"connected": True, "session": {"time": i},
-                        "overlays": {"driver": card(i, car, pick), "standings": [i], "settings": {}}}
+                        "overlays": {"driver": card(i, car, pick), "standings": [i], "settings": {"driver": {"follow": follow}}}}
+
+            follow = "now"  # the board set to change as the camera cuts
 
             def publish(i, car, pick=0):  # as App.publish: the snapshot and every car's card with it
                 return app._delay(snap(i, car, pick), {c: card(i, c, pick) for c in (1, 2)})
@@ -530,4 +532,15 @@ class DataDelayTests(unittest.TestCase):
                 late = app._delay(snap(31, 7), {})["overlays"]["driver"]
                 self.assertEqual((late["car_idx"], late["at"]), (7, 31))
                 # Nobody on camera: no board, without waiting either.
-                self.assertIsNone(app._delay({"connected": True, "overlays": {"driver": None, "settings": {}}})["overlays"]["driver"])
+                self.assertIsNone(app._delay({"connected": True, "overlays": {"driver": None, "settings": {"driver": {"follow": "now"}}}})["overlays"]["driver"])
+                # As it comes (with the delay): the board changes a second after
+                # the cut, as the Timing Screen and every other overlay do.
+                app._delay_history.clear()
+                follow = "delay"
+                seen = []
+                for i in range(30):
+                    seen.append(publish(i, 1 if i < 10 else 2))
+                    now["t"] += 0.125
+                cards = [s["overlays"]["driver"] for s in seen]
+                self.assertEqual([c["car_idx"] for c in cards[8:]], [1] * 10 + [2] * 12)
+                self.assertEqual([c["at"] for c in cards[8:]], list(range(22)))

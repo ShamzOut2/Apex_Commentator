@@ -1213,7 +1213,7 @@ const TOWER_COLUMN_HOTKEYS = [["pos_change", "Places gained / lost"], ["number",
   ["pit_status", "PIT badge"], ["stripe", "Coloured bar"], ["fastest_icon", "Fastest lap stopwatch"]];
 const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"],
   ["battle", "Championship battle"], ["pits", "Pit stops"], ["duel", "On-track battle"], ["strategy", "Pit strategy"], ["trackmap", "Track map"],
-  ["lights", "Starting lights (comes up at the start)"], ["flags", "Flags (shows while a sector's yellow)"]];
+  ["lights", "Starting lights on / off (comes up at the start; Hide all leaves it ready)"], ["flags", "Flags on / off (shows while a sector's yellow; Hide all leaves it ready)"]];
 const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
 
 // What a key can do besides cameras: [[section, [[id, label, run]]]], from
@@ -1290,10 +1290,11 @@ function hotkeyActions(s = ui.snap || {}) {
       ["lights:count", "Count down now (a light a step, held lit until the green)", () => cmd("hotkey", { action: "lights:count" }, "Starting lights: counting down")],
       ["lights:reset", "Put the lights away", () => cmd("hotkey", { action: "lights:reset" }, "Starting lights away")],
     ]],
-    ["Flags (yellow by sector)", [
+    ["Flags (yellow by sector, safety car)", [
       ...Array.from({ length: (ov.flags && ov.flags.flag_sectors) || 3 }, (_, i) => [`flags:s${i + 1}`, `Sector ${i + 1} yellow / clear`,
         () => cmd("hotkey", { action: `flags:s${i + 1}` }, (r) => flagToast(r))]),
       ["flags:all", "Every sector yellow (All Sectors)", () => cmd("hotkey", { action: "flags:all" }, "Yellow flag: All Sectors")],
+      ["flags:sc", "Safety car out / in", () => cmd("hotkey", { action: "flags:sc" }, (r) => (r && r.sc ? "Safety car out" : "Safety car in"))],
       ["flags:clear", "Clear every yellow (Track Clear)", () => cmd("hotkey", { action: "flags:clear" }, "Track clear")],
     ]],
     ["Boards (press again: off screen)", boards],
@@ -2015,7 +2016,7 @@ function renderChampRounds() {
         ${lengthField(rd, i)}
         <label class="field" title="Points multiplier: 1 for normal points, 2 for double points, and so on">Points ×<input type="number" class="narrow" min="0" max="10" step="0.5" data-round="${i}" data-rkey="multiplier" value="${rd.multiplier ?? 1}"></label>
         <label class="field" title="This round always counts, even with drop rounds"><input type="checkbox" data-round="${i}" data-rkey="no_drop" ${rd.no_drop ? "checked" : ""}> Can't drop</label>
-        ${rd.event ? `<label class="field" title="This race's grid has its first N turned round (the starting grid board shows it so)"><input type="checkbox" data-round="${i}" data-rkey="reverse_grid" ${rd.reverse_grid ? "checked" : ""}> Reverse grid</label>
+        ${rd.event ? `<label class="field" title="This race's grid has its first N turned round: the starting grid board shows it so when its grid is from qualifying or the previous race (Automatic and as the cars line up take iRacing's grid as it is)"><input type="checkbox" data-round="${i}" data-rkey="reverse_grid" ${rd.reverse_grid ? "checked" : ""}> Reverse grid</label>
         <label class="field" title="How many from the front are turned round (with Reverse grid ticked)">Reverse top<input type="number" class="narrow" min="0" max="60" step="1" data-round="${i}" data-rkey="reverse_top" value="${rd.reverse_top || 0}" aria-label="How many cars are reversed"></label>` : ""}
         ${c.rules.custom_schemes && (c.rules.schemes || []).length ? `<label class="field" title="The points system this round is scored with">Points
           <select data-round="${i}" data-rkey="scheme"><option value="">Usual points</option>${c.rules.schemes.map((sc) =>
@@ -2561,7 +2562,7 @@ $("#btn-all-meetings").addEventListener("click", () => {
   for (const [, i] of single.reverse()) toMeeting(c, i, races);
   markChampDirty();
   renderChampionship();
-  toast(`${single.length} round${single.length === 1 ? "" : "s"} made race meetings of ${races} races.`);
+  toast(`${single.length} round${single.length === 1 ? "" : "s"} made race meetings of ${races} races. Save to keep them.`);
 });
 
 $("#btn-add-meeting").addEventListener("click", () => {
@@ -2798,7 +2799,7 @@ function createBuiltRounds() {
   markChampDirty();
   renderChampionship();
   renderBuild();
-  toast(`Made ${made.length} rounds.`);
+  toast(`Made ${made.length} rounds. Save to keep them.`);
 }
 
 $("#btn-add-penalty").addEventListener("click", () => {
@@ -3122,7 +3123,8 @@ const OVERLAY_FIELDS = {
   gridwalk: [["Drivers' cards", [["name_format", "Names", "select", NAME_FORMATS], ["show_nickname", "Nickname under the name", "bool"],
       ["show_position", "Grid position", "bool"],
       iff((v) => v.show_position, ["position_shown", "Position shown", "select", [["overall", "Overall (P3)"],
-        ["class", "In class only (P1, the class under it)"], ["both", "Both (P3, and P1 GT3 under it)"]]]),
+        ["class", "In class only (P1, the class under it)"], ["both", "Both (P3, and P1 GT3 under it)"],
+        ["class_both", "Both, class first (P1 GT3, and P3 overall under it)"]]]),
       iff((v) => v.show_position && v.position_shown !== "overall", ["pos_class_name", "Class name with the class position (P1 GT3; off: just P1)", "bool"]),
       ["class_colors", "Car number (and card accent) colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
       ["show_number", "Car number", "bool"],
@@ -3223,7 +3225,8 @@ const OVERLAY_FIELDS = {
     ["What it shows", [
       ["visible", "Shows while a sector's yellow (untick: never)", "bool"],
       ["flag_sectors", "Sectors in a lap (from the track's split points)", "number", { min: 2, max: 9, step: 1 }],
-      ["auto_yellow", "Also by itself: a sector goes yellow while a car's stopped in it (not one that's finished), and every sector under a full course caution", "bool"],
+      ["sc_auto", "Safety car: shows by itself while iRacing has a full course caution (the pace car out)", "bool"],
+      ["auto_yellow", "Also by itself: a sector goes yellow while a car's stopped in it (not one that's finished)", "bool"],
       iff((v) => v.auto_yellow, ["hold_s", "A stopped car's sector stays yellow after it gets going (seconds)", "number", { min: 0, max: 60, step: 1 }]),
       ["clear_s", "\"Track Clear\" (green) once the last yellow's cleared, for (seconds; 0 = not shown)", "number", { min: 0, max: 10, step: 0.5 }],
       ["show_map", "The track's outline with the yellow sectors marked", "bool"],
@@ -3264,6 +3267,8 @@ const OVERLAY_FIELDS = {
   ],
   driver: [
     ["What it shows", [
+      ["follow", "Changes to a new driver", "select", [["delay", "With the delay"], ["now", "As the camera cuts"]]],
+      ["note", "With the delay: as the Timing Screen and every other overlay (Delay, under ⚙ View there). As the camera cuts: straight away, for a stream that isn't behind.", "note"],
       ["stay", "Stay up for as long as they're on camera", "bool"],
       iff((v) => !v.stay, ["hide_s", "Card stays on screen for (seconds; a new driver resets it)", "number", { min: 1, max: 120, step: 1 }]),
       ["name_format", "Names", "select", NAME_FORMATS],
@@ -3614,13 +3619,19 @@ document.addEventListener("click", (e) => {
   if (!btn) return;
   const item = btn.closest(".order-item");
   const field = btn.closest(".order-field");
-  const keys = [...field.querySelectorAll(".order-item")].map((x) => x.dataset.col);
-  const i = keys.indexOf(item.dataset.col);
-  const j = i + +btn.dataset.orderMove;
-  if (j < 0 || j >= keys.length) return;
-  [keys[i], keys[j]] = [keys[j], keys[i]];
+  // Moved here straight away (a second click before the settings come back
+  // moves it again, not the old order), then saved.
+  const other = +btn.dataset.orderMove < 0 ? item.previousElementSibling : item.nextElementSibling;
+  if (!other) return;
+  if (+btn.dataset.orderMove < 0) item.parentElement.insertBefore(item, other);
+  else item.parentElement.insertBefore(other, item);
+  const items = [...field.querySelectorAll(".order-item")];
+  items.forEach((x, k) => {
+    x.querySelector('[data-order-move="-1"]').disabled = k === 0;
+    x.querySelector('[data-order-move="1"]').disabled = k === items.length - 1;
+  });
   btn.blur();  // the settings don't redraw while something in them has focus
-  saveOrder(field, keys);
+  saveOrder(field, items.map((x) => x.dataset.col));
 });
 
 let draggedCol = null;
@@ -3777,8 +3788,9 @@ const BOARD_FIELDS = {
       ["qualifying", "Qualifying (its order)"], ["previous", "The previous race's finish"],
       ["gridwalk", "The grid walk's order (as set by hand on the Grid walk tab)"],
       ["current", "As the cars line up on the grid (changes as they're put there)"]]],
-    ["reverse_top", "Reverse grid: the first N turned round (0 = none; a race meeting's round can set its own). Not on iRacing's own grid: that's reversed already, if the race is", "number", { min: 0, max: 64 }],
-    iff((v) => v.reverse_top > 0, ["reverse_in_class", "Reverse the first N of each class (not overall)", "bool"]),
+    iff((v) => ["auto", "current"].includes(v.grid_source), ["note", "Automatic and \"as the cars line up\" take the grid as iRacing set it (reversed already, if the race is): no reverse is put on top, a race meeting round's Reverse grid included.", "note"]),
+    iff((v) => !["auto", "current"].includes(v.grid_source), ["reverse_top", "Reverse grid: the first N turned round (0 = none; a race meeting's round can set its own)", "number", { min: 0, max: 64 }]),
+    iff((v) => !["auto", "current"].includes(v.grid_source) && v.reverse_top > 0, ["reverse_in_class", "Reverse the first N of each class (not overall)", "bool"]),
     ["grid_layout", "Layout", "select", [["list", "A list"], ["grid", "As the cars line up (two staggered columns)"]]],
     ["grid_reveal", "Show the drivers", "select", [["all", "All at once (each comes in in turn)"],
       ["rows", "Row by row: the front row first, then Next row (button or hotkey) for each one after"]]],
@@ -4009,7 +4021,7 @@ const WS_TAB_OF = Object.fromEntries(Object.entries({
     "invalid_line_color", "track_color", "track_width", "dot_size", "colors", "camera", "background", "bg", "podium", "title_wrap",
     "show_color"],
   Behaviour: ["reveal", "replay_header", "replay_hide_rows", "finish_flag", "penalty_flags", "stay", "hide_s", "show_s", "hold_s",
-    "race_only", "auto", "settle_s", "interval_s", "visible", "start_from", "step_s", "out_s", "auto_yellow", "clear_s", "practice",
+    "race_only", "auto", "settle_s", "follow", "interval_s", "visible", "start_from", "step_s", "out_s", "auto_yellow", "sc_auto", "clear_s", "practice",
     "sector_delta_s", "grid_reveal", "grid_scroll", "board_overlays", "board_dim", "penalty_stops", "keep_leader"],
   Content: ["neighbours"],
 }).flatMap(([tab, keys]) => keys.map((k) => [k, tab])));
@@ -4019,7 +4031,7 @@ const WS_ESSENTIAL = new Set(["mode", "class_keys", "rows", "rows_class", "name_
   "show_position", "position_shown", "show_gap", "show_interval", "place", "title", "scale", "offset_x", "offset_y", "bg", "accent",
   "accent_color", "league_logo", "banner", "sponsors", "visible", "auto", "stay", "hide_s", "count", "who", "race_only", "style",
   "show_date", "show_winners", "grid_source", "reverse_top", "grid_layout", "grid_reveal", "units", "show_map", "show_air",
-  "show_track_temp", "show_wind", "sponsor_ids", "anchor_id", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
+  "show_track_temp", "show_wind", "follow", "sponsor_ids", "anchor_id", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
   "order", "show_stops", "show_penalties", "colors", "labels", "map_size", "start_from", "auto_yellow", "qual_shown", "card_scale",
   "car_scale", "show_points", "show_drivers", "show_wins", "header_info", "column_order", "show_series", "show_track", "sponsor_bar", "show_pos_change",
   "show_pits", "reveal", "replay_header", "fl_flash", "finish_flag", "gap_to", "show_race_points"]);
@@ -4268,11 +4280,13 @@ function renderWidgets(s) {
     fbtns.innerHTML = Array.from({ length: count }, (_, i) => `<button class="btn subtle" data-wall="flags:s${i + 1}" title="Sector ${i + 1} yellow / clear">S${i + 1}</button>`).join("");
   }
   if (fbtns) [...fbtns.children].forEach((b, i) => b.classList.toggle("lit", yellow.has(i + 1)));
+  const scBtn = $("#wflag-sc");
+  if (scBtn) scBtn.classList.toggle("lit", !!(fl && fl.sc));
   $("#wflag-state").textContent = fl ? (fl.clear ? "track clear" : fl.text) : "";
   $("#wlights-state").textContent = s.overlays.lights ? (s.overlays.lights.out ? "lights out" : `${s.overlays.lights.lit} lit`) : "";
   $("#wgw-toggle").textContent = gw.running ? "❚❚ Pause" : "▶ Resume";
   const key = JSON.stringify([st, (s.classes || []).map((c) => [c.key, c.name, c.color])]);
-  if (key === wqKey || document.activeElement.closest(".wq")) return;
+  if (key === wqKey || document.activeElement.closest(".wq") || draggedCol) return;
   wqKey = key;
   for (const form of document.querySelectorAll(".wq")) {
     const section = form.dataset.overlay;
@@ -4287,7 +4301,7 @@ function renderWidgetSettings(s) {
   const key = JSON.stringify([w.key, values, s.overlays.settings.general, (s.classes || []).map((c) => [c.key, c.name, c.color]),
     (s.league && s.league.sponsors) || [], (s.league && s.league.banners) || [], ((s.board_options || {}).groups || []).length,
     wsTab, wsAll, wsQuery, wsReveal, !!ovDefaults]);
-  if (key === wsKey || document.activeElement.closest("#ws-form")) return;
+  if (key === wsKey || document.activeElement.closest("#ws-form") || draggedCol) return;
   const changed = !wsKey.startsWith(`["${w.key}"`);
   wsKey = key;
   if (changed) {
@@ -5371,9 +5385,11 @@ function renderTeams() {
 
 document.querySelectorAll(".league-picker").forEach((sel) => sel.addEventListener("change", (e) => {
   if (!e.target.value) return;
-  // What's being edited is saved first (it saves as you go).
-  const id = e.target.value;
-  autosaveNow().then(() => openLeague(id)).catch((err) => toast(err.message, true));
+  if ((champ.dirty || editorUnsaved()) && !confirm("Leave without saving the changes to this league?")) {
+    e.target.value = ui.editing ? ui.editing.id : "";
+    return;
+  }
+  openLeague(e.target.value).catch((err) => toast(err.message, true));
 }));
 
 $("#btn-add-team").addEventListener("click", () => {
@@ -5871,7 +5887,7 @@ $("#edit-strip-class").addEventListener("change", (e) => {
     }
   }
   renderRoster();
-  toast(filled ? `Filled ${filled} nicknames with names minus their class tag.`
+  toast(filled ? `Filled ${filled} nicknames with names minus their class tag. Save to keep them.`
     : "No empty nicknames to fill. Overlays will show names without the class tag.");
 });
 
@@ -5945,11 +5961,10 @@ $("#league-list").addEventListener("click", async (e) => {
   if (dup) {
     e.stopPropagation();
     try {
-      await autosaveNow();
       const r = await api(`/api/leagues/${encodeURIComponent(dup.dataset.duplicate)}/duplicate`, { method: "POST", body: {} });
       await loadLeagues();
       openEditor(r.league);
-      toast(`Made "${r.league.name}": rename it (it saves as you go)`);
+      toast(`Made "${r.league.name}": rename it and save`);
     } catch (err) {
       toast(err.message, true);
     }
@@ -5969,7 +5984,7 @@ $("#league-list").addEventListener("click", async (e) => {
   const li = e.target.closest("li[data-league]");
   if (li) {
     try {
-      await autosaveNow();  // the league being edited, saved before another opens
+      if (editorUnsaved() && !confirm("Leave without saving the changes to this league?")) return;
       openEditor(await api(`/api/leagues/${encodeURIComponent(li.dataset.league)}`));
     } catch (err) {
       toast(err.message, true);
@@ -6386,15 +6401,11 @@ $("#cmdk").addEventListener("click", (e) => {
   if (e.target.id === "cmdk") cmdkClose();
 });
 
-// ---- League builder, Teams and Championship save as you go -----------------
-// What's being edited is looked at every second or so: once it's stayed the
-// same for a moment and differs from what was last saved, it's saved (without
-// redrawing what you're typing in). "Undo" puts back what was there before.
-const AUTOSAVE_TABS = new Set(["league", "teams", "championship"]);
-let autoSaved = null;   // the league as last saved (or opened)
-let autoSeen = null;    // as it was at the last look
-let autoBusy = false;
-let autoUndo = null;    // what it was before the last save, for Undo
+// ---- League builder, Teams and Championship: Save, and "Unsaved changes" ----
+// Changes are kept until Save (points & rules excepted: they save as they're
+// changed). "Unsaved changes" shows by the Save button while there are some,
+// and switching to another league asks first.
+let editorSaved = null;  // the league as last saved (or opened)
 function editorJson() {
   try {
     return ui.editing ? JSON.stringify(readEditor()) : null;
@@ -6402,90 +6413,30 @@ function editorJson() {
     return null;
   }
 }
-function autosaveStatus(text, undo = false) {
-  document.querySelectorAll("[data-autosave]").forEach((el) => {
-    el.innerHTML = `${esc(text)}${undo ? ' · <button type="button" class="link" data-autosave-undo>Undo</button>' : ""}`;
-    el.classList.toggle("saving", text === "Saving…");
-  });
+function editorUnsaved() {
+  const now = editorJson();
+  return now !== null && editorSaved !== null && now !== editorSaved;
 }
 const openEditorBase = openEditor;
-openEditor = function (profile) {  // a league opened (or reloaded): that's what's saved
+openEditor = function (profile) {  // a league opened (or reloaded after a save): that's what's saved
   openEditorBase(profile);
-  autoSaved = autoSeen = editorJson();
+  editorSaved = editorJson();
   champ.dirty = false;
   $("#champ-dirty").hidden = true;
+  showUnsaved();
 };
-setInterval(async () => {
-  const panel = document.querySelector(".panel.active");
-  if (!panel || !AUTOSAVE_TABS.has(panel.id.slice(4)) || !ui.editing || autoBusy) return;
-  if (!ui.editing.id && !$("#edit-name").value.trim()) return;  // a new league: once it has a name
-  const now = editorJson();
-  if (now === null || now === autoSaved) {
-    autoSeen = now;
-    return;
-  }
-  if (now !== autoSeen) {  // still changing: wait until it's still
-    autoSeen = now;
-    return;
-  }
-  await autosave(now);
-}, 1100);
-async function autosave(now) {
-  autoBusy = true;
-  const before = autoSaved;
-  autosaveStatus("Saving…");
-  try {
-    const { league } = await api("/api/leagues", { method: "POST", body: JSON.parse(now) });
-    if (ui.editing && !ui.editing.id) ui.editing.id = league.id;
-    autoSaved = autoSeen = editorJson();
-    autoUndo = before;
-    champ.dirty = false;
-    $("#champ-dirty").hidden = true;
-    autosaveStatus("Saved", !!before);
-    loadLeagues();
-    if ($("#tab-championship").classList.contains("active")) loadChampStandings();
-  } catch (err) {
-    autoSaved = now;  // not again until it changes
-    autosaveStatus("Not saved");
-    toast(err.message, true);
-  } finally {
-    autoBusy = false;
-  }
+function showUnsaved() {
+  const unsaved = editorUnsaved();
+  document.querySelectorAll("[data-unsaved]").forEach((el) => { el.hidden = !unsaved; });
 }
-// Anything not saved yet, saved now (leaving the tab, picking another league).
-async function autosaveNow() {
-  if (!ui.editing || (!ui.editing.id && !$("#edit-name").value.trim())) return;
-  const now = editorJson();
-  if (now !== null && now !== autoSaved && !autoBusy) await autosave(now);
-}
-const showPageBase = showPage;
-showPage = function (name) {
+setInterval(() => {
   const panel = document.querySelector(".panel.active");
-  if (panel && AUTOSAVE_TABS.has(panel.id.slice(4))) autosaveNow();
-  return showPageBase(name);
-};
-window.addEventListener("beforeunload", () => {
-  const now = editorJson();
-  if (ui.editing && ui.editing.id && now !== null && now !== autoSaved) {
-    navigator.sendBeacon("/api/leagues", new Blob([now], { type: "application/json" }));
-  }
-});
-document.addEventListener("click", async (e) => {
-  if (!e.target.closest("[data-autosave-undo]") || !autoUndo || autoBusy) return;
-  autoBusy = true;
-  try {
-    const { league } = await api("/api/leagues", { method: "POST", body: JSON.parse(autoUndo) });
-    autoUndo = null;
-    ui.editing = league;
-    await loadLeagues();
-    openEditor(league);
-    autosaveStatus("Undone");
-    if ($("#tab-championship").classList.contains("active")) loadChampStandings();
-  } catch (err) {
-    toast(err.message, true);
-  } finally {
-    autoBusy = false;
-  }
+  if (panel && ["tab-league", "tab-teams", "tab-championship"].includes(panel.id)) showUnsaved();
+}, 700);
+window.addEventListener("beforeunload", (e) => {
+  if (!editorUnsaved()) return;
+  e.preventDefault();
+  e.returnValue = "";
 });
 
 // Move: ◀ ▶ ▲ ▼ nudge a widget 10 px at a time.
