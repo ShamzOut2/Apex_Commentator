@@ -126,6 +126,8 @@ starting grid", "Clear all penalties"…).
 ### Improvements
 
 - Hockenheim's Short A and Short B layouts are in the track list.
+- Grid walk: car pictures go much bigger (Car picture size up to 2000%, each
+  row up to 1000%).
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

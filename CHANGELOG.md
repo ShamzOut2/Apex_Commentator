@@ -27,6 +27,8 @@ How each version's entry is written:
 ### Improvements
 
 - Hockenheim's Short A and Short B layouts are in the track list.
+- Grid walk: car pictures go much bigger (Car picture size up to 2000%, each
+  row up to 1000%).
 
 ## v0.9.1
 
