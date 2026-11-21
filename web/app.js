@@ -755,6 +755,61 @@ $("#timing-cols").addEventListener("click", (e) => {
 });
 applyTimingCols();
 
+// What the Timing Screen shows in this window (each window its own: the app's,
+// and a popped-out one): its parts, and the driver list's columns.
+const TIMING_PARTS = [["cameras", "Camera buttons"], ["list", "Driver list"], ["log", "Race log"], ["replay", "Replay controls"]];
+// The driver list's cells, in order (Driver always shows).
+const TIMING_COLS = [["pos", "Pos"], ["cls", "Class position"], ["chg", "+/− places"], ["num", "Car number"], ["make", "Car make"],
+  ["driver", "Driver"], ["lap", "Lap"], ["gap", "Gap"], ["int", "Interval"], ["last", "Last lap"], ["best", "Best lap"],
+  ["pit", "Pit stops"], ["stint", "Stint"], ["tyre", "Tyre"], ["flag", "Flag"], ["pen", "Penalty"], ["inc", "Incidents"]];
+const SHOW_KEY = `apex.timingShow.${POPOUT === "timing" ? "popout" : "main"}`;
+let timingHide = new Set();
+try {
+  timingHide = new Set(JSON.parse(localStorage.getItem(SHOW_KEY)) || []);
+} catch (e) { /* storage unavailable */ }
+
+function applyTimingShow() {
+  // The driver list or the race log: never neither.
+  if (timingHide.has("list") && timingHide.has("log")) timingHide.delete("list");
+  timingHide.delete("driver");
+  for (const [k] of TIMING_PARTS) $("#tab-timing").classList.toggle(`hide-${k}`, timingHide.has(k));
+  let style = document.getElementById("timing-col-style");
+  if (!style) {
+    style = document.head.appendChild(document.createElement("style"));
+    style.id = "timing-col-style";
+  }
+  style.textContent = TIMING_COLS.map(([k], i) => timingHide.has(k) ? `#std-lists tr > :nth-child(${i + 1}) { display: none; }` : "").join("\n");
+  const tick = ([k, label]) => `<label class="check"><input type="checkbox" data-show="${k}" ${timingHide.has(k) ? "" : "checked"}
+    ${(k === "list" && timingHide.has("log")) || (k === "log" && timingHide.has("list")) ? "disabled" : ""}><span>${esc(label)}</span></label>`;
+  $("#timing-parts").innerHTML = TIMING_PARTS.map(tick).join("");
+  $("#timing-colpick").innerHTML = TIMING_COLS.filter(([k]) => k !== "driver").map(tick).join("");
+  const n = timingHide.size;
+  $("#timing-show > summary").innerHTML = `▦ Show${n ? ` <span class="count">${n} hidden</span>` : ""}`;
+}
+function saveTimingShow() {
+  try {
+    localStorage.setItem(SHOW_KEY, JSON.stringify([...timingHide]));
+  } catch (e) { /* storage unavailable */ }
+  applyTimingShow();
+  updateBattleHints();
+}
+$("#timing-show").addEventListener("change", (e) => {
+  const box = e.target.closest("[data-show]");
+  if (!box) return;
+  if (box.checked) timingHide.delete(box.dataset.show);
+  else timingHide.add(box.dataset.show);
+  saveTimingShow();
+});
+$("#timing-show-all").addEventListener("click", () => {
+  timingHide.clear();
+  saveTimingShow();
+});
+document.addEventListener("click", (e) => {
+  const menu = $("#timing-show");
+  if (menu.open && !menu.contains(e.target)) menu.open = false;
+});
+applyTimingShow();
+
 // -- race log -------------------------------------------------------------------
 
 const LOG_LABELS = {
@@ -4906,7 +4961,8 @@ document.addEventListener("click", async (e) => {
 });
 if (POPOUT) {
   document.body.classList.add("popout");
-  document.title = `${POPOUT[0].toUpperCase()}${POPOUT.slice(1)} – Apex Commentator`;
+  const names = { timing: "Timing Screen", widgets: "Widgets", racecontrol: "Race control" };
+  document.title = `${names[POPOUT] || POPOUT[0].toUpperCase() + POPOUT.slice(1)} – Apex Commentator`;
 }
 showPage(POPOUT || (() => {
   try {

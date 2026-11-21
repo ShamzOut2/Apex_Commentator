@@ -125,6 +125,10 @@ starting grid", "Clear all penalties"…).
 
 ### Improvements
 
+- Race control has a Pop out button, like the Timing Screen.
+- Timing Screen: "▦ Show" picks what each window shows (camera buttons,
+  driver list, race log, replay controls) and which columns the driver list
+  has. A popped-out window keeps its own, so it can show just the race log.
 - Hockenheim's Short A and Short B layouts are in the track list.
 - Grid walk: car pictures go much bigger (Car picture size up to 2000%, each
   row up to 1000%).
@@ -289,6 +293,12 @@ pointing at `http://localhost:8191`, and paste its token and address under
 own, without the tabs, so it can sit on another monitor while the main window
 shows something else. Camera hotkeys work in whichever window has focus.
 
+**▦ Show** (beside it) picks what this window shows: the camera buttons, the
+driver list, the race log and the replay controls (the list or the log stays),
+and which of the driver list's columns (Driver always shows). Each window keeps
+its own, so the main window can keep the full screen while a popped-out one
+shows just the race log, or just the list with a few columns.
+
 - **Standings**: Pos (overall), Cls (position in class, underlined in the class
   colour), **+/−** (places gained or lost since the start, within the class
   when a class is picked), car number, driver and team, lap, gap to the
@@ -432,6 +442,8 @@ The **Race control** tab runs the session from the app. Everything goes to
 iRacing as its admin chat commands, typed into the sim's chat and sent for
 you (no need to press Enter), so you need to be an admin of the session in
 iRacing (the host, or promoted by the host). iRacing must be open on this PC.
+**⧉ Pop out** (top right) opens it in a window of its own, like the Timing
+Screen's.
 
 Along the top:
 - **Clear all penalties** (`!clearall`), after a check that you mean it.

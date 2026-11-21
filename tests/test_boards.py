@@ -326,6 +326,8 @@ class BoardTests(unittest.TestCase):
             app.popout = lambda page, name: opened.append((page, name)) or True
             self.assertEqual(app.command("popout", {"page": "timing"}), {"opened": True})
             self.assertEqual(opened, [("timing", "Timing Screen")])
+            self.assertEqual(app.command("popout", {"page": "racecontrol"}), {"opened": True})
+            self.assertEqual(opened[-1], ("racecontrol", "Race control"))
             with self.assertRaises(CommandError):
                 app.command("popout", {"page": "league"})
 

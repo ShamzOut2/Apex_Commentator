@@ -26,6 +26,10 @@ How each version's entry is written:
 
 ### Improvements
 
+- Race control has a Pop out button, like the Timing Screen.
+- Timing Screen: "▦ Show" picks what each window shows (camera buttons,
+  driver list, race log, replay controls) and which columns the driver list
+  has. A popped-out window keeps its own, so it can show just the race log.
 - Hockenheim's Short A and Short B layouts are in the track list.
 - Grid walk: car pictures go much bigger (Car picture size up to 2000%, each
   row up to 1000%).

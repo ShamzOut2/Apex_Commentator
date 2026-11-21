@@ -320,6 +320,18 @@ kbd {
   flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
   gap: 12px; padding: 8px 12px;
 }
+.cam-bar .cam-tools { margin-left: auto; }
+/* What this window shows (▦ Show). */
+#tab-timing.hide-cameras #cam-buttons, #tab-timing.hide-cameras #cam-sync, #tab-timing.hide-cameras .cam-ctl,
+#tab-timing.hide-replay .media-bar, #tab-timing.hide-list .standings-pane, #tab-timing.hide-log .log-pane { display: none; }
+#tab-timing.hide-list .timing-body, #tab-timing.hide-log .timing-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.show-pop { width: 380px; }
+.show-pop .vhead { margin: 0; padding: 10px 14px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.show-pop .vhead small { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.show-ticks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 4px 14px 10px; }
+.show-ticks label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+.show-ticks input:disabled + span { color: var(--muted); }
+.rc-popout { margin-left: auto; }
 .standings-pane, .log-pane { display: flex; flex-direction: column; min-height: 0; }
 .table-scroll, .race-log { flex: 1; min-height: 0; overflow: auto; }
 .battle-settings { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 12px; align-items: center; min-width: 0; }
