@@ -29,6 +29,9 @@ How each version's entry is written:
 
 ### Fixes
 
+- Grid walk: car pictures now really get bigger with Car picture size (they
+  stopped at the picture file's own size, around 200%). The most is 600% again
+  (each row up to 400%).
 - Drivers short of the race distance (Must complete this % of the race) no
   longer get points, or show points on the finishing order board, for a race
   shown straight from the iRacing event. The "DNFs score the points for where

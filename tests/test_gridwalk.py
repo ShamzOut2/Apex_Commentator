@@ -163,10 +163,17 @@ class GridWalkSettingsKeptTests(unittest.TestCase):
 
 
 class CarSizeTests(unittest.TestCase):
-    def test_cars_can_be_made_much_bigger(self):
+    def test_car_sizes_up_to_600_and_400(self):
         from apex.overlays import normalise
-        gw = normalise({"gridwalk": {"car_scale": 1800, "car_scale_top": 900, "car_scale_bottom": 5000}})["gridwalk"]
-        self.assertEqual((gw["car_scale"], gw["car_scale_top"], gw["car_scale_bottom"]), (1800, 900, 1000))
+        gw = normalise({"gridwalk": {"car_scale": 550, "car_scale_top": 900, "car_scale_bottom": 300}})["gridwalk"]
+        self.assertEqual((gw["car_scale"], gw["car_scale_top"], gw["car_scale_bottom"]), (550, 400, 300))
+
+    def test_car_pictures_fill_their_box(self):
+        # Not capped at the picture file's own size (max-width alone never makes it bigger).
+        from pathlib import Path
+        css = (Path(__file__).resolve().parent.parent / "web" / "gridwalk.css").read_text()
+        rule = next(line for line in css.splitlines() if line.startswith(".gw-car img, .gw-car svg {"))
+        self.assertIn("width: 100%; height: 100%; object-fit: contain", rule)
 
 
 if __name__ == "__main__":
