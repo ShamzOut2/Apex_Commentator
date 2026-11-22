@@ -11,6 +11,14 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- Dual commentary: the co-commentator follows the host into every replay
+  (an incident, a rewind), not just the first. A replay jump or camera change
+  iRacing missed is done again within a couple of seconds.
+
 ## v1.0.2
 
 ### Improvements

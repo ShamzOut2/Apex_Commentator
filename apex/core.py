@@ -365,6 +365,7 @@ class App:
         self._spec = (0.0, None, None, {})  # (when, the spectator section, track map, images) last made
         self._followed = None      # (when, the host's camera) last followed
         self._follow_free = False  # the co-commentator's Free mode: connected, not following
+        self._follow_settle = (0.0, 0.0)  # (no replay check before, no camera check before): monotonic times
         self._version = 0
         self._changed = threading.Condition()
         self._info_update = None
@@ -3996,10 +3997,17 @@ class App:
             "speed": 1 if live else frame.replay_speed,
         }
 
+    FOLLOW_OFF_S = 3.0     # the co-commentator's replay this far from the host's: put it right
+    FOLLOW_SETTLE_S = 2.5  # after a seek, give iRacing this long to load the moment before checking again
+    FOLLOW_CAM_S = 1.5     # after a camera switch, this long before checking it took
+
     def _follow_camera(self, st):
         """The host's camera (from their app): this iRacing does the same, for
         whatever changed since the last time (in between, the co-commentator's
-        own camera is theirs)."""
+        own camera is theirs). Every update also checks this iRacing really is
+        where the host is (live or the same replay moment, the same driver) and
+        puts it right if not: iRacing can drop a replay jump sent while it's
+        busy, and one missed jump would leave the co-commentator behind for good."""
         now = time.monotonic()
         if self._follow_free:
             return  # Free mode: their own camera until they Sync
@@ -4009,28 +4017,49 @@ class App:
             sub = self._session_meta.get("subsession")
             got, prev = self._followed or (None, None)
             self._followed = (now, st)
+            mine = self._drivers.get(frame.cam_car_idx) if frame else None
         if frame is None:
             return
         prev = prev or {}
         first = not prev
+        settle, cam_settle = self._follow_settle
+        group = next((g["num"] for g in groups if g["name"] and g["name"] == st.get("group")), st.get("group_num") or 0)
+        car_changed = bool(st.get("car")) and (first or (st.get("car"), st.get("group")) != (prev.get("car"), prev.get("group")))
         # Live or a replay: only within the same iRacing event (the same session times).
         if st.get("sub") is not None and st.get("sub") == sub:
             if st["live"]:
-                if first or not prev.get("live"):
+                if first or not prev.get("live") or (not frame.is_live and now >= settle):
                     self._go_live()
+                    settle = now + self.FOLLOW_SETTLE_S
             else:
                 elapsed = now - got if got else 0.0
                 expected = (prev.get("rt") or 0) + elapsed * (prev.get("speed") or 0)
                 jumped = (first or prev.get("live") or prev.get("rs") != st["rs"]
                           or abs((st["rt"] or 0) - expected) > 2.5 + abs(prev.get("speed") or 0) * 0.5)
-                if jumped:
+                # Where this iRacing really is: live, another session, or too far from the host's moment.
+                off = (frame.is_live or frame.replay_session_num != (st["rs"] or 0)
+                       or abs(frame.replay_session_time - (st["rt"] or 0)) > self.FOLLOW_OFF_S + abs(st.get("speed") or 0) * 0.5)
+                if jumped or (off and now >= settle):
+                    # As the host's own replays do: pause, seek, let iRacing load
+                    # the moment, then the driver and camera, then play.
+                    self.source.replay_set_play_speed(0, False)
                     self.source.replay_search_session_time(int(st["rs"] or 0), int((st["rt"] or 0) * 1000))
-                if jumped or st.get("speed") != prev.get("speed"):
+                    time.sleep(0.35)
+                    if st.get("car"):
+                        self.source.cam_switch_num(str(st["car"]), int(group), 0)
+                        car_changed, cam_settle = False, now + self.FOLLOW_CAM_S
+                    time.sleep(0.1)
                     self.source.replay_set_play_speed(int(st.get("speed") or 0), False)
-        # The driver and the camera: the same camera by name (its number can differ).
-        if st.get("car") and (first or (st.get("car"), st.get("group")) != (prev.get("car"), prev.get("group"))):
-            group = next((g["num"] for g in groups if g["name"] and g["name"] == st.get("group")), st.get("group_num") or 0)
+                    settle = now + self.FOLLOW_SETTLE_S
+                elif st.get("speed") != prev.get("speed") or (frame.replay_speed != st.get("speed") and now >= settle):
+                    self.source.replay_set_play_speed(int(st.get("speed") or 0), False)
+        # The driver and the camera: the same camera by name (its number can differ),
+        # and again if this iRacing isn't on the host's driver (a switch it dropped).
+        wrong_car = bool(st.get("car")) and mine is not None and str(mine["number"]) != str(st["car"]) and now >= cam_settle
+        if car_changed or wrong_car:
             self.source.cam_switch_num(str(st["car"]), int(group), 0)
+            cam_settle = now + self.FOLLOW_CAM_S
+        self._follow_settle = (settle, cam_settle)
 
     def cmd_share_camera(self, on=True):
         """Let a co-commentator's app follow this one's camera (or stop)."""
@@ -4065,6 +4094,7 @@ class App:
             self.follow = None
         self._followed = None
         self._follow_free = False
+        self._follow_settle = (0.0, 0.0)
         if address is not None:
             self.settings.set("follow_address", str(address).strip())
         if code is not None:
@@ -4089,6 +4119,7 @@ class App:
         self._follow_free = bool(on)
         if not on:
             self._followed = None  # all of it, as on first connecting
+            self._follow_settle = (0.0, 0.0)
             if self.follow.last:
                 self._follow_camera(self.follow.last)
         return {"free": self._follow_free}

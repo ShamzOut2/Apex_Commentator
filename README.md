@@ -110,17 +110,13 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**v1.0.2**
-
-### Improvements
-
-- Import league… asks whether to add it as a new league or replace one you
-  have (the one with the same name is picked to start with).
+**Coming in the next update**
 
 ### Fixes
 
-- The FREE | SYNC switch window can be moved again: drag it by its handle or
-  its text. It opens where you last left it.
+- Dual commentary: the co-commentator follows the host into every replay
+  (an incident, a rewind), not just the first. A replay jump or camera change
+  iRacing missed is done again within a couple of seconds.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -207,6 +203,10 @@ the same thing without saying "go to car 23".
   **Sync** takes them straight back to what the host is showing now (the
   driver, the camera, live or the same replay moment) and following again.
   Hotkeys: *Free mode*, *Sync*, and *Free mode / Sync* (one key to switch).
+  While following, the app keeps checking that the co-commentator's iRacing
+  really is where the host's is (live or the same replay moment, the same
+  driver) and puts it right within a couple of seconds if iRacing missed a
+  jump or a camera change.
   **⧉** next to the switch puts it in a small window of its own, on top of
   iRacing. Drag it by its handle (⠿) or its text; it opens where you last
   left it.
