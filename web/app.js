@@ -4902,17 +4902,55 @@ const IMPORT_CHECKS = {
   overlays: "Replace all your overlay and board settings with the ones in the file?",
 };
 
+// A league export: as a new league, or over one already here (the one with
+// its name or id picked to start with). The query for the import, or null.
+async function leagueImportChoice(file) {
+  let inFile = {};
+  try {
+    inFile = (JSON.parse(await file.text()) || {}).league || {};
+  } catch (e) { /* the server says what's wrong with it */ }
+  let leagues = ui.leagueList || [];
+  try {
+    leagues = (await api("/api/leagues")).leagues;
+  } catch (e) { /* the list the pickers have */ }
+  leagues = [...leagues].sort(byName());
+  const name = String(inFile.name || "").trim();
+  const match = leagues.find((l) => l.id === inFile.id) || leagues.find((l) => name && l.name.toLowerCase() === name.toLowerCase());
+  const html = `<div class="import-pick">
+      <label class="check"><input type="radio" name="imp-how" value="new" ${match ? "" : "checked"}> As a new league</label>
+      ${leagues.length ? `<label class="check"><input type="radio" name="imp-how" value="replace" ${match ? "checked" : ""}> Replace a league here:</label>
+      <select id="imp-replace" aria-label="League to replace">${leagues.map((l) => `<option value="${esc(l.id)}" ${match && l.id === match.id ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select>
+      <p class="hint">Replacing puts the file's classes, drivers, teams, championship, results and logos in place of that league's. It keeps its widget settings. This can't be undone (export it first to keep a copy).</p>` : ""}
+    </div>`;
+  const r = await choose(`Import ${name || "league"}`, match ? `You already have a league called ${match.name}.` : "Add it as a new league, or put it in place of one you have.",
+    [["import", "Import", true], ["cancel", "Cancel"]], html);
+  if (!r || r.value !== "import") return null;
+  const how = (r.form.querySelector('input[name="imp-how"]:checked') || {}).value;
+  if (how !== "replace") return {};
+  const id = r.form.querySelector("#imp-replace").value;
+  const target = leagues.find((l) => l.id === id);
+  if (!confirm(`Replace ${target ? target.name : "that league"} with the league in the file?`)) return null;
+  return { replace: id };
+}
+
 async function importFile(what, file, round) {
   if (IMPORT_CHECKS[what] && !confirm(IMPORT_CHECKS[what])) return;
   try {
-    let league = "";
+    let league = "", extra = {};
+    if (what === "league") {
+      extra = await leagueImportChoice(file);
+      if (!extra) return;
+      if (extra.replace && ui.editing && ui.editing.id === extra.replace && editorUnsaved()) {
+        if (!confirm("The league you're replacing has unsaved changes here: they'll be lost. Go on?")) return;
+      }
+    }
     if (what !== "league" && what !== "overlays") {
       if (!ui.editing) throw new Error("Pick a league first");
       league = (await saveEditor()).id;
       const rd = round && (champData().rounds || []).find((r) => r.id === round);
       if (rd && (rd.results || []).length && !confirm(`Replace the results of ${rd.name} with the ones in the file?`)) return;
     }
-    const q = new URLSearchParams({ what, league, round: round || "" });
+    const q = new URLSearchParams({ what, league, round: round || "", ...extra });
     const res = await fetch(`/api/import?${q}`, { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) throw new Error(data.error || "Import failed");
@@ -4921,7 +4959,7 @@ async function importFile(what, file, round) {
       await loadLeagues();
       openEditor(data.league);
       showPage("league");
-      return toast(`Imported ${data.league.name}`);
+      return toast(info.replaced ? `${data.league.name} replaced with the file's` : `Imported ${data.league.name}`);
     }
     if (data.league) {
       if (round) champ.open.add(round);

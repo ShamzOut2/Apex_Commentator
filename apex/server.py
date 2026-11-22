@@ -512,7 +512,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _import(self):
         q = parse_qs(urlparse(self.path).query)
-        what, league_id, round_id = (q.get(k, [""])[0] for k in ("what", "league", "round"))
+        what, league_id, round_id, replace = (q.get(k, [""])[0] for k in ("what", "league", "round", "replace"))
         length = int(self.headers.get("Content-Length") or 0)
         if not 0 < length <= transfer.MAX_IMPORT_BYTES:
             return self._error("Pick a file to import")
@@ -521,7 +521,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if what == "league":
                 _, obj = transfer.expect(data, "league")
-                profile, info = transfer.import_league(store, obj), {}
+                profile, info = transfer.import_league(store, obj, replace=replace or None), {"replaced": bool(replace)}
             elif what == "overlays":
                 _, obj = transfer.expect(data, "overlays")
                 profile, info = None, transfer.import_overlays(self.app.overlays, self.app.backgrounds, obj)

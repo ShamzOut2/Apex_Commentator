@@ -110,31 +110,17 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**v1.0.1**
-
-### New features
-
-- Championship time penalties: Penalties has a Time (s) column. The seconds go
-  on the driver's race time in that round, the finishing order is put right and
-  the points follow it.
-- Championship: Clear results on each race, to take its results off and import
-  or type them again.
+**Coming in the next update**
 
 ### Improvements
 
-- Team championship drop rounds: choose the team's own (its worst rounds
-  don't count) or the drivers' (each driver's dropped rounds don't count for
-  the team), or none.
+- Import league… asks whether to add it as a new league or replace one you
+  have (the one with the same name is picked to start with).
 
 ### Fixes
 
-- Grid walk: car pictures now really get bigger with Car picture size (they
-  stopped at the picture file's own size, around 200%). The most is 600% again
-  (each row up to 400%).
-- Drivers short of the race distance (Must complete this % of the race) no
-  longer get points, or show points on the finishing order board, for a race
-  shown straight from the iRacing event. The "DNFs score the points for where
-  they're classified" box is gone: the race distance decides who scores.
+- The FREE | SYNC switch window can be moved again: drag it by its handle or
+  its text. It opens where you last left it.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -221,6 +207,9 @@ the same thing without saying "go to car 23".
   **Sync** takes them straight back to what the host is showing now (the
   driver, the camera, live or the same replay moment) and following again.
   Hotkeys: *Free mode*, *Sync*, and *Free mode / Sync* (one key to switch).
+  **⧉** next to the switch puts it in a small window of its own, on top of
+  iRacing. Drag it by its handle (⠿) or its text; it opens where you last
+  left it.
 - Only the camera is shared, through a small server of its own on port 8190
   (`share_port` in `config.json`) that runs only while sharing is ticked and
   lets in only someone with the code. The app's own pages stay on this PC.
@@ -1140,7 +1129,7 @@ made.
 
 | What | Where | Export | Import |
 | --- | --- | --- | --- |
-| A whole league (classes, teams, drivers, championship, logos, banners, sponsors, photos) | League builder | **Export league** (.json) | **Import league…** (left side): added as a new league, never over one you have |
+| A whole league (classes, teams, drivers, championship, logos, banners, sponsors, photos) | League builder | **Export league** (.json) | **Import league…** (left side): as a new league, or in place of one you have (you pick; the one with the same name is picked to start with) |
 | Driver roster | League builder | **Roster (CSV)** | **Import roster (this app's CSV)…**: drivers matched by customer ID (else name) are updated, new ones added |
 | Drivers, teams and classes from any spreadsheet (a sign-up sheet) | — | — | **Import a sign-up sheet (CSV)…** (League builder → Drivers, or Teams): see below |
 | Teams (names, short names, colours, logos, who drives for whom) | Teams | **Export teams** (.json) | **Import teams…**: teams with the same name are replaced, drivers join their team |
@@ -1707,7 +1696,10 @@ Open the **League builder** tab.
    session you're in (names, customer IDs, car numbers, teams).
 2. **Blank league**: type it in by hand.
 3. **Import league…**: a league exported from Apex Commentator, on this PC
-   or another.
+   or another. Pick **As a new league**, or **Replace a league here** to put
+   the file's classes, drivers, teams, championship, results and logos in
+   place of one you have (it keeps its widget settings). A league with the
+   same name is picked to replace to start with.
 
 No iRacing login is needed for any of it.
 

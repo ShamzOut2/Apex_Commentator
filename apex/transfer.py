@@ -271,13 +271,34 @@ def _put_images(store, profile_id, images):
         store.put_image(profile_id, name, data)
 
 
-def import_league(store, obj):
-    """A league export as a new league. Never overwrites one: a name or id
-    already in use gets "(imported)" and an id of its own."""
+def import_league(store, obj, replace=None):
+    """A league export as a new league, or (``replace``: a league's id) over
+    that league. A new league never overwrites one: a name or id already in
+    use gets "(imported)" and an id of its own. A replaced league keeps its
+    id (its widget settings, the active league) and its teams' links to other
+    leagues on this PC; everything else is the file's."""
     league = obj.get("league")
     if not isinstance(league, dict):
         raise TransferError("That league export is empty.")
     league = dict(league)
+    if replace:
+        mine = store.get(replace)
+        if mine is None:
+            raise TransferError("The league to replace isn't there any more.")
+        league["id"] = replace
+        names = {p["name"].lower() for p in store.list() if p["id"] != replace}
+        name = str(league.get("name") or mine.get("name") or "League")
+        base, n = name, 2
+        while name.lower() in names:  # the name of another league here
+            name, n = f"{base} (imported)" if n == 2 else f"{base} (imported) {n}", n + 1
+        league["name"] = name
+        had = {str(t.get("name", "")).lower(): t for t in mine.get("teams") or [] if isinstance(t, dict)}
+        league["teams"] = [dict(t, shared=list((had.get(str(t.get("name", "")).lower()) or {}).get("shared") or []))
+                           for t in league.get("teams") or [] if isinstance(t, dict)]
+        league["league_id"] = league.get("league_id")
+        profile = normalise_profile(league)
+        _put_images(store, profile["id"], obj.get("images"))
+        return store.save(profile)
     existing = {p["id"] for p in store.list()}
     names = {p["name"].lower() for p in store.list()}
     if league.get("id") in existing or str(league.get("name", "")).lower() in names:

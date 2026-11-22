@@ -212,12 +212,13 @@ def open_popout(key, url, title, width=1280, height=820):
     return True
 
 
-def open_widget(key, url, title, width=330, height=78):
+def open_widget(key, url, title, width=330, height=78, at=None):
     """A small control (e.g. the co-commentator's FREE | SYNC switch) in a
     window of its own: no frame, always on top of iRacing, and clickable
-    (unlike the on-screen overlays). It starts at the top right of the main
-    screen and is dragged by its handle. Shown again if it's already open.
-    False when there's no app window."""
+    (unlike the on-screen overlays). It starts where it was last left (``at``,
+    (x, y), when that's on a screen), else at the top right of the main
+    screen, and is dragged by its handle (the page moves it: move_widget).
+    Shown again if it's already open. False when there's no app window."""
     if _main_window is None:
         return False
     import webview
@@ -234,6 +235,8 @@ def open_widget(key, url, title, width=330, height=78):
     try:
         main = webview.screens[0]
         x, y = main.x + main.width - width - 24, main.y + 24
+        if at and any(s.x <= at[0] < s.x + s.width - 40 and s.y <= at[1] < s.y + s.height - 30 for s in webview.screens):
+            x, y = int(at[0]), int(at[1])
     except Exception:
         pass
     window = webview.create_window(title, url, width=width, height=height, x=x, y=y, frameless=True, on_top=True,
@@ -241,6 +244,23 @@ def open_widget(key, url, title, width=330, height=78):
     window.events.closed += lambda: _popouts.pop(key, None)
     _popouts[key] = window
     return True
+
+
+def move_widget(key, x=None, y=None):
+    """Move a widget window (its page drags it: a frameless window's own drag
+    isn't there on every PC) to (x, y); with no x / y, just where it is.
+    (x, y) as the window has them, or None when it isn't open."""
+    window = _popouts.get(key)
+    if window is None:
+        return None
+    try:
+        if x is not None and y is not None:
+            window.move(int(x), int(y))
+            return int(x), int(y)
+        return int(window.x), int(window.y)
+    except Exception as e:
+        print(f"[apex] couldn't move the {key} window: {e!r}")
+        return None
 
 
 def close_widget(key):

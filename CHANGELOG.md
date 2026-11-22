@@ -11,6 +11,18 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- Import league… asks whether to add it as a new league or replace one you
+  have (the one with the same name is picked to start with).
+
+### Fixes
+
+- The FREE | SYNC switch window can be moved again: drag it by its handle or
+  its text. It opens where you last left it.
+
 ## v1.0.1
 
 ### New features

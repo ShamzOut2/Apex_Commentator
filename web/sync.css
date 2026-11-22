@@ -4,6 +4,7 @@
 html, body { margin: 0; height: 100%; overflow: hidden; background: #14171d; color: var(--ink);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; user-select: none; }
 .widget { height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 4px; border: 1px solid var(--line); border-radius: 10px; }
+.drag { touch-action: none; }
 .grip { color: var(--muted); font-size: 18px; cursor: move; padding: 0 2px; }
 .pill {
   display: inline-flex; padding: 0; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; flex: none;
