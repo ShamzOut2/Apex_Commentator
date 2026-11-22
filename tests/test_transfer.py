@@ -51,6 +51,20 @@ class TransferTests(unittest.TestCase):
         self.assertNotEqual(again["id"], self.league["id"])
         self.assertTrue(self.store.logo_file(again["id"], again["teams"][0]["logo"]))
 
+    def test_league_import_can_replace_a_league(self):
+        obj = transfer.read(transfer.export_league(self.store, self.league))[2]
+        obj["league"]["drivers"].append({"cust_id": 3, "name": "Cy Ray", "car_number": "9"})
+        mine = self.store.save(dict(self.store.get(self.league["id"]), name="Sunday Cup (mine)", drivers=[]))
+        other = self.store.save({"id": "other-cup", "name": "Sunday Cup"})  # another league already has the file's name
+        replaced = transfer.import_league(self.store, obj, replace=mine["id"])
+        self.assertEqual(replaced["id"], mine["id"])  # its id (widget settings, the active league) stays
+        self.assertEqual(replaced["name"], "Sunday Cup (imported)")
+        self.assertEqual(len(replaced["drivers"]), 3)
+        self.assertEqual(len(self.store.list()), 2)  # nothing added
+        self.assertEqual(self.store.get(other["id"])["name"], "Sunday Cup")
+        with self.assertRaises(transfer.TransferError):
+            transfer.import_league(self.store, obj, replace="gone")
+
     def test_teams_into_another_league(self):
         obj = transfer.read(transfer.export_teams(self.store, self.league))[2]
         target = self.store.save({"name": "Other", "drivers": [{"cust_id": 2, "name": "Bo Kim"}, {"cust_id": 9, "name": "Zed"}]})

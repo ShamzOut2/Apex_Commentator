@@ -150,10 +150,21 @@ class CoreTests(unittest.TestCase):
             app, _ = make_app(tmp, minutes=0.1)
             self.assertEqual(app.command("sync_widget", {"on": True}), {"opened": False})  # no app window: the page opens it
             calls = []
-            app.widget = lambda key, path, name, on: calls.append((key, path, on)) or True
+            app.widget = lambda key, path, name, on, at=None: calls.append((key, path, on, at)) or True
             self.assertEqual(app.command("sync_widget", {"on": True}), {"opened": True})
             app.command("sync_widget", {"on": False})
-            self.assertEqual(calls, [("sync", "sync.html", True), ("sync", "sync.html", False)])
+            self.assertEqual(calls, [("sync", "sync.html", True, None), ("sync", "sync.html", False, None)])
+            # Dragged by its page (the window's own drag isn't there on every PC); where it's left is kept.
+            self.assertEqual(app.command("sync_widget_move", {"x": 5, "y": 6}), {"at": None})  # no app window
+            moves = []
+            app.widget_move = lambda key, x, y: moves.append((key, x, y)) or ((x, y) if x is not None else (100, 50))
+            self.assertEqual(app.command("sync_widget_move", {}), {"at": [100, 50]})
+            app.command("sync_widget_move", {"x": 300, "y": 40})
+            self.assertIsNone(app.settings.get("sync_widget_at"))  # mid-drag: not saved
+            app.command("sync_widget_move", {"x": 320, "y": 44, "save": True})
+            self.assertEqual(moves[-1], ("sync", 320, 44))
+            app.command("sync_widget", {"on": True})
+            self.assertEqual(calls[-1], ("sync", "sync.html", True, [320, 44]))  # opens where it was left
 
     def test_replay_driver_without_events(self):
         events = self.app.detector.events

@@ -427,7 +427,8 @@ class App:
         self._grid_rows_total = 1  # the starting grid board's rows (two cars each), for showing them row by row
         self._put_away = None      # what the all:toggle hotkey took off screen, to bring back
         self.popout = None         # set by __main__: popout(page) opens a page in its own app window
-        self.widget = None         # set by __main__: widget(key, path, name, on) opens / closes a small on-top window
+        self.widget = None         # set by __main__: widget(key, path, name, on, at) opens / closes a small on-top window
+        self.widget_move = None    # set by __main__: widget_move(key, x, y) moves it (no x, y: where it is)
         self.desktop = None        # set by __main__: on-screen overlays (apex.desktop), with the app window
         self.backgrounds = Backgrounds()  # __main__ gives it a folder: overlay / board background images
         self.laps = LapTracker()
@@ -3033,7 +3034,20 @@ class App:
         """The co-commentator's FREE | SYNC switch in a small window of its
         own, on top of iRacing (sync.html). ``opened`` False: no app window
         (in a browser), the page opens it as a browser window itself."""
-        return {"opened": bool(self.widget and self.widget("sync", "sync.html", "Free / Sync", bool(on)))}
+        at = self.settings.get("sync_widget_at")
+        at = at if isinstance(at, list) and len(at) == 2 and all(isinstance(v, int) for v in at) else None
+        return {"opened": bool(self.widget and self.widget("sync", "sync.html", "Free / Sync", bool(on), at))}
+
+    def cmd_sync_widget_move(self, x=None, y=None, save=False):
+        """Drag the FREE | SYNC window (its page moves it). No x / y: where it
+        is now. ``save``: the end of a drag, kept for the next time it opens.
+        ``at`` None: no app window (in a browser)."""
+        if self.widget_move is None:
+            return {"at": None}
+        at = self.widget_move("sync", None if x is None else int(x), None if y is None else int(y))
+        if at and save:
+            self.settings.set("sync_widget_at", [int(at[0]), int(at[1])])
+        return {"at": list(at) if at else None}
 
     def cmd_watch(self, car_idx, group=None, camera=0):
         d = self._driver(car_idx)

@@ -1310,3 +1310,5 @@ input[type="color"] { padding: 2px; cursor: pointer; }
 .mt-list { list-style: none; margin: 8px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .mt-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
 .mt-list li.hint { border: 0; background: none; padding: 0; }
+.import-pick { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.import-pick select { width: 100%; }
