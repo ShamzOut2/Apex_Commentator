@@ -794,10 +794,9 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 
 /* ---- Widgets tab: each overlay and board on or off, at a glance ---- */
 .wcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin-top: 10px; }
-/* Packed (app.js): 1 px rows, each card spanning its own height, so the columns
-   stack tightly and a folded card leaves no gap under it. */
-.wcards.packed { grid-auto-rows: 1px; row-gap: 0; }
-.wcards.packed > .wcard { align-self: start; }
+/* The widgets on screen first, in their usual order; the Everything card last. */
+.wcards > .wcard.on { order: -1; }
+.wcards > .wcard.misc { order: 1; }
 /* Folding a card away: its title and Show / Hide stay. */
 .wfold-head { cursor: pointer; user-select: none; }
 .wfold {

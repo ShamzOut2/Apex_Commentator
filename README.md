@@ -115,7 +115,8 @@ starting grid", "Clear all penalties"…).
 ### New features
 
 - Widgets tab: each card folds away to its title and Show / Hide (Fold all /
-  Open all too), and the cards close up around folded ones.
+  Open all too), and the widgets on screen come first, so the ones in use sit
+  together at the top.
 - Fastest lap stopwatch: choose who gets it: each class's fastest (by class
   and overall), as the list shows, or the overall fastest only. The Timing
   Screen, the live timing website and the finishing order and qualifying
@@ -655,8 +656,9 @@ on stream or put on a monitor (open it, then F11).
 button, a live preview and its settings; the **Widgets** tab turns them on and off.
 On the Widgets tab each card folds away to its title and its Show / Hide
 (click its title or its ▾; **Fold all** / **Open all** at the top), kept on
-this PC, so only the ones in use are open; the cards close up around a
-folded one, whatever's beside it. Add each one as a *Browser Source* at 1920×1080 (the
+this PC, so only the ones in use are open. The widgets on screen come first
+(switching one on or off, the cards glide to their new places), and the
+cards in a row line up, as tall as the tallest of them. Add each one as a *Browser Source* at 1920×1080 (the
 background is transparent). Settings changed in the tab show on stream
 straight away and are kept in `data/overlays.json`. **Each league has its
 own**: picking a league in the League builder brings in its widget settings

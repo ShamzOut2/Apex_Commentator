@@ -16,7 +16,8 @@ How each version's entry is written:
 ### New features
 
 - Widgets tab: each card folds away to its title and Show / Hide (Fold all /
-  Open all too), and the cards close up around folded ones.
+  Open all too), and the widgets on screen come first, so the ones in use sit
+  together at the top.
 - Fastest lap stopwatch: choose who gets it: each class's fastest (by class
   and overall), as the list shows, or the overall fastest only. The Timing
   Screen, the live timing website and the finishing order and qualifying
