@@ -794,6 +794,21 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 
 /* ---- Widgets tab: each overlay and board on or off, at a glance ---- */
 .wcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin-top: 10px; }
+/* Packed (app.js): 1 px rows, each card spanning its own height, so the columns
+   stack tightly and a folded card leaves no gap under it. */
+.wcards.packed { grid-auto-rows: 1px; row-gap: 0; }
+.wcards.packed > .wcard { align-self: start; }
+/* Folding a card away: its title and Show / Hide stay. */
+.wfold-head { cursor: pointer; user-select: none; }
+.wfold {
+  margin-left: auto; flex: none; width: 24px; height: 22px; padding: 0; border: 1px solid transparent; border-radius: 5px;
+  background: none; color: var(--muted); font-size: 13px; line-height: 1; cursor: pointer; transition: transform .15s ease;
+}
+.wfold:hover { border-color: var(--line); color: var(--text); }
+.wcard.folded .wfold { transform: rotate(-90deg); }
+.wcard.folded > :not(h4):not(.wmain) { display: none; }
+.wfold-all { gap: 6px; }
+.wcard h4 .wlink ~ .wfold { margin-left: 4px; }
 .wcard {
   border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); padding: 10px 12px;
   display: flex; flex-direction: column; gap: 8px; border-top: 3px solid var(--line);

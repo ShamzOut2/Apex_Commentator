@@ -3220,7 +3220,10 @@ const OVERLAY_FIELDS = {
         ["last", "After the driver / team name"]]]),
     ]],
     ["Fastest lap", [
-      ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
+      ["show_fastest_icon", "Purple stopwatch by the fastest lap", "bool"],
+      iff((v) => v.show_fastest_icon, ["fastest_icon_for", "Who gets the stopwatch", "select", [
+        ["classes", "Each class's fastest, by class and overall"], ["view", "Each class's fastest by class, the overall fastest overall"],
+        ["overall", "The overall fastest only"]]]),
       ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
       iff((v) => v.fl_flash, ["fl_flash_s", "Flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }]),
       iff((v) => v.fl_flash, ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"]),
@@ -4796,6 +4799,70 @@ for (const [attr, on] of [["wshow", true], ["whide", false]]) {
     card.querySelector("h4").after(row);
   }
   row.appendChild(btn);
+}
+
+// Each widget card folds away to its title and its Show / Hide (a click on
+// the title, or its ▾), kept on this PC; Fold all / Open all at the top. The
+// cards are packed down each column (each takes the rows its height needs),
+// so a card folded away leaves no space under it, whatever's beside it.
+const WFOLD = "apex.widgetsFolded";
+const wcards = $("#tab-widgets .wcards");
+let wfolded = new Set();
+try {
+  wfolded = new Set(JSON.parse(localStorage.getItem(WFOLD) || "[]"));
+} catch (e) { /* storage unavailable: all open */ }
+const saveFolds = () => {
+  try {
+    localStorage.setItem(WFOLD, JSON.stringify([...wfolded]));
+  } catch (e) { /* storage unavailable */ }
+};
+function foldCard(card, folded) {
+  card.classList.toggle("folded", folded);
+  const btn = card.querySelector(".wfold");
+  btn.setAttribute("aria-expanded", String(!folded));
+  btn.title = folded ? "Show its settings" : "Fold away (its Show / Hide stays)";
+  if (folded) wfolded.add(card.dataset.widget);
+  else wfolded.delete(card.dataset.widget);
+}
+for (const card of wcards.querySelectorAll(".wcard[data-widget]")) {
+  const main = card.querySelector(":scope > .wbtns");
+  if (main) main.classList.add("wmain");
+  const h4 = card.querySelector("h4");
+  h4.insertAdjacentHTML("beforeend", '<button class="wfold" aria-expanded="true" aria-label="Fold away or show this widget\'s settings">▾</button>');
+  h4.classList.add("wfold-head");
+  foldCard(card, wfolded.has(card.dataset.widget));
+}
+wcards.addEventListener("click", (e) => {
+  const head = e.target.closest(".wfold-head");
+  // The title or its ▾ (not another button in the title, like the Grid walk tab link).
+  if (!head || (e.target.closest("button, a, select, input") && !e.target.closest(".wfold"))) return;
+  const card = head.closest(".wcard");
+  foldCard(card, !card.classList.contains("folded"));
+  saveFolds();
+});
+const foldBar = document.createElement("span");
+foldBar.className = "row wfold-all";
+foldBar.innerHTML = '<button class="btn subtle" data-fold-all="1" title="Fold every widget away to its Show / Hide">Fold all</button>'
+  + '<button class="btn subtle" data-fold-all="0" title="Open every widget\'s settings">Open all</button>';
+$("#tab-widgets .teams-head [data-open-hotkeys]").before(foldBar);
+foldBar.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-fold-all]");
+  if (!b) return;
+  for (const card of wcards.querySelectorAll(".wcard[data-widget]")) foldCard(card, b.dataset.foldAll === "1");
+  saveFolds();
+});
+// Packed down the columns: each card spans as many 1 px rows as it's tall (+ the gap).
+const WGAP = 12;
+const packCards = () => {
+  for (const card of wcards.children) {
+    const h = card.getBoundingClientRect().height;
+    if (h > 0) card.style.gridRowEnd = `span ${Math.ceil(h) + WGAP}`;
+  }
+};
+if (typeof ResizeObserver === "function") {
+  const ro = new ResizeObserver(() => requestAnimationFrame(packCards));
+  for (const card of wcards.children) ro.observe(card);
+  wcards.classList.add("packed");
 }
 
 

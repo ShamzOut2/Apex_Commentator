@@ -13,7 +13,18 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- Widgets tab: each card folds away to its title and Show / Hide (Fold all /
+  Open all too), and the cards close up around folded ones.
+- Fastest lap stopwatch: choose who gets it: each class's fastest (by class
+  and overall), as the list shows, or the overall fastest only.
+
 ### Improvements
+
+- Track map: fades in when it comes on screen.
+- Tower sponsor bar: opens and closes under the header rather than popping
+  in and out.
 
 - Grid walk: moving to the next pair is smooth: the scenery, adverts and
   title no longer flash, the cars of the last pair drive off rather than

@@ -112,7 +112,18 @@ starting grid", "Clear all penalties"…).
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- Widgets tab: each card folds away to its title and Show / Hide (Fold all /
+  Open all too), and the cards close up around folded ones.
+- Fastest lap stopwatch: choose who gets it: each class's fastest (by class
+  and overall), as the list shows, or the overall fastest only.
+
 ### Improvements
+
+- Track map: fades in when it comes on screen.
+- Tower sponsor bar: opens and closes under the header rather than popping
+  in and out.
 
 - Grid walk: moving to the next pair is smooth: the scenery, adverts and
   title no longer flash, the cars of the last pair drive off rather than
@@ -635,7 +646,11 @@ on stream or put on a monitor (open it, then F11).
 ![full-screen timing screen](docs/timing-screen.jpg)
 
 **Widget Settings** has each overlay's address for OBS, a **Preview ↗**
-button, a live preview and its settings; the **Widgets** tab turns them on and off. Add each one as a *Browser Source* at 1920×1080 (the
+button, a live preview and its settings; the **Widgets** tab turns them on and off.
+On the Widgets tab each card folds away to its title and its Show / Hide
+(click its title or its ▾; **Fold all** / **Open all** at the top), kept on
+this PC, so only the ones in use are open; the cards close up around a
+folded one, whatever's beside it. Add each one as a *Browser Source* at 1920×1080 (the
 background is transparent). Settings changed in the tab show on stream
 straight away and are kept in `data/overlays.json`. **Each league has its
 own**: picking a league in the League builder brings in its widget settings
@@ -867,9 +882,11 @@ cost to how smoothly things move.
     in. The stopwatch pops in when the fastest lap changes hands. The
     fastest-lap pill drops in saying "NEW FASTEST LAP", then switches to the
     driver and lap time, and fades out at the end.
-  - **Fastest lap**: a purple stopwatch by the holder's name: each class's
-    fastest, in Overall (one for every class in a multiclass race) and By
-    class alike.
+  - **Fastest lap**: a purple stopwatch by the holder's name. *Who gets the
+    stopwatch*: **each class's fastest**, by class and in the overall list too
+    (one for every class in a multiclass race; the default); **each class's
+    fastest by class, the overall fastest overall** (as the list shows); or
+    **the overall fastest only**. Per league, like every widget setting.
   - **New fastest lap flash**: when someone sets a new fastest lap, a purple
     pill appears at the top middle of the screen with a stopwatch. It says
     "NEW FASTEST LAP" for about two seconds, then shows the driver and the lap

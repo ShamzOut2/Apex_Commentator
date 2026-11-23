@@ -36,12 +36,18 @@ const finishers = new Map();   // car -> {kind, at}: the flag by their name ("fi
 const WAVE_MS = 1100;          // one wave of a finished driver's flag
 let placeView = "";
 
-// The stopwatch: the fastest lap in their class, overall and by class alike,
-// so every class's fastest shows in the overall list too (the overall
-// fastest is its own class's fastest as well).
-const holdsFastest = (e) => !!(e.class_fastest || e.fastest);
+// The stopwatch (fastest_icon_for): each class's fastest, in the overall list
+// too ("classes"; the overall fastest is its own class's fastest as well);
+// as the list shows ("view": each class's by class, the overall fastest
+// overall); or the overall fastest only ("overall").
+function holdsFastest(e, cfg, classMode) {
+  const who = cfg.fastest_icon_for || "classes";
+  if (who === "overall") return !!e.fastest;
+  if (who === "view") return !!(classMode ? e.class_fastest : e.fastest);
+  return !!(e.class_fastest || e.fastest);
+}
 
-function notePlaces(entries, classMode) {
+function notePlaces(entries, classMode, cfg) {
   const view = `${SCREEN}:${classMode}`;
   const fresh = view !== placeView;  // switched view: nothing "moved"
   placeView = view;
@@ -51,7 +57,7 @@ function notePlaces(entries, classMode) {
     const was = lastPlace.get(e.car_idx);
     if (!fresh && was != null && pos != null && pos !== was) moves.set(e.car_idx, { up: pos < was, at: now });
     lastPlace.set(e.car_idx, pos);
-    const holds = holdsFastest(e);
+    const holds = holdsFastest(e, cfg, classMode);
     if (holds && !holders.has(e.car_idx)) holders.set(e.car_idx, fresh ? -1e9 : now);
     if (!holds) holders.delete(e.car_idx);
     const kind = e.penalty || (e.finished ? "finish" : null);
@@ -105,7 +111,7 @@ function goFlash(ov, replay = false) {
 
 // The purple stopwatch by the fastest lap's holder: overall, or each class's in "by class".
 function fastestIcon(e, cfg, classMode) {
-  if (!cfg.show_fastest_icon || !holdsFastest(e)) return "";
+  if (!cfg.show_fastest_icon || !holdsFastest(e, cfg, classMode)) return "";
   const pop = ongoing(holders.get(e.car_idx) ?? -1e9, POP_MS);
   return `<span class="fl-icon ${pop ? "pop" : ""}" style="${pop || ""}" title="Fastest lap">${STOPWATCH}</span>`;
 }
@@ -527,9 +533,22 @@ const sponsorBar = document.createElement("div");
 sponsorBar.className = "tower-sponsor";
 sponsorBar.dataset.key = "sponsor-bar";  // its slot in the tower's html (data-keep): left as it is once in place
 let sponsorShown = "";
+let sponsorGone = null;   // when it was switched off (it closes, then goes)
+const SB_CLOSE_MS = 420;
 function placeSponsor(logo, cfg) {
   const slot = tower.querySelector(".tower-sponsor-slot");
-  if (slot) slot.replaceWith(sponsorBar);
+  if (slot) {
+    // Switched on with the tower already up: it opens out under the header
+    // (put in at full height at once, it pushed the drivers down in a jump).
+    const opening = !sponsorBar.isConnected && logo && tower.querySelector(".srow");
+    slot.replaceWith(sponsorBar);
+    if (opening) {
+      sponsorBar.style.setProperty("--sb-h", `${cfg.sponsor_bar_size}px`);
+      const h = getComputedStyle(sponsorBar).height;  // its own height (the page may be scaled to fit)
+      sponsorBar.animate([{ height: "0px", paddingTop: "0px", paddingBottom: "0px", opacity: 0 }, { height: h, opacity: 1 }],
+        { duration: 420, easing: "cubic-bezier(.2, .8, .2, 1)" });
+    }
+  }
   if (!logo) return;
   sponsorBar.style.setProperty("--sb-h", `${cfg.sponsor_bar_size}px`);
   const shown = `${logo.url}|${logo.scale || 100}`;
@@ -584,7 +603,7 @@ function render() {
   const camIdx = snap.camera && snap.camera.car_idx;
   const cols = columnsFor(cfg, race);
   const grid = gridFor(cfg, cols);
-  notePlaces(entries, classMode);
+  notePlaces(entries, classMode, cfg);
   const rows = (list, cls) => list.map((e) => rowHtml(e, cfg, cols, cls || classes.get(e.class_key) || DEFAULT_CLASS,
     race, classMode, multiclass, camIdx, ov.green)).join("");
   let body;
@@ -623,6 +642,15 @@ function render() {
   const sub = headerSub(snap, cfg, false);
   const progress = progressText(ov);
   const sponsor = sponsorLogo(snap, cfg);
+  // Switched off: the bar stays a moment while it closes (sb-out), then goes.
+  const now = performance.now();
+  if (sponsor) sponsorGone = null;
+  else if (sponsorBar.isConnected && sponsorGone == null) {
+    sponsorGone = now;
+    setTimeout(render, SB_CLOSE_MS + 20);
+  }
+  const closing = !sponsor && sponsorGone != null && now - sponsorGone < SB_CLOSE_MS;
+  sponsorBar.classList.toggle("sb-out", closing);
   // The header shows from the start of every session (qualifying with nobody
   // timed yet too); drivers join below it as they set a time / cross the line.
   const visible = snap.connected && cfg.visible;
@@ -634,7 +662,7 @@ function render() {
       ? '<div class="h1"><span class="t1">REPLAY</span></div>'
       : `<div class="h1"><span class="t1">${esc(title)}</span>${progress ? `<span class="t3 tnum">${esc(progress)}</span>` : ""}</div>
       ${sub ? `<div class="t2">${esc(sub)}</div>` : ""}`}
-    </div></div>${sponsor ? '<div class="tower-sponsor-slot" data-key="sponsor-bar" data-keep></div>' : ""}${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
+    </div></div>${sponsor || closing ? '<div class="tower-sponsor-slot" data-key="sponsor-bar" data-keep></div>' : ""}${body ? headRowHtml(cfg, cols) : ""}</div>${body}`;
   tower.classList.toggle("by-class", classMode);
   tower.classList.toggle("wrap-title", !!cfg.title_wrap);
   tower.classList.toggle("hidden", !visible);
@@ -787,7 +815,7 @@ function renderScreen(snap, ov) {
   const multiclass = new Set(entries.map((e) => e.class_key)).size > 1;
   const classMode = cfg.mode === "class";
   const camIdx = snap.camera && snap.camera.car_idx;
-  notePlaces(entries, classMode);
+  notePlaces(entries, classMode, cfg);
   // Lines: class headers and drivers, in order.
   const lines = [];
   if (classMode) {
