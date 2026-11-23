@@ -15,6 +15,8 @@ How each version's entry is written:
 
 ### Improvements
 
+- Boards: each sponsor logo can have its own size on each board ("Each
+  sponsor's size on this board"), on top of the sponsor's usual size.
 - Lap tracker: sector colours can be compared with the leader's lap (the
   class leader's or the overall leader's), sector by sector.
 

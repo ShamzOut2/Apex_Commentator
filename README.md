@@ -114,6 +114,8 @@ starting grid", "Clear all penalties"…).
 
 ### Improvements
 
+- Boards: each sponsor logo can have its own size on each board ("Each
+  sponsor's size on this board"), on top of the sponsor's usual size.
 - Lap tracker: sector colours can be compared with the leader's lap (the
   class leader's or the overall leader's), sector by sector.
 
@@ -1461,6 +1463,9 @@ Under *What each board shows*, every board can be set up separately:
   their size (*Sponsor logo size*, %; each sponsor's own size on top of it).
   Boards set up before this keep their look: the sponsors most of them
   showed became the Theme's, and a board that showed others keeps its own;
+- each sponsor's size on that board (*Each sponsor's size on this board*,
+  %): one logo bigger or smaller on one board only, on top of the sponsor's
+  own size from the League builder (100 = as everywhere else);
 - the board's own columns: car numbers, team names and logos, car badges,
   gaps, wins, penalty points, points from the last few rounds, laps, places
   gained, fastest lap (purple), points scored;
