@@ -13,6 +13,11 @@ How each version's entry is written:
 
 ## Unreleased
 
+### Improvements
+
+- Lap tracker: sector colours can be compared with the leader's lap (the
+  class leader's or the overall leader's), sector by sector.
+
 ### Fixes
 
 - Lap tracker: the small trackers show the drivers nearest the end of their lap,

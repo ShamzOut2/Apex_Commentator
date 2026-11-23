@@ -493,7 +493,10 @@ DEFAULTS = {
         # sectors struck through / greyed out, and the line through them.
         "invalid_text_color": "#ff4d4d", "invalid_sector_color": "#5b616b", "invalid_line_color": "#ff4d4d",
         "sector_delta_s": 3.0,    # a sector just done: its difference to what it's compared with, for this long, then its time (0: just the time)
-        "reference": "personal",  # sector colours against "personal" bests, the "session" (class) best or the "overall" best
+        # Sector colours against "personal" bests, the "session" (class) best or the
+        # "overall" best sectors, or the same sector of the class "leader"'s lap
+        # (its fastest lap) or the overall leader's ("leader_overall").
+        "reference": "personal",
         "sectors": 3,             # sectors shown: the track's split points merged into this many (0 = all of them)
         "green_s": 0.2,
         "hide_s": 5.0,
@@ -517,7 +520,7 @@ CHOICES = {"follow": ("delay", "now"), "board_overlays": ("stay", "dim", "hide")
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary", "team"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both", "class_both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
-           "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall"), "name_format": NAME_FORMATS,
+           "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall", "leader", "leader_overall"), "name_format": NAME_FORMATS,
            "font": FONTS,
            "map_label": ("abbr", "number", "name", "none"), "colors": ("main", "secondary"), "scope": ("class", "overall"), "anchor_side": ("first", "last"), "fl_flash_many": ("stack", "queue"), "gap_shown": ("ahead", "camera"),
            "labels": ("none", "number", "position"), "start_from": ("all", "standing", "hand"),

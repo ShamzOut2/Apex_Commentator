@@ -112,6 +112,11 @@ starting grid", "Clear all penalties"…).
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### Improvements
+
+- Lap tracker: sector colours can be compared with the leader's lap (the
+  class leader's or the overall leader's), sector by sector.
+
 ### Fixes
 
 - Lap tracker: the small trackers show the drivers nearest the end of their lap,
@@ -1054,6 +1059,12 @@ cost to how smoothly things move.
     while its lap is clean: a lap that's invalidated (off track) loses its
     sectors from the bests, and whoever's now fastest (on a clean lap)
     turns purple.
+  - Or **the leader's lap**: each sector against the same sector of the
+    fastest lap so far, in the driver's class (*The class leader's lap*) or
+    of anyone (*The overall leader's lap*). Purple: quicker than the
+    leader's lap through that sector; the difference shown first is to it.
+    When someone sets a new fastest lap, its sectors are what's compared
+    from then on.
   - **A sector just done** shows first how it compares (−0.324 faster,
     +0.512 slower) with the time it's measured against: the driver's best,
     the class's fastest or anyone's, as the reference above says. It fades
