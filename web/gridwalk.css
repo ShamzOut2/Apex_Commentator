@@ -226,7 +226,7 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 .gw-info .klass-logo { height: 32px; max-width: 140px; object-fit: contain; display: block; }
 .gw-info .nick { font-size: calc(20px * var(--fs, 1)); font-weight: 700; font-style: italic; color: var(--accent); }
 .gw-info .team { font-size: calc(20px * var(--fs, 1)); font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-.gw-info .team-logo { height: min(calc(30px * var(--logo-k, 1)), 46px); max-width: min(calc(90px * var(--logo-k, 1)), 180px); }
+.gw-info .team-logo { height: calc(30px * var(--logo-k, 1)); max-width: calc(90px * var(--logo-k, 1)); }
 .gw-info .qual { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
 .gw-info .qual .t { font-size: calc(26px * var(--fs, 1)); font-weight: 800; font-variant-numeric: tabular-nums; }
 .gw-info .make { flex: none; display: flex; align-items: center; height: 60px; }

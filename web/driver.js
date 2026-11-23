@@ -56,6 +56,22 @@ function cardHtml(d, cfg, cls, multiclass) {
   return `${pos}<div class="who">${number}<div class="names"><div class="name">${nameHtml(d, cfg.name_format)}${klass}${tyre}</div>${under}</div></div>${end}`;
 }
 
+// The team logo by the name, at the size set; if that makes the name and team
+// lines taller than the card, the logo is made just small enough to fit (only
+// the ones too big change).
+function fitLogo(card) {
+  const img = card.querySelector(".team img.team-logo");
+  if (!img) return;
+  img.style.height = "";
+  if (!img.complete) {
+    img.addEventListener("load", () => fitLogo(card), { once: true });
+    return;
+  }
+  const names = card.querySelector(".names");
+  const over = names.offsetHeight - (card.clientHeight - 6);  // a few pixels clear of the edges
+  if (over > 0) img.style.height = `${Math.max(14, img.offsetHeight - over)}px`;
+}
+
 function render(snap) {
   lastSnap = snap;
   const ov = snap.overlays;
@@ -82,6 +98,7 @@ function render(snap) {
     el.style.setProperty("--cls", paintFor(d, cls, cfg.class_colors) || "transparent");
     el.innerHTML = html;
     slot.appendChild(el);
+    fitLogo(el);
     // Once it's in, updates (a new position) just swap the numbers.
     setTimeout(() => el.classList.remove("in"), 1100);
     current = { key, el, at: performance.now(), html, hidden: false, timer: null, hideMs: null };
@@ -92,8 +109,15 @@ function render(snap) {
   if (html !== current.html && !current.hidden) {
     current.el.innerHTML = html;
     current.html = html;
+    fitLogo(current.el);
   }
   current.el.style.setProperty("--cls", paintFor(d, cls, cfg.class_colors) || "transparent");
+  // The logo or text size changed while it's up: the logo fitted again.
+  const fit = `${cfg.logo_scale}|${cfg.font_scale}|${cfg.team_logo_kind}`;
+  if (fit !== current.fit) {
+    current.fit = fit;
+    fitLogo(current.el);
+  }
   schedule(cfg);  // the time may have been changed while it's up
 }
 
