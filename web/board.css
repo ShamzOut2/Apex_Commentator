@@ -234,3 +234,33 @@
 .board:not(.steady) .tk-map .road { stroke-dasharray: 6000; animation: tk-draw 1.4s .3s ease-out both; }
 @keyframes tk-draw { from { stroke-dashoffset: 6000; } to { stroke-dashoffset: 0; } }
 .tk-nomap { color: var(--muted); font-size: 22px; }
+
+/* The race recap: three cards, then each car's place lap by lap. */
+.recap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 22px; padding-top: 10px; }
+.rc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; }
+.rc-card {
+  padding: 16px 22px; border-radius: 12px; background: rgba(255, 255, 255, calc(.05 * var(--bg-k, 1)));
+  border-left: 5px solid var(--accent-c, var(--accent));
+}
+.board:not(.steady) .rc-card { animation: row-in .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: .3s; }
+.board:not(.steady) .rc-card:nth-child(2) { animation-delay: .42s; }
+.board:not(.steady) .rc-card:nth-child(3) { animation-delay: .54s; }
+.rc-who { display: flex; align-items: center; gap: 12px; margin-top: 8px; min-width: 0; }
+.rc-who .num { height: 36px; min-width: 50px; font-size: calc(20px * var(--fs, 1)); }
+.rc-logo { height: 34px; max-width: 70px; object-fit: contain; }
+.rc-name { font-size: calc(30px * var(--fs, 1)); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-value { font-size: calc(46px * var(--fs, 1)); font-weight: 900; color: var(--accent-c, var(--accent)); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.rc-value small { font-size: .42em; font-weight: 700; color: var(--muted); margin-left: 10px; }
+.rc-none { font-size: calc(22px * var(--fs, 1)); color: var(--muted); margin-top: 12px; }
+.rc-chart { flex: 1; min-height: 0; width: 100%; }
+.rc-wait { margin-top: 30px; text-align: center; font-size: calc(24px * var(--fs, 1)); color: var(--muted); }
+.rc-grid { stroke: rgba(255, 255, 255, .08); stroke-width: 1; }
+.rc-axis { fill: var(--muted); font-size: 18px; font-weight: 700; }
+.rc-line polyline { fill: none; stroke: var(--c); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; opacity: .9; }
+.rc-line circle { fill: var(--c); }
+.rc-label { fill: var(--ink); font-size: 20px; font-weight: 800; }
+.rc-pos { fill: var(--c); }
+.board:not(.steady) .rc-line polyline { stroke-dasharray: 4000; stroke-dashoffset: 4000; animation: rc-draw 1.6s calc(.5s + var(--i) * .06s) ease-out forwards; }
+.board:not(.steady) .rc-line circle, .board:not(.steady) .rc-label { opacity: 0; animation: rc-fade .4s calc(1.7s + var(--i) * .06s) ease-out forwards; }
+@keyframes rc-draw { to { stroke-dashoffset: 0; } }
+@keyframes rc-fade { to { opacity: 1; } }

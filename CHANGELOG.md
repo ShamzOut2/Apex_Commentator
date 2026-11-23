@@ -11,6 +11,53 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v1.0.3
+
+### New features
+
+- Talking points on the Timing Screen: things worth saying now (a car
+  closing in, a lead changing hands, a first win on the cards, big movers).
+  Click one to put it on screen.
+- Catching overlay: the gap between two cars, lap by lap, how fast it's
+  closing and the laps until they're together.
+- Driver's season overlay: the driver on camera's championship place, points,
+  wins, podiums and last results, for a few seconds when the camera moves.
+- Head to head overlay: two drivers' seasons and today's race side by side.
+- Race recap board: biggest gainer, most overtakes, cleanest driver and a
+  lap-by-lap position chart.
+- Hotkeys for all of these.
+- Driver's season and head to head can show stats by class or overall (class
+  or overall wins, podiums, results and championship), whichever the league
+  scores. Switch on the Widgets card or with a hotkey.
+
+### Improvements
+
+- Boards: each sponsor logo can have its own size on each board ("Each
+  sponsor's size on this board"), on top of the sponsor's usual size.
+- Lap tracker: sector colours can be compared with the leader's lap (the
+  class leader's or the overall leader's), sector by sector.
+
+### Fixes
+
+- Tower: with drivers shown as they finish lap 1, a driver towed to the pits on
+  lap 1 no longer shows up early (iRacing can count the tow as a lap done). They
+  appear once they cross the line under their own power.
+- Driver on camera: a team logo at a bigger logo size no longer pokes out of
+  the card. Logos that fit stay at the size set; only one that would stick out
+  is made just small enough to fit. The size found is remembered, so that logo
+  comes up at it straight away next time, and checked again if the overlay's
+  size, text size, font or logo size changes.
+- Grid walk: the car pictures no longer flash. A driver's details changing
+  (joining the track, a qualifying time) updates their panel in place instead
+  of drawing the cars and panels again, and moving on to the next pair keeps
+  the pictures already on screen.
+- Lap tracker: the small trackers show the drivers nearest the end of their lap,
+  not whoever started a lap first; one already up stays unless another is
+  clearly nearer the line.
+- Dual commentary: the co-commentator follows the host into every replay
+  (an incident, a rewind), not just the first. A replay jump or camera change
+  iRacing missed is done again within a couple of seconds.
+
 ## v1.0.2
 
 ### Improvements

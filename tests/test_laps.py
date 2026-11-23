@@ -219,6 +219,28 @@ class LapTrackerTests(unittest.TestCase):
         self.assertEqual(mine["overall"], "green")    # but not overall: their own best (their first) is green
         self.assertEqual(tr.state(0, 12.0, "overall")["sectors"][0]["colour"], "green")
 
+    def test_leaders_lap_reference(self):
+        # The class leader's lap: 85 s, its sectors 28 / 29 / 28. A lap of 27 / 30 / 29
+        # is purple in sector 1 (quicker than the leader's), green after (their first lap).
+        tr = LapTracker()
+        tr.update(F(0.0, [0.85]), lambda i: "A")  # the session starts (the bests are reset then)
+        tr.class_best["A"] = {"lap": 85.0, "sectors": [28.0, 29.0, 28.0]}
+        tr.overall_best = {"lap": 80.0, "sectors": [26.0, 27.0, 27.0]}
+        t = drive(tr, 1, start_t=0.1, sector_s=(27.0, 30.0, 29.0))
+        st = tr.state(0, t, "leader")
+        self.assertEqual([x["colour"] for x in st["sectors"]], ["purple", "green", "green"])
+        self.assertEqual([round(x["delta"]) for x in st["sectors"]], [-1, 1, 1])  # against the leader's sectors
+        self.assertEqual([x["colour"] for x in tr.state(0, t, "leader_overall")["sectors"]], ["green"] * 3)
+        self.assertEqual(round(tr.state(0, t, "leader_overall")["sectors"][0]["delta"]), 1)
+        # A lap quicker than the leader's is the new leader's lap, its sectors with it.
+        tr = LapTracker()
+        tr.update(F(0.0, [0.85]), lambda i: "A")
+        tr.class_best["A"] = {"lap": 95.0, "sectors": [31.0, 32.0, 32.0]}
+        drive(tr, 1, start_t=0.1, sector_s=(29.0, 30.0, 29.0))
+        self.assertEqual([round(x) for x in tr.class_best["A"]["sectors"]], [29, 30, 29])
+        self.assertEqual([round(x) for x in tr.overall_best["sectors"]], [29, 30, 29])
+        self.assertEqual(normalise({"laps": {"reference": "leader"}})["laps"]["reference"], "leader")
+
     def run_two(self, tr, car0, car1, off0_at=None, classes=("A", "A")):
         times = (0, 1, 5, 6, 7, 10, 11, 13, 14)
         for t, p0, p1 in zip(times, car0, car1):

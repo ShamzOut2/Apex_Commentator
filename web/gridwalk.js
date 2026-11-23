@@ -384,9 +384,27 @@ function glideTo(target, build) {
 }
 
 function rerender() {
-  shownKey = "";
+  shownKey = sceneKey = "";
   render();
 }
+
+// Redraw the scene keeping the car pictures already there (the same picture in
+// the same box): a picture made afresh can show nothing for a frame or two
+// while it's decoded, which looked like the car flashing.
+function redrawScene(root, html) {
+  const keep = new Map();
+  for (const img of root.querySelectorAll(".gw-car[data-slot] img")) keep.set(`${img.closest(".gw-car").dataset.slot}|${img.getAttribute("src")}`, img);
+  root.innerHTML = html;
+  for (const img of root.querySelectorAll(".gw-car[data-slot] img")) {
+    const old = keep.get(`${img.closest(".gw-car").dataset.slot}|${img.getAttribute("src")}`);
+    if (old) {
+      old.className = img.className;
+      img.replaceWith(old);
+    }
+  }
+  return root;
+}
+let sceneKey = "";
 
 function render() {
   const g = snap && snap.gridwalk;
@@ -410,7 +428,22 @@ function render() {
     snap.league && snap.league.name, snap.session && snap.session.track]);
   if (key === shownKey) return;
   const samePair = shownKey && JSON.parse(shownKey)[1] === g.index && JSON.parse(shownKey)[0] === show;
+  if (samePair && glide) {
+    // The camera's still gliding to this pair: its details are put right once it's there.
+    clearTimeout(render.later);
+    render.later = setTimeout(render, GLIDE_MS / 3);
+    return;
+  }
   shownKey = key;
+  // What the scene itself shows (the cars and their pictures, the numbers and
+  // times painted on the road): the drivers' details changing (on track, a
+  // qualifying time in) only redraw their panels, not the cars.
+  const scene = JSON.stringify([show, g.index, entries.slice(Math.max(0, g.index - 15), g.index + 16).map((e) =>
+    [e.key, e.car_image, e.car_design, e.qual_time, e.qual_gap, e.qual_int]), cfg.flip_cars, cfg.neighbours, cfg.track_qual, cfg.qual_shown,
+  ["car_scale", "car_scale_top", "car_scale_bottom", "car_top_x", "car_top_y", "car_bottom_x", "car_bottom_y", "car_top_rotate", "car_bottom_rotate"].map((k) => cfg[k]),
+  snap.league && snap.league.name, snap.session && snap.session.track]);
+  const sceneChanged = scene !== sceneKey;
+  sceneKey = scene;
   stage.classList.toggle("hidden", !show);
   if (!show) {
     cameraX = null;  // next time it comes on, it starts at its pair
@@ -418,6 +451,27 @@ function render() {
   }
   const multiclass = new Set(entries.map((e) => e.class_key)).size > 1;
   const target = slotX(g.index + 1);
+  if (samePair && stage.querySelector(".walk")) {
+    // The same pair: their panels (and the title) put right where they are, no
+    // coming in again; the scene only if what it shows changed, the cars still.
+    const holder = document.createElement("div");
+    holder.innerHTML = walkHtml(g, pair, entries, classes, cfg, multiclass, target);
+    const walk = stage.querySelector(".walk");
+    walk.querySelector(".gw-title").replaceWith(holder.querySelector(".gw-title"));
+    const fresh = [...holder.querySelectorAll(".gw-info")];
+    const old = [...walk.querySelectorAll(".gw-info:not(.leaving)")];
+    fresh.forEach((p, i) => {
+      p.classList.add("steady");
+      if (old[i]) old[i].replaceWith(p);
+      else walk.appendChild(p);
+    });
+    old.slice(fresh.length).forEach((p) => p.remove());
+    if (sceneChanged) {
+      walk.classList.add("still");
+      placeScene(redrawScene($("#scene"), sceneHtml(target, target, g.index + 1, entries, cfg)), target);
+    }
+    return;
+  }
   if (samePair || cameraX == null || !stage.querySelector(".walk")) {
     if (glide) cancelAnimationFrame(glide.raf);
     glide = null;
@@ -435,11 +489,8 @@ function render() {
   panels.forEach((p) => p.remove());
   const walk = stage.querySelector(".walk");
   walk.querySelector(".gw-title").outerHTML = holder.querySelector(".gw-title").outerHTML;
-  glideTo(target, (from, to) => {
-    const root = $("#scene");
-    root.innerHTML = sceneHtml(from, to, g.index + 1, entries, cfg);
-    return root;
-  });
+  walk.classList.remove("still");
+  glideTo(target, (from, to) => redrawScene($("#scene"), sceneHtml(from, to, g.index + 1, entries, cfg)));
   setTimeout(() => {
     walk.querySelectorAll(".gw-info.leaving").forEach((el) => el.remove());
     panels.forEach((p) => walk.appendChild(p));

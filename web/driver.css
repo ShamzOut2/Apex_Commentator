@@ -58,14 +58,17 @@ body.panel-image .card::before {
 .name { font-size: calc(38px * var(--fs, 1)); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 14px; }
 .klass { font-size: calc(14px * var(--fs, 1)); font-weight: 800; letter-spacing: .08em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; }
 .team { font-size: calc(20px * var(--fs, 1)); font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+/* The team logo at the size set; one that would stick out of the card is made
+   just small enough to fit (driver.js fitLogo). */
 .team img { height: calc(26px * var(--logo-k, 1)); max-width: calc(60px * var(--logo-k, 1)); object-fit: contain; }
 .make { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 56px; width: 104px; padding: 6px 10px; }
 .make img { max-height: 100%; max-width: 100%; object-fit: contain; }
 /* Swapped: the car badge small by the team name, the team logo at the end. */
 .make.small { height: 26px; width: auto; padding: 0; justify-content: flex-start; }
 .make.small img { height: 100%; max-width: 70px; }
-.team-end { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 56px; width: 104px; padding: 4px 8px; }
-.team-end img { max-height: calc(100% * var(--logo-k, 1)); max-width: calc(100% * var(--logo-k, 1)); object-fit: contain; }
+.team-end { flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px;
+  height: min(calc(56px * var(--logo-k, 1)), 92px); width: calc(104px * var(--logo-k, 1)); }  /* never taller than the card */
+.team-end img { max-height: 100%; max-width: 100%; object-fit: contain; }
 
 /* faded */
 /* Colours from variables (class, accent...) at the overlay's opacity too, where

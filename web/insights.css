@@ -1,0 +1,69 @@
+/* Catching, a driver's season and head to head: the championship battle's
+   panel (battle.css), with what each of them shows. */
+.num {
+  display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: 42px; height: 30px; padding: 0 8px;
+  border-radius: 6px; font-size: calc(18px * var(--fs, 1)); font-weight: 900; font-variant-numeric: tabular-nums;
+}
+.logo { flex: none; height: min(calc(28px * var(--logo-k, 1)), 46px); max-width: calc(46px * var(--logo-k, 1)); object-fit: contain; }
+.lbl { font-size: calc(12px * var(--fs, 1)); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+
+/* Catching */
+.catching { width: 420px; }
+.ct-car { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; height: 50px; padding: 0 16px; border-top: 1px solid var(--line); }
+.ct-car .pos { font-size: calc(24px * var(--fs, 1)); font-weight: 900; text-align: center; }
+.ct-car .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ct-car .name { font-size: calc(21px * var(--fs, 1)); font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ct-tag { font-size: calc(12px * var(--fs, 1)); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.ct-now { display: flex; gap: 18px; padding: 10px 16px 4px; border-top: 1px solid var(--line); }
+.ct-now > div { display: flex; flex-direction: column; gap: 2px; }
+.ct-now b { font-size: calc(30px * var(--fs, 1)); font-weight: 900; font-variant-numeric: tabular-nums; }
+.ct-rate.closing b { color: var(--green); }
+.ct-rate.pulling b { color: var(--red); }
+.ct-catch { padding: 0 16px 6px; font-size: calc(17px * var(--fs, 1)); font-weight: 800; color: var(--accent); }
+.ct-graph { display: block; width: calc(100% - 32px); height: 86px; margin: 4px 16px 0; }
+.ct-graph polyline { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.ct-graph.closing polyline { stroke: var(--green); }
+.ct-graph.pulling polyline { stroke: var(--red); }
+.ct-graph circle { fill: var(--ink); }
+.ct-graph circle.now { fill: var(--accent); }
+.ct-graph .ct-zero { stroke: rgba(255, 255, 255, .18); stroke-dasharray: 4 5; vector-effect: non-scaling-stroke; }
+.ct-laps { display: flex; justify-content: space-between; padding: 2px 16px 12px; font-size: calc(12px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
+
+/* A driver's season */
+.season { width: 640px; }
+.ss-top { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 3px solid var(--grp, var(--accent)); }
+.ss-top .num { height: 40px; min-width: 52px; font-size: calc(24px * var(--fs, 1)); }
+.ss-names { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ss-names .name { font-size: calc(28px * var(--fs, 1)); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-names .team { font-size: calc(15px * var(--fs, 1)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-champ { font-size: calc(13px * var(--fs, 1)); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.ss-stats { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; padding: 12px 18px; }
+.ss-stat .lbl { white-space: nowrap; }
+.ss-stat { display: flex; flex-direction: column; gap: 2px; }
+.ss-stat b { font-size: calc(28px * var(--fs, 1)); font-weight: 900; font-variant-numeric: tabular-nums; }
+.ss-form { display: flex; align-items: center; gap: 8px; padding: 0 18px 14px; flex-wrap: wrap; }
+.ss-form .lbl { margin-right: 4px; }
+.ss-res { min-width: 46px; padding: 4px 8px; border-radius: 6px; text-align: center; font-size: calc(16px * var(--fs, 1)); font-weight: 900;
+  background: rgba(255, 255, 255, calc(.08 * var(--bg-k, 1))); }
+.ss-res.win { background: #d4a72c; color: #1b1400; }
+.ss-res.podium { background: rgba(255, 255, 255, .22); }
+.ss-res.out { color: var(--muted); }
+.ss-notes { padding: 0 18px 14px; font-size: calc(16px * var(--fs, 1)); color: var(--muted); font-style: italic; }
+.ss-none { padding: 12px 18px 16px; font-size: calc(17px * var(--fs, 1)); color: var(--muted); }
+
+/* Head to head */
+.h2h { width: 760px; }
+.hh-names { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.hh-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.hh-who.b { justify-content: flex-end; }
+.hh-who .name { font-size: calc(24px * var(--fs, 1)); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hh-vs { font-size: calc(15px * var(--fs, 1)); font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.hh-sec { padding: 8px 16px 2px; font-size: calc(12px * var(--fs, 1)); font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--grp, var(--accent)); }
+.hh-row { display: grid; grid-template-columns: 1fr 200px 1fr; align-items: center; height: 36px; padding: 0 16px; }
+.hh-row .lbl { text-align: center; }
+.hh-row .v { font-size: calc(22px * var(--fs, 1)); font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); }
+.hh-row .v:last-child { text-align: right; }
+.hh-row .v.best { color: var(--ink); }
+.hh-gap { padding: 6px 16px 12px; text-align: center; font-size: calc(17px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
+.hh-gap b { color: var(--ink); font-size: 1.2em; margin-left: 6px; }
+.h2h > :last-child { padding-bottom: 12px; }

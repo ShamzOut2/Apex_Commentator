@@ -57,6 +57,17 @@ class TowTests(unittest.TestCase):
         leader = next(r for r in snap["drivers"] if r["pos"] == 1)
         self.assertFalse(leader.get("towed"))
 
+    def test_towed_on_lap_one_isnt_revealed_on_the_tower(self):
+        # The tower fills up as cars finish lap 1 ("reveal"): a car towed to its box
+        # just past the line on lap 1 has iRacing counting a lap done, but isn't shown.
+        app, car = self.race_with_a_tow(tow_at=30.0)  # the leader's first lap ends at ~88 s
+        self.assertTrue(next(r for r in app.build_snapshot()["drivers"] if r["car_idx"] == car)["towed"])
+        self.assertEqual(app.build_snapshot()["overlays"]["standings"], [])  # nobody's done a lap yet
+
+    def test_a_car_already_on_the_tower_stays_when_towed(self):
+        app, car = self.race_with_a_tow(tow_at=150.0)  # after lap 1: everyone's up
+        self.assertIn(car, [e["car_idx"] for e in app.build_snapshot()["overlays"]["standings"]])
+
     def test_back_to_normal_over_the_line(self):
         w = TowWatch()
         key = ("sub", 2)

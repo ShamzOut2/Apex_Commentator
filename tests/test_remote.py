@@ -67,6 +67,49 @@ class DualCommentaryTests(unittest.TestCase):
         self.host_moves()
         self.assertTrue(wait_for(lambda: ("replay_search", remote_end()) in self.guest_src.commands[n:], 5))
 
+    def test_a_jump_or_camera_switch_iracing_dropped_is_done_again(self):
+        code = self.host.command("share_camera", {"on": True})["code"]
+        self.guest.command("follow_camera", {"on": True, "address": f"127.0.0.1:{self.host.share.port}", "code": code})
+        self.assertTrue(wait_for(lambda: self.guest.follow.status == "following" and self.guest.follow.last, 5))
+        self.guest.FOLLOW_SETTLE_S = self.guest.FOLLOW_CAM_S = 0.3
+        real_seek, real_cam = self.guest_src.replay_search_session_time, self.guest_src.cam_switch_num
+        dropped = []
+
+        def lost_seek(num, ms):  # iRacing busy: the first jump is lost
+            if not dropped:
+                dropped.append(ms)
+                return
+            real_seek(num, ms)
+        self.guest_src.replay_search_session_time = lost_seek
+        self.host_src.replay_search_session_time(0, 12_000)
+        self.host_moves()
+        self.assertTrue(wait_for(lambda: dropped, 5))
+        # Still live here; the host's next updates put it right.
+        for _ in range(20):
+            if self.guest._frame and not self.guest._frame.is_live:
+                break
+            time.sleep(0.1)
+            self.host_moves()
+            self.guest.tick()
+        self.assertFalse(self.guest._frame.is_live)
+        self.assertLess(abs(self.guest._frame.replay_session_time - self.host._frame.replay_session_time), 3.5)
+        # A camera switch lost: the driver is put right too.
+        cars = list(self.host._drivers)
+        number = self.host._drivers[cars[9]]["number"]
+        self.guest_src.cam_switch_num = lambda *a, **k: None
+        self.host.command("watch", {"car_idx": cars[9], "group": 1})
+        self.host_moves()
+        time.sleep(0.4)
+        self.guest_src.cam_switch_num = real_cam
+        n = len(self.guest_src.commands)
+        for _ in range(20):
+            if any(c[:2] == ("cam_switch_num", number) for c in self.guest_src.commands[n:]):
+                break
+            time.sleep(0.1)
+            self.host_moves()
+            self.guest.tick()
+        self.assertTrue(any(c[:2] == ("cam_switch_num", number) for c in self.guest_src.commands[n:]))
+
     def test_free_mode_then_sync(self):
         code = self.host.command("share_camera", {"on": True})["code"]
         self.guest.command("follow_camera", {"on": True, "address": f"127.0.0.1:{self.host.share.port}", "code": code})

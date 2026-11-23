@@ -264,6 +264,8 @@ function render() {
   renderOverlaySettings(s);
   renderBattlePick(s);
   renderStrategyPick(s);
+  renderInsightPicks(s);
+  renderTalking(s);
   renderRaceControl(s);
   renderChampLive(s);
   renderBoards(s);
@@ -757,7 +759,7 @@ applyTimingCols();
 
 // What the Timing Screen shows in this window (each window its own: the app's,
 // and a popped-out one): its parts, and the driver list's columns.
-const TIMING_PARTS = [["cameras", "Camera buttons"], ["list", "Driver list"], ["log", "Race log"], ["replay", "Replay controls"]];
+const TIMING_PARTS = [["cameras", "Camera buttons"], ["list", "Driver list"], ["talk", "Talking points"], ["log", "Race log"], ["replay", "Replay controls"]];
 // The driver list's cells, in order (Driver always shows).
 const TIMING_COLS = [["pos", "Pos"], ["cls", "Class position"], ["chg", "+/− places"], ["num", "Car number"], ["make", "Car make"],
   ["driver", "Driver"], ["lap", "Lap"], ["gap", "Gap"], ["int", "Interval"], ["last", "Last lap"], ["best", "Best lap"],
@@ -769,8 +771,8 @@ try {
 } catch (e) { /* storage unavailable */ }
 
 function applyTimingShow() {
-  // The driver list or the race log: never neither.
-  if (timingHide.has("list") && timingHide.has("log")) timingHide.delete("list");
+  // The driver list, the talking points or the race log: never none of them.
+  if (timingHide.has("list") && timingHide.has("log") && timingHide.has("talk")) timingHide.delete("list");
   timingHide.delete("driver");
   for (const [k] of TIMING_PARTS) $("#tab-timing").classList.toggle(`hide-${k}`, timingHide.has(k));
   let style = document.getElementById("timing-col-style");
@@ -780,7 +782,7 @@ function applyTimingShow() {
   }
   style.textContent = TIMING_COLS.map(([k], i) => timingHide.has(k) ? `#std-lists tr > :nth-child(${i + 1}) { display: none; }` : "").join("\n");
   const tick = ([k, label]) => `<label class="check"><input type="checkbox" data-show="${k}" ${timingHide.has(k) ? "" : "checked"}
-    ${(k === "list" && timingHide.has("log")) || (k === "log" && timingHide.has("list")) ? "disabled" : ""}><span>${esc(label)}</span></label>`;
+    ${["list", "log", "talk"].includes(k) && ["list", "log", "talk"].filter((x) => x !== k).every((x) => timingHide.has(x)) ? "disabled" : ""}><span>${esc(label)}</span></label>`;
   $("#timing-parts").innerHTML = TIMING_PARTS.map(tick).join("");
   $("#timing-colpick").innerHTML = TIMING_COLS.filter(([k]) => k !== "driver").map(tick).join("");
   const n = timingHide.size;
@@ -1267,7 +1269,8 @@ const TOWER_COLUMN_HOTKEYS = [["pos_change", "Places gained / lost"], ["number",
   ["laps", "Laps"], ["pits", "Pit stops"], ["stint", "Current stint"], ["tyre", "Tyres"], ["make", "Car manufacturer"],
   ["pit_status", "PIT badge"], ["stripe", "Coloured bar"], ["fastest_icon", "Fastest lap stopwatch"]];
 const OVERLAY_TOGGLES = [["standings", "Standings tower"], ["laps", "Lap tracker"], ["driver", "Driver on camera"], ["sponsors", "Sponsors"],
-  ["battle", "Championship battle"], ["pits", "Pit stops"], ["duel", "On-track battle"], ["strategy", "Pit strategy"], ["trackmap", "Track map"],
+  ["battle", "Championship battle"], ["pits", "Pit stops"], ["duel", "On-track battle"], ["strategy", "Pit strategy"],
+  ["catching", "Catching"], ["season", "Driver's season"], ["h2h", "Head to head"], ["trackmap", "Track map"],
   ["lights", "Starting lights on / off (comes up at the start; Hide all leaves it ready)"], ["flags", "Flags on / off (shows while a sector's yellow; Hide all leaves it ready)"]];
 const NOT_KEYS = new Set(["shift", "control", "alt", "meta", "tab", "capslock", "enter"]);
 
@@ -1289,6 +1292,7 @@ function hotkeyActions(s = ui.snap || {}) {
   groups.forEach((g) => add("makes", g.key, `Manufacturers · ${g.name}`));
   add("calendar", "", "Season calendar");
   add("track", "", "Track details (round, track, weather)");
+  resultGroups(opts).forEach((g) => add("recap", g.key, `Race recap · ${g.name}`));
   resultGroups(opts).forEach((g) => add("results", g.key, `Finishing order · ${g.name}`));
   resultGroups(opts).forEach((g) => add("qualifying", g.key, `Qualifying results · ${g.name}`));
   resultGroups(opts).forEach((g) => add("grid", g.key, `Starting grid · ${g.name}`));
@@ -1301,6 +1305,18 @@ function hotkeyActions(s = ui.snap || {}) {
         (r) => (r && r.shown ? "Board back on screen" : "Board off screen"))],
       ["all:toggle", "Every overlay and board off screen, and back again", () => cmd("hotkey", { action: "all:toggle" },
       (r) => (r && r.shown ? "Overlays back on screen" : "Everything off screen"))]]],
+    ["Commentator tools", [
+      ["talk:top", "Talking points: put the top one on screen (its board, catching, the driver's season…)", () => cmd("talk_do", {}, "On screen")],
+      ["catching:ahead", "Catching: the driver on camera and the car ahead", () => cmd("catching_pick", { mode: "ahead" }, "Catching: the car ahead")],
+      ["catching:behind", "Catching: the driver on camera and the car behind", () => cmd("catching_pick", { mode: "behind" }, "Catching: the car behind")],
+      ["catching:nearest", "Catching: the driver on camera and the nearer car", () => cmd("catching_pick", { mode: "nearest" }, "Catching: the nearer car")],
+      ["season:camera", "Driver's season: the driver on camera", () => cmd("season_show", {}, "Driver's season on screen")],
+      ["h2h:camera", "Head to head: the driver on camera and the car ahead", () => cmd("h2h_pick", { mode: "camera" }, "Head to head on screen")],
+      ["season:champ", "Driver's season: by class or overall (switch)", () => cmd("hotkey", { action: "season:champ" },
+        `Driver's season: ${ov.season && ov.season.champ === "class" ? "overall" : "by class"}`)],
+      ["h2h:champ", "Head to head: by class or overall (switch)", () => cmd("hotkey", { action: "h2h:champ" },
+        `Head to head: ${ov.h2h && ov.h2h.champ === "class" ? "overall" : "by class"}`)],
+    ]],
     ["Overlays (on / off)", OVERLAY_TOGGLES.map(([k, label]) => [`ov:${k}`, label,
       () => cmd("overlay_settings", { overlay: k, values: { visible: !on(k) } }, `${label} ${on(k) ? "off" : "on"}`)])],
     ["Timing tower", [
@@ -1590,6 +1606,67 @@ function renderStrategyPick(s) {
       title="${esc(about)}: pick them and show it">${esc(label)}</button>`).join("")}
       ${picked.length ? '<button type="button" class="btn subtle" data-strat-clear>Clear</button>' : ""}</div>`;
 }
+
+// The new commentator widgets' quick picks (Widgets tab): catching's car
+// ahead / behind / nearer, the driver's season for the driver on camera, and
+// head to head's two drivers.
+let insightPickKey = "";
+function renderInsightPicks(s) {
+  const el = $("#h2h-pick");
+  const cfg = s.overlays && s.overlays.settings && s.overlays.settings.h2h;
+  if (!el || !cfg) return;
+  // Everyone to pick from: the championship's drivers, then anyone else in the session.
+  const seen = new Map();
+  for (const g of (s.championship && s.championship.groups) || []) for (const d of g.drivers) if (!seen.has(d.driver)) seen.set(d.driver, d.name);
+  for (const d of s.drivers || []) if (d.cust_id != null && !d.hidden && !seen.has(`cust:${d.cust_id}`)) seen.set(`cust:${d.cust_id}`, d.name);
+  const all = [...seen].sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  const picked = (cfg.drivers || "").split(",").filter(Boolean);
+  const key = JSON.stringify([cfg.drivers, all]);
+  if (key === insightPickKey || (el.contains(document.activeElement) && document.activeElement.tagName === "SELECT")) return;
+  insightPickKey = key;
+  const select = (i) => `<select data-h2h="${i}" aria-label="Driver ${i + 1}"><option value="">Pick a driver…</option>${all.map(([k, n]) =>
+    `<option value="${esc(k)}" ${picked[i] === k ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
+  el.innerHTML = `<div class="h2h-sel">${select(0)}<span class="hint">vs</span>${select(1)}</div>
+    <div class="row bp-quick"><button type="button" class="btn subtle" data-h2h-camera title="The driver on camera and the car ahead of them (behind, if they lead): pick them and show it">On camera vs the car ahead</button></div>`;
+}
+$("#h2h-pick").addEventListener("change", (e) => {
+  const sel = e.target.closest("[data-h2h]");
+  if (!sel) return;
+  const both = [...$("#h2h-pick").querySelectorAll("[data-h2h]")].map((x) => x.value);
+  insightPickKey = "";
+  sel.blur();
+  if (both[0] && both[1] && both[0] !== both[1]) cmd("h2h_pick", { drivers: both, show: false }, "Head to head picked");
+  else if (both[0] && both[0] === both[1]) toast("Pick two different drivers", true);
+});
+$("#h2h-pick").addEventListener("click", (e) => {
+  if (e.target.closest("[data-h2h-camera]")) cmd("h2h_pick", { mode: "camera" }, "Head to head on screen");
+});
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-catch-pick]");
+  if (b) return cmd("catching_pick", { mode: b.dataset.catchPick }, `Catching: ${b.textContent.trim().toLowerCase()}`);
+  if (e.target.closest("[data-season-camera]")) cmd("season_show", {}, "Driver's season on screen");
+});
+
+// Talking points (the Timing Screen): what's worth saying now, worked out as
+// the race runs, each with a button putting its board or widget on screen.
+let talkKey = "";
+function renderTalking(s) {
+  const box = $("#talk-list");
+  if (!box) return;
+  const pts = s.talking || [];
+  const key = JSON.stringify(pts.map((p) => [p.key, p.text, p.age < 20]));
+  if (key === talkKey) return;
+  talkKey = key;
+  $("#talk-count").textContent = pts.length ? String(pts.length) : "";
+  const what = (a) => (!a ? "" : a.board ? "Show the standings" : a.catching ? "Show catching" : a.season ? "Show their season" : a.ov ? "Show it" : "");
+  box.innerHTML = pts.length ? pts.map((p) => `<li class="talk-item ${p.kind} ${p.age < 20 ? "new" : ""}">
+      <span class="talk-text">${esc(p.text)}</span>${what(p.action) ? `<button type="button" class="btn subtle slim" data-talk="${esc(p.key)}">${what(p.action)}</button>` : ""}</li>`).join("")
+    : `<li class="hint">${s.connected ? "Nothing yet: places gained, a car closing in, a championship lead changing… show up here during a race." : "Talking points show up here during a race."}</li>`;
+}
+$("#talk-list").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-talk]");
+  if (b) cmd("talk_do", { key: b.dataset.talk }, "On screen");
+});
 
 function setStrategy(values, done) {
   strategyPickKey = "";
@@ -3166,7 +3243,8 @@ const OVERLAY_FIELDS = {
     ["Sectors", [
       ["sectors", "Sectors", "select", [["3", "3 (like TV)"], ["2", "2"], ["4", "4"], ["0", "Every split point on the track"]]],
       ["reference", "Sectors compared with (purple: beats it; green: beats their own best; yellow: slower than their own best)", "select",
-        [["overall", "Session overall best"], ["session", "Session class best"], ["personal", "Session personal best"]]],
+        [["overall", "Session overall best"], ["session", "Session class best"], ["personal", "Session personal best"],
+          ["leader", "The class leader's lap (its sectors)"], ["leader_overall", "The overall leader's lap (its sectors)"]]],
       ["sector_delta_s", "A sector just done: its difference to what it's compared with first, for (s; 0 = just its time)", "number", { min: 0, max: 10, step: 0.5 }],
       ["invalid_text_color", "INVALID (in the lap time's place)", "color"],
       ["invalid_sector_color", "Invalidated sectors", "color"],
@@ -3303,6 +3381,63 @@ const OVERLAY_FIELDS = {
       ["show_logo", "Team logos", "bool"],
       ["show_interval", "Gaps", "bool"],
       iff((v) => v.show_interval, ["gap_shown", "Each car's gap", "select", [["ahead", "To the car ahead of it"], ["camera", "To the driver on camera (− ahead, + behind)"]]]),
+    ]],
+    OVERLAY_LOOK,
+  ],
+  catching: [
+    ["What it shows", [
+      ["target", "Follows", "select", [["ahead", "The driver on camera and the car ahead"], ["behind", "The driver on camera and the car behind"],
+        ["nearest", "The driver on camera and the nearer of the two"], ["picked", "Two cars picked on the Widgets tab"]]],
+      iff((v) => v.target !== "picked", ["scope", "The car ahead / behind in", "select", [["class", "Their class"], ["overall", "Every class (overall)"]]]),
+      ["trend_laps", "Laps in the trend and the graph", "number", { min: 2, max: 15, step: 1 }],
+      ["show_rate", "How fast the gap's changing (s a lap)", "bool"],
+      ["show_catch", "Closing: the laps until it's gone (On them in about 4 laps)", "bool"],
+      ["show_graph", "The gap lap by lap (a small graph)", "bool"],
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["title", "Heading (empty: Catching / Pulling away / The gap)", "text"],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_number", "Car numbers (in the class colour)", "bool"],
+      ["show_logo", "Team logos", "bool"],
+    ]],
+    OVERLAY_LOOK,
+  ],
+  season: [
+    ["What it shows", [
+      ["note", "It comes up for the driver on camera each time the camera moves to someone (or when you pick a driver), and goes after the time below.", "note"],
+      ["hide_s", "Goes after (seconds; 0 = stays until hidden)", "number", { min: 0, max: 120, step: 1 }],
+      ["champ", "Stats by", "select", [["class", "By class"], ["overall", "Overall"]]],
+      ["note", "By class: their class's championship and class finishes (a class win is a win). Overall: the overall championship and overall finishes. Where the league doesn't score that championship (overall in a class league), it shows the finishes without a championship place or points.", "note"],
+      ["show_points", "Points", "bool"],
+      ["show_behind", "Points to the leader", "bool"],
+      ["show_wins", "Wins", "bool"],
+      ["show_podiums", "Podiums", "bool"],
+      ["show_best", "Best finish", "bool"],
+      ["show_form", "Their last results (P3 · P1 · DNF)", "bool"],
+      iff((v) => v.show_form, ["form", "How many", "number", { min: 1, max: 10, step: 1 }]),
+      ["show_notes", "Your notes on them (League builder)", "bool"],
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_number", "Car number (in the class colour)", "bool"],
+      ["show_team", "Team name", "bool"],
+      ["show_logo", "Team logo", "bool"],
+    ]],
+    OVERLAY_LOOK,
+  ],
+  h2h: [
+    ["What it shows", [
+      ["note", "Pick the two drivers on the Widgets tab (or the On camera vs the car ahead button, or its hotkey).", "note"],
+      ["champ", "Stats by", "select", [["class", "By class"], ["overall", "Overall"]]],
+      ["note", "By class: their class's championship, class finishes and today's class positions (drivers in different classes are compared overall). Overall: the overall championship, finishes and positions. Where the league doesn't score that championship, it shows the finishes without a championship place or points.", "note"],
+      ["show_season", "Their seasons (place, points, wins, podiums, best finish, finished ahead)", "bool"],
+      ["show_today", "Today (place, best and last lap, the gap between them)", "bool"],
+      ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
+        ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
+      ["title", "Heading (empty: Head to head)", "text"],
+      ["name_format", "Names", "select", NAME_FORMATS],
+      ["show_number", "Car numbers (in the class colour)", "bool"],
+      ["show_logo", "Team logos", "bool"],
     ]],
     OVERLAY_LOOK,
   ],
@@ -3509,8 +3644,26 @@ function groupPicker(groups, value, key, label) {
     <span class="dot" style="background:${esc(g.color || "#8b93a3")}"></span>${esc(g.name)}</label>`).join("")}</div></div>`;
 }
 
+// A board's own size for each of its sponsor logos ("id:percent,…"; 100 = as
+// the sponsor is everywhere, left out): the ones the board shows.
+function sponsorScales(s, values, key, label, value) {
+  const all = (s.league && s.league.sponsors) || [];
+  const general = (s.overlays && s.overlays.settings && s.overlays.settings.general) || {};
+  const ids = values.sponsor_mode === "own" ? values.sponsor_ids : general.board_sponsor_ids;
+  const shown = ids === "none" ? [] : ids ? all.filter((sp) => ids.split(",").includes(sp.id)) : all;
+  if (!shown.length) return "";
+  const set = Object.fromEntries(String(value || "").split(",").map((p) => p.split(":")).filter((p) => p.length === 2).map(([k, v]) => [k, +v]));
+  return `<div class="ov-field wide sponsor-scales"><span>${esc(label)}</span><div>${shown.map((sp, i) => `<label class="sp-scale">
+    <img src="${esc(sp.url)}" alt=""><span>${esc(sp.name || `Sponsor ${i + 1}`)}</span>
+    <input type="number" min="20" max="400" step="5" data-key="${key}" data-kind="sponsorscales" data-sponsor-id="${esc(sp.id)}" value="${set[sp.id] ?? 100}" aria-label="Size of ${esc(sp.name || "the sponsor")} on this board (%)">%</label>`).join("")}</div></div>`;
+}
+
 // A settings field's new value.
 function fieldValue(el) {
+  if (el.dataset.kind === "sponsorscales") {
+    return [...el.closest(".sponsor-scales").querySelectorAll("input")].filter((i) => +i.value && +i.value !== 100)
+      .map((i) => `${i.dataset.sponsorId}:${Math.round(+i.value)}`).join(",");
+  }
   if (el.dataset.kind === "colopacity") {
     return [...el.closest(".colop-field").querySelectorAll("input")].filter((i) => +i.value < 100)
       .map((i) => `${i.dataset.opcol}:${i.value}`).join(",");
@@ -3586,6 +3739,7 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   }
   if (kind === "text") return `<label class="ov-field">${labelHtml(label)}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
   if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v, k, label);
+  if (kind === "sponsorscales") return sponsorScales(s, values, k, label, v);
   if (kind === "groups") return groupPicker(((s.board_options || {}).groups) || [], v, k, label);
   if (kind === "color") return `<label class="ov-field">${labelHtml(label)}<input type="color" ${attrs} value="${esc(v)}"></label>`;
   if (kind === "swatches") {
@@ -3860,6 +4014,7 @@ const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsors", "Where", "select", SPONSOR_PLACES]),
   iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsor_ids", "Which sponsors", "sponsors"]),
   iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsor_size", "Sponsor logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]),
+  iff((v) => v.sponsor_show, ["sponsor_scales", "Each sponsor's size on this board (%; 100 = its usual size)", "sponsorscales"]),
   ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"],
   ["show_league", "League name in the header", "bool"],
   ["accent", "Accent colour (the line under the header…)", "select", [["default", "The championship's class colour (else orange)"],
@@ -3889,6 +4044,13 @@ const BOARD_FIELDS = {
   board_makes: [["rows", "Manufacturers a page (the rest on the next pages)", "number", { min: 1, max: 64 }], ["show_logo", "Badges", "bool"],
     ["show_wins", "Wins", "bool"], ["show_gap", "Gap to the leader", "bool"],
     ...columnOpacity([["pos", "Position"], ["make", "Manufacturer"], ["wins", "Wins"], ["points", "Points"], ["gap", "Gap"]])],
+  board_recap: [["note", "The race this app followed (it fills in as the race runs): who gained most, passed most on track and was cleanest, and every car's place lap by lap.", "note"],
+    ["title", "Heading (empty: Race recap)", "text"], ["name_format", "Names", "select", NAME_FORMATS],
+    ["show_gainer", "Biggest gainer (places gained since the start)", "bool"],
+    ["show_overtakes", "Most overtakes (passes on track, from the race log)", "bool"],
+    ["show_cleanest", "Cleanest driver (fewest incident points, still running)", "bool"],
+    ["show_chart", "Each car's place lap by lap (a chart)", "bool"],
+    iff((v) => v.show_chart, ["chart_cars", "Cars in the chart (the best placed first; 0 = every car)", "number", { min: 0, max: 64, step: 1 }])],
   board_track: [["title", "Round line in the header (empty: the league's round this race counts as, e.g. Round 3)", "text"],
     ["units", "Units", "select", [["metric", "Metric (°C, km/h, km)"], ["imperial", "Imperial (°F, mph, mi)"]]],
     ["show_map", "The track's outline in the middle", "bool"],
@@ -3954,7 +4116,7 @@ const BOARD_FIELDS = {
 const BOARD_SECTION_NAMES = {
   board_championship: "Championship standings", board_teams: "Teams' championship",
   board_makes: "Manufacturers' championship", board_calendar: "Season calendar", board_results: "Finishing order",
-  board_qualifying: "Qualifying results", board_grid: "Starting grid", board_track: "Track details",
+  board_qualifying: "Qualifying results", board_grid: "Starting grid", board_track: "Track details", board_recap: "Race recap",
 };
 
 let boardButtonsKey = "";
@@ -4012,6 +4174,7 @@ function renderBoards(s) {
       <div class="board-group"><h4>Manufacturers<button class="btn subtle icon" data-wsettings="board_makes" title="Its settings">⚙</button></h4>${groups.map((g) => boardButton(g.name, "makes", g.key, g.color)).join("") || '<span class="hint">No results yet.</span>'}</div>
       <div class="board-group"><h4>Season<button class="btn subtle icon" data-wsettings="board_calendar" title="Its settings">⚙</button></h4>${boardButton("Season calendar", "calendar")}</div>
       <div class="board-group"><h4>Track details<button class="btn subtle icon" data-wsettings="board_track" title="Its settings">⚙</button></h4>${boardButton("Round, track & weather", "track")}</div>
+      <div class="board-group"><h4>Race recap<button class="btn subtle icon" data-wsettings="board_recap" title="Its settings">⚙</button></h4>${resultGroups(opts).map((g) => boardButton(g.name, "recap", g.key, g.color)).join("")}</div>
       <div class="board-group"><h4>Finishing order<button class="btn subtle icon" data-wsettings="board_results" title="Its settings">⚙</button></h4>
         <label class="field">From <select id="board-round">
           <option value="latest" ${boardRound === "latest" ? "selected" : ""}>Latest round</option>
@@ -4131,6 +4294,12 @@ const WIDGETS = [
     about: "The car on camera and the cars just ahead and behind it, within the gap you pick: \"Battle for P3\", their names and the gaps between them. It can come up by itself whenever there's a battle." },
   { key: "strategy", name: "Pit strategy", page: "strategy",
     about: "A few cars you pick, each with its race so far along a lap scale and a tag at the lap of each pit stop; where it is now (PIT in the pit lane), its stops and the laps on its current stint. Pick the cars on the Widgets tab." },
+  { key: "catching", name: "Catching", page: "catching",
+    about: "Two cars on track and the gap between them lap by lap: how fast it's closing (or growing) and, closing, how many laps until it's gone. The driver on camera and the car ahead or behind, or two cars you pick." },
+  { key: "season", name: "Driver's season", page: "season",
+    about: "The driver on camera's season (or a driver you pick): championship place, points, the points to the leader, wins, podiums, best finish and their last few results. It comes up for each new driver and goes after a few seconds." },
+  { key: "h2h", name: "Head to head", page: "h2h",
+    about: "Two drivers you pick, side by side: their seasons, how often each finished ahead of the other and, in a session, today's places and laps and the gap between them." },
   { key: "trackmap", name: "Track map", page: "trackmap",
     about: "The track's outline with no background and a dot for every car where it is, in its main or secondary class colour (the live timing website's map)." },
   { key: "lights", name: "Starting lights", page: "lights",
@@ -4174,7 +4343,7 @@ const WS_ESSENTIAL = new Set(["mode", "class_keys", "rows", "rows_class", "name_
   "show_position", "position_shown", "show_gap", "show_interval", "place", "title", "scale", "offset_x", "offset_y", "bg", "accent",
   "accent_color", "league_logo", "banner", "sponsors", "visible", "auto", "stay", "hide_s", "count", "who", "race_only", "style",
   "show_date", "show_winners", "grid_source", "reverse_top", "grid_layout", "grid_reveal", "units", "show_map", "show_air",
-  "show_track_temp", "show_wind", "follow", "sponsor_ids", "anchor_id", "sponsor_show", "sponsor_mode", "bsp_theme", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
+  "show_track_temp", "show_wind", "follow", "sponsor_ids", "anchor_id", "sponsor_show", "sponsor_mode", "bsp_theme", "sponsor_scales", "target", "trend_laps", "hide_s", "champ", "show_form", "show_season", "show_today", "show_gainer", "show_overtakes", "show_cleanest", "show_chart", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
   "order", "show_stops", "show_penalties", "colors", "labels", "map_size", "start_from", "auto_yellow", "qual_shown", "card_scale",
   "car_scale", "show_points", "show_drivers", "show_wins", "header_info", "column_order", "show_series", "show_track", "sponsor_bar", "show_pos_change",
   "show_pits", "reveal", "replay_header", "fl_flash", "finish_flag", "gap_to", "show_race_points"]);

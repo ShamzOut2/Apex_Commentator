@@ -200,6 +200,18 @@ class BoardTests(unittest.TestCase):
         b = boards.build(lg, champ, settings)["sponsors"]
         self.assertEqual((b["place"], b["size"], [x["id"] for x in b["logos"]]), ("left", 90, ["a1"]))
 
+    def test_each_sponsors_size_on_one_board(self):
+        lg = league(sponsors=[{"id": "a1", "file": "sponsor-1.png", "name": "Acme", "scale": 120}, {"id": "b2", "file": "sponsor-2.png"}])
+        champ = {"kind": "championship", "params": {}}
+        settings = overlay_settings({"board_championship": {"sponsor_show": True, "sponsor_scales": "a1:150,b2:100,zz:x,b2:999"}})
+        self.assertEqual(settings["board_championship"]["sponsor_scales"], "a1:150,b2:400")  # 100s left out, odd ones dropped, kept in range
+        settings["board_championship"]["sponsor_scales"] = "a1:150"
+        logos = boards.build(lg, champ, settings)["sponsors"]["logos"]
+        self.assertEqual([(x["id"], x["scale"]) for x in logos], [("a1", 180), ("b2", 100)])  # on top of its own 120%
+        # Another board: as usual.
+        settings["board_teams"]["sponsor_show"] = True
+        self.assertEqual([x["scale"] for x in boards.build(lg, {"kind": "teams", "params": {}}, settings)["sponsors"]["logos"]], [120, 100])
+
     def test_board_sponsors_from_before(self):
         # Settings saved before: the most used look becomes the theme's, those boards
         # follow it, a board with another look keeps its own, a "none" board is off.

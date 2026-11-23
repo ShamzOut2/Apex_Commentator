@@ -29,7 +29,7 @@ from .overlays import OverlaySettings
 from .payload import Payloads
 from .settings import UserSettings
 from .tracks import TrackCatalogue
-from . import boards, heats, remote, spectate
+from . import boards, heats, insights, remote, spectate
 from .league import driver_key, logo_url, strip_class_prefix, strip_name_number
 from .makes import logo_for as make_logo
 from .makes import make_for
@@ -228,6 +228,7 @@ class TowWatch:
 
     def reset(self, key=None):
         self._key, self._last, self.towed = key, {}, {}
+        self.before = {}  # car -> laps it had completed under its own power when it was put there
 
     def update(self, key, racing, t, cars, track_m):
         """``cars``: {car: (laps + distance or -1, laps completed, in the world, in the pits)}.
@@ -254,9 +255,12 @@ class TowWatch:
                 reach = self.JUMP + max(0.0, t - lt) * self.TOP_SPEED / max(500.0, track_m or 4000.0)
                 away = not was_there and t - gone_at >= self.AWAY_S
                 if in_pits and (away or (was_there and p - lp > reach)):
-                    self.towed.setdefault(idx, done)
+                    if idx not in self.towed:
+                        self.towed[idx] = done
+                        self.before[idx] = last[2]  # as it last drove, before the tow
                 elif idx in self.towed and done > self.towed[idx]:
                     del self.towed[idx]  # over the line again under its own power: as it is
+                    self.before.pop(idx, None)
             self._last[idx] = (t, p, done, True, None)
 
 
@@ -365,6 +369,7 @@ class App:
         self._spec = (0.0, None, None, {})  # (when, the spectator section, track map, images) last made
         self._followed = None      # (when, the host's camera) last followed
         self._follow_free = False  # the co-commentator's Free mode: connected, not following
+        self._follow_settle = (0.0, 0.0)  # (no replay check before, no camera check before): monotonic times
         self._version = 0
         self._changed = threading.Condition()
         self._info_update = None
@@ -387,6 +392,7 @@ class App:
         self._kept_grid = {}            # subsession: iRacing's grid (iRacing IDs), as kept on disk (_keep_grid)
         self.grids_dir = None           # where it's kept (data/grids; __main__)
         self._tows = TowWatch()         # cars towed or reset to the pits in the race on now (_watch_tows)
+        self._revealed = (None, set())  # (the race, cars shown on the tower in it so far): "reveal"
         self._lights = StartLights()     # the starting lights overlay (_watch_start)
         self._flags = SectorFlags()      # the flag overlay: yellow sectors (_watch_start)
         self._lights_now = None
@@ -396,6 +402,13 @@ class App:
         self._start_seen = None          # what was last logged about the start (_watch_start)
         self._flags_now = None
         self._duel_members = None       # the on-track battle's cars, settled (_duel_settle)
+        self.lap_log = insights.LapLog()  # each car's laps at the line, this race (catching, recap)
+        self._talk_seen = {}            # talking point -> when it was first seen (monotonic)
+        self._talking = []              # the talking points last worked out
+        self._season_cache = (None, None)  # (league and its version, its championship standings)
+        self._season_full_cache = (None, None)  # the same with every class's table and the overall one
+        self._season_pick = 0           # the season card asked for again (it shows again for the same driver)
+        self._recap_basis = None        # the last race's rows and name (the recap board)
         # What iRacing sends during a replay (replaycheck.py): found by itself, and the check that logs it.
         self._probe = ReplayProbe()
         self.replay_check = ReplayCheck(USER_DIR / "data" / "checks")
@@ -608,6 +621,11 @@ class App:
             # Gap timing: race time not timed yet (live, or a replay of a part
             # the app didn't see); a replay of time already timed reads it back.
             self.gaps.update(num, t, {idx: self._line((num, t), idx, _progress(frame, idx)) for idx in self._drivers})
+            # Each car's laps at the line (the catching overlay, the recap board):
+            # not a lap iRacing counts for a car towed to its pit box.
+            tows = self._tows.towed if self._tows._key == (self._session_meta.get("subsession"), num) else {}
+            self.lap_log.update((self._session_meta.get("subsession"), num), t, frame.laps_completed, frame.position,
+                                frame.class_position, towed=tows, racing=frame.session_state >= STATE_RACING)
         # Pit stops (the pit stop overlay): on pit road, in the pit box.
         self.pits.update(num, t, [(idx, bool(_at(frame.on_pit, idx, False)),
                                    _at(frame.surface, idx, TRK_NOT_IN_WORLD) == TRK_IN_PIT_STALL,
@@ -1093,6 +1111,14 @@ class App:
             snap["overlays"]["battle"] = self._battle_snapshot(snap["championship"], active_league)
             snap["overlays"]["duel"] = self._duel_snapshot(snap["overlays"], frame, is_race)
             snap["overlays"]["strategy"] = self._strategy_snapshot(snap["overlays"], live_frame, frame, is_race)
+            snap["overlays"]["catching"] = self._catching_snapshot(snap["overlays"], frame, is_race)
+            snap["overlays"]["season"] = self._season_snapshot(rows, frame, active_league)
+            snap["overlays"]["h2h"] = self._h2h_snapshot(rows, active_league)
+            snap["talking"] = self._talking_snapshot(rows, snap, frame, is_race, active_league)
+            self._pick_basis = (rows, frame.cam_car_idx)  # head to head's quick pick
+            if is_race:
+                self._recap_basis = ([dict(r) for r in rows if not r.get("hidden")], session.get("SessionName") or "Race",
+                                     frame.session_num, active_league)
             snap["overlays"]["trackmap"] = self._trackmap_snapshot(rows, snap, frame, active_league)
             snap["overlays"]["lights"] = self._lights_now
             starts = self._flag_sectors(self.overlays.get()["flags"]["flag_sectors"])
@@ -1231,6 +1257,283 @@ class App:
             {k: d[k] for k in ("driver", "name", "team", "car_number", "points", "pos", "behind")}
             for d in g["drivers"]]} for g in table["groups"]]
         return {"live": False, "round": None, "groups": groups}
+
+    # -- the catching overlay, the season card, head to head, talking points -----
+
+    def _season_table(self, league):
+        """The league's championship standings, worked out again only when it changes."""
+        if not league:
+            return None
+        key = (league["id"], league.get("updated_at"))
+        if self._season_cache[0] != key:
+            self._season_cache = (key, championship.standings(league))
+        return self._season_cache[1]
+
+    def _season_full_table(self, league):
+        """The league's standings with a table for each class and an overall
+        one, whichever the league scores: for class or overall finishes (wins,
+        podiums, results) where the league has no such championship."""
+        if not league:
+            return None
+        key = (league["id"], league.get("updated_at"))
+        if self._season_full_cache[0] != key:
+            champ = league.get("championship") or {}
+            rules = champ.get("rules") or {}
+            if rules.get("scoring", "class") in ("class", "overall"):
+                full = championship.standings(dict(league, championship=dict(champ, rules=dict(rules, scoring="both"))))
+            else:
+                full = self._season_table(league)
+            self._season_full_cache = (key, full)
+        return self._season_full_cache[1]
+
+    def _stats_group(self, league, keys, class_key, which):
+        """The table a driver's (or two drivers') season comes from, by class
+        or overall (``which``): (group, scored). ``scored`` is False when the
+        league doesn't score that championship: its places and points aren't
+        real, only the finishes are (which the caller keeps)."""
+        real, full = self._season_table(league) or {"groups": []}, self._season_full_table(league) or {"groups": []}
+        groups = full.get("groups") or []
+        has = lambda g: all(any(d["driver"] == k for d in g["drivers"]) for k in keys)  # noqa: E731
+        cls = class_key[len("league:"):] if class_key and class_key.startswith("league:") else None
+        want = [cls, championship.OVERALL] if which == "class" else [championship.OVERALL, cls]
+        g = next((x for k in want if k for x in groups if x["key"] == k and has(x)), None) \
+            or next((x for x in groups if has(x)), None)
+        if g is None:
+            return None, False
+        return g, any(x["key"] == g["key"] for x in real.get("groups") or [])
+
+    @staticmethod
+    def _stats_row(group, dkey, scored):
+        """A driver's row in ``group``; without its championship place and
+        points when that championship isn't scored."""
+        row = next((d for d in (group or {}).get("drivers") or [] if d["driver"] == dkey), None)
+        if row is not None and not scored:
+            row = dict(row, pos=None, points=None, behind=None)
+        return row
+
+    @staticmethod
+    def _season_row(table, dkey, class_key=None, which="class"):
+        """A driver's standings row (and its championship's name): in their
+        class's championship, or the overall one (``which``), else whichever
+        they're in."""
+        groups = (table or {}).get("groups") or []
+        cls = class_key[len("league:"):] if class_key and class_key.startswith("league:") else None
+        want = [cls, championship.OVERALL] if which == "class" else [championship.OVERALL, cls]
+        for key in [k for k in want if k] + [g["key"] for g in groups]:
+            g = next((x for x in groups if x["key"] == key), None)
+            row = next((d for d in (g or {}).get("drivers") or [] if d["driver"] == dkey), None)
+            if row is not None:
+                return row, g
+        return None, None
+
+    def _catch_pair(self, entries, cam, cfg):
+        """The two cars the catching overlay follows: (ahead, behind), or None."""
+        placed = sorted((e for e in entries if e.get("pos")), key=lambda e: e["pos"])
+        if cfg["target"] == "picked":
+            nums = [n for n in cfg["cars"].split(",") if n][:2]
+            two = [next((e for e in placed if str(e["number"]) == n), None) for n in nums]
+            if len(two) < 2 or None in two:
+                return None
+            return tuple(sorted(two, key=lambda e: e["pos"]))
+        me = next((e for e in placed if e["car_idx"] == cam), None)
+        if me is None:
+            return None
+        multi = len({e["class_key"] for e in placed}) > 1
+        group = [e for e in placed if not (multi and cfg["scope"] == "class") or e["class_key"] == me["class_key"]]
+        i = group.index(me)
+        ahead = group[i - 1] if i > 0 else None
+        behind = group[i + 1] if i + 1 < len(group) else None
+        gap = lambda a, b: (b.get("time") or 0) - (a.get("time") or 0)  # noqa: E731
+        target = cfg["target"]
+        if target == "nearest" and ahead and behind:
+            target = "ahead" if gap(ahead, me) <= gap(me, behind) else "behind"
+        if target == "behind":
+            return (me, behind) if behind else ((ahead, me) if ahead else None)
+        return (ahead, me) if ahead else ((me, behind) if behind else None)
+
+    def _catching_snapshot(self, ov, frame, is_race):
+        """The catching overlay (catching.html): two cars, the gap between them
+        now and lap by lap, how fast it's changing and the laps until it's gone."""
+        cfg = self.overlays.get()["catching"]
+        entries = (ov.get("standings") or []) if is_race else []
+        pair = self._catch_pair(entries, frame.cam_car_idx, cfg) if entries else None
+        if not pair:
+            return None
+        a, b = pair
+        lapped = (a.get("laps_down") or 0) != (b.get("laps_down") or 0)
+        now = None if lapped or a.get("time") is None or b.get("time") is None else round(b["time"] - a["time"], 3)
+        trend = insights.gap_trend(self.lap_log, a["car_idx"], b["car_idx"], cfg["trend_laps"], now=now)
+        keep = ("car_idx", "name", "nickname", "pronouns", "number", "team", "team_logo", "team_logo_small", "class_key", "paint", "pos", "class_pos")
+        return dict(trend, ahead={k: a.get(k) for k in keep}, behind={k: b.get(k) for k in keep}, lapped=lapped,
+                    multiclass=len({e["class_key"] for e in entries}) > 1, cam=frame.cam_car_idx)
+
+    def _season_snapshot(self, rows, frame, league):
+        """A driver's season (season.html): the one picked (by car number), else
+        the driver on camera. ``pick`` changes each time it's asked for (it
+        shows again, even for the same driver)."""
+        cfg = self.overlays.get()["season"]
+        row = (next((r for r in rows if str(r["number"]) == cfg["driver"]), None) if cfg["driver"]
+               else next((r for r in rows if r["car_idx"] == frame.cam_car_idx), None))
+        if row is None or row.get("hidden"):
+            return None
+        dkey = driver_key(row)
+        group, scored = self._stats_group(league, [dkey], row["class_key"], cfg["champ"])
+        srow = self._stats_row(group, dkey, scored)
+        entry = self._overlay_entry(row, league)
+        return dict(entry, pos_now=row.get("pos"), pick=self._season_pick, notes=((row.get("league") or {}).get("notes") or ""),
+                    season=insights.season_stats(srow, cfg["form"]) if srow else None,
+                    championship=(group or {}).get("name"), group_color=(group or {}).get("color"),
+                    by="overall" if (group or {}).get("key") == championship.OVERALL else "class", scored=scored)
+
+    def _h2h_snapshot(self, rows, league):
+        """Head to head (h2h.html): the two drivers picked, their seasons side by
+        side, and (in a session) today's places, laps and the gap between them."""
+        cfg = self.overlays.get()["h2h"]
+        keys = [k for k in cfg["drivers"].split(",") if k][:2]
+        if len(keys) < 2 or not league:
+            return None
+        live = {driver_key(r): r for r in rows if not r.get("hidden")}
+        roster = {driver_key(d): d for d in league.get("drivers", [])}
+        # The table both are in: their class's (one class between them) or the overall one, as picked.
+        cls = next((r["class_key"] for r in (live.get(k) for k in keys) if r and r.get("class_key")), None) \
+            or next((f"league:{roster[k]['class_id']}" for k in keys if (roster.get(k) or {}).get("class_id")), None)
+        pick, scored = self._stats_group(league, keys, cls, cfg["champ"])
+        by_class = bool(pick) and pick["key"] != championship.OVERALL
+        side = []
+        for k in keys:
+            r = live.get(k)
+            info = roster.get(k) or {}
+            if r is not None:
+                person = self._overlay_entry(r, league)
+            else:
+                name, nickname = self._stream_name(info.get("name") or k, info.get("nickname", ""), league)
+                team = self.leagues.team(info.get("team", ""), league) if info.get("team") else None
+                person = {"name": name, "nickname": nickname, "pronouns": info.get("pronouns", ""), "number": info.get("car_number", ""),
+                          "team": info.get("team", ""), "team_logo": logo_url(league["id"], team.get("logo")) if team else None,
+                          "team_logo_small": logo_url(league["id"], team.get("logo_small")) if team else None,
+                          "class_key": f"league:{info['class_id']}" if info.get("class_id") else "", "paint": None}
+            srow = self._stats_row(pick, k, scored)
+            side.append({"driver": k, "person": person, "row": srow,
+                         "today": {"pos": (r.get("class_pos") or r.get("pos")) if by_class else r.get("pos"),
+                                   "class_pos": r.get("class_pos"), "best_lap": r.get("best_lap"),
+                                   "last_lap": r.get("last_lap"), "gap": r.get("gap"), "laps_down": r.get("laps_down") or 0} if r else None})
+        h2h = insights.head_to_head(side[0]["row"] or {}, side[1]["row"] or {}) if pick else None
+        t0, t1 = side[0]["today"], side[1]["today"]
+        gap = (round(t1["gap"] - t0["gap"], 3) if t0 and t1 and t0["gap"] is not None and t1["gap"] is not None
+               and t0["laps_down"] == t1["laps_down"] else None)
+        return {"championship": (pick or {}).get("name"), "color": (pick or {}).get("color"),
+                "by": "class" if by_class else "overall", "scored": scored,
+                "drivers": [{"driver": x["driver"], **x["person"], "today": x["today"],
+                             "season": insights.season_stats(x["row"]) if x["row"] else None} for x in side],
+                "ahead": h2h["ahead"] if h2h else None, "points_gap": h2h["points_gap"] if h2h and scored else None, "gap": gap}
+
+    def _talking_snapshot(self, rows, snap, frame, is_race, league):
+        """Talking points for the commentators (the Timing Screen): what's worth
+        saying now, each with how long it's been true (``age``, seconds)."""
+        racing = is_race and frame.session_state >= STATE_RACING
+        placed = [r for r in rows if r.get("pos") and not r.get("hidden")]
+        table = self._season_table(league)
+        mine = []
+        season = {}
+        for r in placed:
+            name, _ = self._stream_name(r["name"], ((r.get("league") or {}).get("nickname") or ""), league)
+            mine.append({"car_idx": r["car_idx"], "name": name or r["name"], "number": r["number"], "pos": r["pos"],
+                         "start_pos": r.get("start_pos"), "class_pos": r.get("class_pos"), "class_key": r["class_key"],
+                         "gap": r.get("gap"), "pit_stops": r.get("pit_stops"), "laps_down": r.get("laps_down") or 0,
+                         "in_world": r.get("in_world")})
+            srow, _ = self._season_row(table, driver_key(r), r["class_key"]) if table else (None, None)
+            if srow is not None:
+                season[r["car_idx"]] = insights.season_stats(srow)
+        champ = snap.get("championship") or {}
+        points = insights.talking_points(mine, champ if champ.get("live") else None, season, self.lap_log, is_race, racing)
+        now = time.monotonic()
+        keys = {p["key"] for p in points}
+        self._talk_seen = {k: v for k, v in self._talk_seen.items() if k in keys}
+        for p in points:
+            self._talk_seen.setdefault(p["key"], now)
+            p["age"] = round(now - self._talk_seen[p["key"]], 1)
+        self._talking = points[:12]
+        return self._talking
+
+    def cmd_talk_do(self, key=None):
+        """Put up what a talking point is about (its board, the catching overlay,
+        a driver's season card, an overlay): the one ``key`` names, else the top one."""
+        point = next((p for p in self._talking if p["key"] == key), None) if key else (self._talking[0] if self._talking else None)
+        if point is None:
+            raise CommandError("No talking points right now")
+        act = point.get("action") or {}
+        if "board" in act:
+            return self.cmd_board_show(act["board"], act.get("group", ""), "latest")
+        if "catching" in act:
+            return self.cmd_catching_pick("picked", cars=act["catching"])
+        if "season" in act:
+            return self.cmd_season_show(act["season"])
+        if "ov" in act:
+            return self.cmd_overlay_settings(act["ov"], {"visible": True})
+        raise CommandError("Nothing to put up for that one")
+
+    def cmd_catching_pick(self, mode="ahead", cars=None, show=True):
+        """The catching overlay's cars: the driver on camera and the car ``mode``
+        ("ahead", "behind", "nearest") of them, or ``cars`` (two car indexes,
+        the car ahead first); on screen too (``show``)."""
+        values = {"visible": True} if show else {}
+        if cars:
+            nums = [str((self._drivers.get(int(c)) or {}).get("number", "")) for c in cars][:2]
+            if len(nums) < 2 or not all(nums):
+                raise CommandError("Those cars aren't in the session")
+            values.update(target="picked", cars=",".join(nums))
+        else:
+            if mode not in ("ahead", "behind", "nearest"):
+                raise CommandError("Unknown choice")
+            values["target"] = mode
+        return self.cmd_overlay_settings("catching", values)
+
+    def cmd_season_show(self, car_idx=None):
+        """The season card on screen: for the car ``car_idx`` (None: the driver on camera)."""
+        number = ""
+        if car_idx is not None:
+            d = self._drivers.get(int(car_idx)) or self._gone.get(int(car_idx))
+            if d is None:
+                raise CommandError("That car isn't in the session")
+            number = str(d.get("number", ""))
+        self._season_pick += 1
+        return self.cmd_overlay_settings("season", {"driver": number, "visible": True})
+
+    def cmd_h2h_pick(self, mode="camera", drivers=None, show=True):
+        """Head to head's drivers: ``drivers`` (two driver keys), or the driver on
+        camera and the car ahead of them (behind, if they lead), on screen too."""
+        if drivers:
+            keys = [k for k in drivers if k][:2]
+        else:
+            rows, cam = getattr(self, "_pick_basis", ([], None))
+            placed = sorted((r for r in rows if r.get("pos") and not r.get("hidden")), key=lambda r: r["pos"])
+            me = next((r for r in placed if r["car_idx"] == cam), None)
+            if me is None:
+                raise CommandError("No driver on camera")
+            i = placed.index(me)
+            other = placed[i - 1] if i > 0 else (placed[i + 1] if i + 1 < len(placed) else None)
+            if other is None:
+                raise CommandError("No one to compare with")
+            keys = [driver_key(other), driver_key(me)] if i > 0 else [driver_key(me), driver_key(other)]
+        if len(keys) < 2 or keys[0] == keys[1]:
+            raise CommandError("Pick two drivers")
+        values = {"drivers": ",".join(keys)}
+        if show:
+            values["visible"] = True
+        return self.cmd_overlay_settings("h2h", values)
+
+    def _recap_board(self):
+        """What the recap board needs (boards.build works it out for its class):
+        the last race's rows, its lap log and the passes made on track."""
+        if not self._recap_basis:
+            return None
+        rows, name, num, league = self._recap_basis
+        overtakes = {}
+        for ev in self.detector.events:
+            if ev["type"] == "overtake" and ev.get("session_num") == num:
+                overtakes[ev["car_idx"]] = overtakes.get(ev["car_idx"], 0) + 1
+        people = {r["car_idx"]: self._overlay_entry(r, league) for r in rows}
+        return {"race": name, "rows": rows, "log": self.lap_log, "overtakes": overtakes, "people": people}
 
     # -- the championship battle overlay (battle.html) ----------------------
 
@@ -1788,9 +2091,23 @@ class App:
         # field crosses the line at the end of lap 1.
         reveal = settings["standings"]["reveal"]
         started = frame.session_state >= STATE_RACING
+        # Who's been shown already this race: they stay, whatever happens to them after.
+        race_key = (self._session_meta.get("subsession"), frame.timeline()[0])
+        if self._revealed[0] != race_key:
+            self._revealed = (race_key, set())
+        revealed = self._revealed[1]
 
         def lap_done(r):
-            return started and (r["lap"] or 0) >= 2 and (r["laps_completed"] or 0) >= 1
+            # A car towed (or reset) to the pits isn't shown for it: iRacing can
+            # count the tow to a box just past the line as a lap done. It's
+            # shown once it's over the line under its own power.
+            if r["car_idx"] in revealed:
+                return True
+            towed_early = r.get("towed") and (self._tows.before.get(r["car_idx"]) or 0) < 1  # before its first lap was done
+            done = started and (r["lap"] or 0) >= 2 and (r["laps_completed"] or 0) >= 1 and not towed_early
+            if done:
+                revealed.add(r["car_idx"])
+            return done
 
         standings = []
         if is_race:
@@ -1840,9 +2157,9 @@ class App:
                     cam = item
                 elif st and (st["valid"] or lap_cfg["show_invalid"] or st["state"] == "finished"):
                     trackers.append(item)
-            # First to finish first: the order stays put as laps run.
-            # Just finished first, then the laps nearest the line: the order
-            # stays put as laps run.
+            # The order they're shown in: just finished first, then by time on
+            # the lap (it stays put as laps run). Which ones are shown, the page
+            # picks: the laps nearest the line (laps.js pickSmall).
             trackers.sort(key=lambda x: (x["lap"]["state"] != "finished", -x["lap"]["elapsed"]))
         return {
             "settings": settings,
@@ -2938,6 +3255,9 @@ class App:
         "pits": ("Pit stops", "/pits.html"),
         "duel": ("On-track battle", "/duel.html"),
         "strategy": ("Pit strategy", "/strategy.html"),
+        "catching": ("Catching", "/catching.html"),
+        "season": ("Driver's season", "/season.html"),
+        "h2h": ("Head to head", "/h2h.html"),
         "trackmap": ("Track map", "/trackmap.html"),
         "lights": ("Starting lights", "/lights.html"),
         "flags": ("Flags", "/flags.html"),
@@ -2987,7 +3307,8 @@ class App:
         return {"method": method}
 
     # What "all of them on my screen" puts up (hotkeys desk:overlays / desk:boards).
-    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits", "duel", "strategy", "trackmap", "lights", "flags"), "boards": ("board",),
+    DESKTOP_GROUPS = {"overlays": ("standings", "laps", "sponsors", "driver", "battle", "pits", "duel", "strategy", "catching", "season", "h2h",
+                                   "trackmap", "lights", "flags"), "boards": ("board",),
                       "gridwalk": ("gridwalk",)}
 
     def cmd_desktop_show_all(self, group="overlays", screen=None):
@@ -3336,6 +3657,8 @@ class App:
         or off if it's up), battle:<ahead|around|top> (see cmd_battle_pick),
         strategy:toggle (the pit strategy's cars on screen or off),
         strategy:<top|around|camera|leaders> (see cmd_strategy_pick),
+        talk:top (the top talking point's widget on screen), catching:<ahead|behind|nearest|toggle>,
+        season:<camera|toggle> (the driver on camera's season card), h2h:<camera|toggle>,
         desk:overlays / desk:boards / desk:gridwalk (on the user's screen), desk:off,
         tower:sponsor (the tower's sponsor bar on / off), tower:mode (overall / by class),
         tower:header (its header: laps left / time left), all:toggle (every
@@ -3390,6 +3713,25 @@ class App:
                     raise CommandError("Pick the pit strategy's cars first (Widgets tab)")
                 return self.cmd_overlay_settings("strategy", {"visible": not cfg["visible"]})
             return self.cmd_strategy_pick(rest)
+        if kind == "talk":  # the top talking point's widget on screen
+            return self.cmd_talk_do()
+        if kind == "catching":
+            if rest == "toggle":
+                return self.cmd_overlay_settings("catching", {"visible": not self.overlays.get()["catching"]["visible"]})
+            return self.cmd_catching_pick(rest)
+        if kind in ("season", "h2h") and rest == "champ":  # its stats by class or overall, switched
+            return self.cmd_overlay_settings(kind, {"champ": "overall" if self.overlays.get()[kind]["champ"] == "class" else "class"})
+        if kind == "season":
+            if rest == "toggle":
+                return self.cmd_overlay_settings("season", {"visible": not self.overlays.get()["season"]["visible"]})
+            return self.cmd_season_show()  # the driver on camera
+        if kind == "h2h":
+            if rest == "toggle":
+                cfg = self.overlays.get()["h2h"]
+                if not cfg["visible"] and len([k for k in cfg["drivers"].split(",") if k]) < 2:
+                    raise CommandError("Pick head to head's drivers first (Widgets tab)")
+                return self.cmd_overlay_settings("h2h", {"visible": not cfg["visible"]})
+            return self.cmd_h2h_pick("camera")
         if kind == "desk":
             if rest == "boards_toggle":  # the boards on the user's screen, or off it
                 on = self.desktop.on_screen() if self.desktop is not None else {}
@@ -3424,7 +3766,8 @@ class App:
     TOWER_COLUMN_KEYS = ("show_pos_change", "show_number", "show_logo", "show_team", "show_gap", "show_interval",
                          "show_last_lap", "show_best_lap", "show_laps", "show_pits", "show_stint", "show_tyre",
                          "show_make", "show_pit_status", "show_stripe", "show_fastest_icon")
-    TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits", "duel", "strategy", "trackmap", "lights", "flags")
+    TOGGLE_ALL = ("standings", "laps", "driver", "sponsors", "battle", "pits", "duel", "strategy", "catching", "season", "h2h",
+                  "trackmap", "lights", "flags")
 
     # Only ever on screen when they're needed (the lights at a start, the flags
     # while a sector's yellow): everything-off / on leaves them ready, as they are.
@@ -3647,6 +3990,8 @@ class App:
             return self._grid_board(league, source)
         if kind == "track":
             return self._track_board(league)
+        if kind == "recap":
+            return self._recap_board()
         if kind == "qualifying" and not source.startswith("session:"):
             # The latest qualifying session: the one on now, else the last with results.
             sessions = self._session_meta.get("sessions", {})
@@ -3884,7 +4229,7 @@ class App:
         kind = self.board.get("kind")
         source = self.board["params"].get("round", "") if kind in ("results", "qualifying", "grid") else ""
         # From the iRacing event: worked out afresh (it changes as the session goes on).
-        live = kind in ("qualifying", "grid", "track") or source == "live" or source.startswith("session:")
+        live = kind in ("qualifying", "grid", "track", "recap") or source == "live" or source.startswith("session:")
         if key == self._board_cache[0] and not live:
             return self._board_cache[1]
         data = None
@@ -3996,10 +4341,17 @@ class App:
             "speed": 1 if live else frame.replay_speed,
         }
 
+    FOLLOW_OFF_S = 3.0     # the co-commentator's replay this far from the host's: put it right
+    FOLLOW_SETTLE_S = 2.5  # after a seek, give iRacing this long to load the moment before checking again
+    FOLLOW_CAM_S = 1.5     # after a camera switch, this long before checking it took
+
     def _follow_camera(self, st):
         """The host's camera (from their app): this iRacing does the same, for
         whatever changed since the last time (in between, the co-commentator's
-        own camera is theirs)."""
+        own camera is theirs). Every update also checks this iRacing really is
+        where the host is (live or the same replay moment, the same driver) and
+        puts it right if not: iRacing can drop a replay jump sent while it's
+        busy, and one missed jump would leave the co-commentator behind for good."""
         now = time.monotonic()
         if self._follow_free:
             return  # Free mode: their own camera until they Sync
@@ -4009,28 +4361,49 @@ class App:
             sub = self._session_meta.get("subsession")
             got, prev = self._followed or (None, None)
             self._followed = (now, st)
+            mine = self._drivers.get(frame.cam_car_idx) if frame else None
         if frame is None:
             return
         prev = prev or {}
         first = not prev
+        settle, cam_settle = self._follow_settle
+        group = next((g["num"] for g in groups if g["name"] and g["name"] == st.get("group")), st.get("group_num") or 0)
+        car_changed = bool(st.get("car")) and (first or (st.get("car"), st.get("group")) != (prev.get("car"), prev.get("group")))
         # Live or a replay: only within the same iRacing event (the same session times).
         if st.get("sub") is not None and st.get("sub") == sub:
             if st["live"]:
-                if first or not prev.get("live"):
+                if first or not prev.get("live") or (not frame.is_live and now >= settle):
                     self._go_live()
+                    settle = now + self.FOLLOW_SETTLE_S
             else:
                 elapsed = now - got if got else 0.0
                 expected = (prev.get("rt") or 0) + elapsed * (prev.get("speed") or 0)
                 jumped = (first or prev.get("live") or prev.get("rs") != st["rs"]
                           or abs((st["rt"] or 0) - expected) > 2.5 + abs(prev.get("speed") or 0) * 0.5)
-                if jumped:
+                # Where this iRacing really is: live, another session, or too far from the host's moment.
+                off = (frame.is_live or frame.replay_session_num != (st["rs"] or 0)
+                       or abs(frame.replay_session_time - (st["rt"] or 0)) > self.FOLLOW_OFF_S + abs(st.get("speed") or 0) * 0.5)
+                if jumped or (off and now >= settle):
+                    # As the host's own replays do: pause, seek, let iRacing load
+                    # the moment, then the driver and camera, then play.
+                    self.source.replay_set_play_speed(0, False)
                     self.source.replay_search_session_time(int(st["rs"] or 0), int((st["rt"] or 0) * 1000))
-                if jumped or st.get("speed") != prev.get("speed"):
+                    time.sleep(0.35)
+                    if st.get("car"):
+                        self.source.cam_switch_num(str(st["car"]), int(group), 0)
+                        car_changed, cam_settle = False, now + self.FOLLOW_CAM_S
+                    time.sleep(0.1)
                     self.source.replay_set_play_speed(int(st.get("speed") or 0), False)
-        # The driver and the camera: the same camera by name (its number can differ).
-        if st.get("car") and (first or (st.get("car"), st.get("group")) != (prev.get("car"), prev.get("group"))):
-            group = next((g["num"] for g in groups if g["name"] and g["name"] == st.get("group")), st.get("group_num") or 0)
+                    settle = now + self.FOLLOW_SETTLE_S
+                elif st.get("speed") != prev.get("speed") or (frame.replay_speed != st.get("speed") and now >= settle):
+                    self.source.replay_set_play_speed(int(st.get("speed") or 0), False)
+        # The driver and the camera: the same camera by name (its number can differ),
+        # and again if this iRacing isn't on the host's driver (a switch it dropped).
+        wrong_car = bool(st.get("car")) and mine is not None and str(mine["number"]) != str(st["car"]) and now >= cam_settle
+        if car_changed or wrong_car:
             self.source.cam_switch_num(str(st["car"]), int(group), 0)
+            cam_settle = now + self.FOLLOW_CAM_S
+        self._follow_settle = (settle, cam_settle)
 
     def cmd_share_camera(self, on=True):
         """Let a co-commentator's app follow this one's camera (or stop)."""
@@ -4065,6 +4438,7 @@ class App:
             self.follow = None
         self._followed = None
         self._follow_free = False
+        self._follow_settle = (0.0, 0.0)
         if address is not None:
             self.settings.set("follow_address", str(address).strip())
         if code is not None:
@@ -4089,6 +4463,7 @@ class App:
         self._follow_free = bool(on)
         if not on:
             self._followed = None  # all of it, as on first connecting
+            self._follow_settle = (0.0, 0.0)
             if self.follow.last:
                 self._follow_camera(self.follow.last)
         return {"free": self._follow_free}

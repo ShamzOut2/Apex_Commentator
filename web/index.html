@@ -294,6 +294,11 @@
         </div>
 
         <div class="log-pane">
+          <div class="talk-pane">
+            <div class="talk-head"><span>Talking points</span> <span id="talk-count" class="count"></span>
+              <span class="hint">worked out as the race runs; ▶ puts it on screen</span></div>
+            <ul id="talk-list" class="talk-list"></ul>
+          </div>
           <div class="toolbar">
             <div class="chips" id="log-filter">
               <button class="chip active" data-filter="all">All</button>
@@ -607,6 +612,27 @@
             <div class="wbtns"><button class="wbtn" data-wshow="strategy">Show</button><button class="wbtn" data-whide="strategy">Hide</button></div>
             <div id="strategy-pick" class="battle-pick"></div>
             <div class="wfoot"><span class="desk" data-desk="strategy"></span><button class="btn subtle" data-wsettings="strategy">⚙ Settings</button></div>
+          </div>
+          <div class="wcard" data-widget="catching">
+            <h4>Catching</h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="catching">Show</button><button class="wbtn" data-whide="catching">Hide</button></div>
+            <div class="wbtns small"><button class="btn subtle" data-catch-pick="ahead" title="The driver on camera and the car ahead of them: pick and show">Car ahead</button><button class="btn subtle" data-catch-pick="behind" title="The driver on camera and the car behind them: pick and show">Car behind</button><button class="btn subtle" data-catch-pick="nearest" title="The driver on camera and the nearer of the two: pick and show">Nearer car</button></div>
+            <div class="ov-form wq" data-overlay="catching" data-quick="target,scope"></div>
+            <div class="wfoot"><span class="desk" data-desk="catching"></span><button class="btn subtle" data-wsettings="catching">⚙ Settings</button></div>
+          </div>
+          <div class="wcard" data-widget="season">
+            <h4>Driver's season</h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="season">Show</button><button class="wbtn" data-whide="season">Hide</button></div>
+            <div class="wbtns small"><button class="btn subtle" data-season-camera title="The driver on camera's season, on screen now">Driver on camera</button></div>
+            <div class="ov-form wq" data-overlay="season" data-quick="hide_s,champ"></div>
+            <div class="wfoot"><span class="desk" data-desk="season"></span><button class="btn subtle" data-wsettings="season">⚙ Settings</button></div>
+          </div>
+          <div class="wcard" data-widget="h2h">
+            <h4>Head to head</h4>
+            <div class="wbtns"><button class="wbtn" data-wshow="h2h">Show</button><button class="wbtn" data-whide="h2h">Hide</button></div>
+            <div id="h2h-pick" class="battle-pick"></div>
+            <div class="ov-form wq" data-overlay="h2h" data-quick="champ"></div>
+            <div class="wfoot"><span class="desk" data-desk="h2h"></span><button class="btn subtle" data-wsettings="h2h">⚙ Settings</button></div>
           </div>
           <div class="wcard" data-widget="trackmap">
             <h4>Track map</h4>
