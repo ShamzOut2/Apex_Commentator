@@ -22,7 +22,9 @@ How each version's entry is written:
 
 - Driver on camera: a team logo at a bigger logo size no longer pokes out of
   the card. Logos that fit stay at the size set; only one that would stick out
-  is made just small enough to fit.
+  is made just small enough to fit. The size found is remembered, so that logo
+  comes up at it straight away next time, and checked again if the overlay's
+  size, text size, font or logo size changes.
 - Grid walk: the car pictures no longer flash. A driver's details changing
   (joining the track, a qualifying time) updates their panel in place instead
   of drawing the cars and panels again, and moving on to the next pair keeps

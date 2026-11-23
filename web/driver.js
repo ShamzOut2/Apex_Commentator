@@ -58,19 +58,60 @@ function cardHtml(d, cfg, cls, multiclass) {
 
 // The team logo by the name, at the size set; if that makes the name and team
 // lines taller than the card, the logo is made just small enough to fit (only
-// the ones too big change).
+// the ones too big change). The size found is kept (this overlay's own
+// storage, by logo and by the card's layout: its height, the name line's, the
+// logo size), so the next time that logo is up it's at that size straight
+// away; when the layout changes (the overlay's size, its text size or font,
+// the logo size), it no longer matches and the logo is checked again.
+const LOGO_FITS = "apex.logoFits";
+const LOGO_FITS_MAX = 300;
+let logoFits = {};
+try {
+  logoFits = JSON.parse(localStorage.getItem(LOGO_FITS)) || {};
+} catch (e) { /* storage unavailable: worked out each time */ }
+
+function keepLogoFit(id, height) {
+  if (logoFits[id] === height) return;
+  delete logoFits[id];
+  logoFits[id] = height;  // newest last
+  const ids = Object.keys(logoFits);
+  for (const old of ids.slice(0, Math.max(0, ids.length - LOGO_FITS_MAX))) delete logoFits[old];
+  try {
+    localStorage.setItem(LOGO_FITS, JSON.stringify(logoFits));
+  } catch (e) { /* storage unavailable */ }
+}
+
 function fitLogo(card) {
   const img = card.querySelector(".team img.team-logo");
   if (!img) return;
-  img.style.height = "";
+  const names = card.querySelector(".names");
+  const line = card.querySelector(".name");
+  const logoK = getComputedStyle(document.body).getPropertyValue("--logo-k").trim() || "1";
+  const id = [img.getAttribute("src"), card.clientHeight, line ? line.offsetHeight : 0, logoK].join("|");
+  // Kept from before: at that size at once (0: it fits as set).
+  const kept = logoFits[id];
+  img.style.height = kept ? `${kept}px` : "";
   if (!img.complete) {
-    img.addEventListener("load", () => fitLogo(card), { once: true });
+    // Checked once it's in (or once it failed: a broken picture takes room too).
+    const again = () => {
+      img.removeEventListener("load", again);
+      img.removeEventListener("error", again);
+      fitLogo(card);
+    };
+    img.addEventListener("load", again);
+    img.addEventListener("error", again);
     return;
   }
-  const names = card.querySelector(".names");
+  // Checked (a kept size too: cheap, and right even if something else changed).
+  img.style.height = "";
   const over = names.offsetHeight - (card.clientHeight - 6);  // a few pixels clear of the edges
-  if (over > 0) img.style.height = `${Math.max(14, img.offsetHeight - over)}px`;
+  const height = over > 0 ? Math.max(14, img.offsetHeight - over) : 0;
+  img.style.height = height ? `${height}px` : "";
+  keepLogoFit(id, height);
 }
+
+// Web fonts arriving can change the name line's height: the logo up is checked again.
+if (document.fonts) document.fonts.addEventListener("loadingdone", () => { if (current) fitLogo(current.el); });
 
 function render(snap) {
   lastSnap = snap;
@@ -113,7 +154,7 @@ function render(snap) {
   }
   current.el.style.setProperty("--cls", paintFor(d, cls, cfg.class_colors) || "transparent");
   // The logo or text size changed while it's up: the logo fitted again.
-  const fit = `${cfg.logo_scale}|${cfg.font_scale}|${cfg.team_logo_kind}`;
+  const fit = [cfg.logo_scale, cfg.font_scale, cfg.scale, cfg.team_logo_kind, GENERAL.font].join("|");
   if (fit !== current.fit) {
     current.fit = fit;
     fitLogo(current.el);
