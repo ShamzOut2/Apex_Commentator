@@ -156,22 +156,27 @@ function update(entry, item, cfg, classes, nsec) {
   entry.received = performance.now();
 }
 
-// The small trackers, at most count: those already up stay up while they're
-// still on a lap (no swapping back and forth when several laps end at once);
-// a lap just finished takes the place of the one that's run the least; the
-// rest of the room goes in the app's order.
+// The small trackers, at most count: the laps nearest the line (the least of
+// the lap left to run), and a lap just finished for a few seconds (its time).
+// A tracker already up keeps its place unless the one that would take it is
+// clearly nearer the line (no swapping back and forth between two close
+// ones). A lap another car just finished takes the place of the one furthest
+// from the line. Shown in the app's order.
+const SWAP_LAP = 0.05;  // nearer the line by this much of a lap to take a place already up
 function pickSmall(trackers, count) {
   const up = new Set([...shown].filter(([, e]) => e.kind === "small").map(([idx]) => idx));
-  const pick = trackers.filter((t) => up.has(t.car_idx)).slice(0, count);
-  for (const t of trackers) {
-    if (up.has(t.car_idx)) continue;
-    if (pick.length < count) pick.push(t);
-    else if (t.lap.state === "finished" && t.lap.shown_for != null && t.lap.shown_for < 1.5) {
-      const running = pick.filter((p) => p.lap.state !== "finished");
-      if (!running.length) continue;
-      const least = running.reduce((a, b) => (a.lap.elapsed <= b.lap.elapsed ? a : b));
-      pick[pick.indexOf(least)] = t;
-    }
+  const left = (t) => (t.lap.state === "finished" ? -1 : 1 - (t.lap.progress ?? 0));  // the lap still to run
+  // A finished lap: one already up stays for its few seconds; another's only just after it finished.
+  const eligible = trackers.filter((t) => t.lap.state !== "finished" || up.has(t.car_idx)
+    || (t.lap.shown_for != null && t.lap.shown_for < 1.5));
+  const pick = [...eligible].sort((a, b) => left(a) - left(b)).slice(0, count);
+  for (const t of eligible) {
+    if (!up.has(t.car_idx) || pick.includes(t)) continue;
+    // Up already, just out of the nearest: it stays unless the newcomer is clearly nearer.
+    const newcomers = pick.filter((p) => !up.has(p.car_idx) && p.lap.state !== "finished");
+    if (!newcomers.length) continue;
+    const furthest = newcomers.reduce((a, b) => (left(a) >= left(b) ? a : b));
+    if (left(t) - left(furthest) < SWAP_LAP) pick[pick.indexOf(furthest)] = t;
   }
   const rank = new Map(trackers.map((t, i) => [t.car_idx, i]));
   return pick.sort((a, b) => rank.get(a.car_idx) - rank.get(b.car_idx));

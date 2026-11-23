@@ -1841,9 +1841,9 @@ class App:
                     cam = item
                 elif st and (st["valid"] or lap_cfg["show_invalid"] or st["state"] == "finished"):
                     trackers.append(item)
-            # First to finish first: the order stays put as laps run.
-            # Just finished first, then the laps nearest the line: the order
-            # stays put as laps run.
+            # The order they're shown in: just finished first, then by time on
+            # the lap (it stays put as laps run). Which ones are shown, the page
+            # picks: the laps nearest the line (laps.js pickSmall).
             trackers.sort(key=lambda x: (x["lap"]["state"] != "finished", -x["lap"]["elapsed"]))
         return {
             "settings": settings,

@@ -114,6 +114,9 @@ starting grid", "Clear all penalties"…).
 
 ### Fixes
 
+- Lap tracker: the small trackers show the drivers nearest the end of their lap,
+  not whoever started a lap first; one already up stays unless another is
+  clearly nearer the line.
 - Dual commentary: the co-commentator follows the host into every replay
   (an incident, a rewind), not just the first. A replay jump or camera change
   iRacing missed is done again within a couple of seconds.
@@ -1031,7 +1034,9 @@ cost to how smoothly things move.
 - **Lap tracker** (`/laps.html`): only in qualifying (practice too, if you
   tick it).
   - The car on camera gets the big tracker. Up to 12 small ones show other
-    cars on a timed lap, nearest the line first.
+    cars on a timed lap: the ones nearest the end of their lap. One already
+    up stays until another is clearly nearer the line (a twentieth of a lap),
+    and a lap just finished shows its time for a few seconds.
   - Each sector bar fills as the car goes round and turns solid when the
     sector is done:
     - **purple**: faster than the reference;

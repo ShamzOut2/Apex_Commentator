@@ -15,6 +15,9 @@ How each version's entry is written:
 
 ### Fixes
 
+- Lap tracker: the small trackers show the drivers nearest the end of their lap,
+  not whoever started a lap first; one already up stays unless another is
+  clearly nearer the line.
 - Dual commentary: the co-commentator follows the host into every replay
   (an incident, a rewind), not just the first. A replay jump or camera change
   iRacing missed is done again within a couple of seconds.
