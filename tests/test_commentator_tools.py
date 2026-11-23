@@ -124,5 +124,67 @@ class CommentatorToolsTests(unittest.TestCase):
             self.app.command("hotkey", {"action": f"ov:{k}"})  # the usual on / off hotkey
 
 
+class ClassOrOverallTests(unittest.TestCase):
+    """Season and head to head by class or overall, in a league that scores
+    only its classes: overall shows the overall finishes, without a place or
+    points (there's no overall championship)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.app, _ = make_app(cls.tmp.name, minutes=3)
+        profile = profile_from_session(cls.app.build_snapshot()["drivers"], "Classes")
+        k = cls.keys = [driver_key(d) for d in profile["drivers"]]
+        cls_of = {k[0]: "gt3", k[1]: "gt3", k[2]: "gt4", k[3]: "gt4"}
+        for d in profile["drivers"]:
+            d["class_id"] = cls_of.get(driver_key(d), "gt3")
+        # Overall finishing orders; k0's class finishes are 1, 1, 2 and overall 2, 1, 2.
+        order = [[k[2], k[0], k[1], k[3]], [k[0], k[2], k[1], k[3]], [k[1], k[0], k[3], k[2]]]
+        rounds = [{"id": f"r{n}", "name": f"Round {n}", "results": [
+            {"driver": d, "name": d, "position": i + 1, "laps": 10, "status": "finished", "class_id": cls_of[d]} for i, d in enumerate(o)]}
+            for n, o in enumerate(order, start=1)]
+        profile["championship"] = {"rules": {"points": [25, 18, 15, 12], "scoring": "class"}, "rounds": rounds}
+        cls.app.leagues.set_active(cls.app.leagues.save(profile)["id"])
+        cls.car = next(r["car_idx"] for r in cls.app.build_snapshot()["drivers"] if driver_key(r) == k[0])
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def season(self, champ):
+        self.app.command("overlay_settings", {"overlay": "season", "values": {"champ": champ}})
+        self.app.command("season_show", {"car_idx": self.car})
+        return self.app.build_snapshot()["overlays"]["season"]
+
+    def test_season_by_class_and_overall(self):
+        s = self.season("class")
+        self.assertEqual((s["by"], s["scored"], s["championship"]), ("class", True, "GT3"))
+        self.assertEqual((s["season"]["pos"], s["season"]["wins"], s["season"]["form"]), (1, 2, ["P1", "P1", "P2"]))
+        s = self.season("overall")
+        self.assertEqual((s["by"], s["scored"]), ("overall", False))
+        self.assertEqual((s["season"]["pos"], s["season"]["points"]), (None, None))  # no overall championship
+        self.assertEqual((s["season"]["wins"], s["season"]["podiums"], s["season"]["form"]), (1, 3, ["P2", "P1", "P2"]))
+        self.app.command("hotkey", {"action": "season:champ"})  # switched back
+        self.assertEqual(self.app.overlays.get()["season"]["champ"], "class")
+
+    def test_head_to_head_by_class_and_overall(self):
+        k = self.keys
+        self.app.command("overlay_settings", {"overlay": "h2h", "values": {"champ": "class"}})
+        self.app.command("h2h_pick", {"drivers": [k[0], k[1]]})
+        h = self.app.build_snapshot()["overlays"]["h2h"]
+        self.assertEqual((h["by"], h["scored"], h["ahead"]), ("class", True, [2, 1]))
+        self.assertIsNotNone(h["points_gap"])
+        self.app.command("hotkey", {"action": "h2h:champ"})  # overall
+        h = self.app.build_snapshot()["overlays"]["h2h"]
+        self.assertEqual((h["by"], h["scored"], h["points_gap"]), ("overall", False, None))
+        self.assertIsNone(h["drivers"][0]["season"]["pos"])
+        self.assertEqual(h["drivers"][0]["season"]["wins"], 1)
+        # Different classes, by class: compared overall (finishes only).
+        self.app.command("hotkey", {"action": "h2h:champ"})
+        self.app.command("h2h_pick", {"drivers": [k[0], k[2]]})
+        h = self.app.build_snapshot()["overlays"]["h2h"]
+        self.assertEqual((h["by"], h["scored"], h["ahead"]), ("overall", False, [2, 1]))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -25,9 +25,12 @@ function seasonHtml(d, cfg, cls) {
   const stat = (label, value) => `<div class="ss-stat"><span class="lbl">${label}</span><b>${value}</b></div>`;
   const stats = [];
   if (s) {
-    stats.push(stat("Championship", s.pos ? `P${s.pos}` : "–"));
-    if (cfg.show_points) stats.push(stat("Points", fmtPts(s.points)));
-    if (cfg.show_behind && s.pos > 1 && s.behind) stats.push(stat("To the leader", `−${fmtPts(s.behind)}`));
+    // A championship the league doesn't score (overall in a class league, say): its finishes only.
+    if (d.scored !== false) {
+      stats.push(stat("Championship", s.pos ? `P${s.pos}` : "–"));
+      if (cfg.show_points) stats.push(stat("Points", fmtPts(s.points)));
+      if (cfg.show_behind && s.pos > 1 && s.behind) stats.push(stat("To the leader", `−${fmtPts(s.behind)}`));
+    }
     if (cfg.show_wins) stats.push(stat("Wins", String(s.wins)));
     if (cfg.show_podiums) stats.push(stat("Podiums", String(s.podiums)));
     if (cfg.show_best) stats.push(stat("Best finish", s.best ? `P${s.best}` : "–"));
@@ -39,7 +42,7 @@ function seasonHtml(d, cfg, cls) {
   const empty = !s ? '<div class="ss-none">No championship results for them yet</div>' : "";
   return `<div class="ss-top">${number}${logo}<div class="ss-names"><span class="name">${nameHtml(d, cfg.name_format)}</span>
       ${cfg.show_team && d.team ? `<span class="team">${esc(d.team)}</span>` : ""}</div>
-      ${d.championship ? `<span class="ss-champ">${esc(d.championship)}</span>` : ""}</div>
+      ${d.championship ? `<span class="ss-champ">${esc(d.championship)}${d.scored === false ? " finishes" : ""}</span>` : ""}</div>
     ${stats.length ? `<div class="ss-stats">${stats.join("")}</div>` : ""}${form}${notes}${empty}`;
 }
 

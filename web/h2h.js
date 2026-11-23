@@ -35,9 +35,12 @@ function h2hHtml(d, cfg, classes) {
   const rows = [];
   const sa = a.season, sb = b.season;
   if (cfg.show_season && (sa || sb)) {
-    rows.push(`<div class="hh-sec">${esc(d.championship || "Season")}</div>`);
-    rows.push(line("Championship", sa && sa.pos ? `P${sa.pos}` : "–", sb && sb.pos ? `P${sb.pos}` : "–", lower(sa && sa.pos, sb && sb.pos)));
-    rows.push(line("Points", fmtPts(sa && sa.points), fmtPts(sb && sb.points), higher(sa && sa.points, sb && sb.points)));
+    rows.push(`<div class="hh-sec">${esc(d.championship || "Season")}${d.scored === false ? " finishes" : ""}</div>`);
+    // A championship the league doesn't score (overall in a class league, say): its finishes only.
+    if (d.scored !== false) {
+      rows.push(line("Championship", sa && sa.pos ? `P${sa.pos}` : "–", sb && sb.pos ? `P${sb.pos}` : "–", lower(sa && sa.pos, sb && sb.pos)));
+      rows.push(line("Points", fmtPts(sa && sa.points), fmtPts(sb && sb.points), higher(sa && sa.points, sb && sb.points)));
+    }
     rows.push(line("Wins", sa ? sa.wins : "–", sb ? sb.wins : "–", higher(sa && sa.wins, sb && sb.wins)));
     rows.push(line("Podiums", sa ? sa.podiums : "–", sb ? sb.podiums : "–", higher(sa && sa.podiums, sb && sb.podiums)));
     rows.push(line("Best finish", sa && sa.best ? `P${sa.best}` : "–", sb && sb.best ? `P${sb.best}` : "–", lower(sa && sa.best, sb && sb.best)));
@@ -46,7 +49,7 @@ function h2hHtml(d, cfg, classes) {
   const ta = a.today, tb = b.today;
   if (cfg.show_today && (ta || tb)) {
     rows.push('<div class="hh-sec">Today</div>');
-    rows.push(line("Position", ta && ta.pos ? `P${ta.pos}` : "–", tb && tb.pos ? `P${tb.pos}` : "–", lower(ta && ta.pos, tb && tb.pos)));
+    rows.push(line(d.by === "class" ? "Class position" : "Position", ta && ta.pos ? `P${ta.pos}` : "–", tb && tb.pos ? `P${tb.pos}` : "–", lower(ta && ta.pos, tb && tb.pos)));
     rows.push(line("Best lap", ta && ta.best_lap ? fmtLap(ta.best_lap) : "–", tb && tb.best_lap ? fmtLap(tb.best_lap) : "–", lower(ta && ta.best_lap, tb && tb.best_lap)));
     rows.push(line("Last lap", ta && ta.last_lap ? fmtLap(ta.last_lap) : "–", tb && tb.last_lap ? fmtLap(tb.last_lap) : "–", lower(ta && ta.last_lap, tb && tb.last_lap)));
     if (d.gap != null) rows.push(`<div class="hh-gap">Gap between them <b>${secs(Math.abs(d.gap))} s</b></div>`);

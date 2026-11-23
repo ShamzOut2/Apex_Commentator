@@ -406,6 +406,7 @@ class App:
         self._talk_seen = {}            # talking point -> when it was first seen (monotonic)
         self._talking = []              # the talking points last worked out
         self._season_cache = (None, None)  # (league and its version, its championship standings)
+        self._season_full_cache = (None, None)  # the same with every class's table and the overall one
         self._season_pick = 0           # the season card asked for again (it shows again for the same driver)
         self._recap_basis = None        # the last race's rows and name (the recap board)
         # What iRacing sends during a replay (replaycheck.py): found by itself, and the check that logs it.
@@ -1268,6 +1269,48 @@ class App:
             self._season_cache = (key, championship.standings(league))
         return self._season_cache[1]
 
+    def _season_full_table(self, league):
+        """The league's standings with a table for each class and an overall
+        one, whichever the league scores: for class or overall finishes (wins,
+        podiums, results) where the league has no such championship."""
+        if not league:
+            return None
+        key = (league["id"], league.get("updated_at"))
+        if self._season_full_cache[0] != key:
+            champ = league.get("championship") or {}
+            rules = champ.get("rules") or {}
+            if rules.get("scoring", "class") in ("class", "overall"):
+                full = championship.standings(dict(league, championship=dict(champ, rules=dict(rules, scoring="both"))))
+            else:
+                full = self._season_table(league)
+            self._season_full_cache = (key, full)
+        return self._season_full_cache[1]
+
+    def _stats_group(self, league, keys, class_key, which):
+        """The table a driver's (or two drivers') season comes from, by class
+        or overall (``which``): (group, scored). ``scored`` is False when the
+        league doesn't score that championship: its places and points aren't
+        real, only the finishes are (which the caller keeps)."""
+        real, full = self._season_table(league) or {"groups": []}, self._season_full_table(league) or {"groups": []}
+        groups = full.get("groups") or []
+        has = lambda g: all(any(d["driver"] == k for d in g["drivers"]) for k in keys)  # noqa: E731
+        cls = class_key[len("league:"):] if class_key and class_key.startswith("league:") else None
+        want = [cls, championship.OVERALL] if which == "class" else [championship.OVERALL, cls]
+        g = next((x for k in want if k for x in groups if x["key"] == k and has(x)), None) \
+            or next((x for x in groups if has(x)), None)
+        if g is None:
+            return None, False
+        return g, any(x["key"] == g["key"] for x in real.get("groups") or [])
+
+    @staticmethod
+    def _stats_row(group, dkey, scored):
+        """A driver's row in ``group``; without its championship place and
+        points when that championship isn't scored."""
+        row = next((d for d in (group or {}).get("drivers") or [] if d["driver"] == dkey), None)
+        if row is not None and not scored:
+            row = dict(row, pos=None, points=None, behind=None)
+        return row
+
     @staticmethod
     def _season_row(table, dkey, class_key=None, which="class"):
         """A driver's standings row (and its championship's name): in their
@@ -1333,12 +1376,14 @@ class App:
                else next((r for r in rows if r["car_idx"] == frame.cam_car_idx), None))
         if row is None or row.get("hidden"):
             return None
-        table = self._season_table(league)
-        srow, group = self._season_row(table, driver_key(row), row["class_key"], cfg["champ"])
+        dkey = driver_key(row)
+        group, scored = self._stats_group(league, [dkey], row["class_key"], cfg["champ"])
+        srow = self._stats_row(group, dkey, scored)
         entry = self._overlay_entry(row, league)
         return dict(entry, pos_now=row.get("pos"), pick=self._season_pick, notes=((row.get("league") or {}).get("notes") or ""),
                     season=insights.season_stats(srow, cfg["form"]) if srow else None,
-                    championship=(group or {}).get("name"), group_color=(group or {}).get("color"))
+                    championship=(group or {}).get("name"), group_color=(group or {}).get("color"),
+                    by="overall" if (group or {}).get("key") == championship.OVERALL else "class", scored=scored)
 
     def _h2h_snapshot(self, rows, league):
         """Head to head (h2h.html): the two drivers picked, their seasons side by
@@ -1347,13 +1392,13 @@ class App:
         keys = [k for k in cfg["drivers"].split(",") if k][:2]
         if len(keys) < 2 or not league:
             return None
-        table = self._season_table(league) or {"groups": []}
         live = {driver_key(r): r for r in rows if not r.get("hidden")}
         roster = {driver_key(d): d for d in league.get("drivers", [])}
-        # A championship both are in: their class's (one class) or the overall one, as picked.
-        both = [g for g in table["groups"] if all(any(d["driver"] == k for d in g["drivers"]) for k in keys)]
-        pick = (next((g for g in both if g["key"] != championship.OVERALL), None) if cfg["champ"] == "class" else None) \
-            or next((g for g in both if g["key"] == championship.OVERALL), None) or (both[0] if both else None)
+        # The table both are in: their class's (one class between them) or the overall one, as picked.
+        cls = next((r["class_key"] for r in (live.get(k) for k in keys) if r and r.get("class_key")), None) \
+            or next((f"league:{roster[k]['class_id']}" for k in keys if (roster.get(k) or {}).get("class_id")), None)
+        pick, scored = self._stats_group(league, keys, cls, cfg["champ"])
+        by_class = bool(pick) and pick["key"] != championship.OVERALL
         side = []
         for k in keys:
             r = live.get(k)
@@ -1367,20 +1412,20 @@ class App:
                           "team": info.get("team", ""), "team_logo": logo_url(league["id"], team.get("logo")) if team else None,
                           "team_logo_small": logo_url(league["id"], team.get("logo_small")) if team else None,
                           "class_key": f"league:{info['class_id']}" if info.get("class_id") else "", "paint": None}
-            srow = next((d for d in (pick or {}).get("drivers") or [] if d["driver"] == k), None)
-            if srow is None:
-                srow, _ = self._season_row(table, k, person.get("class_key"), cfg["champ"])
+            srow = self._stats_row(pick, k, scored)
             side.append({"driver": k, "person": person, "row": srow,
-                         "today": {"pos": r.get("pos"), "class_pos": r.get("class_pos"), "best_lap": r.get("best_lap"),
+                         "today": {"pos": (r.get("class_pos") or r.get("pos")) if by_class else r.get("pos"),
+                                   "class_pos": r.get("class_pos"), "best_lap": r.get("best_lap"),
                                    "last_lap": r.get("last_lap"), "gap": r.get("gap"), "laps_down": r.get("laps_down") or 0} if r else None})
         h2h = insights.head_to_head(side[0]["row"] or {}, side[1]["row"] or {}) if pick else None
         t0, t1 = side[0]["today"], side[1]["today"]
         gap = (round(t1["gap"] - t0["gap"], 3) if t0 and t1 and t0["gap"] is not None and t1["gap"] is not None
                and t0["laps_down"] == t1["laps_down"] else None)
         return {"championship": (pick or {}).get("name"), "color": (pick or {}).get("color"),
+                "by": "class" if by_class else "overall", "scored": scored,
                 "drivers": [{"driver": x["driver"], **x["person"], "today": x["today"],
                              "season": insights.season_stats(x["row"]) if x["row"] else None} for x in side],
-                "ahead": h2h["ahead"] if h2h else None, "points_gap": h2h["points_gap"] if h2h else None, "gap": gap}
+                "ahead": h2h["ahead"] if h2h else None, "points_gap": h2h["points_gap"] if h2h and scored else None, "gap": gap}
 
     def _talking_snapshot(self, rows, snap, frame, is_race, league):
         """Talking points for the commentators (the Timing Screen): what's worth
@@ -3674,6 +3719,8 @@ class App:
             if rest == "toggle":
                 return self.cmd_overlay_settings("catching", {"visible": not self.overlays.get()["catching"]["visible"]})
             return self.cmd_catching_pick(rest)
+        if kind in ("season", "h2h") and rest == "champ":  # its stats by class or overall, switched
+            return self.cmd_overlay_settings(kind, {"champ": "overall" if self.overlays.get()[kind]["champ"] == "class" else "class"})
         if kind == "season":
             if rest == "toggle":
                 return self.cmd_overlay_settings("season", {"visible": not self.overlays.get()["season"]["visible"]})

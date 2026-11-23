@@ -125,6 +125,9 @@ starting grid", "Clear all penalties"…).
 - Race recap board: biggest gainer, most overtakes, cleanest driver and a
   lap-by-lap position chart.
 - Hotkeys for all of these.
+- Driver's season and head to head can show stats by class or overall (class
+  or overall wins, podiums, results and championship), whichever the league
+  scores. Switch on the Widgets card or with a hotkey.
 
 ### Improvements
 
@@ -453,7 +456,8 @@ sets keys for:
 - the commentator tools: put the top talking point up; catching with the
   driver on camera and the car ahead, behind or nearer; the driver on
   camera's season card; head to head with the driver on camera and the car
-  ahead (each puts the overlay on screen too), and each overlay on and off;
+  ahead (each puts the overlay on screen too); the season card's and head to
+  head's stats switched between class and overall; and each overlay on and off;
 - the grid walk: on / off (starting from P1), and the next and previous pair;
 - the starting grid: on / off (Overall, for the race on now or next), full
   grid or row by row (a key for each, or one to switch), next row, back a
@@ -989,14 +993,24 @@ cost to how smoothly things move.
   going after a few seconds (10 by default; 0: it stays). Their championship
   place, points, the points to the leader, wins, podiums, best finish, their
   last few results (P3 · P1 · DNF; 5 by default) and your notes on them from
-  the League builder. **Championship**: their class's, or the overall one.
-  Needs a league active; a driver with no results yet says so.
+  the League builder. **Stats by class or overall**: their class's
+  championship and class finishes (a class win counts as a win), or the
+  overall championship and overall finishes. Where the league doesn't score
+  that championship (overall in a league scored by class, or the reverse),
+  the card shows those finishes without a championship place or points
+  ("Overall finishes"). Switch it on the Widgets card, in its settings, or
+  with a hotkey. Needs a league active; a driver with no results yet says so.
 - **Head to head** (`/h2h.html`): two drivers side by side. Their seasons:
   championship place, points, wins, podiums, best finish and how many times
   each finished ahead of the other in the races both did; and, in a session,
   today's places, best and last laps and the gap between them. The better of
   each pair is lit. Pick them in its card on the Widgets tab, or **On camera
-  vs the car ahead** (a hotkey too).
+  vs the car ahead** (a hotkey too). **Stats by class or overall**, as the
+  driver's season (switch it on the Widgets card or with a hotkey): by class,
+  their class's championship, class finishes and today's class positions
+  (two drivers in different classes are compared overall); overall, the
+  overall championship, overall finishes and overall positions. A
+  championship the league doesn't score shows the finishes only.
 - **Starting lights** (`/lights.html`): a start-light gantry seen in
   perspective, turned 10° to the left (a steel box truss, two posts down to
   a black housing, and for each light a column of two lamps, each a glass

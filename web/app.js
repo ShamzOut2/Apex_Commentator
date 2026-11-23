@@ -1312,6 +1312,10 @@ function hotkeyActions(s = ui.snap || {}) {
       ["catching:nearest", "Catching: the driver on camera and the nearer car", () => cmd("catching_pick", { mode: "nearest" }, "Catching: the nearer car")],
       ["season:camera", "Driver's season: the driver on camera", () => cmd("season_show", {}, "Driver's season on screen")],
       ["h2h:camera", "Head to head: the driver on camera and the car ahead", () => cmd("h2h_pick", { mode: "camera" }, "Head to head on screen")],
+      ["season:champ", "Driver's season: by class or overall (switch)", () => cmd("hotkey", { action: "season:champ" },
+        `Driver's season: ${ov.season && ov.season.champ === "class" ? "overall" : "by class"}`)],
+      ["h2h:champ", "Head to head: by class or overall (switch)", () => cmd("hotkey", { action: "h2h:champ" },
+        `Head to head: ${ov.h2h && ov.h2h.champ === "class" ? "overall" : "by class"}`)],
     ]],
     ["Overlays (on / off)", OVERLAY_TOGGLES.map(([k, label]) => [`ov:${k}`, label,
       () => cmd("overlay_settings", { overlay: k, values: { visible: !on(k) } }, `${label} ${on(k) ? "off" : "on"}`)])],
@@ -3402,7 +3406,8 @@ const OVERLAY_FIELDS = {
     ["What it shows", [
       ["note", "It comes up for the driver on camera each time the camera moves to someone (or when you pick a driver), and goes after the time below.", "note"],
       ["hide_s", "Goes after (seconds; 0 = stays until hidden)", "number", { min: 0, max: 120, step: 1 }],
-      ["champ", "Championship", "select", [["class", "Their class's"], ["overall", "The overall one"]]],
+      ["champ", "Stats by", "select", [["class", "By class"], ["overall", "Overall"]]],
+      ["note", "By class: their class's championship and class finishes (a class win is a win). Overall: the overall championship and overall finishes. Where the league doesn't score that championship (overall in a class league), it shows the finishes without a championship place or points.", "note"],
       ["show_points", "Points", "bool"],
       ["show_behind", "Points to the leader", "bool"],
       ["show_wins", "Wins", "bool"],
@@ -3423,7 +3428,8 @@ const OVERLAY_FIELDS = {
   h2h: [
     ["What it shows", [
       ["note", "Pick the two drivers on the Widgets tab (or the On camera vs the car ahead button, or its hotkey).", "note"],
-      ["champ", "Championship (when they're in the same class)", "select", [["class", "Their class's"], ["overall", "The overall one"]]],
+      ["champ", "Stats by", "select", [["class", "By class"], ["overall", "Overall"]]],
+      ["note", "By class: their class's championship, class finishes and today's class positions (drivers in different classes are compared overall). Overall: the overall championship, finishes and positions. Where the league doesn't score that championship, it shows the finishes without a championship place or points.", "note"],
       ["show_season", "Their seasons (place, points, wins, podiums, best finish, finished ahead)", "bool"],
       ["show_today", "Today (place, best and last lap, the gap between them)", "bool"],
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],

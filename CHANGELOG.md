@@ -26,6 +26,9 @@ How each version's entry is written:
 - Race recap board: biggest gainer, most overtakes, cleanest driver and a
   lap-by-lap position chart.
 - Hotkeys for all of these.
+- Driver's season and head to head can show stats by class or overall (class
+  or overall wins, podiums, results and championship), whichever the league
+  scores. Switch on the Widgets card or with a hotkey.
 
 ### Improvements
 
