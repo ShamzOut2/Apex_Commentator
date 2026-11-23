@@ -200,6 +200,10 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 @keyframes gw-content-in { from { opacity: 0; transform: translateY(8px); } }
 @keyframes gw-content-out { to { opacity: 0; transform: translateY(8px); } }
 @keyframes gw-sweep { to { transform: translateX(110%); } }
+/* Updated in place (the same pair, its details changed): no coming in again. */
+.gw-info.steady, .gw-info.steady > *, .gw-info.steady::after { animation: none; }
+.gw-info.steady::after { transform: translateX(-110%); }
+.walk.still .gw-car > *, .walk.still .road .shadow { animation: none; }
 .gw-info.leaving, .stage.hidden .gw-info { animation: gw-card-out-front .6s cubic-bezier(.55, 0, .75, .1) both; }
 .gw-info.rear.leaving, .stage.hidden .gw-info.rear { animation-name: gw-card-out-rear; }
 .gw-info.leaving > *, .stage.hidden .gw-info > * { animation: gw-content-out .25s ease-in both; }

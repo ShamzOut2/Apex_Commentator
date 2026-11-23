@@ -119,6 +119,10 @@ starting grid", "Clear all penalties"…).
 
 ### Fixes
 
+- Grid walk: the car pictures no longer flash. A driver's details changing
+  (joining the track, a qualifying time) updates their panel in place instead
+  of drawing the cars and panels again, and moving on to the next pair keeps
+  the pictures already on screen.
 - Lap tracker: the small trackers show the drivers nearest the end of their lap,
   not whoever started a lap first; one already up stays unless another is
   clearly nearer the line.
