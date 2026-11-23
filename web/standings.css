@@ -19,6 +19,9 @@
 .tower-sponsor { display: flex; align-items: center; justify-content: center; height: var(--sb-h, 44px); padding: 5px 14px;
   background: var(--panel); border-top: 1px solid var(--line); }
 .tower-sponsor img { max-height: 100%; max-width: 100%; object-fit: contain; }
+/* Switched off: closes up under the header (standings.js), then goes. */
+.tower-sponsor.sb-out { height: 0 !important; padding-top: 0; padding-bottom: 0; opacity: 0; overflow: hidden;
+  transition: height .4s cubic-bezier(.4, 0, .2, 1), padding .4s, opacity .3s; }
 .tower-head .t2 { font-size: calc(14px * var(--fs, 1)); color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .block { background: var(--panel); }
 .block:last-child { border-radius: 0 0 10px 10px; overflow: hidden; }

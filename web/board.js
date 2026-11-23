@@ -89,7 +89,7 @@ function columns(b) {
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
-    add(s.show_fastest, "fastest", "Fastest", "140px", "r", (r) => (r.fastest_lap ? `<span class="${r.has_fastest ? "fl" : "muted"}">${fmtLap(r.fastest_lap)}</span>` : ""));
+    add(s.show_fastest, "fastest", "Fastest", "140px", "r", (r) => (r.fastest_lap ? `<span class="${holdsFl(b, r) ? "fl" : "muted"}">${fmtLap(r.fastest_lap)}</span>` : ""));
     // Gap to the winner and to the car ahead; a DNF / DNS / DSQ shows there instead.
     const gapCell = (r, t, laps) => (r.out ? `<span class="st">${esc(r.out)}</span>`
       : laps ? `+${laps} ${laps === 1 ? "Lap" : "Laps"}` : t != null ? `+${secs(t, false)}` : "");
@@ -110,7 +110,7 @@ function columns(b) {
     teamCols(s.show_team);
     add(s.show_make, "car", "Car", "110px", "c", (r) => makeChip(r.make && { name: r.make, logo: r.make_logo }));
     add(s.show_laps, "laps", "Laps", "80px", "r muted", (r) => r.laps ?? "");
-    add(s.show_best, "best", "Best lap", "150px", "r", (r) => (r.fastest_lap ? `<span class="${r.rank === 1 ? "fl" : ""}">${fmtLap(r.fastest_lap)}</span>` : ""));
+    add(s.show_best, "best", "Best lap", "150px", "r", (r) => (r.fastest_lap ? `<span class="${holdsFl(b, r) ? "fl" : ""}">${fmtLap(r.fastest_lap)}</span>` : ""));
     // Pole: their lap in the Gap and Int (everyone else's gaps are to it).
     const pole = (r) => (r.gap == null && r.fastest_lap && !r.out ? `<span class="lead">${fmtLap(r.fastest_lap)}</span>` : null);
     add(s.show_gap, "gap", "Gap", "130px", "r muted", (r) => pole(r) ?? (r.gap != null ? `+${secs(r.gap, false)}` : ""));
@@ -260,6 +260,17 @@ async function loadTrack(id) {
 
 // The race recap: who gained most, passed most and was cleanest, then every
 // car's place lap by lap (a line each, the best placed first, named at the end).
+// The fastest lap in purple: as the tower's stopwatch is set (fastest_for):
+// each class's ("classes"), the overall one on an overall board and the
+// class's on a class's ("view"), or the overall fastest only ("overall").
+function holdsFl(b, r) {
+  if (r.fl_overall == null) return r.has_fastest || r.rank === 1;  // an older app's board
+  const who = b.fastest_for || "classes";
+  if (who === "overall") return r.fl_overall;
+  if (who === "view") return b.overall ? r.fl_overall : r.fl_class;
+  return r.fl_class || r.fl_overall;
+}
+
 const RECAP_COLORS = ["#ff7a1a", "#4cc9f0", "#f72585", "#b5e48c", "#ffd166", "#9b5de5", "#00f5d4", "#ef476f", "#06d6a0", "#118ab2",
   "#f4a261", "#e76f51", "#8ecae6", "#ffb703", "#c77dff", "#90be6d"];
 function recapHtml(b) {
@@ -352,7 +363,7 @@ function trackHtml(b) {
   const wind = cfg.show_wind && card("Wind", speed(w.wind), deg != null
     ? `<div class="tk-wind"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44"/>
         ${COMPASS.filter((_, i) => i % 2 === 0).map((c, i) => `<text x="${50 + 34 * Math.sin((i * Math.PI) / 2)}" y="${50 - 34 * Math.cos((i * Math.PI) / 2)}">${c}</text>`).join("")}
-        <g style="transform:rotate(${deg.toFixed(0)}deg);transform-origin:50px 50px"><path d="M50 14 L59 40 L50 34 L41 40 Z"/><line x1="50" y1="34" x2="50" y2="76"/></g></svg>
+        <g class="tk-needle" style="--deg:${deg.toFixed(0)}deg"><path d="M50 14 L59 40 L50 34 L41 40 Z"/><line x1="50" y1="34" x2="50" y2="76"/></g></svg>
         <span>${COMPASS[Math.round(deg / 45) % 8]}</span></div>` : "");
   const sky = cfg.show_skies && (w.skies || w.humidity != null) && card("Conditions", `<span class="tk-sky">${esc(w.skies || "–")}</span>`,
     w.humidity != null ? `<div class="tk-extra">Humidity ${Math.round(w.humidity)}%</div>` : "");
@@ -362,8 +373,8 @@ function trackHtml(b) {
   return `<div class="tk">
     <div class="tk-title"><div class="tk-name">${esc(t.track || "Track")}</div>
       ${t.config ? `<div class="tk-config">${esc(t.config)}</div>` : ""}
-      ${details.length ? `<div class="tk-details">${details.map((d) => `<span>${esc(d)}</span>`).join("")}</div>` : ""}</div>
-    <div class="tk-mid"><div class="tk-side">${[...left, wind, sky].filter(Boolean).join("")}</div><div class="tk-mapbox">${map}</div></div>
+      ${details.length ? `<div class="tk-details">${details.map((d, i) => `<span style="--i:${i}">${esc(d)}</span>`).join("")}</div>` : ""}</div>
+    <div class="tk-mid"><div class="tk-side">${[...left, wind, sky].filter(Boolean).map((c, i) => c.replace('class="tk-card"', `class="tk-card" style="--i:${i}"`)).join("")}</div><div class="tk-mapbox">${map}</div></div>
   </div>`;
 }
 
@@ -466,6 +477,24 @@ function render(snap) {
     </div>
     ${edge("right")}</div>`;
   if (html !== shown) {
+    // Still coming in: new numbers wait until it's in (redrawn at once, the
+    // board's entrance was cut off: the track board's, as its map arrived a
+    // moment after it, never played). The track's outline arriving goes
+    // straight into its place, drawing itself as it would have.
+    const entering = steady && performance.now() - enteredAt < ENTER_MS;
+    if (entering) {
+      const cur = stage.querySelector(".board:not(.leaving)");
+      const box = cur && cur.querySelector(".tk-mapbox");
+      if (box) {
+        const fresh = document.createElement("div");
+        fresh.innerHTML = html;
+        const want = fresh.querySelector(".tk-mapbox");
+        if (want && want.innerHTML !== box.innerHTML) box.innerHTML = want.innerHTML;
+      }
+      clearTimeout(enterLater);
+      enterLater = setTimeout(() => lastSnap && render(lastSnap), ENTER_MS - (performance.now() - enteredAt) + 20);
+      return;
+    }
     shown = html;
     if (steady || paging) {
       // Same board with new numbers: swap them in without animating again.
@@ -477,12 +506,18 @@ function render(snap) {
       if (before) scrollUp(before);
     } else {
       // Another board: the old one fades out as the new one comes in over it.
+      enteredAt = performance.now();
       leave();
       stage.querySelectorAll(".preview-hint").forEach((el) => el.remove());
       stage.insertAdjacentHTML("beforeend", html);
     }
   }
 }
+
+// A board coming in plays its entrance through (ENTER_MS) before new numbers redraw it.
+const ENTER_MS = 2400;
+let enteredAt = -1e9;
+let enterLater = null;
 
 // Row by row, scrolling: where each driver's row was (by grid place), and
 // copies of the rows (tables / grids) as they were, for the rows going off.

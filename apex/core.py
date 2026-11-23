@@ -199,6 +199,53 @@ class LineFilter:
         return p
 
 
+class OpeningLap:
+    """Each car's laps + lap distance on the opening lap, without iRacing's
+    lap count.
+
+    From the green until a car is half a lap into the race, iRacing's lap count
+    can't be trusted against the other cars': a car still behind the line can
+    already be on lap 1 (and so a lap ahead of one just over it), and it changes
+    a moment apart from the lap distance as each car crosses. Taken as it comes,
+    the whole field swapped places, back and forth, for the first half lap (the
+    Timing Screen's order, 18th to 1st and back). Instead, from where each car
+    was at the green, it's counted from the lap distance alone: behind the line
+    it's on lap 0, over it lap 1. Half a lap on, the lap count is taken again
+    (as far from the line as it gets), with whatever whole laps it differs by
+    kept off it, so nothing jumps. Only cars there at the green, seen live."""
+
+    def __init__(self):
+        self._key, self._cars = None, {}
+
+    def __call__(self, key, green, t, racing, idx, raw):
+        if raw is None or raw < 0 or green is None or not racing or t < green:
+            return raw
+        if key != self._key:
+            self._key, self._cars = key, {}
+        car = self._cars.get(idx)
+        pct = raw % 1.0
+        if car is None:
+            if t - green > 2.0:  # not there at the green (out of the garage later): as iRacing has it
+                car = self._cars[idx] = {"done": True, "offset": 0, "t": t, "out": raw}
+            else:
+                car = self._cars[idx] = {"done": False, "crossed": pct < 0.5, "pct": pct, "t": None, "out": raw}
+        if car["done"]:
+            return raw - car["offset"]
+        if car["t"] is not None and t <= car["t"]:
+            return car["out"] if t == car["t"] else raw  # this moment again / earlier (a replay): as it was / as it comes
+        last = car["pct"]
+        if last > 0.5 and pct < 0.5 and last - pct > 0.5:
+            car["crossed"] = True    # over the line
+        elif last < 0.5 and pct > 0.5 and pct - last > 0.5:
+            car["crossed"] = False   # back behind it
+        car["pct"] = pct
+        out = 1.0 + pct if car["crossed"] else pct
+        if car["crossed"] and pct >= 0.5:
+            car.update(done=True, offset=round(raw - out))
+        car.update(t=t, out=out)
+        return out
+
+
 def _laps_as_completed(frame):
     """The frame with each car's lap (the lap it's on) never more than one
     past the laps it has completed. iRacing counts a car towed to its pit
@@ -407,6 +454,7 @@ class App:
         self._talking = []              # the talking points last worked out
         self._season_cache = (None, None)  # (league and its version, its championship standings)
         self._season_full_cache = (None, None)  # the same with every class's table and the overall one
+        self._desk_closing = {}  # on-screen overlay page -> its close (fading out, its window closing in a moment)
         self._season_pick = 0           # the season card asked for again (it shows again for the same driver)
         self._recap_basis = None        # the last race's rows and name (the recap board)
         # What iRacing sends during a replay (replaycheck.py): found by itself, and the check that logs it.
@@ -464,6 +512,7 @@ class App:
         self._track_sectors = self.laps.starts  # the track's own split points
         self._race = RaceProgress()
         self._line = LineFilter()  # laps + lap distance, steady at the line
+        self._opening = OpeningLap()  # ... and on the opening lap, by lap distance alone
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -620,7 +669,7 @@ class App:
                 self._chequered[num] = t
             # Gap timing: race time not timed yet (live, or a replay of a part
             # the app didn't see); a replay of time already timed reads it back.
-            self.gaps.update(num, t, {idx: self._line((num, t), idx, _progress(frame, idx)) for idx in self._drivers})
+            self.gaps.update(num, t, {idx: self._race_progress(frame, idx, (num, t)) for idx in self._drivers})
             # Each car's laps at the line (the catching overlay, the recap board):
             # not a lap iRacing counts for a car towed to its pit box.
             tows = self._tows.towed if self._tows._key == (self._session_meta.get("subsession"), num) else {}
@@ -1008,7 +1057,7 @@ class App:
                     "last_event_id": last_event.get(idx),
                     # Where it is round the race, without iRacing's hiccup at the line, or its
                     # little corrections and the frames its next position isn't in yet (gaps.py).
-                    "progress": self.gaps.position(idx, self._line(frame.timeline(), idx, (lap + pct) if lap is not None and lap >= 0 and pct is not None and pct >= 0 else -1), frame.timeline()[1]),
+                    "progress": self.gaps.position(idx, self._race_progress(frame, idx), frame.timeline()[1]),
                 })
                 rows.append(row)
             # A best lap iRacing's car data hasn't got (it can be blank for a
@@ -2632,7 +2681,7 @@ class App:
             return
         racing = self._is_race(frame) and frame.session_state in (STATE_RACING, STATE_CHECKERED)
         num, t = frame.timeline()
-        cars = {idx: (self._line((num, t), idx, _progress(frame, idx)), _at(frame.laps_completed, idx, -1),
+        cars = {idx: (self._race_progress(frame, idx, (num, t)), _at(frame.laps_completed, idx, -1),
                       _at(frame.surface, idx, TRK_NOT_IN_WORLD) != TRK_NOT_IN_WORLD,
                       bool(_at(frame.on_pit, idx, False)) or _at(frame.surface, idx, -1) == TRK_IN_PIT_STALL)
                 for idx in self._drivers}
@@ -2829,6 +2878,15 @@ class App:
             r["pos_change"] = r["start_pos"] - r["pos"] if gained else None
             r["class_pos_change"] = r["class_start_pos"] - r["class_pos"] if gained and r["class_pos"] else None
 
+    def _race_progress(self, frame, idx, timeline=None):
+        """A car's laps + lap distance for the order and gaps: on the opening
+        lap by lap distance alone (OpeningLap), and steady at the line (LineFilter)."""
+        num, t = timeline or frame.timeline()
+        raw = _progress(frame, idx)
+        raw = self._opening((self._session_meta.get("subsession"), num), self._green.get(num), t,
+                            frame.session_state >= STATE_RACING, idx, raw)
+        return self._line((num, t), idx, raw)
+
     def _live_gaps(self, rows, frame):
         """Gaps to the leader from the timing points (see gaps.py), in place of
         iRacing's, which lag; iRacing's stays where there's no timing yet."""
@@ -2848,6 +2906,13 @@ class App:
             if r is cl:
                 r["class_gap"] = 0.0
             if r is leader:
+                # The leader's own gap is nothing. Left as iRacing's, it was
+                # iRacing's leader's gap: after a pass for the lead mid-lap
+                # iRacing keeps the old leader until the line, so the new one
+                # carried its gap to them, and every interval taken from it
+                # (P2's on the tower 0.000, the Timing Screen's below 0) was
+                # wrong until the new leader crossed the line.
+                r["gap"] = 0.0
                 continue
             if r["progress"] < 0 or r.get("towed"):
                 r["gap"] = r["class_gap"] = None  # in the garage, or towed to the pits (where it was put isn't where it is): no gap
@@ -3085,8 +3150,10 @@ class App:
 
     # The race as it was data_delay_s ago, rather than as it is (the rest of a
     # snapshot, settings and so on, is as it is now, so a box just ticked
-    # doesn't flick back for a moment).
-    DELAYED = ("session", "camera", "replay", "drivers", "detection", "events", "classes", "championship", "spectator")
+    # doesn't flick back for a moment). The camera isn't race data: which car
+    # is on screen is as it is now (the tower's car on camera, the app's camera
+    # buttons), with what's shown of the race a second behind.
+    DELAYED = ("session", "replay", "drivers", "detection", "events", "classes", "championship", "spectator")
     DELAY_MAX_S = 10.0
 
     def _delay(self, snap, cards=None):
@@ -3268,8 +3335,14 @@ class App:
         picked = self.settings.get("desk_screens") or {}
         if d is None:
             return {"available": False, "on_screen": {}, "screens": [], "picked": picked}
-        return {"available": True, "on_screen": d.on_screen(), "screens": d.screens(), "picked": picked,
+        closing = self._desk_closing
+        return {"available": True, "on_screen": {k: v for k, v in d.on_screen().items() if k not in closing},
+                "closing": sorted(closing), "screens": d.screens(), "picked": picked,
                 "method": self.settings.get("desk_see_through") or "auto"}
+
+    # Taken off the user's screen: the page fades out first (its window closing
+    # at once cut it off mid-air), then its window closes.
+    DESK_CLOSE_S = 0.6
 
     def cmd_desktop_screen(self, tab, screen=0):
         """Which screen the Overlays tab's (or the Boards tab's) overlays go on,
@@ -3288,12 +3361,13 @@ class App:
         if self.desktop is None:
             raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
         name, path = self.DESKTOP_PAGES[page]
+        self._desk_closing.pop(page, None)  # put up again while it was fading out: it stays
         if hasattr(self.desktop, "method"):
             self.desktop.method = self.settings.get("desk_see_through") or "auto"
         # desktop=<page>: the page reports where it draws, to fit the window to it (cmd_desktop_region).
         if not self.desktop.show(page, f"{path}{'&' if '?' in path else '?'}desktop={page}", name, int(screen or 0)):
             raise CommandError("On-screen overlays need the app window (they don't work from a browser).")
-        return {"on_screen": self.desktop.on_screen()}
+        return {"on_screen": self._desktop_snapshot()["on_screen"]}
 
     def cmd_desktop_method(self, method="auto"):
         """How on-screen overlays are made see-through: "auto" (the window's
@@ -3320,11 +3394,11 @@ class App:
             picked = self.settings.get("desk_screens") or {}
             # The grid walk goes where the Overlays tab's overlays go (its screen picker).
             screen = picked.get(group, picked.get("overlays", 0)) if group == "gridwalk" else picked.get(group, 0)
-        on = self.desktop.on_screen() if self.desktop is not None else {}
+        on = self._desktop_snapshot()["on_screen"]  # not those fading out
         for page in self.DESKTOP_GROUPS[group]:
             if on.get(page) != int(screen or 0):
                 self.cmd_desktop_show(page, screen)
-        return {"on_screen": self.desktop.on_screen()}
+        return {"on_screen": self._desktop_snapshot()["on_screen"]}
 
     def cmd_desktop_region(self, page, rects=None):
         """Where an on-screen overlay's page draws: [[x, y, width, height], ...]
@@ -3337,10 +3411,26 @@ class App:
         return {}
 
     def cmd_desktop_hide(self, page=None):
-        """Take an on-screen overlay down (all of them, with no ``page``)."""
-        if self.desktop is not None:
-            self.desktop.hide(page)
-        return {"on_screen": self.desktop.on_screen() if self.desktop else {}}
+        """Take an on-screen overlay down (all of them, with no ``page``): it
+        fades out (``closing`` in the snapshot), then its window closes."""
+        if self.desktop is None:
+            return {"on_screen": {}}
+        pages = [page] if page else list(self.desktop.on_screen())
+        gen = object()
+        for p in pages:
+            self._desk_closing[p] = gen
+
+        def close():
+            for p in pages:
+                if self._desk_closing.get(p) is gen:  # not put up again meanwhile
+                    self._desk_closing.pop(p, None)
+                    self.desktop.hide(p)
+            self.publish()
+
+        timer = threading.Timer(self.DESK_CLOSE_S, close)
+        timer.daemon = True
+        timer.start()
+        return {"on_screen": self._desktop_snapshot()["on_screen"]}
 
     POPOUT_PAGES = {"timing": "Timing Screen", "widgets": "Widgets", "racecontrol": "Race control", "boards": "Widgets"}  # "boards": the old Boards tab, now Widgets
 
@@ -3734,7 +3824,7 @@ class App:
             return self.cmd_h2h_pick("camera")
         if kind == "desk":
             if rest == "boards_toggle":  # the boards on the user's screen, or off it
-                on = self.desktop.on_screen() if self.desktop is not None else {}
+                on = self._desktop_snapshot()["on_screen"]  # not those fading out
                 return self.cmd_desktop_hide("board") if "board" in on else self.cmd_desktop_show_all("boards")
             return self.cmd_desktop_hide() if rest == "off" else self.cmd_desktop_show_all(rest)
         if kind == "grid":
@@ -4588,6 +4678,8 @@ class App:
                         if any(car["cls"] == k for car in cars)],
             "sectors": [round(x, 4) for x in self.laps.starts],
             "dec": [self.overlays.get()["general"]["race_decimals"], self.overlays.get()["general"]["qual_decimals"]],
+            # Who the fastest lap is marked for: as the tower's stopwatch is set.
+            "flfor": self.overlays.get()["standings"].get("fastest_icon_for", "classes"),
             "map": tmap["id"] if tmap else None,
             # The session clock of these figures (s): the page moves the cars on
             # the map between updates from it, however unevenly they arrive.

@@ -545,6 +545,19 @@ function standingsView(s) {
     && (settings.keepLeft || !r.left));
   const race = isRace(s);
   const fastest = Math.min(...rows.map((r) => r.best_lap || Infinity));
+  // The best lap in purple, as the tower's stopwatch is set: each class's
+  // fastest, the overall one in All and the class's in a class ("view"), or
+  // the overall fastest only (the session's, whichever class is picked).
+  const all = (s.drivers || []).filter((r) => !r.hidden && r.best_lap > 0);
+  const overallBest = Math.min(...all.map((r) => r.best_lap), Infinity);
+  const classBest = {};
+  for (const r of all) classBest[r.class_key] = Math.min(classBest[r.class_key] ?? Infinity, r.best_lap);
+  const flFor = (((s.overlays || {}).settings || {}).standings || {}).fastest_icon_for || "classes";
+  const purple = (r) => {
+    if (!(r.best_lap > 0)) return false;
+    const ov = r.best_lap === overallBest, cl = r.best_lap === classBest[r.class_key];
+    return flFor === "overall" ? ov : flFor === "view" ? (ui.classFilter === "all" ? ov : cl) : ov || cl;
+  };
   const leaderGap = rows.length ? rows[0].gap : null;
   let prev = null;
   return rows.map((r) => {
@@ -556,7 +569,7 @@ function standingsView(s) {
       if (prev && prev.gap != null) int = Math.max(0, r.gap - prev.gap);
     }
     const down = race ? (ui.classFilter === "all" ? r.laps_down : r.class_laps_down) || 0 : 0;
-    const v = { r, gap, int, down, fastestLap: isFinite(fastest) && r.best_lap === fastest, fastest };
+    const v = { r, gap, int, down, fastestLap: isFinite(fastest) && r.best_lap === fastest, fastest, purple: purple(r) };
     prev = r;
     return v;
   });
@@ -654,7 +667,7 @@ function renderStandings(s) {
       // Within the battle gap of the car ahead: just this cell lit up.
       [int, `c-time ${battles.has(r.car_idx) ? "battle-cell" : ""}`],
       [fmtLap(r.last_lap), "c-time col-wide"],
-      [fmtLap(r.best_lap), `c-time col-wide ${v.fastestLap ? "best" : ""}`],
+      [fmtLap(r.best_lap), `c-time col-wide ${v.purple ? "best" : ""}`],
       [r.pit_stops ? String(r.pit_stops) : "", "col-wide"],
       [r.on_pit ? "PIT" : r.stint != null ? String(r.stint) : "", "c-num"],
       [tyreIcon(r.tyre), "c-tyre"],
@@ -3220,7 +3233,10 @@ const OVERLAY_FIELDS = {
         ["last", "After the driver / team name"]]]),
     ]],
     ["Fastest lap", [
-      ["show_fastest_icon", "Purple stopwatch by the fastest lap (each class's in By class)", "bool"],
+      ["show_fastest_icon", "Purple stopwatch by the fastest lap", "bool"],
+      iff((v) => v.show_fastest_icon, ["fastest_icon_for", "Who gets the stopwatch", "select", [
+        ["classes", "Each class's fastest, by class and overall"], ["view", "Each class's fastest by class, the overall fastest overall"],
+        ["overall", "The overall fastest only"]]]),
       ["fl_flash", "Flash a new fastest lap (top middle)", "bool"],
       iff((v) => v.fl_flash, ["fl_flash_s", "Flash stays for (s; the first 2 say NEW FASTEST LAP)", "number", { min: 3, max: 60, step: 0.5 }]),
       iff((v) => v.fl_flash, ["fl_flash_classes", "Also flash each class's new fastest lap", "bool"]),
@@ -4576,11 +4592,25 @@ function quickFields(section, keys, values, s) {
 function renderWidgets(s) {
   const st = s.overlays.settings;
   const gw = s.gridwalk || {};
-  // On or off: the Show button lit while it's on.
-  for (const card of document.querySelectorAll("#tab-widgets [data-widget]")) {
+  // On or off: the Show button lit while it's on. The ones on come first
+  // (style.css), so what's in use sits together at the top; switching one
+  // on or off, the cards glide to their new places rather than jump.
+  const cards = [...document.querySelectorAll("#tab-widgets .wcards > .wcard")];
+  const isOn = (card) => {
     const key = card.dataset.widget;
-    const on = key === "gridwalk" ? !!gw.visible : key === "fastest" ? !!st.standings.fl_flash : !!(st[key] && st[key].visible);
-    card.classList.toggle("on", on);
+    return key === "gridwalk" ? !!gw.visible : key === "fastest" ? !!st.standings.fl_flash : !!(st[key] && st[key].visible);
+  };
+  const moving = cards.some((card) => card.dataset.widget && card.classList.contains("on") !== isOn(card));
+  const before = moving && wcardsShown() ? new Map(cards.map((c) => [c, c.getBoundingClientRect()])) : null;
+  for (const card of cards) if (card.dataset.widget) card.classList.toggle("on", isOn(card));
+  if (before) {
+    for (const card of cards) {
+      const a = before.get(card), b = card.getBoundingClientRect();
+      const dx = a.left - b.left, dy = a.top - b.top;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        card.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 380, easing: "cubic-bezier(.2, .8, .2, 1)" });
+      }
+    }
   }
   $("#wgw-state").textContent = gw.visible ? (gw.running ? "on air" : "paused") : "";
   // The flag card: a button for each sector (lit while it's yellow), and what's showing.
@@ -4796,6 +4826,62 @@ for (const [attr, on] of [["wshow", true], ["whide", false]]) {
     card.querySelector("h4").after(row);
   }
   row.appendChild(btn);
+}
+
+// Each widget card folds away to its title and its Show / Hide (a click on
+// the title, or its ▾), kept on this PC; Fold all / Open all at the top.
+// Cards in a row are as tall as the tallest of them (lined up), and the ones
+// on screen come first (renderWidgets).
+const WFOLD = "apex.widgetsFolded";
+const wcards = $("#tab-widgets .wcards");
+let wfolded = new Set();
+try {
+  wfolded = new Set(JSON.parse(localStorage.getItem(WFOLD) || "[]"));
+} catch (e) { /* storage unavailable: all open */ }
+const saveFolds = () => {
+  try {
+    localStorage.setItem(WFOLD, JSON.stringify([...wfolded]));
+  } catch (e) { /* storage unavailable */ }
+};
+function foldCard(card, folded) {
+  card.classList.toggle("folded", folded);
+  const btn = card.querySelector(".wfold");
+  btn.setAttribute("aria-expanded", String(!folded));
+  btn.title = folded ? "Show its settings" : "Fold away (its Show / Hide stays)";
+  if (folded) wfolded.add(card.dataset.widget);
+  else wfolded.delete(card.dataset.widget);
+}
+for (const card of wcards.querySelectorAll(".wcard[data-widget]")) {
+  const main = card.querySelector(":scope > .wbtns");
+  if (main) main.classList.add("wmain");
+  const h4 = card.querySelector("h4");
+  h4.insertAdjacentHTML("beforeend", '<button class="wfold" aria-expanded="true" aria-label="Fold away or show this widget\'s settings">▾</button>');
+  h4.classList.add("wfold-head");
+  foldCard(card, wfolded.has(card.dataset.widget));
+}
+wcards.addEventListener("click", (e) => {
+  const head = e.target.closest(".wfold-head");
+  // The title or its ▾ (not another button in the title, like the Grid walk tab link).
+  if (!head || (e.target.closest("button, a, select, input") && !e.target.closest(".wfold"))) return;
+  const card = head.closest(".wcard");
+  foldCard(card, !card.classList.contains("folded"));
+  saveFolds();
+});
+const foldBar = document.createElement("span");
+foldBar.className = "row wfold-all";
+foldBar.innerHTML = '<button class="btn subtle" data-fold-all="1" title="Fold every widget away to its Show / Hide">Fold all</button>'
+  + '<button class="btn subtle" data-fold-all="0" title="Open every widget\'s settings">Open all</button>';
+$("#tab-widgets .teams-head [data-open-hotkeys]").before(foldBar);
+foldBar.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-fold-all]");
+  if (!b) return;
+  for (const card of wcards.querySelectorAll(".wcard[data-widget]")) foldCard(card, b.dataset.foldAll === "1");
+  saveFolds();
+});
+// The cards are in view (the Widgets tab, or its pop-out): only then do they glide.
+function wcardsShown() {
+  const grid = document.querySelector("#tab-widgets .wcards");
+  return !!grid && grid.getClientRects().length > 0;
 }
 
 

@@ -11,6 +11,43 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v1.0.4
+
+### New features
+
+- Widgets tab: each card folds away to its title and Show / Hide (Fold all /
+  Open all too), and the widgets on screen come first, so the ones in use sit
+  together at the top.
+- Fastest lap stopwatch: choose who gets it: each class's fastest (by class
+  and overall), as the list shows, or the overall fastest only. The Timing
+  Screen, the live timing website and the finishing order and qualifying
+  boards mark the fastest lap the same way.
+
+### Improvements
+
+- Track map: fades in when it comes on screen.
+- Track details board: the name, pills and weather cards come in one after
+  another, the wind needle swings round, the outline draws itself and the
+  start line pops in; they go out in turn too.
+- Tower sponsor bar: opens and closes under the header rather than popping
+  in and out.
+- Grid walk: moving to the next pair is smooth: the scenery, adverts and
+  title no longer flash, the cars of the last pair drive off rather than
+  fade where they stood, and drivers' cards close whole.
+- Overlays on your own screen fade out when taken off, rather than vanishing.
+- The car on camera (the tower's highlight, the camera buttons, the driver
+  on camera board) changes as the camera cuts; the race data keeps the delay.
+
+### Fixes
+
+- Boards no longer skip their entrance when their figures change as they come
+  in (the track details board's never played).
+- After a pass for the lead, the gaps and P2's interval are right at once
+  (they showed 0.000 on the tower and below 0 on the Timing Screen until the
+  new leader crossed the line).
+- Opening lap: the Timing Screen's order no longer jumps about while the
+  field crosses the line (drivers flicking from 18th to 1st and back).
+
 ## v1.0.3
 
 ### New features

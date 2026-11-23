@@ -192,6 +192,10 @@ DEFAULTS = {
         # holder in "class" mode), and a purple pill at the top middle of the
         # screen for fl_flash_s when someone sets a new fastest lap.
         "show_fastest_icon": True,
+        # Who gets it: "classes" each class's fastest (the overall list too),
+        # "view" each class's in "class" mode and the overall fastest in
+        # "overall", "overall" the overall fastest only.
+        "fastest_icon_for": "classes",
         "name_width": 0,          # the driver name column's width in px (0 = automatic)
         "finish_flag": True,      # race: a waving chequered flag by each driver once they've taken the flag
         "penalty_flags": True,    # a black flag, meatball or slow-down (warning) flag by a driver while iRacing shows them one
@@ -225,9 +229,10 @@ DEFAULTS = {
     # "Who's this": a board at the bottom centre for the driver on camera (driver.html).
     "driver": {**LOGO, 
         "visible": True,
-        # When the camera moves to someone: "delay" changes with the data delay
-        # (as everything else, for a stream that's behind too), "now" straight away.
-        "follow": "delay",
+        # When the camera moves to someone: "now" straight away, as the picture
+        # cuts (what it shows of them still from the data delay), or "delay"
+        # with the data delay.
+        "follow": "now",
         "show_tyre": True,        # the tyres on (dry white, wet blue)
         "hide_s": 8.0,            # seconds it stays up after the camera moves to someone (0 = while they're on camera)
         "stay": False,            # stay up for as long as the camera's on them (hide_s not used)
@@ -576,7 +581,7 @@ LIMITS = {"panel_width": (700, 1840), "gap_s": (0.1, 30.0), "settle_s": (0.0, 3.
           "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "trend_laps": (2, 15), "form": (0, 10), "chart_cars": (0, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "sponsor_size": (40, 250), "board_sponsor_size": (40, 250), "delay_s": (0.0, 300.0), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
           "lights": (3, 8), "step_s": (0.3, 3.0), "out_s": (0.0, 10.0), "flag_sectors": (2, 9), "clear_s": (0.0, 10.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
-CHOICES = {"follow": ("delay", "now"), "target": ("ahead", "behind", "nearest", "picked"), "champ": ("class", "overall"), "board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"), "board_sponsors": ("top", "bottom", "left", "right"), "sponsor_mode": ("theme", "own"),
+CHOICES = {"follow": ("delay", "now"), "fastest_icon_for": ("classes", "view", "overall"), "target": ("ahead", "behind", "nearest", "picked"), "champ": ("class", "overall"), "board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"), "board_sponsors": ("top", "bottom", "left", "right"), "sponsor_mode": ("theme", "own"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary", "team"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both", "class_both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),

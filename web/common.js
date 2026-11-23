@@ -692,7 +692,17 @@ function fitStage(stage) {
   if (desk) {
     document.body.classList.add("desktop");
     reportDeskParts(desk);
+    deskClosing();
   }
+}
+
+// Taken off the user's screen: it fades out before its window closes
+// (closed at once, whatever it was doing was cut off mid-air): pageLook.
+const DESK_PAGE = new URLSearchParams(location.search).get("desktop");
+function deskClosing() {
+  const style = document.createElement("style");
+  style.textContent = "body.desk-closing { opacity: 0; transition: opacity .45s ease; }";
+  document.head.appendChild(style);
 }
 
 // On the user's own screen, the app cuts the overlay's window down to where
@@ -1038,6 +1048,7 @@ function secs(v, race = true) {
 }
 
 function pageLook(snap) {
+  if (DESK_PAGE && snap.desktop && snap.desktop.closing) document.body.classList.toggle("desk-closing", snap.desktop.closing.includes(DESK_PAGE));
   const st = (snap.overlays && snap.overlays.settings) || {};
   if (st.general) GENERAL = st.general;
   // The text size of this page's widget (font_scale, %): CSS sizes text by --fs.
