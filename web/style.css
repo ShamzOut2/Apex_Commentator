@@ -806,6 +806,9 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .wfold:hover { border-color: var(--line); color: var(--text); }
 .wcard.folded .wfold { transform: rotate(-90deg); }
 .wcard.folded > :not(h4):not(.wmain) { display: none; }
+/* Folded, a card keeps to its own height at the top of its row (not stretched
+   to an open card beside it): the row below starts under the tallest. */
+.wcards > .wcard.folded { align-self: start; }
 .wfold-all { gap: 6px; }
 .wcard h4 .wlink ~ .wfold { margin-left: 4px; }
 .wcard {
