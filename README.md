@@ -112,6 +112,20 @@ starting grid", "Clear all penalties"…).
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- Talking points on the Timing Screen: things worth saying now (a car
+  closing in, a lead changing hands, a first win on the cards, big movers).
+  Click one to put it on screen.
+- Catching overlay: the gap between two cars, lap by lap, how fast it's
+  closing and the laps until they're together.
+- Driver's season overlay: the driver on camera's championship place, points,
+  wins, podiums and last results, for a few seconds when the camera moves.
+- Head to head overlay: two drivers' seasons and today's race side by side.
+- Race recap board: biggest gainer, most overtakes, cleanest driver and a
+  lap-by-lap position chart.
+- Hotkeys for all of these.
+
 ### Improvements
 
 - Boards: each sponsor logo can have its own size on each board ("Each
@@ -388,6 +402,17 @@ shows just the race log, or just the list with a few columns.
   and pauses while you rewind over something already logged. It keeps the
   whole event: the newest 300 lines show, and *Show older* at the bottom
   brings in more.
+- **Talking points** (above the race log, in a race): a short list of things
+  worth saying right now, the most worth it first (a new one is lit for its
+  first 20 seconds). The championship lead changing hands if it finished like this;
+  a driver heading for their first win or first podium of the season; a car
+  closing on the one ahead (0.5 s a lap, 1.3 s back, on them in about 3 laps;
+  the three nearest); a driver who's gained or lost five places or more since
+  the start; a driver who's pitted fewer times than every car around them. **Click
+  one** to put up what it's about: the championship standings board, the
+  catching overlay with those two cars, the driver's season card or the pit
+  strategy overlay. A hotkey puts the
+  top one up. *▦ Show* on the Timing Screen hides the list (kept for this PC).
 - **Cameras**: one button per iRacing camera, plus Ahead, Behind, Leader,
   Exciting and Incident cam. *⌨ Hotkeys* sets a key for each camera; out of
   the box, 1–9 are the first nine cameras.
@@ -408,8 +433,9 @@ shows just the race log, or just the list with a few columns.
 and the *⌨ Hotkeys* buttons on the Timing Screen and Widgets tabs) also
 sets keys for:
 - each overlay: the standings tower, lap tracker, driver on camera,
-  sponsors, championship battle, pit stops, on-track battle, track map,
-  starting lights and flags, on and off;
+  sponsors, championship battle, pit stops, on-track battle, pit strategy,
+  catching, driver's season, head to head, track map, starting lights and
+  flags, on and off;
 - everything at once: every overlay, the board and the grid walk off
   screen; pressed again, whatever it took off comes back (with nothing up,
   every overlay comes on). Or apart: the **overlays** (and the grid walk)
@@ -424,6 +450,10 @@ sets keys for:
 - the championship battle: on / off with the drivers picked in its
   settings, and its quick picks (the car on camera and the one ahead, the
   cars either side, the top 3), which also put it on screen;
+- the commentator tools: put the top talking point up; catching with the
+  driver on camera and the car ahead, behind or nearer; the driver on
+  camera's season card; head to head with the driver on camera and the car
+  ahead (each puts the overlay on screen too), and each overlay on and off;
 - the grid walk: on / off (starting from P1), and the next and previous pair;
 - the starting grid: on / off (Overall, for the race on now or next), full
   grid or row by row (a key for each, or one to switch), next row, back a
@@ -431,7 +461,7 @@ sets keys for:
 - on your own screen (app window): every overlay, the boards, the grid
   walk, or taking everything off (see "Overlays on your own screen");
 - every board in the Widgets tab (each class's standings, teams',
-  manufacturers', the calendar, finishing orders), its next and previous
+  manufacturers', the calendar, finishing orders, race recaps), its next and previous
   page, and taking the board off screen. A board's key puts it on screen; pressed again while it's up, it
   takes it off.
 
@@ -943,6 +973,30 @@ cost to how smoothly things move.
   back live; one that came in while the replay was up is logged when you're
   back if it's still in the pit lane (a whole stop made while a replay was
   up, with iRacing's car data the replay's, can't be seen).
+- **Catching** (`/catching.html`): two cars on track and the gap between
+  them: now, lap by lap at the line (a small graph), how fast it's changing
+  (−0.42 s a lap) and, closing, about how many laps until it's gone ("On them
+  in about 4 laps"). Its heading says which: **Catching**, **Pulling away** or
+  **The gap**. It follows the driver on camera and **the car ahead**, **the car
+  behind** or **the nearer of the two** (in their class, or overall), or two
+  cars you pick (the Widgets tab, or a talking point). The laps in the trend
+  (5 by default), the graph, the rate and the laps to catch can be set or left
+  out, as can numbers, logos, names, heading, place, size and background.
+  A trend needs two laps at the line both cars have done; a car a lap or
+  more down shows as *A lap apart*.
+- **Driver's season** (`/season.html`): a card for the driver on camera,
+  coming up each time the camera moves to someone (or when you pick one) and
+  going after a few seconds (10 by default; 0: it stays). Their championship
+  place, points, the points to the leader, wins, podiums, best finish, their
+  last few results (P3 · P1 · DNF; 5 by default) and your notes on them from
+  the League builder. **Championship**: their class's, or the overall one.
+  Needs a league active; a driver with no results yet says so.
+- **Head to head** (`/h2h.html`): two drivers side by side. Their seasons:
+  championship place, points, wins, podiums, best finish and how many times
+  each finished ahead of the other in the races both did; and, in a session,
+  today's places, best and last laps and the gap between them. The better of
+  each pair is lit. Pick them in its card on the Widgets tab, or **On camera
+  vs the car ahead** (a hotkey too).
 - **Starting lights** (`/lights.html`): a start-light gantry seen in
   perspective, turned 10° to the left (a steel box truss, two posts down to
   a black housing, and for each light a column of two lamps, each a glass
@@ -1396,6 +1450,14 @@ built from the active league:
   results. Races show their finishing order with the points; practice and
   qualifying show the order by best lap, without points (drivers with no
   time aren't listed).
+- **Race recap**: the race this app has followed, Overall or a class, for
+  after the flag (it fills in as the race runs). Three cards: the **biggest
+  gainer** (places from the start: +5, P10 → P5), **most overtakes** (passes
+  on track) and the **cleanest driver** (fewest incident points among those
+  still running). Under them a **position chart**: each car's place at the
+  start and at the end of every lap, a line each, the names at the end in race
+  order. *Cars in the chart* (10 by default, the best placed; 0: every car).
+  Each part can be left out.
 - **Track details**: for the start of a race. The header has the round
   (the league's round this race counts as: "Round 3" with its name; else the
   race's own name; or your own words in its settings) and the league's

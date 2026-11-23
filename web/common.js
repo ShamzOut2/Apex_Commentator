@@ -711,6 +711,9 @@ const DESK_PARTS = {
   "/pits.html": ".pit-card",
   "/duel.html": ".battle:not(.out)",
   "/strategy.html": ".strategy:not(.out)",
+  "/catching.html": ".battle:not(.out)",
+  "/season.html": ".battle:not(.out)",
+  "/h2h.html": ".battle:not(.out)",
   "/trackmap.html": ".tmap:not(.out)",
   "/lights.html": ".lights .lt-frame",
   "/flags.html": ".flag",
@@ -1026,7 +1029,7 @@ function applyFont() {
 }
 const PAGE = location.pathname.replace(/^.*\//, "").replace(/\.html$/, "");
 const FULL_SCREEN = new URLSearchParams(location.search).has("screen");
-const DIMMED_PAGES = ["standings", "laps", "driver", "pits", "battle", "sponsors", "duel", "strategy", "trackmap", "lights", "flags"];
+const DIMMED_PAGES = ["standings", "laps", "driver", "pits", "battle", "sponsors", "duel", "strategy", "catching", "season", "h2h", "trackmap", "lights", "flags"];
 let fontFrom = null;
 
 // A gap or interval in seconds, to the places set: race (1) or qualifying (3).

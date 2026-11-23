@@ -5,15 +5,15 @@ OBS page). What each board shows is set in its settings (see ``overlays``).
 Boards are built from the active league's saved championship.
 """
 
-from . import championship
+from . import championship, insights
 from .league import driver_key, logo_url, strip_class_prefix, strip_name_number
 from .makes import logo_for as make_logo
 
-KINDS = ("championship", "teams", "makes", "calendar", "results", "qualifying", "grid", "track")
+KINDS = ("championship", "teams", "makes", "calendar", "results", "qualifying", "grid", "track", "recap")
 TITLES = {
     "championship": "Championship standings", "teams": "Teams' championship", "makes": "Manufacturers' championship",
     "calendar": "Season calendar", "results": "Finishing order", "qualifying": "Qualifying", "grid": "Starting grid",
-    "track": "Track details",
+    "track": "Track details", "recap": "Race recap",
 }
 
 
@@ -113,7 +113,7 @@ def build(league, board, settings, live_results=None):
            "banner": _banner(league, cfg), "sponsors": _sponsor_strip(league, cfg, settings.get("general") or {}), "settings": cfg, "accent": None, "group_logo": None,
            "league_logo": logo_url(league["id"], league.get("logo")) if cfg["league_logo"] and league.get("logo") else None}
     group = params.get("group") or championship.OVERALL
-    if kind in ("championship", "makes", "results", "qualifying", "grid"):
+    if kind in ("championship", "makes", "results", "qualifying", "grid", "recap"):
         name, color, logo = _group_info(league, group)
         out["subtitle"], out["accent"], out["group_logo"] = name, color, logo
     if cfg.get("accent") == "color":
@@ -265,6 +265,32 @@ def build(league, board, settings, live_results=None):
         out["title"] = f"{data['name']} · starting grid" if data["name"] else "Starting grid"
         out["grid_from"] = data["from"]
         out["rows"] = rows
+    elif kind == "recap":
+        # The race told afterwards, for its class (or everyone): who gained most,
+        # passed most and was cleanest, and every car's place lap by lap.
+        data = live_results or {}
+        out["title"] = cfg["title"].strip() or "Race recap"
+        out["rows"] = []
+        if data.get("rows"):
+            class_key = None if group == championship.OVERALL else f"league:{group}"
+            rc = insights.recap(data["rows"], data["log"], data.get("overtakes"), class_key=class_key)
+            people = data.get("people") or {}
+
+            def who(idx):
+                e = people.get(idx) or {}
+                return {"car_idx": idx, "name": _person(league, e.get("name", ""), e.get("nickname", "")),
+                        "number": e.get("number", ""), "team": e.get("team", ""), "team_logo": e.get("team_logo"), "class_key": e.get("class_key", ""),
+                        "class_color": (e.get("paint") or {}).get("main") if isinstance(e.get("paint"), dict) else None}
+            for k in ("gainer", "overtakes", "cleanest"):
+                if rc[k]:
+                    rc[k] = dict(rc[k], **who(rc[k]["car_idx"]))
+            cars = rc["chart"]["cars"][:cfg["chart_cars"]] if cfg["chart_cars"] else rc["chart"]["cars"]
+            rc["chart"] = {"laps": rc["chart"]["laps"], "cars": [dict(c, **who(c["car_idx"])) for c in cars],
+                           "field": len(rc["chart"]["cars"])}
+            out["recap"] = dict(rc, race=data.get("race"))
+        else:
+            out["recap"] = None
+        out["subtitle"] = " · ".join(x for x in [(data or {}).get("race") or "", out["subtitle"]] if x)
     elif kind == "track":
         # The round, the track (its outline in the middle), the weather either
         # side of it and the sponsors along the bottom: no rows.

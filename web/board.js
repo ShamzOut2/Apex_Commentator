@@ -258,6 +258,68 @@ async function loadTrack(id) {
   if (lastSnap) render(lastSnap);
 }
 
+// The race recap: who gained most, passed most and was cleanest, then every
+// car's place lap by lap (a line each, the best placed first, named at the end).
+const RECAP_COLORS = ["#ff7a1a", "#4cc9f0", "#f72585", "#b5e48c", "#ffd166", "#9b5de5", "#00f5d4", "#ef476f", "#06d6a0", "#118ab2",
+  "#f4a261", "#e76f51", "#8ecae6", "#ffb703", "#c77dff", "#90be6d"];
+function recapHtml(b) {
+  const r = b.recap;
+  const s = b.settings;
+  if (!r) return '<div class="empty-board">Nothing to recap yet: the recap is of the race this app has followed (it fills in as the race runs).</div>';
+  const nameOf = (x) => esc(formatName({ name: x.name }, s.name_format));
+  const card = (label, x, value, sub) => `<div class="rc-card"><div class="tk-label">${label}</div>
+    ${x ? `<div class="rc-who">${numberChip(x)}${x.team_logo ? `<img class="rc-logo" src="${esc(x.team_logo)}" alt="">` : ""}<span class="rc-name">${nameOf(x)}</span></div>
+      <div class="rc-value">${value}${sub ? `<small>${sub}</small>` : ""}</div>` : '<div class="rc-none">No one yet</div>'}</div>`;
+  const cards = [];
+  if (s.show_gainer) cards.push(card("Biggest gainer", r.gainer, r.gainer ? `+${r.gainer.places}` : "", r.gainer ? `P${r.gainer.from} → P${r.gainer.to}` : ""));
+  if (s.show_overtakes) cards.push(card("Most overtakes", r.overtakes, r.overtakes ? `${r.overtakes.count}` : "", r.overtakes ? (r.overtakes.count === 1 ? "pass on track" : "passes on track") : ""));
+  if (s.show_cleanest) cards.push(card("Cleanest driver", r.cleanest, r.cleanest ? `${r.cleanest.incidents}x` : "", "incident points"));
+  const chart = s.show_chart && r.chart && r.chart.laps > 0 && r.chart.cars.length ? recapChart(r.chart, nameOf) : "";
+  const wait = s.show_chart && !chart ? '<div class="rc-wait">The position chart fills in lap by lap, from the end of lap 1</div>' : "";
+  return `<div class="recap ${chart ? "" : "no-chart"}">${cards.length ? `<div class="rc-cards">${cards.join("")}</div>` : ""}${chart}${wait}</div>`;
+}
+
+function recapChart(chart, nameOf) {
+  const c = { ...chart, cars: chart.cars.filter((car) => car.places.some(Boolean)) };
+  const W = 1500, H = 470, L = 56, R = 300, T = 16, B = 40;
+  // Down to the lowest place the cars drawn held (not the whole field's).
+  const field = Math.max(c.cars.length, ...c.cars.flatMap((x) => x.places.filter(Boolean)));
+  const x = (lap) => L + (W - L - R) * (c.laps ? lap / c.laps : 0);
+  const y = (pos) => T + (H - T - B) * (field > 1 ? (pos - 1) / (field - 1) : 0);
+  const step = Math.max(1, Math.ceil(c.laps / 12));
+  const grid = [];
+  for (let lap = 0; lap <= c.laps; lap += step) {
+    grid.push(`<line class="rc-grid" x1="${x(lap)}" y1="${T}" x2="${x(lap)}" y2="${H - B}"/><text class="rc-axis" x="${x(lap)}" y="${H - 12}" text-anchor="middle">${lap === 0 ? "Start" : `L${lap}`}</text>`);
+  }
+  for (let pos = 1; pos <= field; pos += Math.max(1, Math.ceil(field / 10))) {
+    grid.push(`<text class="rc-axis" x="${L - 12}" y="${y(pos) + 6}" text-anchor="end">P${pos}</text>`);
+  }
+  // The names at the end in race order (the cars come best placed first), each
+  // by its line's end, pushed apart where they'd overlap. Mid-race a car that
+  // hasn't crossed the line yet ends a lap short: its label says where it is now.
+  const ends = c.cars.map((car) => [...car.places].reverse().find(Boolean));
+  const gapMin = Math.min(22, (H - T - B + 20) / Math.max(1, ends.length));  // closer (and smaller) for a lot of cars
+  const labelY = [];
+  let prev = -Infinity;
+  ends.forEach((p, i) => {
+    prev = Math.max(y(p), prev + gapMin);
+    labelY[i] = prev;
+  });
+  const over = prev - (H - B + 10);
+  if (over > 0) labelY.forEach((ly, i) => { labelY[i] = ly - over; });
+  const font = gapMin < 22 ? Math.max(9, gapMin - 2) : null;
+  const lines = c.cars.map((car, i) => {
+    const color = car.class_color && c.cars.length <= 3 ? car.class_color : RECAP_COLORS[i % RECAP_COLORS.length];
+    const pts = car.places.map((p, lap) => (p ? `${x(lap).toFixed(1)},${y(p).toFixed(1)}` : null)).filter(Boolean);
+    const last = ends[i];
+    const lastLap = car.places.length - 1 - [...car.places].reverse().findIndex(Boolean);
+    return `<g class="rc-line" style="--c:${esc(color)};--i:${i}"><polyline points="${pts.join(" ")}"/>
+      <circle cx="${x(lastLap)}" cy="${y(last)}" r="6"/>
+      <text class="rc-label" x="${x(c.laps) + 16}" y="${(labelY[i] + 6).toFixed(1)}"${font ? ` style="font-size:${font.toFixed(1)}px"` : ""}><tspan class="rc-pos">P${car.pos || last}</tspan> ${nameOf(car)}</text></g>`;
+  });
+  return `<svg class="rc-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${grid.join("")}${lines.join("")}</svg>`;
+}
+
 const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 function trackHtml(b) {
   const t = b.track_info || {};
@@ -331,6 +393,7 @@ function render(snap) {
   markReveal(b);
   let body;
   if (b.kind === "track") body = trackHtml(b);
+  else if (b.kind === "recap") body = recapHtml(b);
   else if (b.kind === "calendar" && b.image) body = `<div class="cal-image"><img src="${esc(b.image)}" alt="Season calendar"></div>`;
   else if (b.kind === "calendar") body = calendarHtml(b);
   else if (!b.rows.length) {

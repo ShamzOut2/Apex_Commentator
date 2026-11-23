@@ -293,6 +293,57 @@ DEFAULTS = {
         "hold_s": 3.0,            # auto: stays up this long after the battle breaks up
         **BACKGROUND, **OFFSET,
     },
+    # Catching (catching.html): two cars on track, the gap between them lap by
+    # lap (a small graph), how fast it's closing or growing and, closing, how
+    # many laps until it's gone. target: the driver on camera and the car
+    # "ahead" of them, "behind" them, the "nearest" of the two, or the two cars
+    # "picked" (cars: their numbers, the car ahead first).
+    "catching": {**LOGO,
+        "visible": False,
+        "target": "ahead",
+        "cars": "",
+        "scope": "class",         # the car ahead / behind in their class ("class") or overall
+        "trend_laps": 5,          # laps in the graph and the trend
+        "place": "top-right",
+        "title": "",              # its heading ("" = Catching / Pulling away / Gap)
+        "name_format": "last_initial",
+        "show_number": True, "show_logo": True,
+        "show_graph": True, "show_rate": True, "show_catch": True,
+        **BACKGROUND, **OFFSET,
+    },
+    # A driver's season (season.html): championship place and points, the
+    # points to the leader, wins, podiums, best finish and their last few
+    # results, and the commentator's notes on them. driver: a car number
+    # ("" = the driver on camera). hide_s: off screen again after this long
+    # (0 = stays until hidden).
+    "season": {**LOGO,
+        "visible": False,
+        "driver": "",
+        "champ": "class",         # their class's championship ("class") or the overall one
+        "form": 5,                # their last results shown
+        "hide_s": 10.0,
+        "place": "bottom-left",
+        "name_format": "full",
+        "show_number": True, "show_logo": True, "show_team": True,
+        "show_points": True, "show_behind": True, "show_wins": True, "show_podiums": True,
+        "show_best": True, "show_form": True, "show_notes": False,
+        **BACKGROUND, **OFFSET,
+    },
+    # Head to head (h2h.html): two drivers' seasons side by side (place,
+    # points, wins, podiums, best finish, how often each finished ahead of the
+    # other) and, in a session, today's (place, best lap, last lap, the gap).
+    # drivers: their driver keys, "a,b".
+    "h2h": {**LOGO,
+        "visible": False,
+        "drivers": "",
+        "champ": "class",         # in their class's championship (when they're in the same class) or the overall one
+        "place": "bottom",
+        "title": "",              # its heading ("" = Head to head)
+        "name_format": "full",
+        "show_number": True, "show_logo": True,
+        "show_season": True, "show_today": True,
+        **BACKGROUND, **OFFSET,
+    },
     # Pit strategy (strategy.html): a few cars picked by number, each with its
     # race so far along a lap scale and a mark at the lap of each of its pit
     # stops; where it is now (PIT while it's in the pit lane), its stops and
@@ -485,6 +536,15 @@ DEFAULTS = {
                     "show_map": True, "show_air": True, "show_track_temp": True, "show_wind": True,
                     "show_skies": True,      # the sky (Partly Cloudy) and humidity
                     "show_details": True},   # the track's length, turns and where it is
+    # The race told afterwards (board.html): the biggest gainer, the most passes
+    # on track, the cleanest driver, and every car's place lap by lap (a chart:
+    # chart_cars, the cars drawn, the best placed first; 0 = every car).
+    "board_recap": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, "sponsor_scales": "",
+                    **BACKGROUND,
+                    "title": "",
+                    "name_format": "full",
+                    "show_gainer": True, "show_overtakes": True, "show_cleanest": True,
+                    "show_chart": True, "chart_cars": 10},
     "laps": {**LOGO, 
         "visible": True,
         "count": 4,               # small trackers along the bottom
@@ -513,10 +573,10 @@ DEFAULTS = {
 LIMITS = {"panel_width": (700, 1840), "gap_s": (0.1, 30.0), "settle_s": (0.0, 3.0), "ahead": (0, 6), "behind": (0, 6), "dot_size": (40, 250), "map_size": (150, 1400),
           "track_width": (40, 300), "grid_size": (50, 250), "font_scale": (60, 200), "race_decimals": (0, 3), "qual_decimals": (1, 3), "board_dim": (0, 90), "sector_delta_s": (0.0, 10.0), "reverse_top": (0, 64), "car_top_rotate": (-45, 45), "car_bottom_rotate": (-45, 45), "logo_scale": (40, 250), "car_scale": (40, 600), "car_scale_top": (40, 400), "car_scale_bottom": (40, 400),
           "car_top_x": (-1920, 1920), "car_top_y": (-1080, 1080), "car_bottom_x": (-1920, 1920), "car_bottom_y": (-1080, 1080),
-          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "sponsor_size": (40, 250), "board_sponsor_size": (40, 250), "delay_s": (0.0, 300.0), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
+          "card_scale": (40, 200), "name_width": (0, 600), "rows_extra_s": (1.0, 120.0), "rows_extra_opacity": (10, 100), "width": (0, 1400), "scale": (50, 200), "bg_opacity": (0, 100), "close_s": (0.0, 2.0), "rows_last": (0, 30), "rows_class": (1, 64), "rows_last_class": (0, 30), "fl_flash_s": (3.0, 60.0), "size": (30, 300), "interval_s": (1.0, 120.0), "rows": (1, 64), "trend_laps": (2, 15), "form": (0, 10), "chart_cars": (0, 64), "rounds": (0, 10), "count": (0, 12), "sectors": (0, 12), "green_s": (0.0, 5.0), "hide_s": (0.0, 120.0), "hold_s": (0.0, 60.0), "show_s": (0.0, 300.0), "sponsor_bar_s": (2.0, 120.0), "sponsor_bar_size": (20, 120), "sponsor_size": (40, 250), "board_sponsor_size": (40, 250), "delay_s": (0.0, 300.0), "offset_x": (-1920, 1920), "offset_y": (-1080, 1080),
           "lights": (3, 8), "step_s": (0.3, 3.0), "out_s": (0.0, 10.0), "flag_sectors": (2, 9), "clear_s": (0.0, 10.0)}
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
-CHOICES = {"follow": ("delay", "now"), "board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"), "board_sponsors": ("top", "bottom", "left", "right"), "sponsor_mode": ("theme", "own"),
+CHOICES = {"follow": ("delay", "now"), "target": ("ahead", "behind", "nearest", "picked"), "champ": ("class", "overall"), "board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"), "board_sponsors": ("top", "bottom", "left", "right"), "sponsor_mode": ("theme", "own"),
            "bg": ("default", "color", "image"), "place": PLACES,
            "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary", "team"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both", "class_both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
@@ -602,6 +662,8 @@ def _value(key, value, default):
         if key == "class_keys":
             keys = [k.strip() for k in value.split(",") if re.fullmatch(r"[^,]{1,80}", k.strip())]
             return ",".join(dict.fromkeys(keys[:30]))
+        if key == "driver":  # a car number ("" = the driver on camera)
+            return value if re.fullmatch(r"[0-9A-Za-z]{0,4}", value) else default
         if key == "group":
             return value if re.fullmatch(r"[A-Za-z0-9:_ .\-]{1,80}", value) else default
         if key == "sponsor_scales":  # a board's own size for some sponsors: "id:percent,…" (100: as usual, left out)

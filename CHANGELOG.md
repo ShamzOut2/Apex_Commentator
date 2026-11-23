@@ -13,6 +13,20 @@ How each version's entry is written:
 
 ## Unreleased
 
+### New features
+
+- Talking points on the Timing Screen: things worth saying now (a car
+  closing in, a lead changing hands, a first win on the cards, big movers).
+  Click one to put it on screen.
+- Catching overlay: the gap between two cars, lap by lap, how fast it's
+  closing and the laps until they're together.
+- Driver's season overlay: the driver on camera's championship place, points,
+  wins, podiums and last results, for a few seconds when the camera moves.
+- Head to head overlay: two drivers' seasons and today's race side by side.
+- Race recap board: biggest gainer, most overtakes, cleanest driver and a
+  lap-by-lap position chart.
+- Hotkeys for all of these.
+
 ### Improvements
 
 - Boards: each sponsor logo can have its own size on each board ("Each

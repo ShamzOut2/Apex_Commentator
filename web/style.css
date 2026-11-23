@@ -323,8 +323,10 @@ kbd {
 .cam-bar .cam-tools { margin-left: auto; }
 /* What this window shows (▦ Show). */
 #tab-timing.hide-cameras #cam-buttons, #tab-timing.hide-cameras #cam-sync, #tab-timing.hide-cameras .cam-ctl,
-#tab-timing.hide-replay .media-bar, #tab-timing.hide-list .standings-pane, #tab-timing.hide-log .log-pane { display: none; }
-#tab-timing.hide-list .timing-body, #tab-timing.hide-log .timing-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+#tab-timing.hide-replay .media-bar, #tab-timing.hide-list .standings-pane, #tab-timing.hide-log.hide-talk .log-pane,
+#tab-timing.hide-log .log-pane > :not(.talk-pane), #tab-timing.hide-talk .talk-pane { display: none; }
+#tab-timing.hide-list .timing-body, #tab-timing.hide-log.hide-talk .timing-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+#tab-timing.hide-log .talk-pane { flex: 1; max-height: none; }
 .show-pop { width: 380px; }
 .show-pop .vhead { margin: 0; padding: 10px 14px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .show-pop .vhead small { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; }
@@ -1317,3 +1319,18 @@ input[type="color"] { padding: 2px; cursor: pointer; }
 .mt-list li.hint { border: 0; background: none; padding: 0; }
 .import-pick { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .import-pick select { width: 100%; }
+
+/* Talking points (Timing Screen): above the race log. */
+.talk-pane { display: flex; flex-direction: column; min-height: 0; max-height: 38%; margin-bottom: 8px; border: 1px solid var(--line); border-radius: var(--radius-lg, 10px); background: var(--panel); }
+.talk-head { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.talk-head .hint { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.talk-list { list-style: none; margin: 0; padding: 4px 0; overflow: auto; flex: 1; min-height: 0; }
+.talk-list .hint { padding: 8px 12px; }
+.talk-item { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-left: 3px solid transparent; font-size: 13.5px; }
+.talk-item + .talk-item { border-top: 1px solid var(--line); }
+.talk-item.new { border-left-color: var(--accent); background: rgba(255, 122, 26, .06); }
+.talk-item.championship .talk-text { font-weight: 700; }
+.talk-text { flex: 1; min-width: 0; }
+.talk-item .btn { flex: none; }
+.h2h-sel { display: flex; align-items: center; gap: 8px; }
+.h2h-sel select { flex: 1; min-width: 0; }
