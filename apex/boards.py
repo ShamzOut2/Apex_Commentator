@@ -89,6 +89,11 @@ def _sponsor_strip(league, settings, general):
     if place not in ("top", "bottom", "left", "right"):
         return None
     logos = sponsors(league, ids)
+    # This board's own size for some of them (sponsor_scales, %), on top of each one's own.
+    own = dict(p.split(":") for p in str(settings.get("sponsor_scales") or "").split(",") if p.count(":") == 1)
+    for logo in logos:
+        if logo["id"] in own and own[logo["id"]].isdigit():
+            logo["scale"] = round(logo["scale"] * int(own[logo["id"]]) / 100)
     return {"place": place, "size": size, "logos": logos} if logos else None
 
 

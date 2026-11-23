@@ -3510,8 +3510,26 @@ function groupPicker(groups, value, key, label) {
     <span class="dot" style="background:${esc(g.color || "#8b93a3")}"></span>${esc(g.name)}</label>`).join("")}</div></div>`;
 }
 
+// A board's own size for each of its sponsor logos ("id:percent,…"; 100 = as
+// the sponsor is everywhere, left out): the ones the board shows.
+function sponsorScales(s, values, key, label, value) {
+  const all = (s.league && s.league.sponsors) || [];
+  const general = (s.overlays && s.overlays.settings && s.overlays.settings.general) || {};
+  const ids = values.sponsor_mode === "own" ? values.sponsor_ids : general.board_sponsor_ids;
+  const shown = ids === "none" ? [] : ids ? all.filter((sp) => ids.split(",").includes(sp.id)) : all;
+  if (!shown.length) return "";
+  const set = Object.fromEntries(String(value || "").split(",").map((p) => p.split(":")).filter((p) => p.length === 2).map(([k, v]) => [k, +v]));
+  return `<div class="ov-field wide sponsor-scales"><span>${esc(label)}</span><div>${shown.map((sp, i) => `<label class="sp-scale">
+    <img src="${esc(sp.url)}" alt=""><span>${esc(sp.name || `Sponsor ${i + 1}`)}</span>
+    <input type="number" min="20" max="400" step="5" data-key="${key}" data-kind="sponsorscales" data-sponsor-id="${esc(sp.id)}" value="${set[sp.id] ?? 100}" aria-label="Size of ${esc(sp.name || "the sponsor")} on this board (%)">%</label>`).join("")}</div></div>`;
+}
+
 // A settings field's new value.
 function fieldValue(el) {
+  if (el.dataset.kind === "sponsorscales") {
+    return [...el.closest(".sponsor-scales").querySelectorAll("input")].filter((i) => +i.value && +i.value !== 100)
+      .map((i) => `${i.dataset.sponsorId}:${Math.round(+i.value)}`).join(",");
+  }
   if (el.dataset.kind === "colopacity") {
     return [...el.closest(".colop-field").querySelectorAll("input")].filter((i) => +i.value < 100)
       .map((i) => `${i.dataset.opcol}:${i.value}`).join(",");
@@ -3587,6 +3605,7 @@ function fieldHtml(section, values, [k, label, kind, opts], s) {
   }
   if (kind === "text") return `<label class="ov-field">${labelHtml(label)}<input ${attrs} value="${esc(v)}" maxlength="40"></label>`;
   if (kind === "sponsors") return sponsorPicker((s.league && s.league.sponsors) || [], v, k, label);
+  if (kind === "sponsorscales") return sponsorScales(s, values, k, label, v);
   if (kind === "groups") return groupPicker(((s.board_options || {}).groups) || [], v, k, label);
   if (kind === "color") return `<label class="ov-field">${labelHtml(label)}<input type="color" ${attrs} value="${esc(v)}"></label>`;
   if (kind === "swatches") {
@@ -3861,6 +3880,7 @@ const BOARD_BRAND = [["league_logo", "League logo in the header", "bool"],
   iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsors", "Where", "select", SPONSOR_PLACES]),
   iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsor_ids", "Which sponsors", "sponsors"]),
   iff((v) => v.sponsor_show && v.sponsor_mode === "own", ["sponsor_size", "Sponsor logo size (%; 100 = usual)", "number", { min: 40, max: 250, step: 5 }]),
+  iff((v) => v.sponsor_show, ["sponsor_scales", "Each sponsor's size on this board (%; 100 = its usual size)", "sponsorscales"]),
   ["page_number", "\"Page 2 / 3\" in the header when it runs to more than one page", "bool"],
   ["show_league", "League name in the header", "bool"],
   ["accent", "Accent colour (the line under the header…)", "select", [["default", "The championship's class colour (else orange)"],
@@ -4175,7 +4195,7 @@ const WS_ESSENTIAL = new Set(["mode", "class_keys", "rows", "rows_class", "name_
   "show_position", "position_shown", "show_gap", "show_interval", "place", "title", "scale", "offset_x", "offset_y", "bg", "accent",
   "accent_color", "league_logo", "banner", "sponsors", "visible", "auto", "stay", "hide_s", "count", "who", "race_only", "style",
   "show_date", "show_winners", "grid_source", "reverse_top", "grid_layout", "grid_reveal", "units", "show_map", "show_air",
-  "show_track_temp", "show_wind", "follow", "sponsor_ids", "anchor_id", "sponsor_show", "sponsor_mode", "bsp_theme", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
+  "show_track_temp", "show_wind", "follow", "sponsor_ids", "anchor_id", "sponsor_show", "sponsor_mode", "bsp_theme", "sponsor_scales", "layout", "size", "sectors", "reference", "practice", "gap_s", "scope",
   "order", "show_stops", "show_penalties", "colors", "labels", "map_size", "start_from", "auto_yellow", "qual_shown", "card_scale",
   "car_scale", "show_points", "show_drivers", "show_wins", "header_info", "column_order", "show_series", "show_track", "sponsor_bar", "show_pos_change",
   "show_pits", "reveal", "replay_header", "fl_flash", "finish_flag", "gap_to", "show_race_points"]);

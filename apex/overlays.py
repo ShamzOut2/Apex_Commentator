@@ -391,7 +391,7 @@ DEFAULTS = {
     # sponsor logos go, the same places as a banner) and sponsor_ids (which,
     # as for the sponsors overlay).
     "board_championship": {**LOGO, **COLUMN_OPACITY, **PAGING, 
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, "sponsor_scales": "", **BACKGROUND,
         "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 20, "rounds": 0,  # rounds: points from the last N rounds as columns (0 = none)
         "show_number": True, "show_team": True, "show_logo": True, "show_make": True,
@@ -400,7 +400,7 @@ DEFAULTS = {
         "show_wins": False, "show_penalty": False,
     },
     "board_teams": {**LOGO, **COLUMN_OPACITY, **PAGING, 
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, "sponsor_scales": "", **BACKGROUND,
         "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 12, "rounds": 0,  # rounds: the team's points from the last N rounds as columns
         "show_logo": True, "show_color": True,  # team logo; team colour stripe
@@ -408,9 +408,9 @@ DEFAULTS = {
         "show_drivers": True,  # the drivers who scored for the team, under its name
         "show_gap": True, "show_ahead": False, "show_wins": False, "show_penalty": False,
     },
-    "board_makes": {**COLUMN_OPACITY, **PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND, "rows": 12, "show_logo": True,
+    "board_makes": {**COLUMN_OPACITY, **PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, "sponsor_scales": "", **BACKGROUND, "rows": 12, "show_logo": True,
                     "show_gap": True, "show_wins": True},
-    "board_calendar": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+    "board_calendar": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, "sponsor_scales": "", **BACKGROUND,
                        "rows": 24,  # race meetings a page
                        "style": "cards",  # "cards" (built from the rounds) or "image" (the league's own calendar graphic)
                        "show_date": True, "show_time": True, "show_config": True, "show_length": True,
@@ -426,7 +426,7 @@ DEFAULTS = {
                        "date_format": "weekday_short",
                        "show_multiplier": True},  # "×2 points" on rounds worth more (or less)
     "board_results": {**LOGO, **COLUMN_OPACITY, **PAGING, 
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, "sponsor_scales": "", **BACKGROUND,
         "name_format": "full",  # drivers' names: full, A. Driver, ... (as the overlays)
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         "show_laps": True, "show_gained": True, "show_fastest": True, "show_points": True,
@@ -441,7 +441,7 @@ DEFAULTS = {
     # Qualifying results (board.html): a qualifying session of the iRacing event,
     # by best lap, overall or a class.
     "board_qualifying": {**LOGO, **COLUMN_OPACITY, **PAGING,
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, "sponsor_scales": "", **BACKGROUND,
         "name_format": "full",
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         "show_best": True, "show_gap": True, "show_interval": True, "show_laps": False,
@@ -453,7 +453,7 @@ DEFAULTS = {
     # class (reverse_in_class). grid_layout: "list" or "grid" (two staggered
     # columns, as cars line up).
     "board_grid": {**LOGO, **COLUMN_OPACITY, **PAGING, "keep_leader": False,  # a grid's pages follow on (no pole at the top of each)
-        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, **BACKGROUND,
+        "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": False, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, "sponsor_scales": "", **BACKGROUND,
         "name_format": "full",
         "rows": 30, "show_number": True, "show_team": True, "show_logo": True, "show_make": True, "team_logo_side": "first",
         # Where the grid comes from: "auto" (a heat: qualifying; a consolation
@@ -478,7 +478,7 @@ DEFAULTS = {
     # either side (air and track temperature, wind speed and direction); the
     # sponsors along the bottom. title: the header's round line ("" = the
     # league's round this race counts as).
-    "board_track": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": True, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100,
+    "board_track": {**PAGING, "banner": "none", "banner_id": "", "league_logo": True, "sponsor_show": True, "sponsor_mode": "theme", "sponsors": "bottom", "sponsor_ids": "", "sponsor_size": 100, "sponsor_scales": "",
                     **BACKGROUND,
                     "title": "",
                     "units": "metric",       # "metric" (C, km/h, km) or "imperial" (F, mph, mi)
@@ -604,6 +604,14 @@ def _value(key, value, default):
             return ",".join(dict.fromkeys(keys[:30]))
         if key == "group":
             return value if re.fullmatch(r"[A-Za-z0-9:_ .\-]{1,80}", value) else default
+        if key == "sponsor_scales":  # a board's own size for some sponsors: "id:percent,…" (100: as usual, left out)
+            out = {}
+            for part in value.split(","):
+                sid, _, pct = part.partition(":")
+                sid = re.sub(r"[^a-z0-9]", "", sid)
+                if sid and pct.strip().isdigit() and int(pct) != 100:
+                    out[sid] = min(400, max(20, int(pct)))
+            return ",".join(f"{k}:{v}" for k, v in out.items())
         if key in ("sponsor_ids", "sponsor_bar_ids", "board_sponsor_ids"):
             return ",".join(re.sub(r"[^a-z0-9]", "", v) for v in value.split(",") if re.sub(r"[^a-z0-9]", "", v))
         choices = CHOICES.get(key[6:] if key.startswith("theme_") else key)

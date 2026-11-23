@@ -635,6 +635,11 @@ kbd {
 .sponsor-pick > div { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; }
 .sponsor-pick label { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; }
 .sponsor-pick img { height: 20px; max-width: 60px; object-fit: contain; }
+.sponsor-scales > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 16px; margin-top: 6px; }
+.sp-scale { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+.sp-scale img { height: 22px; max-width: 60px; object-fit: contain; }
+.sp-scale span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-scale input { width: 72px; }
 .bsp-list > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 18px; margin-top: 6px; }
 .bsp-row { display: flex; align-items: center; gap: 8px; min-height: 30px; }
 .bsp-row label.check { display: inline-flex; align-items: center; gap: 8px; font-weight: 400; }
