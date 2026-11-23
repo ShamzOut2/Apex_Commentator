@@ -20,6 +20,9 @@ How each version's entry is written:
 
 ### Fixes
 
+- Driver on camera (and the grid walk's driver panels): a team logo at a bigger
+  logo size no longer pokes out of the card. It grows only as far as the card
+  can hold.
 - Grid walk: the car pictures no longer flash. A driver's details changing
   (joining the track, a qualifying time) updates their panel in place instead
   of drawing the cars and panels again, and moving on to the next pair keeps
