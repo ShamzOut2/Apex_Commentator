@@ -3,7 +3,7 @@ import unittest
 
 from apex.hotkeys import GlobalHotkeys, parse, system_wide
 from apex.league import profile_from_session
-from tests.test_app import make_app
+from tests.test_app import make_app, wait_for
 
 
 class ParseTests(unittest.TestCase):
@@ -117,12 +117,13 @@ class HotkeyActionTests(unittest.TestCase):
             self.assertEqual(desk.up["board"], 2)
             self.press("desk:gridwalk")  # the Overlays tab's screen
             self.assertEqual(desk.up["gridwalk"], 1)
-            self.press("desk:off")
-            self.assertEqual(desk.up, {})
+            self.press("desk:off")  # off at once; their windows close once they've faded out
+            self.assertEqual(self.app.build_snapshot()["desktop"]["on_screen"], {})
+            self.assertTrue(wait_for(lambda: desk.up == {}))
             self.press("desk:boards_toggle")  # boards on the screen picked for them, then off again
             self.assertEqual(desk.up, {"board": 2})
             self.press("desk:boards_toggle")
-            self.assertEqual(desk.up, {})
+            self.assertTrue(wait_for(lambda: desk.up == {}))
         finally:
             self.app.desktop = None
 

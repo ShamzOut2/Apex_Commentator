@@ -157,11 +157,11 @@ const crowd = () => noiseTexture("crowd", 512, (g, n) => {
 // Built once; placeScene() puts it in perspective for where the camera is.
 function ground(x0, x1, yFar, yNear, cls, inner = "", style = "") {
   const w = Math.round((x1 - x0) * PX), h = Math.round((yFar - yNear) * PX);
-  return `<div class="plane ${cls}" data-plane="g,${x0},${yFar}" style="width:${w}px;height:${h}px;${style}">${inner}</div>`;
+  return `<div class="plane ${cls}" data-plane="g,${x0},${yFar}" style="width:${w}px;height:${h}px;--bgx:${-Math.round(x0 * PX)}px;${style}">${inner}</div>`;
 }
 function upright(x0, x1, y, top, bottom, cls, inner = "", style = "") {
   const w = Math.round((x1 - x0) * PX), h = Math.round((top - bottom) * PX);
-  return `<div class="plane ${cls}" data-plane="u,${x0},${y},${top}" style="width:${w}px;height:${h}px;${style}">${inner}</div>`;
+  return `<div class="plane ${cls}" data-plane="u,${x0},${y},${top}" style="width:${w}px;height:${h}px;--bgx:${-Math.round(x0 * PX)}px;${style}">${inner}</div>`;
 }
 
 function planeTransform(cam, spec) {
@@ -267,8 +267,13 @@ function infoHtml(e, i, cls, cfg, multiclass) {
 function sceneHtml(x0, x1, first, entries, cfg) {
   const a = Math.min(x0, x1) - X_BACK, b = Math.max(x0, x1) + X_AHEAD;
   const league = (snap.league && snap.league.name) || "";
-  const boards = Array.from({ length: Math.ceil((b - a) / 9) }, (_, i) =>
-    `<span class="${i % 3 === 1 ? "alt" : ""}">${esc(league || "STARTING GRID")}</span>`).join("");
+  // The wall's boards (9 m each) at fixed places along the track, whatever
+  // stretch of it is drawn: redrawn for the camera moving on, they stay put
+  // (counted from the drawn stretch's edge, they jumped along the wall).
+  const k0 = Math.floor(a / 9);
+  const boards = Array.from({ length: Math.ceil((b - k0 * 9) / 9) }, (_, i) =>
+    `<span class="${(((k0 + i) % 3) + 3) % 3 === 1 ? "alt" : ""}">${esc(league || "STARTING GRID")}</span>`).join("");
+  const boardsAt = Math.round((k0 * 9 - a) * PX);
   // The slots in view wherever the camera is between x0 and x1: some ahead
   // (to the right) and some behind (to the left).
   const [lo, hi] = [x0, x1].map((x) => 1 - Math.round(x / SLOT_GAP)).sort((u, v) => u - v);
@@ -305,7 +310,7 @@ function sceneHtml(x0, x1, first, entries, cfg) {
     ${ground(a, b, -1.1, -2.5, "apron", "", `background-image:url(${asphalt()})`)}
     ${ground(a, b, ROAD_W, 0, "road", `<div class="rubber"></div>${paint(a, slots, slots.includes(1), entries)}${shadows}`,
       `background-image:url(${asphalt()})`)}
-    ${upright(a, b, WALL_Y, 1.1, 0, "wall", `<div class="ads">${boards}</div>`, `background-image:url(${concrete()})`)}
+    ${upright(a, b, WALL_Y, 1.1, 0, "wall", `<div class="ads" style="left:${boardsAt}px">${boards}</div>`, `background-image:url(${concrete()})`)}
     ${upright(a, b, WALL_Y, 4.6, 1.1, "fence")}
     ${art}
     ${upright(a, b, PIT_WALL_Y, 1, 0, "wall pit-wall", "", `background-image:url(${concrete()})`)}
@@ -383,6 +388,19 @@ function glideTo(target, build) {
   glide = { raf: requestAnimationFrame(step) };
 }
 
+// The title bar's words (the row, the track) changed where it is: made afresh,
+// its entrance played again, and it blinked at every pair.
+function setTitle(walk, holder) {
+  const now = walk.querySelector(".gw-title"), fresh = holder.querySelector(".gw-title");
+  for (const k of ["t1", "t2", "t3"]) {
+    const a = now.querySelector(`.${k}`), b = fresh.querySelector(`.${k}`);
+    if (a && b) {
+      if (a.textContent !== b.textContent) a.textContent = b.textContent;
+    } else if (b) now.insertBefore(b, now.querySelector(".t3") || now.querySelector(".progress"));
+    else if (a) a.remove();
+  }
+}
+
 function rerender() {
   shownKey = sceneKey = "";
   render();
@@ -457,7 +475,7 @@ function render() {
     const holder = document.createElement("div");
     holder.innerHTML = walkHtml(g, pair, entries, classes, cfg, multiclass, target);
     const walk = stage.querySelector(".walk");
-    walk.querySelector(".gw-title").replaceWith(holder.querySelector(".gw-title"));
+    setTitle(walk, holder);
     const fresh = [...holder.querySelectorAll(".gw-info")];
     const old = [...walk.querySelectorAll(".gw-info:not(.leaving)")];
     fresh.forEach((p, i) => {
@@ -488,7 +506,7 @@ function render() {
   const panels = [...holder.querySelectorAll(".gw-info")];
   panels.forEach((p) => p.remove());
   const walk = stage.querySelector(".walk");
-  walk.querySelector(".gw-title").outerHTML = holder.querySelector(".gw-title").outerHTML;
+  setTitle(walk, holder);
   walk.classList.remove("still");
   glideTo(target, (from, to) => redrawScene($("#scene"), sceneHtml(from, to, g.index + 1, entries, cfg)));
   setTimeout(() => {

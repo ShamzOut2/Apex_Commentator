@@ -225,9 +225,10 @@ DEFAULTS = {
     # "Who's this": a board at the bottom centre for the driver on camera (driver.html).
     "driver": {**LOGO, 
         "visible": True,
-        # When the camera moves to someone: "delay" changes with the data delay
-        # (as everything else, for a stream that's behind too), "now" straight away.
-        "follow": "delay",
+        # When the camera moves to someone: "now" straight away, as the picture
+        # cuts (what it shows of them still from the data delay), or "delay"
+        # with the data delay.
+        "follow": "now",
         "show_tyre": True,        # the tyres on (dry white, wet blue)
         "hide_s": 8.0,            # seconds it stays up after the camera moves to someone (0 = while they're on camera)
         "stay": False,            # stay up for as long as the camera's on them (hide_s not used)

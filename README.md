@@ -110,52 +110,24 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**v1.0.3**
-
-### New features
-
-- Talking points on the Timing Screen: things worth saying now (a car
-  closing in, a lead changing hands, a first win on the cards, big movers).
-  Click one to put it on screen.
-- Catching overlay: the gap between two cars, lap by lap, how fast it's
-  closing and the laps until they're together.
-- Driver's season overlay: the driver on camera's championship place, points,
-  wins, podiums and last results, for a few seconds when the camera moves.
-- Head to head overlay: two drivers' seasons and today's race side by side.
-- Race recap board: biggest gainer, most overtakes, cleanest driver and a
-  lap-by-lap position chart.
-- Hotkeys for all of these.
-- Driver's season and head to head can show stats by class or overall (class
-  or overall wins, podiums, results and championship), whichever the league
-  scores. Switch on the Widgets card or with a hotkey.
+**Coming in the next update**
 
 ### Improvements
 
-- Boards: each sponsor logo can have its own size on each board ("Each
-  sponsor's size on this board"), on top of the sponsor's usual size.
-- Lap tracker: sector colours can be compared with the leader's lap (the
-  class leader's or the overall leader's), sector by sector.
+- Grid walk: moving to the next pair is smooth: the scenery, adverts and
+  title no longer flash, the cars of the last pair drive off rather than
+  fade where they stood, and drivers' cards close whole.
+- Overlays on your own screen fade out when taken off, rather than vanishing.
+- The car on camera (the tower's highlight, the camera buttons, the driver
+  on camera board) changes as the camera cuts; the race data keeps the delay.
 
 ### Fixes
 
-- Tower: with drivers shown as they finish lap 1, a driver towed to the pits on
-  lap 1 no longer shows up early (iRacing can count the tow as a lap done). They
-  appear once they cross the line under their own power.
-- Driver on camera: a team logo at a bigger logo size no longer pokes out of
-  the card. Logos that fit stay at the size set; only one that would stick out
-  is made just small enough to fit. The size found is remembered, so that logo
-  comes up at it straight away next time, and checked again if the overlay's
-  size, text size, font or logo size changes.
-- Grid walk: the car pictures no longer flash. A driver's details changing
-  (joining the track, a qualifying time) updates their panel in place instead
-  of drawing the cars and panels again, and moving on to the next pair keeps
-  the pictures already on screen.
-- Lap tracker: the small trackers show the drivers nearest the end of their lap,
-  not whoever started a lap first; one already up stays unless another is
-  clearly nearer the line.
-- Dual commentary: the co-commentator follows the host into every replay
-  (an incident, a rewind), not just the first. A replay jump or camera change
-  iRacing missed is done again within a couple of seconds.
+- After a pass for the lead, the gaps and P2's interval are right at once
+  (they showed 0.000 on the tower and below 0 on the Timing Screen until the
+  new leader crossed the line).
+- Opening lap: the Timing Screen's order no longer jumps about while the
+  field crosses the line (drivers flicking from 18th to 1st and back).
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -363,7 +335,11 @@ shows just the race log, or just the list with a few columns.
   name), and **Nicknames** by the names on or off. Next to the battle
   settings, kept for this PC.
 - **Delay**: how far behind iRacing the race shows, in the app and on every
-  overlay (1 s to start with; 0 = straight away; up to 10 s). Settings you
+  overlay (1 s to start with; 0 = straight away; up to 10 s): positions,
+  gaps, laps and everything else of the race, the tower and the Timing
+  Screen alike. It's a delay of the data, not of what's on screen: which car
+  is on camera is as it is now (the tower's car on camera, the camera
+  buttons, the driver on camera board changing driver), and settings you
   change still apply straight away.
 - **Replays**: while a replay is on screen during a race, the standings (the
   tower, the full screen, this list and the live championship standings)
@@ -1091,7 +1067,8 @@ cost to how smoothly things move.
     new one slides up, opening from the middle with a light sweep. It changes
     driver as the camera cuts on stream (readable in under a second), while
     what it shows of them (position, team…) keeps to the *Delay*, like the
-    rest of the race data.
+    rest of the race data. (*Changes to a new driver*: **As the camera cuts**,
+    the default, or **With the delay**, a second after the cut.)
   - **Card stays on screen for**: how many seconds it stays up (1 to 120).
     The time starts again with each new driver: switch to someone else
     before it runs out and their card replaces the last one for the full

@@ -11,6 +11,25 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Improvements
+
+- Grid walk: moving to the next pair is smooth: the scenery, adverts and
+  title no longer flash, the cars of the last pair drive off rather than
+  fade where they stood, and drivers' cards close whole.
+- Overlays on your own screen fade out when taken off, rather than vanishing.
+- The car on camera (the tower's highlight, the camera buttons, the driver
+  on camera board) changes as the camera cuts; the race data keeps the delay.
+
+### Fixes
+
+- After a pass for the lead, the gaps and P2's interval are right at once
+  (they showed 0.000 on the tower and below 0 on the Timing Screen until the
+  new leader crossed the line).
+- Opening lap: the Timing Screen's order no longer jumps about while the
+  field crosses the line (drivers flicking from 18th to 1st and back).
+
 ## v1.0.3
 
 ### New features

@@ -88,6 +88,7 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
   background: radial-gradient(closest-side, rgba(0, 0, 0, .62), rgba(0, 0, 0, .35) 60%, transparent);
 }
 .plane.wall { background-size: 128px 128px; box-shadow: inset 0 6px 0 #e9ebee, inset 0 -8px 10px rgba(0, 0, 0, .25); }
+.plane.wall { overflow: hidden; }
 .wall .ads { position: absolute; left: 0; right: 0; top: 7px; bottom: 5px; display: flex; gap: 0; }
 .wall .ads span {
   flex: none; width: 270px; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap;
@@ -139,7 +140,12 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
   to { opacity: 1; transform: none; }
 }
 .gw-car.depart > * { animation: car-depart .85s cubic-bezier(.5, 0, .75, .25) both; }
-@keyframes car-depart { to { opacity: 0; transform: translate(calc(var(--road-x, 1) * 1500px), calc(var(--road-y, 0) * 1500px)); } }
+/* The last pair drive off up the road, solid until they're nearly out of the
+   picture (fading where they stood, the road's paint showed through them). */
+@keyframes car-depart {
+  70% { opacity: 1; }
+  to { opacity: 0; transform: translate(calc(var(--road-x, 1) * 1500px), calc(var(--road-y, 0) * 1500px)); }
+}
 .road .shadow.arrive { animation: shadow-in .8s .7s ease-out both; }
 @keyframes shadow-in { from { opacity: 0; } }
 
@@ -186,11 +192,11 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
   to { transform: none; clip-path: inset(0 0 0 0 round 14px); }
 }
 @keyframes gw-card-out-front {
-  0%, 25% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 14px); }
+  0% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 14px); }
   100% { opacity: 0; transform: translateX(90px); clip-path: inset(0 0 0 100% round 14px); }
 }
 @keyframes gw-card-out-rear {
-  0%, 25% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 14px); }
+  0% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 14px); }
   100% { opacity: 0; transform: translateX(-90px); clip-path: inset(0 100% 0 0 round 14px); }
 }
 @keyframes gw-card-out {
@@ -206,7 +212,9 @@ body.preview { background: radial-gradient(circle at 30% 20%, #3a4350, #12151a 7
 .walk.still .gw-car > *, .walk.still .road .shadow { animation: none; }
 .gw-info.leaving, .stage.hidden .gw-info { animation: gw-card-out-front .6s cubic-bezier(.55, 0, .75, .1) both; }
 .gw-info.rear.leaving, .stage.hidden .gw-info.rear { animation-name: gw-card-out-rear; }
-.gw-info.leaving > *, .stage.hidden .gw-info > * { animation: gw-content-out .25s ease-in both; }
+/* Leaving, the card closes with its words still in it (they used to go first,
+   leaving an empty box on screen for a moment). */
+.gw-info.leaving > *, .stage.hidden .gw-info > * { animation: none; }
 .gw-info.leaving::after, .stage.hidden .gw-info::after { animation: none; opacity: 0; }
 
 .gw-info .pos {
@@ -245,3 +253,8 @@ body.desktop *, body.desktop *::before, body.desktop *::after { box-shadow: none
 .gw-info .name > .pronouns { margin-left: -6px; padding-top: .12em; }
 /* Class first: "P1 GT3" with the class name smaller beside the place. */
 .gw-info .pos .p .pc { font-size: .42em; font-weight: 800; letter-spacing: .04em; vertical-align: .35em; }
+
+/* Every texture (grass, kerbs, fence, road) laid from a fixed point on the
+   track, not from the edge of the stretch drawn: redrawn as the camera moves
+   on, they no longer jump. */
+.scene .plane, .scene .plane::after { background-position-x: var(--bgx, 0px); }
