@@ -20,6 +20,9 @@ How each version's entry is written:
 
 ### Fixes
 
+- Tower: with drivers shown as they finish lap 1, a driver towed to the pits on
+  lap 1 no longer shows up early (iRacing can count the tow as a lap done). They
+  appear once they cross the line under their own power.
 - Driver on camera: a team logo at a bigger logo size no longer pokes out of
   the card. Logos that fit stay at the size set; only one that would stick out
   is made just small enough to fit. The size found is remembered, so that logo

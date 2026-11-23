@@ -228,6 +228,7 @@ class TowWatch:
 
     def reset(self, key=None):
         self._key, self._last, self.towed = key, {}, {}
+        self.before = {}  # car -> laps it had completed under its own power when it was put there
 
     def update(self, key, racing, t, cars, track_m):
         """``cars``: {car: (laps + distance or -1, laps completed, in the world, in the pits)}.
@@ -254,9 +255,12 @@ class TowWatch:
                 reach = self.JUMP + max(0.0, t - lt) * self.TOP_SPEED / max(500.0, track_m or 4000.0)
                 away = not was_there and t - gone_at >= self.AWAY_S
                 if in_pits and (away or (was_there and p - lp > reach)):
-                    self.towed.setdefault(idx, done)
+                    if idx not in self.towed:
+                        self.towed[idx] = done
+                        self.before[idx] = last[2]  # as it last drove, before the tow
                 elif idx in self.towed and done > self.towed[idx]:
                     del self.towed[idx]  # over the line again under its own power: as it is
+                    self.before.pop(idx, None)
             self._last[idx] = (t, p, done, True, None)
 
 
@@ -388,6 +392,7 @@ class App:
         self._kept_grid = {}            # subsession: iRacing's grid (iRacing IDs), as kept on disk (_keep_grid)
         self.grids_dir = None           # where it's kept (data/grids; __main__)
         self._tows = TowWatch()         # cars towed or reset to the pits in the race on now (_watch_tows)
+        self._revealed = (None, set())  # (the race, cars shown on the tower in it so far): "reveal"
         self._lights = StartLights()     # the starting lights overlay (_watch_start)
         self._flags = SectorFlags()      # the flag overlay: yellow sectors (_watch_start)
         self._lights_now = None
@@ -1789,9 +1794,23 @@ class App:
         # field crosses the line at the end of lap 1.
         reveal = settings["standings"]["reveal"]
         started = frame.session_state >= STATE_RACING
+        # Who's been shown already this race: they stay, whatever happens to them after.
+        race_key = (self._session_meta.get("subsession"), frame.timeline()[0])
+        if self._revealed[0] != race_key:
+            self._revealed = (race_key, set())
+        revealed = self._revealed[1]
 
         def lap_done(r):
-            return started and (r["lap"] or 0) >= 2 and (r["laps_completed"] or 0) >= 1
+            # A car towed (or reset) to the pits isn't shown for it: iRacing can
+            # count the tow to a box just past the line as a lap done. It's
+            # shown once it's over the line under its own power.
+            if r["car_idx"] in revealed:
+                return True
+            towed_early = r.get("towed") and (self._tows.before.get(r["car_idx"]) or 0) < 1  # before its first lap was done
+            done = started and (r["lap"] or 0) >= 2 and (r["laps_completed"] or 0) >= 1 and not towed_early
+            if done:
+                revealed.add(r["car_idx"])
+            return done
 
         standings = []
         if is_race:
