@@ -4678,6 +4678,8 @@ class App:
                         if any(car["cls"] == k for car in cars)],
             "sectors": [round(x, 4) for x in self.laps.starts],
             "dec": [self.overlays.get()["general"]["race_decimals"], self.overlays.get()["general"]["qual_decimals"]],
+            # Who the fastest lap is marked for: as the tower's stopwatch is set.
+            "flfor": self.overlays.get()["standings"].get("fastest_icon_for", "classes"),
             "map": tmap["id"] if tmap else None,
             # The session clock of these figures (s): the page moves the cars on
             # the map between updates from it, however unevenly they arrive.

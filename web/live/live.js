@@ -126,6 +126,14 @@ $("#class-chips").addEventListener("click", (e) => {
 
 // -- the leaderboard ---------------------------------------------------------------------
 
+// The fastest lap in purple, as the app's tower marks it (flfor): each class's,
+// the overall one in All and the class's in a class ("view"), or the overall only.
+function holdsFl(c) {
+  const who = data.flfor || "overall";
+  if (who === "overall") return !!c.fl;
+  if (who === "view") return classFilter === "all" ? !!c.fl : !!c.cfl;
+  return !!(c.fl || c.cfl);
+}
 const visible = () => (data.cars || []).filter((c) => classFilter === "all" || c.cls === classFilter);
 // Places gained (+) or lost (−): overall, or within the class when one's picked.
 const gained = (c) => (classFilter === "all" ? c.pc : c.cpc);
@@ -173,7 +181,7 @@ function renderBoard() {
     ['<th class="r">Gap</th>', (c) => `<td class="r time">${gapCell(c, first)}</td>`],
     race() && shows("interval") && ['<th class="r wide">Int</th>', (c) => `<td class="r time muted wide">${c.out && !c.fin ? "" : c.int != null && c !== first ? `+${secs(c.int)}` : ""}</td>`],
     shows("last") && ['<th class="r wide">Last</th>', (c) => `<td class="r time muted wide">${fmtLap(c.last)}</td>`],
-    shows("best") && ['<th class="r">Best</th>', (c) => `<td class="r time ${c.fl ? "fl" : ""}">${fmtLap(c.best)}</td>`],
+    shows("best") && ['<th class="r">Best</th>', (c) => `<td class="r time ${holdsFl(c) ? "fl" : ""}">${fmtLap(c.best)}</td>`],
     shows("sectors") && [Array.from({ length: n }, (_, i) => `<th class="c wide">S${i + 1}</th>`).join(""), (c) => sectorsHtml(c, n)],
     shows("tyre") && ['<th class="c">Tyre</th>', (c) => `<td class="c">${tyre(c.tyre)}</td>`],
     shows("laps") && ['<th class="r wide">Laps</th>', (c) => `<td class="r muted wide">${c.laps ?? ""}</td>`],

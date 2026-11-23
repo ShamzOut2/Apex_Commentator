@@ -113,6 +113,9 @@ def build(league, board, settings, live_results=None):
            "banner": _banner(league, cfg), "sponsors": _sponsor_strip(league, cfg, settings.get("general") or {}), "settings": cfg, "accent": None, "group_logo": None,
            "league_logo": logo_url(league["id"], league.get("logo")) if cfg["league_logo"] and league.get("logo") else None}
     group = params.get("group") or championship.OVERALL
+    # Who the fastest lap is marked for (the tower's stopwatch setting, for every
+    # board and overlay alike): see _mark_fastest.
+    out["fastest_for"] = (settings.get("standings") or {}).get("fastest_icon_for", "classes")
     if kind in ("championship", "makes", "results", "qualifying", "grid", "recap"):
         name, color, logo = _group_info(league, group)
         out["subtitle"], out["accent"], out["group_logo"] = name, color, logo
@@ -212,6 +215,7 @@ def build(league, board, settings, live_results=None):
                 for row in rows:  # practice or qualifying: an order by best lap, not points
                     row.update(points=None, gained=None, gap=None)
             _gaps(rows, by_lap=live and not live_results["race"])
+            _mark_fastest(rows, rd["results"])
             if rd["id"] != "live":
                 n = champ["rounds"].index(rd) + 1
                 name = " · ".join(filter(None, [rd["event"], rd["name"]]))
@@ -230,6 +234,7 @@ def build(league, board, settings, live_results=None):
                                  number=r["car_number"], team_logo=team_logos.get((r["team"] or "").lower()),
                                  make_logo=make_logo(r["make"])))
             _gaps(rows, by_lap=True)
+            _mark_fastest(rows, rd["results"])
             out["title"] = live_results["name"].title()  # Qualifying, Lone Qualifying, Heat 1 Qualifying...
         out["rows"] = rows
     elif kind == "grid":
@@ -310,6 +315,23 @@ def build(league, board, settings, live_results=None):
 
 def _class_color(league, class_id):
     return next((c["color"] for c in league.get("classes", []) if c["id"] == class_id), None)
+
+
+def _mark_fastest(rows, results):
+    """``fl_overall`` / ``fl_class`` on each row: the session's fastest lap of
+    all (whatever classes the board shows), the fastest in its class. The board
+    lights one or the other as the stopwatch setting says (fastest_for)."""
+    timed = [r for r in results if r.get("fastest_lap") and r.get("status") not in ("dsq", "dns")]
+    best = min((r["fastest_lap"] for r in timed), default=None)
+    by_class = {}
+    for r in timed:
+        k = r.get("class_id")
+        by_class[k] = min(by_class.get(k, r["fastest_lap"]), r["fastest_lap"])
+    for row in rows:
+        t = row.get("fastest_lap")
+        ok = bool(t) and row.get("status") not in ("dsq", "dns")
+        row["fl_overall"] = ok and t == best
+        row["fl_class"] = ok and t == by_class.get(row.get("class_id"))
 
 
 def _gaps(rows, by_lap=False):

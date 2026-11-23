@@ -117,14 +117,18 @@ starting grid", "Clear all penalties"…).
 - Widgets tab: each card folds away to its title and Show / Hide (Fold all /
   Open all too), and the cards close up around folded ones.
 - Fastest lap stopwatch: choose who gets it: each class's fastest (by class
-  and overall), as the list shows, or the overall fastest only.
+  and overall), as the list shows, or the overall fastest only. The Timing
+  Screen, the live timing website and the finishing order and qualifying
+  boards mark the fastest lap the same way.
 
 ### Improvements
 
 - Track map: fades in when it comes on screen.
+- Track details board: the name, pills and weather cards come in one after
+  another, the wind needle swings round, the outline draws itself and the
+  start line pops in; they go out in turn too.
 - Tower sponsor bar: opens and closes under the header rather than popping
   in and out.
-
 - Grid walk: moving to the next pair is smooth: the scenery, adverts and
   title no longer flash, the cars of the last pair drive off rather than
   fade where they stood, and drivers' cards close whole.
@@ -134,6 +138,8 @@ starting grid", "Clear all penalties"…).
 
 ### Fixes
 
+- Boards no longer skip their entrance when their figures change as they come
+  in (the track details board's never played).
 - After a pass for the lead, the gaps and P2's interval are right at once
   (they showed 0.000 on the tower and below 0 on the Timing Screen until the
   new leader crossed the line).
@@ -886,7 +892,11 @@ cost to how smoothly things move.
     stopwatch*: **each class's fastest**, by class and in the overall list too
     (one for every class in a multiclass race; the default); **each class's
     fastest by class, the overall fastest overall** (as the list shows); or
-    **the overall fastest only**. Per league, like every widget setting.
+    **the overall fastest only**. Per league, like every widget setting. It
+    goes for every fastest lap shown in purple: the tower and its full screen,
+    the Timing Screen's best laps, the live timing website and the finishing
+    order and qualifying boards (an overall board as the overall list, a
+    class's board as by class).
   - **New fastest lap flash**: when someone sets a new fastest lap, a purple
     pill appears at the top middle of the screen with a stopwatch. It says
     "NEW FASTEST LAP" for about two seconds, then shows the driver and the lap

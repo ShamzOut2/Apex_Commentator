@@ -545,6 +545,19 @@ function standingsView(s) {
     && (settings.keepLeft || !r.left));
   const race = isRace(s);
   const fastest = Math.min(...rows.map((r) => r.best_lap || Infinity));
+  // The best lap in purple, as the tower's stopwatch is set: each class's
+  // fastest, the overall one in All and the class's in a class ("view"), or
+  // the overall fastest only (the session's, whichever class is picked).
+  const all = (s.drivers || []).filter((r) => !r.hidden && r.best_lap > 0);
+  const overallBest = Math.min(...all.map((r) => r.best_lap), Infinity);
+  const classBest = {};
+  for (const r of all) classBest[r.class_key] = Math.min(classBest[r.class_key] ?? Infinity, r.best_lap);
+  const flFor = (((s.overlays || {}).settings || {}).standings || {}).fastest_icon_for || "classes";
+  const purple = (r) => {
+    if (!(r.best_lap > 0)) return false;
+    const ov = r.best_lap === overallBest, cl = r.best_lap === classBest[r.class_key];
+    return flFor === "overall" ? ov : flFor === "view" ? (ui.classFilter === "all" ? ov : cl) : ov || cl;
+  };
   const leaderGap = rows.length ? rows[0].gap : null;
   let prev = null;
   return rows.map((r) => {
@@ -556,7 +569,7 @@ function standingsView(s) {
       if (prev && prev.gap != null) int = Math.max(0, r.gap - prev.gap);
     }
     const down = race ? (ui.classFilter === "all" ? r.laps_down : r.class_laps_down) || 0 : 0;
-    const v = { r, gap, int, down, fastestLap: isFinite(fastest) && r.best_lap === fastest, fastest };
+    const v = { r, gap, int, down, fastestLap: isFinite(fastest) && r.best_lap === fastest, fastest, purple: purple(r) };
     prev = r;
     return v;
   });
@@ -654,7 +667,7 @@ function renderStandings(s) {
       // Within the battle gap of the car ahead: just this cell lit up.
       [int, `c-time ${battles.has(r.car_idx) ? "battle-cell" : ""}`],
       [fmtLap(r.last_lap), "c-time col-wide"],
-      [fmtLap(r.best_lap), `c-time col-wide ${v.fastestLap ? "best" : ""}`],
+      [fmtLap(r.best_lap), `c-time col-wide ${v.purple ? "best" : ""}`],
       [r.pit_stops ? String(r.pit_stops) : "", "col-wide"],
       [r.on_pit ? "PIT" : r.stint != null ? String(r.stint) : "", "c-num"],
       [tyreIcon(r.tyre), "c-tyre"],
