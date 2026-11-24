@@ -11,6 +11,12 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## Unreleased
+
+### Fixes
+
+- Widgets tab, Show / Hide and hotkeys keep working when one part of the app fails to load; the fault goes to apex.log.
+
 ## v1.0.5
 
 ### Improvements

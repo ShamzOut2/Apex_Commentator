@@ -110,14 +110,11 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**v1.0.5**
+**Coming in the next update**
 
-### Improvements
+### Fixes
 
-- Widgets tab: back to cards packed down each column, so a folded card leaves
-  no gap under it.
-- Teams: each team's other leagues fold into one line ("Also in 2 of 6
-  leagues"); open it to change them.
+- Widgets tab, Show / Hide and hotkeys keep working when one part of the app fails to load; the fault goes to apex.log.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->

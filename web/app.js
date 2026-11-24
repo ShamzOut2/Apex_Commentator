@@ -73,6 +73,28 @@ function saveSettings() {
 // live data stream
 // ---------------------------------------------------------------------------
 
+// Started once this script has run, even if a later part of it fails, so the
+// page still gets the app's state (Show / Hide, settings, hotkeys).
+setTimeout(connectStream, 0);
+
+// A part of the page that fails to draw is written to apex.log and skipped,
+// rather than stopping the rest of the page from being drawn.
+const failedParts = new Set();
+function safely(part, draw) {
+  try {
+    draw();
+  } catch (e) {
+    if (failedParts.has(part)) return;
+    failedParts.add(part);
+    console.error(e);
+    try {
+      fetch("/api/client_error", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+        body: JSON.stringify({ page: location.pathname + location.search, message: `${part}: ${e && e.message ? e.message : e}`,
+          source: "app.js", line: 0, stack: String((e && e.stack) || "").slice(0, 3000) }) }).catch(() => {});
+    } catch (err) { /* nowhere to send it */ }
+  }
+}
+
 function connectStream() {
   liveStream((snap) => {
     ui.snap = snap;
@@ -81,7 +103,7 @@ function connectStream() {
     if (ui.version && ui.snap.version && ui.snap.version !== ui.version) return location.reload();
     ui.version = ui.version || ui.snap.version;
     $(".brand").title = `Apex Commentator v${ui.snap.version}`;
-    render();
+    safely("render", render);
   }, () => {
     $("#status-dot").classList.remove("on");
     $("#session-line").textContent = "Overlay server not reachable, retrying…";
@@ -238,15 +260,15 @@ function render() {
   // The app's saved keys win; a window with keys the app hasn't saved yet (from
   // before they were kept there) hands them over once.
   const savedKeys = s.hotkeys && s.hotkeys.saved;
-  if (savedKeys) adoptHotkeys(s);
+  if (savedKeys) safely("adoptHotkeys", () => adoptHotkeys(s));
   if (!hotkeysSent && s.camera) {
     hotkeysSent = true;
     if (!savedKeys) sendHotkeys();  // this window's keys, once the cameras are known
   }
   $("#status-dot").classList.toggle("on", !!s.connected);
-  renderDual(s.remote);
-  renderLive(s.spectate);
-  renderLiveForm(s);
+  safely("renderDual", () => renderDual(s.remote));
+  safely("renderLive", () => renderLive(s.spectate));
+  safely("renderLiveForm", () => renderLiveForm(s));
   if (s.data_delay_s != null && document.activeElement !== $("#data-delay")) $("#data-delay").value = s.data_delay_s;
   const general = s.overlays && s.overlays.settings && s.overlays.settings.general;
   if (general && document.activeElement !== $("#timing-decimals")) $("#timing-decimals").value = String(general.race_decimals);
@@ -257,19 +279,19 @@ function render() {
   lb.classList.toggle("active", !off.on && !!league);
   lb.classList.toggle("muted", off.on || !league);
   $("#officials-badge").classList.toggle("active", !!off.on);
-  renderGridwalk(s);
-  renderHome(s);
-  renderUpdates(s.update);
-  renderResultsAuto(s.results_auto);
-  renderOverlaySettings(s);
-  renderBattlePick(s);
-  renderStrategyPick(s);
-  renderInsightPicks(s);
-  renderTalking(s);
-  renderRaceControl(s);
-  renderChampLive(s);
-  renderBoards(s);
-  renderDesktop(s);
+  safely("renderGridwalk", () => renderGridwalk(s));
+  safely("renderHome", () => renderHome(s));
+  safely("renderUpdates", () => renderUpdates(s.update));
+  safely("renderResultsAuto", () => renderResultsAuto(s.results_auto));
+  safely("renderOverlaySettings", () => renderOverlaySettings(s));
+  safely("renderBattlePick", () => renderBattlePick(s));
+  safely("renderStrategyPick", () => renderStrategyPick(s));
+  safely("renderInsightPicks", () => renderInsightPicks(s));
+  safely("renderTalking", () => renderTalking(s));
+  safely("renderRaceControl", () => renderRaceControl(s));
+  safely("renderChampLive", () => renderChampLive(s));
+  safely("renderBoards", () => renderBoards(s));
+  safely("renderDesktop", () => renderDesktop(s));
 
   if (!s.connected) {
     $("#session-line").textContent = s.source === "iracing" ? "Waiting for iRacing…" : "Not connected";
@@ -278,7 +300,7 @@ function render() {
     $("#standings-rows").innerHTML = "";
     secondList().innerHTML = "";
     rowEls.clear();
-    updateBattleHints();
+    safely("updateBattleHints", () => updateBattleHints());
     $("#standings-empty").hidden = false;
     $("#log-status").textContent = "";
     return;
@@ -305,10 +327,10 @@ function render() {
   }
   $("#btn-live").classList.toggle("on-air", !!s.replay.live);
 
-  renderCamButtons(s.camera);
-  renderStandings(s);
-  renderLog(s);
-  renderReplayData(s);
+  safely("renderCamButtons", () => renderCamButtons(s.camera));
+  safely("renderStandings", () => renderStandings(s));
+  safely("renderLog", () => renderLog(s));
+  safely("renderReplayData", () => renderReplayData(s));
 }
 
 // What iRacing sends for the cars during a replay (set, or found by the app),
@@ -6747,7 +6769,6 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !$("#update-modal").hidden) closeUpdate();
 });
 
-connectStream();
 checkForUpdate();
 
 // A drop-down (⚙ View) closes when you click anywhere else.
