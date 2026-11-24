@@ -494,7 +494,10 @@ kbd {
 .team-fields input.narrow { width: 80px; }
 .team-fields input[type=color] { width: 40px; height: 30px; padding: 0; border: none; background: none; }
 .team-members .chip { display: inline-flex; align-items: center; gap: 4px; }
-.team-shared { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.team-shared-box { margin-top: 8px; }
+.team-shared-box > summary { cursor: pointer; font-size: 12px; color: var(--muted); user-select: none; }
+.team-shared-box > summary:hover { color: var(--text); }
+.team-shared { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
 .team-shared .chip { cursor: pointer; }
 .chip .clear { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0 2px; }
 .chip .clear:hover { color: var(--bad); }
@@ -806,9 +809,21 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .wfold:hover { border-color: var(--line); color: var(--text); }
 .wcard.folded .wfold { transform: rotate(-90deg); }
 .wcard.folded > :not(h4):not(.wmain) { display: none; }
-/* Folded, a card keeps to its own height at the top of its row (not stretched
-   to an open card beside it): the row below starts under the tallest. */
-.wcards > .wcard.folded { align-self: start; }
+/* Open, a card takes a row of its own, its settings laid across it in
+   columns; folded cards pack the rows (gaps filled), so folding saves room. */
+.wcards { grid-auto-flow: row dense; }
+.wcards > .wcard[data-widget]:not(.folded) { grid-column: 1 / -1; }
+.wcards > .wcard[data-widget]:not(.folded) > .wmain { max-width: 340px; }
+.wcards > .wcard[data-widget]:not(.folded) > .wq {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); column-gap: 28px; row-gap: 6px; align-items: center;
+}
+.wcards > .wcard[data-widget]:not(.folded) > .wbtns.small { max-width: 640px; }
+/* The Everything card: one row across the bottom, its buttons side by side. */
+.wcards > .wcard.misc { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.wcards > .wcard.misc > h4 { flex: none; }
+.wcards > .wcard.misc .wbtn.danger { width: auto; padding: 9px 22px; }
+.wcards > .wcard.misc > .wbtns.small > * { flex-basis: auto; }
+.wcards > .wcard.misc > .desk-help { margin: 0 0 0 auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .wfold-all { gap: 6px; }
 .wcard h4 .wlink ~ .wfold { margin-left: 4px; }
 .wcard {

@@ -4601,17 +4601,9 @@ function renderWidgets(s) {
     return key === "gridwalk" ? !!gw.visible : key === "fastest" ? !!st.standings.fl_flash : !!(st[key] && st[key].visible);
   };
   const moving = cards.some((card) => card.dataset.widget && card.classList.contains("on") !== isOn(card));
-  const before = moving && wcardsShown() ? new Map(cards.map((c) => [c, c.getBoundingClientRect()])) : null;
-  for (const card of cards) if (card.dataset.widget) card.classList.toggle("on", isOn(card));
-  if (before) {
-    for (const card of cards) {
-      const a = before.get(card), b = card.getBoundingClientRect();
-      const dx = a.left - b.left, dy = a.top - b.top;
-      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-        card.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 380, easing: "cubic-bezier(.2, .8, .2, 1)" });
-      }
-    }
-  }
+  const apply = () => { for (const card of cards) if (card.dataset.widget) card.classList.toggle("on", isOn(card)); };
+  if (moving) glideCards(apply);
+  else apply();
   $("#wgw-state").textContent = gw.visible ? (gw.running ? "on air" : "paused") : "";
   // The flag card: a button for each sector (lit while it's yellow), and what's showing.
   const fl = s.overlays.flags;
@@ -4830,8 +4822,9 @@ for (const [attr, on] of [["wshow", true], ["whide", false]]) {
 
 // Each widget card folds away to its title and its Show / Hide (a click on
 // the title, or its ▾), kept on this PC; Fold all / Open all at the top.
-// Cards in a row are as tall as the tallest of them (lined up), and the ones
-// on screen come first (renderWidgets).
+// Folded cards pack into rows; an open card takes a row of its own, its
+// settings across it (no gaps beside or under it). The ones on screen come
+// first (renderWidgets).
 const WFOLD = "apex.widgetsFolded";
 const wcards = $("#tab-widgets .wcards");
 let wfolded = new Set();
@@ -4864,7 +4857,7 @@ wcards.addEventListener("click", (e) => {
   // The title or its ▾ (not another button in the title, like the Grid walk tab link).
   if (!head || (e.target.closest("button, a, select, input") && !e.target.closest(".wfold"))) return;
   const card = head.closest(".wcard");
-  foldCard(card, !card.classList.contains("folded"));
+  glideCards(() => foldCard(card, !card.classList.contains("folded")));
   saveFolds();
 });
 const foldBar = document.createElement("span");
@@ -4875,9 +4868,25 @@ $("#tab-widgets .teams-head [data-open-hotkeys]").before(foldBar);
 foldBar.addEventListener("click", (e) => {
   const b = e.target.closest("[data-fold-all]");
   if (!b) return;
-  for (const card of wcards.querySelectorAll(".wcard[data-widget]")) foldCard(card, b.dataset.foldAll === "1");
+  glideCards(() => { for (const card of wcards.querySelectorAll(".wcard[data-widget]")) foldCard(card, b.dataset.foldAll === "1"); });
   saveFolds();
 });
+// The cards move to their new places (folded, opened, switched on or off)
+// gliding there rather than jumping (``change`` makes the change).
+function glideCards(change) {
+  const cards = [...document.querySelectorAll("#tab-widgets .wcards > .wcard")];
+  const before = wcardsShown() ? new Map(cards.map((c) => [c, c.getBoundingClientRect()])) : null;
+  change();
+  if (!before) return;
+  for (const card of cards) {
+    const a = before.get(card), b = card.getBoundingClientRect();
+    const dx = a.left - b.left, dy = a.top - b.top;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      card.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 380, easing: "cubic-bezier(.2, .8, .2, 1)" });
+    }
+  }
+}
+
 // The cards are in view (the Widgets tab, or its pop-out): only then do they glide.
 function wcardsShown() {
   const grid = document.querySelector("#tab-widgets .wcards");
@@ -5760,6 +5769,10 @@ async function openLeague(id) {
   for (const sel of document.querySelectorAll(".league-picker")) sel.value = league.id;
 }
 
+// Each team's "Also in" list folds to a count; which are open is kept while
+// the page is redrawn.
+const teamShareOpen = new Set();
+
 function renderTeams() {
   const cards = $("#team-cards");
   if (!ui.editing) {
@@ -5806,19 +5819,28 @@ function renderTeams() {
         <option value="">+ Add driver…</option>
         ${others.map(([d, j]) => `<option value="${j}">${label(d)}${d.team ? ` (${esc(d.team)})` : ""}</option>`).join("")}
       </select>
-      ${otherLeagues.length ? `<div class="team-shared"><span class="hint" title="Tick a league to put the team, and its drivers who race there too, in that league as well (drivers who join it later are put in the team by themselves). ✕ takes the team out of that league.">Also in:</span>
+      ${otherLeagues.length ? `<details class="team-shared-box" data-team-name="${esc(t.name)}" ${teamShareOpen.has(t.name) ? "open" : ""}>
+        <summary title="The other leagues this team is in (open to change)">Also in ${(t.shared || []).filter((id) => otherLeagues.some((l) => l.id === id)).length} of ${otherLeagues.length} leagues</summary>
+        <div class="team-shared"><span class="hint" title="Tick a league to put the team, and its drivers who race there too, in that league as well (drivers who join it later are put in the team by themselves). ✕ takes the team out of that league.">Tick to add:</span>
         ${otherLeagues.map((l) => {
     const on = (t.shared || []).includes(l.id);
     return `<label class="chip ${on ? "active" : ""}" title="${on ? `Untick: stop keeping ${esc(l.name)}'s copy in step` : `Tick: put the team in ${esc(l.name)} too`}">
           <input type="checkbox" data-team-share="${i}" value="${esc(l.id)}" ${on ? "checked" : ""} hidden>${esc(l.name)}${on
     ? `<button class="clear" data-team-remove-from="${esc(l.id)}" data-team-i="${i}" title="Take ${esc(t.name)} out of ${esc(l.name)}">✕</button>` : ""}</label>`;
-  }).join("")}</div>` : ""}
+  }).join("")}</div></details>` : ""}
     </div>`;
   }).join("") : '<p class="hint">No teams yet: add one, or fill in the Team column in the League builder roster.</p>';
   const free = drivers.map((d, j) => [d, j]).filter(([d]) => !String(d.team || "").trim());
   $("#team-free").innerHTML = free.length ? free.map(([d]) => `<span class="chip">${label(d)}</span>`).join("")
     : '<span class="hint">Everyone is in a team.</span>';
 }
+
+document.addEventListener("toggle", (e) => {
+  const box = e.target;
+  if (!box.classList || !box.classList.contains("team-shared-box")) return;
+  if (box.open) teamShareOpen.add(box.dataset.teamName);
+  else teamShareOpen.delete(box.dataset.teamName);
+}, true);
 
 document.querySelectorAll(".league-picker").forEach((sel) => sel.addEventListener("change", (e) => {
   if (!e.target.value) return;

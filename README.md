@@ -110,42 +110,14 @@ starting grid", "Clear all penalties"…).
 ## What's new
 
 <!-- whats-new:start -->
-**v1.0.4**
-
-### New features
-
-- Widgets tab: each card folds away to its title and Show / Hide (Fold all /
-  Open all too), and the widgets on screen come first, so the ones in use sit
-  together at the top.
-- Fastest lap stopwatch: choose who gets it: each class's fastest (by class
-  and overall), as the list shows, or the overall fastest only. The Timing
-  Screen, the live timing website and the finishing order and qualifying
-  boards mark the fastest lap the same way.
+**Coming in the next update**
 
 ### Improvements
 
-- Track map: fades in when it comes on screen.
-- Track details board: the name, pills and weather cards come in one after
-  another, the wind needle swings round, the outline draws itself and the
-  start line pops in; they go out in turn too.
-- Tower sponsor bar: opens and closes under the header rather than popping
-  in and out.
-- Grid walk: moving to the next pair is smooth: the scenery, adverts and
-  title no longer flash, the cars of the last pair drive off rather than
-  fade where they stood, and drivers' cards close whole.
-- Overlays on your own screen fade out when taken off, rather than vanishing.
-- The car on camera (the tower's highlight, the camera buttons, the driver
-  on camera board) changes as the camera cuts; the race data keeps the delay.
-
-### Fixes
-
-- Boards no longer skip their entrance when their figures change as they come
-  in (the track details board's never played).
-- After a pass for the lead, the gaps and P2's interval are right at once
-  (they showed 0.000 on the tower and below 0 on the Timing Screen until the
-  new leader crossed the line).
-- Opening lap: the Timing Screen's order no longer jumps about while the
-  field crosses the line (drivers flicking from 18th to 1st and back).
+- Widgets tab: folded cards pack into rows with no gaps; an open card takes a
+  row of its own with its settings across it.
+- Teams: each team's other leagues fold into one line ("Also in 2 of 6
+  leagues"); open it to change them.
 
 Every version's notes: [CHANGELOG.md](CHANGELOG.md).
 <!-- whats-new:end -->
@@ -657,9 +629,9 @@ button, a live preview and its settings; the **Widgets** tab turns them on and o
 On the Widgets tab each card folds away to its title and its Show / Hide
 (click its title or its ▾; **Fold all** / **Open all** at the top), kept on
 this PC, so only the ones in use are open. The widgets on screen come first
-(switching one on or off, the cards glide to their new places), and the
-rows line up: the next row starts below the tallest card (a folded card keeps
-to its own height). Add each one as a *Browser Source* at 1920×1080 (the
+(switching one on or off, the cards glide to their new places). Folded cards
+pack into rows; an open card takes a row of its own with its settings across
+it, so nothing leaves a gap and the boards stay close. Add each one as a *Browser Source* at 1920×1080 (the
 background is transparent). Settings changed in the tab show on stream
 straight away and are kept in `data/overlays.json`. **Each league has its
 own**: picking a league in the League builder brings in its widget settings
@@ -1206,7 +1178,8 @@ Add drivers to a team from the drop-down, or take them out with ✕. The roster'
 league. The roster also has a **Driver #** column, for leagues that give
 drivers their own number; the lap tracker can show it.
 
-**Teams in more than one league.** Under each team, **Also in** lists your
+**Teams in more than one league.** Under each team, **Also in** (folded to
+one line, "Also in 2 of 6 leagues": click it to open) lists your
 other leagues: tick the ones the team races in too, then **Save**. The team
 (name, short name, colour and logo) is copied into those leagues, and its
 drivers who are in them too (the same iRacing customer ID, or the same name
