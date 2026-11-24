@@ -1987,6 +1987,50 @@ function fmtPts(v) {
   return v == null ? "" : Number.isInteger(v) ? String(v) : v.toFixed(1);
 }
 
+// Which championships the standings show, when a league has categories in its
+// car classes (LMP2 · Pro...): a car class (and one of its championships), or all.
+const champView = { car: "all", cat: "all" };
+
+function champPicker(groups) {
+  if (!groups.some((g) => g.car_class && g.category)) return { html: "", shown: groups, teams: true };
+  const cars = [];
+  for (const g of groups) {
+    const id = g.key === "overall" ? "overall" : g.car_class ? g.car_class : g.category ? `field:${g.key}` : null;
+    if (id && !cars.some((c) => c.id === id)) {
+      const whole = groups.find((x) => x.key === g.car_class);
+      const name = g.key === "overall" ? "Overall" : g.car_class ? (whole ? whole.name : g.name.split(" · ")[0]) : g.name;
+      cars.push({ id, name, color: g.color });
+    }
+  }
+  if (!cars.some((c) => c.id === champView.car)) champView.car = "all";
+  const inCar = champView.car.startsWith("field:") || champView.car === "overall" ? [] : groups.filter((g) => g.car_class === champView.car);
+  const cats = inCar.filter((g) => g.category).map((g) => ({ id: g.category, name: g.name.split(" · ").slice(1).join(" · ") || g.name }));
+  if (champView.cat !== "all" && champView.cat !== "whole" && !cats.some((c) => c.id === champView.cat)) champView.cat = "all";
+  const pill = (attr, id, on, label, color) => `<button class="chip ${on ? "active" : ""}" ${attr}="${esc(id)}">${color ? `<span class="swatch" style="background:${esc(color)}"></span>` : ""}${esc(label)}</button>`;
+  const html = `<div class="champ-picker">
+      <div class="row">${pill("data-champ-car", "all", champView.car === "all", "All")}${cars.map((c) => pill("data-champ-car", c.id, champView.car === c.id, c.name, c.color)).join("")}</div>
+      ${cats.length ? `<div class="row">${pill("data-champ-cat", "all", champView.cat === "all", "All of them")}${inCar.some((g) => !g.category) ? pill("data-champ-cat", "whole", champView.cat === "whole", "Whole class") : ""}${cats.map((c) => pill("data-champ-cat", c.id, champView.cat === c.id, c.name)).join("")}</div>` : ""}
+    </div>`;
+  let shown = groups;
+  if (champView.car === "overall") shown = groups.filter((g) => g.key === "overall");
+  else if (champView.car.startsWith("field:")) shown = groups.filter((g) => g.key === champView.car.slice(6));
+  else if (champView.car !== "all") {
+    shown = inCar.filter((g) => champView.cat === "all" || (champView.cat === "whole" ? !g.category : g.category === champView.cat));
+  }
+  return { html, shown, teams: champView.car === "all" };
+}
+
+$("#champ-standings").addEventListener("click", (e) => {
+  const car = e.target.closest("[data-champ-car]");
+  const cat = e.target.closest("[data-champ-cat]");
+  if (!car && !cat) return;
+  if (car) {
+    champView.car = car.dataset.champCar;
+    champView.cat = "all";
+  } else champView.cat = cat.dataset.champCat;
+  renderChampStandings();
+});
+
 function renderChampStandings() {
   const st = champ.standings;
   const box = $("#champ-standings");
@@ -2012,8 +2056,9 @@ function renderChampStandings() {
     : rules.scoring === "sum" ? "Each driver's points are their class points plus their overall points, added up; each table ranks those totals. Bonuses count once."
       : "";
   const anySecondary = st.groups.some((g) => g.secondary);
-  box.innerHTML = (help ? `<p class="hint">${help}</p>` : "") + st.groups.map((g) => `<div class="champ-group">
-      ${g.key || st.groups.length > 1 ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}${g.secondary ? ' <span class="badge">SECONDARY CLASS</span>' : ""}${both || anySecondary ? ` <span class="hint">${esc(g.basis)}</span>` : ""}</div>` : ""}
+  const pick = champPicker(st.groups);
+  box.innerHTML = (help ? `<p class="hint">${help}</p>` : "") + pick.html + pick.shown.map((g) => `<div class="champ-group">
+      ${g.key || st.groups.length > 1 ? `<div class="champ-group-head" style="--cls:${esc(g.color || "#8b93a3")}">${esc(g.name)}${g.secondary ? ' <span class="badge">CATEGORY</span>' : ""}${both || anySecondary ? ` <span class="hint">${esc(g.basis)}</span>` : ""}</div>` : ""}
       <div class="table-scroll"><table class="grid champ-table standings-table">
         <thead><tr><th class="c-num">Pos</th><th>Driver</th><th>Team</th>${head}${anyPen ? '<th class="c-num" title="Penalty points taken off">Pen</th>' : ""}${anyLicence ? '<th class="c-num" title="Licence points">Lic</th>' : ""}<th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
         <tbody>${g.drivers.map((d) => `<tr>
@@ -2032,7 +2077,7 @@ function renderChampStandings() {
           <td class="c-num sub">${d.behind ? `−${fmtPts(d.behind)}` : ""}</td>
         </tr>`).join("")}</tbody>
       </table></div>
-    </div>`).join("") + (st.teams.length ? `<div class="champ-group">
+    </div>`).join("") + (st.teams.length && pick.teams ? `<div class="champ-group">
       <div class="champ-group-head">Teams${teamBasis}</div>
       <div class="table-scroll"><table class="grid champ-table"><thead><tr><th class="c-num">Pos</th><th>Team</th><th>Drivers</th>${head}<th class="c-num">Wins</th>${teamPen ? '<th class="c-num" title="Penalty points taken off">Pen</th>' : ""}<th class="c-num">Points</th><th class="c-num">Gap</th></tr></thead>
       <tbody>${st.teams.map((t) => `<tr><td class="c-num"><b>${t.pos}</b></td><td>${esc(t.team)}</td>
@@ -2357,9 +2402,9 @@ function classPointsFields(r) {
   if (!scored.length) return "";
   const own = r.class_points || {};
   return `<details class="wide class-points" ${Object.keys(own).length ? "open" : ""}><summary>Different points for a class</summary>
-    <p class="hint">Leave a class empty to use the points for each finishing position above. Secondary classes rank their
-      drivers by where they finished among each other.</p>
-    <div class="class-points-grid">${scored.map((c) => `<label class="ov-field">${esc(c.name || "Unnamed")}${isSecondary(c) ? " (secondary)" : ""}
+    <p class="hint">Leave a class empty to use the points for each finishing position above. Categories rank their
+      drivers by where they finished among each other (in each car class, for one scored in each), on their own table here.</p>
+    <div class="class-points-grid">${scored.map((c) => `<label class="ov-field">${esc(c.name || "Unnamed")}${isSecondary(c) ? " (category)" : ""}
       <input data-class-points="${esc(c.id)}" value="${esc((own[c.id] || []).join(", "))}" placeholder="Same as above"></label>`).join("")}</div>
   </details>`;
 }
@@ -2369,13 +2414,37 @@ function secondaryScoringFields(r) {
   const sec = ((ui.editing && ui.editing.classes) || []).filter(isSecondary);
   if (!sec.length) return "";
   const how = r.secondary_scoring || {};
-  return `<div class="wide secondary-scoring"><h3 class="section-title">Secondary classes</h3>
-    <div class="class-points-grid">${sec.map((c) => `<label class="ov-field">${esc(c.name || "Unnamed")} scores
-      <select data-secondary-scoring="${esc(c.id)}">${[["own", "On where its drivers finish among each other"],
-        ["class", "The points its drivers score in their own class"], ["overall", "The points its drivers score overall"]]
+  return `<div class="wide secondary-scoring"><h3 class="section-title">Category points come from</h3>
+    <div class="class-points-grid">${sec.map((c) => `<label class="ov-field">${esc(c.name || "Unnamed")}${c.scope === "class" ? " (in each car class)" : ""}
+      <select data-secondary-scoring="${esc(c.id)}">${[["own", "Finishing order in the category (recommended)"],
+        ["class", "Their car class points"], ["overall", "Their overall points"]]
         .map(([v, l]) => `<option value="${v}" ${(how[c.id] || "own") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>`).join("")}</div>
-    <p class="hint">A driver in a secondary class scores in it as well as in their main class (and overall), each on its
-      own points. "Among each other" uses the class's own points table above, or the class points.</p></div>`;
+    <p class="hint">A driver in a category scores in it as well as in their car class (and overall), each on its own points.
+      <b>Finishing order in the category</b>: the first Pro home in LMP2 scores the winner's points, even if 3rd in LMP2.
+      <b>Their car class points</b>: a Pro 3rd in LMP2 scores LMP2's 3rd place points in the Pro table.</p></div>`;
+}
+
+// Which championships the league runs: a tick for each car class's own, each
+// category's in it, and each category for the whole field (rules.hidden: off).
+function championshipGrid(r) {
+  const classes = (ui.editing && ui.editing.classes) || [];
+  const mains = classes.filter((c) => !isSecondary(c));
+  const cats = classes.filter(isSecondary);
+  if (!mains.length && !cats.length) return "";
+  const perClass = cats.filter((c) => c.scope === "class");
+  const field = cats.filter((c) => c.scope !== "class");
+  const hasClass = (r.scoring || "class") !== "overall";
+  const off = new Set(r.hidden || []);
+  const tick = (key, label) => `<label class="check champ-tick" title="${esc(label)}"><input type="checkbox" data-champ-on="${esc(key)}" ${off.has(key) ? "" : "checked"} aria-label="${esc(label)}"></label>`;
+  return `<div class="wide champ-grid-box"><h3 class="section-title">Which championships run</h3>
+    <table class="grid champ-grid"><thead><tr><th></th><th>Whole class</th>${perClass.map((c) => `<th>${esc(c.name || "Unnamed")}</th>`).join("")}</tr></thead>
+    <tbody>${mains.map((m) => `<tr><th><span class="swatch" style="background:${esc(m.color)}"></span>${esc(m.name || "Unnamed")}</th>
+      <td>${hasClass ? tick(m.id, `${m.name} championship`) : '<span class="sub" title="Only an overall championship is scored">—</span>'}</td>
+      ${perClass.map((c) => `<td>${!c.in || !c.in.length || c.in.includes(m.id) ? tick(`${m.id}/${c.id}`, `${m.name} · ${c.name}`) : '<span class="sub" title="Not in this car class (Classes tab)">—</span>'}</td>`).join("")}</tr>`).join("")}</tbody></table>
+    ${field.length ? `<div class="row">${field.map((c) => `<label class="check"><input type="checkbox" data-champ-on="${esc(c.id)}" ${off.has(c.id) ? "" : "checked"}> ${esc(c.name || "Unnamed")} (whole field)</label>`).join("")}</div>` : ""}
+    <p class="hint">Untick one to leave it out of the standings, boards and overlays (its drivers still score in the others).
+      Car classes, categories and who's in each are set in the League builder (Classes and Drivers). Results already in are
+      scored again to whatever is set here.</p></div>`;
 }
 
 function renderChampRules() {
@@ -2392,7 +2461,7 @@ function renderChampRules() {
       <div class="champ-kind ${hasClass ? "on" : ""}">
         <label class="check"><input type="checkbox" data-champ-kind="class" ${hasClass ? "checked" : ""}> <b>Class championships</b>
           <span class="hint">a championship for each class, scored on class finishing positions</span></label>
-        ${hasClass || secondary ? `<label class="ov-field">${hasClass ? "Class points" : "Points for the secondary classes"} (1st, 2nd, 3rd… in class)
+        ${hasClass || secondary ? `<label class="ov-field">${hasClass ? "Class points" : "Points for the categories"} (1st, 2nd, 3rd… in class)
           <input data-rule="points" value="${esc((r.points || []).join(", "))}"></label>` : ""}
       </div>
       <div class="champ-kind ${hasOverall ? "on" : ""}">
@@ -2407,6 +2476,7 @@ function renderChampRules() {
           `<option value="${v}" ${scoring === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
       <p class="hint">${esc(SCORING_HELP[scoring])}</p>
     </div>
+    ${championshipGrid(r)}
     ${classPointsFields(r)}
     ${secondaryScoringFields(r)}
     <label class="ov-field wide">Qualifying points (pole, 2nd, 3rd…; leave empty for none). Uses the starting grid.
@@ -2459,7 +2529,7 @@ function champChange(e, final) {
   let rerender = false;
   // Points & rules (and which round is Live) are saved as they're changed:
   // the standings, boards and overlays use them straight away.
-  const isRule = !!(d.champKind || d.rule || d.teamCount != null || d.secondaryScoring || d.classPoints || d.bonus || d.liveRound
+  const isRule = !!(d.champKind || d.champOn || d.rule || d.teamCount != null || d.secondaryScoring || d.classPoints || d.bonus || d.liveRound
     || (d.scheme != null && d.skey));
   if (d.champKind) {
     // Class and / or overall championships (at least one).
@@ -2495,6 +2565,14 @@ function champChange(e, final) {
     // All the team's drivers (team_best 0), or its best N (2 to start with).
     if (!final) return;
     c.rules.team_best = el.value === "best" ? (c.rules.team_best || 2) : 0;
+    rerender = true;
+  } else if (d.champOn) {
+    // A championship run or not (rules.hidden).
+    if (!final) return;
+    const off = new Set(c.rules.hidden || []);
+    if (el.checked) off.delete(d.champOn);
+    else off.add(d.champOn);
+    c.rules.hidden = [...off];
     rerender = true;
   } else if (d.secondaryScoring) {
     if (!final) return;
@@ -3243,10 +3321,12 @@ const OVERLAY_FIELDS = {
       iff((v) => v.show_number, ["color_number", "Car number on a coloured background (off: just the number)", "bool"]),
       under("color_number", iff((v) => (v.show_number && v.color_number) || (v.show_stripe && (v.stripe_colors || "same") === "same"),
         ["class_colors", "Car number background colour from", "select", [["main", "The driver's main class"],
-        ["secondary", "The driver's secondary class"], ["team", "The driver's team colour (their main class's if the team has none)"]]])),
+        ["secondary", "The driver's category"], ["team", "The driver's team colour (their main class's if the team has none)"]]])),
       ["show_stripe", "Coloured bar by each driver", "bool"],
       iff((v) => v.show_stripe, ["stripe_colors", "Coloured bar's colour from", "select", [["same", "The same as the car number"],
-        ["main", "The driver's main class"], ["secondary", "The driver's secondary class"], ["team", "The driver's team colour"]]]),
+        ["main", "The driver's main class"], ["secondary", "The driver's category"], ["team", "The driver's team colour"]]]),
+      ["category_tag", "Driver's category (Pro, Semi-Pro…)", "select", [["off", "Not shown"], ["tag", "A tag after the name (PRO)"],
+        ["bar", "A bar in its colour before the name"]]],
       ["show_team", "Team names (a column of their own)", "bool"],
       iff((v) => v.show_team, ["team_name_place", "Team name on the tower", "select", [["under", "Under the driver's name"],
         ["column", "In its own column, after the driver's name"]]]),
@@ -3360,7 +3440,7 @@ const OVERLAY_FIELDS = {
         ["class", "In class only (P1, the class under it)"], ["both", "Both (P3, and P1 GT3 under it)"],
         ["class_both", "Both, class first (P1 GT3, and P3 overall under it)"]]]),
       iff((v) => v.show_position && v.position_shown !== "overall", ["pos_class_name", "Class name with the class position (P1 GT3; off: just P1)", "bool"]),
-      ["class_colors", "Car number (and card accent) colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
+      ["class_colors", "Car number (and card accent) colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's category"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
       ["show_number", "Car number", "bool"],
       ["show_class", "Class badge by the name", "bool"],
       ["show_team", "Team name", "bool"],
@@ -3397,7 +3477,7 @@ const OVERLAY_FIELDS = {
       ["show_number", "Car number", "bool"],
       ["show_team", "Team name", "bool"],
       ["show_logo", "Team logo", "bool"],
-      ["class_colors", "Car number (and card accent) colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
+      ["class_colors", "Car number (and card accent) colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's category"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
     ]],
     OVERLAY_LOOK,
   ],
@@ -3491,7 +3571,7 @@ const OVERLAY_FIELDS = {
       ["show_position", "Position", "bool"],
       iff((v) => v.show_position, ["position_shown", "Position shown", "select", [["overall", "Overall"], ["class", "In class"]]]),
       ["show_number", "Car numbers", "bool"],
-      ["class_colors", "Car number and lap scale colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
+      ["class_colors", "Car number and lap scale colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's category"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
       ["show_logo", "Team logos", "bool"],
       ["show_stops", "Number of stops", "bool"],
       ["show_stint", "Laps on the current stint", "bool"],
@@ -3531,7 +3611,7 @@ const OVERLAY_FIELDS = {
       ["place", "Where", "select", [["top-left", "Top left"], ["top", "Top (centre)"], ["top-right", "Top right"], ["left", "Left (middle)"],
         ["right", "Right (middle)"], ["bottom-left", "Bottom left"], ["bottom", "Bottom (centre)"], ["bottom-right", "Bottom right"]]],
       ["map_size", "Size (px across)", "number", { min: 150, max: 1400, step: 10 }],
-      ["colors", "Each car's dot in", "select", [["main", "Their main class colour"], ["secondary", "Their secondary class colour"]]],
+      ["colors", "Each car's dot in", "select", [["main", "Their main class colour"], ["secondary", "Their category colour"]]],
       ["labels", "On the dots", "select", [["none", "Nothing"], ["number", "Car number"], ["position", "Position"]]],
       ["dot_size", "Dot size (%)", "number", { min: 40, max: 250, step: 5 }],
       ["camera", "The car on camera bigger, with a white ring", "bool"],
@@ -3567,7 +3647,7 @@ const OVERLAY_FIELDS = {
       iff((v) => v.show_position, ["position_shown", "Position shown", "select", [["overall", "Overall (P3)"],
         ["class", "In class only (P1, the class under it)"], ["both", "Both (P3, and P1 GT3 under it)"]]]),
       iff((v) => v.show_position && v.position_shown !== "overall", ["pos_class_name", "Class name with the class position (P1 GT3; off: just P1)", "bool"]),
-      ["class_colors", "Car number (and card accent) colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's secondary class"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
+      ["class_colors", "Car number (and card accent) colour from", "select", [["main", "The driver's main class"], ["secondary", "The driver's category"], ["team", "The driver's team colour (their main class's if the team has none)"]]],
       ["show_number", "Car number", "bool"],
       ["show_team", "Team", "bool"],
       iff((v) => v.show_team, ["show_logo", "Team logo", "bool"]),
@@ -4339,7 +4419,7 @@ const WIDGETS = [
   { key: "h2h", name: "Head to head", page: "h2h",
     about: "Two drivers you pick, side by side: their seasons, how often each finished ahead of the other and, in a session, today's places and laps and the gap between them." },
   { key: "trackmap", name: "Track map", page: "trackmap",
-    about: "The track's outline with no background and a dot for every car where it is, in its main or secondary class colour (the live timing website's map)." },
+    about: "The track's outline with no background and a dot for every car where it is, in its car class or category colour (the live timing website's map)." },
   { key: "lights", name: "Starting lights", page: "lights",
     about: "Red lights counting down to the start, one by one, then lights out at the green. Only on screen as a race is about to start: from iRacing's start lights, the leader's run to the line on a rolling start, or the Count down button." },
   { key: "flags", name: "Flags", page: "flags",
@@ -4366,7 +4446,7 @@ const WS_TAB_OF = Object.fromEntries(Object.entries({
   Position: ["scale", "offset_x", "offset_y", "width", "name_width", "panel_width", "map_size", "place", "card_scale", "size",
     "grid_size", "grid_fill", "grid_layout"],
   Look: ["font", "solid_colors", "accent", "accent_color", "accent_practice", "accent_qualify", "accent_race", "class_colors",
-    "stripe_colors", "show_stripe", "color_number", "team_logo_kind", "logo_scale", "col_opacity_on", "col_bg_color", "col_opacity",
+    "stripe_colors", "show_stripe", "category_tag", "color_number", "team_logo_kind", "logo_scale", "col_opacity_on", "col_bg_color", "col_opacity",
     "flag_black_bg_color", "flag_meatball_bg_color", "flag_warning_bg_color", "invalid_text_color", "invalid_sector_color",
     "invalid_line_color", "track_color", "track_width", "dot_size", "colors", "camera", "background", "bg", "podium", "title_wrap",
     "show_color"],
@@ -5301,6 +5381,14 @@ showPage(POPOUT || (() => {
 // league builder
 // ---------------------------------------------------------------------------
 
+// The archive (leagues whose championship has ended), open or folded.
+let leagueArchiveOpen = false;
+
+function fmtEnded(at) {
+  const d = new Date(at);
+  return isNaN(d) ? String(at || "").slice(0, 10) : d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
 async function loadLeagues() {
   try {
     if (!ui.libraryLoaded) {
@@ -5309,13 +5397,20 @@ async function loadLeagues() {
     }
     const { leagues, active } = await api("/api/leagues");
     ui.activeLeague = active;
-    $("#league-list").innerHTML = leagues.length ? leagues.map((l) => `
-      <li data-league="${esc(l.id)}" class="${ui.editing && ui.editing.id === l.id ? "selected" : ""}">
-        <div><div>${esc(l.name)} ${l.active ? '<span class="badge live">ACTIVE</span>' : ""}</div>
-        <div class="meta">${l.drivers} drivers${l.classes ? ` · ${l.classes} classes` : ""}${l.league_id ? ` · ID ${l.league_id}` : ""}</div></div>
+    const item = (l) => `
+      <li data-league="${esc(l.id)}" class="${ui.editing && ui.editing.id === l.id ? "selected" : ""} ${l.ended ? "ended" : ""}">
+        <div><div>${l.ended ? '<span title="Championship ended">🏁</span> ' : ""}${esc(l.name)} ${l.active ? '<span class="badge live">ACTIVE</span>' : ""}</div>
+        <div class="meta">${l.ended ? `Ended ${esc(fmtEnded(l.ended.at))} · ` : ""}${l.drivers} drivers${l.classes ? ` · ${l.classes} classes` : ""}${l.league_id ? ` · ID ${l.league_id}` : ""}</div></div>
         <button class="btn icon" data-duplicate="${esc(l.id)}" title="Duplicate: a copy of this league (drivers, classes, teams, championship, images) to change">⧉</button>
         <button class="btn icon danger" data-delete="${esc(l.id)}" title="Delete">✕</button>
-      </li>`).join("") : '<li class="meta">No saved leagues yet</li>';
+      </li>`;
+    const running = leagues.filter((l) => !l.ended);
+    const archived = leagues.filter((l) => l.ended);
+    if (ui.editing && archived.some((l) => l.id === ui.editing.id)) leagueArchiveOpen = true;
+    $("#league-list").innerHTML = (running.length ? running.map(item).join("") : `<li class="meta">${archived.length ? "No running leagues" : "No saved leagues yet"}</li>`)
+      + (archived.length ? `<li class="archive-head"><button class="btn subtle" data-archive-toggle aria-expanded="${leagueArchiveOpen}"
+          title="Leagues whose championship has ended: locked, kept to look back on and to copy settings from">${leagueArchiveOpen ? "▾" : "▸"} Archive
+          <span class="count">${archived.length}</span></button></li>${leagueArchiveOpen ? archived.map(item).join("") : ""}` : "");
   } catch (e) {
     toast(e.message, true);
   }
@@ -5340,7 +5435,75 @@ function openEditor(profile) {
   renderChampionship();
   loadChampStandings();
   document.querySelectorAll("#league-list li").forEach((li) => li.classList.toggle("selected", li.dataset.league === profile.id));
+  lockEditor(profile);
 }
+
+// A league whose championship has ended is locked: its tabs can be looked
+// through but not changed (the app refuses changes too), until it's reopened.
+function lockEditor(profile) {
+  const ended = !!(profile && profile.ended);
+  const ed = $("#league-editor");
+  ed.classList.toggle("locked", ended);
+  ed.querySelectorAll(".ltab").forEach((p) => { p.inert = ended; });
+  $("#edit-name").disabled = ended;
+  $("#btn-end-league").hidden = ended || !profile.id;
+  $("#btn-copy-settings").disabled = ended;
+  const banner = $("#league-ended");
+  banner.hidden = !ended;
+  banner.innerHTML = ended ? `<span>🏁 <b>Championship ended</b> ${esc(fmtEnded(profile.ended.at))}. It's locked as it ended (results,
+      standings, drivers and settings) and kept in the Archive. Its standings can still go on the boards, and other leagues can
+      copy its settings.</span>
+    <span class="row"><button class="btn" data-league-next>Start the next season from it</button>
+      <button class="btn subtle" data-league-reopen title="Unlock it to change it again">Reopen</button></span>` : "";
+}
+
+$("#league-ended").addEventListener("click", async (e) => {
+  const p = ui.editing;
+  if (!p || !p.id) return;
+  try {
+    if (e.target.closest("[data-league-reopen]")) {
+      if (!confirm(`Reopen ${p.name}? It's unlocked and back with the running leagues.`)) return;
+      const r = await api(`/api/leagues/${encodeURIComponent(p.id)}/reopen`, { method: "POST", body: {} });
+      openEditor(r.league);
+      await loadLeagues();
+      return toast(`${r.league.name} reopened`);
+    }
+    if (e.target.closest("[data-league-next]")) {
+      const name = prompt("Name of the new season's league", p.name.replace(/\d+(?!.*\d)/, (n) => String(+n + 1)) === p.name ? `${p.name} (next season)` : p.name.replace(/\d+(?!.*\d)/, (n) => String(+n + 1)));
+      if (!name) return;
+      const r = await api(`/api/leagues/${encodeURIComponent(p.id)}/duplicate`, { method: "POST", body: { name } });
+      // The new season: everything but last season's results and penalties.
+      const next = r.league;
+      next.championship = next.championship || {};
+      next.championship.rounds = (next.championship.rounds || []).map((rd) => ({ ...rd, results: [], session: "" }));
+      next.championship.penalties = [];
+      next.championship.live_round = "";
+      const saved = await api("/api/leagues", { method: "POST", body: next });
+      await loadLeagues();
+      openEditor(saved.league);
+      return toast(`Made ${saved.league.name}: the same drivers, classes, teams and rules, no results yet`);
+    }
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
+$("#btn-end-league").addEventListener("click", async () => {
+  const p = ui.editing;
+  if (!p || !p.id) return;
+  if (!confirm(`End ${p.name}'s championship? It's locked as it stands (results, standings, drivers and settings) and moved `
+    + "to the Archive. You can still look at it, show its standings and copy its settings, and reopen it if you need to.")) return;
+  try {
+    if (editorUnsaved()) await saveEditor();
+    const r = await api(`/api/leagues/${encodeURIComponent(p.id)}/end`, { method: "POST", body: {} });
+    leagueArchiveOpen = true;
+    openEditor(r.league);
+    await loadLeagues();
+    toast(`${r.league.name}'s championship has ended: it's in the Archive`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
 
 // The league editor's tabs (Drivers, Classes, Logos...), the last one used remembered.
 const LEAGUE_TAB = "apex.leagueTab";
@@ -5365,6 +5528,12 @@ try {
 function isSecondary(c) {
   return c.role === "secondary";
 }
+
+// Drivers ticked in the list (to set their category together), and the
+// "No category" filter. Ticks are the driver objects, so sorting keeps them.
+let rosterTicks = new Set();
+let rosterNoCat = false;
+let rosterLastTick = null;
 
 const ROSTER_FIELDS = [["name", ""], ["cust_id", "c-id"], ["car_number", "c-num"], ["driver_number", "c-num"], ["nickname", ""], ["pronouns", "c-pron"], ["team", ""], ["notes", ""]];
 
@@ -5447,12 +5616,27 @@ function renderRoster() {
     th.title = th.title.replace(/ \(click to sort.*$/, "") + " (click to sort)";
   });
   const raced = new Set(allResults().map((r) => r.driver));
-  $("#roster-rows").innerHTML = rosterOrder(drivers, classes).map(([d, i]) => `<tr>${ROSTER_FIELDS.map(([f]) =>
+  rosterTicks = new Set([...rosterTicks].filter((d) => drivers.includes(d)));
+  const noCat = (d) => !second.some((c) => c.id === d.class2_id);
+  if (!second.length) rosterNoCat = false;
+  const shown = rosterOrder(drivers, classes).filter(([d]) => !rosterNoCat || noCat(d));
+  const tagged = second.some((c) => c.name_tag);
+  const missing = second.length ? drivers.filter(noCat).length : 0;
+  $("#roster-tools").innerHTML = (second.length ? `<button class="chip ${rosterNoCat ? "active" : ""}" data-roster-nocat
+      title="Only the drivers with no category yet">No category <span class="count">${missing}</span></button>` : "")
+    + (rosterTicks.size ? `<div class="roster-bulk"><b>${rosterTicks.size} ticked</b>
+      ${second.length ? `<span class="label">Set category:</span>${second.map((c) => `<button class="btn subtle" data-bulk-cat="${esc(c.id)}">${esc(c.name || "Unnamed")}</button>`).join("")}
+        <button class="btn subtle" data-bulk-cat="${tagged ? "-" : ""}">None</button>`
+        : '<span class="label">Add categories (Pro, Am…) in the Classes tab to set them for these drivers together.</span>'}
+      <button class="btn subtle" data-bulk-untick>Untick all</button>
+      <span class="label">Shift-click to tick a run of drivers</span></div>` : "");
+  $("#roster-tick-all").checked = !!shown.length && shown.every(([d]) => rosterTicks.has(d));
+  $("#roster-rows").innerHTML = shown.map(([d, i]) => `<tr class="${rosterTicks.has(d) ? "ticked" : ""}"><td class="c-tick"><input type="checkbox" data-tick="${i}" ${rosterTicks.has(d) ? "checked" : ""} aria-label="Tick ${esc(d.name || "driver")}"></td>${ROSTER_FIELDS.map(([f]) =>
     f === "team" && raced.has(driverKey(d))
       ? `<td><div class="team-cell"><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"><button class="btn subtle icon" data-team-history="${i}" title="Teams by race: which team each of their races counts for">⇄</button></div></td>`
       : `<td><input data-row="${i}" data-field="${f}" value="${esc(d[f] ?? "")}" aria-label="${f}"${f === "pronouns" ? ' placeholder="e.g. she/her"' : ""}></td>`).join("")}
-    <td><select data-row="${i}" data-field="class_id" aria-label="Class"><option value="">Auto (by car)</option><option value="-" ${d.class_id === "-" ? "selected" : ""} title="No main class: just the secondary class, if any">—</option>${options(main, d.class_id || "")}</select></td>
-    <td class="c-class2"><select data-row="${i}" data-field="class2_id" aria-label="Secondary class"><option value="">—</option>${options(second, d.class2_id || "")}</select></td>
+    <td><select data-row="${i}" data-field="class_id" aria-label="Class"><option value="">Auto (by car)</option><option value="-" ${d.class_id === "-" ? "selected" : ""} title="No car class: just the category, if any">—</option>${options(main, d.class_id || "")}</select></td>
+    <td class="c-class2"><select data-row="${i}" data-field="class2_id" aria-label="Category"><option value="" title="${tagged ? "By the tag in front of their name, if it's a category's name tag" : "No category"}">${tagged ? "Auto (name tag)" : "—"}</option>${tagged ? `<option value="-" ${d.class2_id === "-" ? "selected" : ""} title="No category, whatever their name tag">None</option>` : ""}${options(second, d.class2_id || "")}</select></td>
     <td class="make-cell">${makeBadge(d.car_make)}<select data-row="${i}" data-field="car_make" aria-label="Car">${makeOptions(d.car_make || "")}</select></td>
     <td><div class="photos">${["car", "helmet"].map((kind) => photoButton(d, i, kind)).join("")}</div></td>
     <td><button class="btn icon danger" data-remove="${i}" title="Remove">✕</button></td></tr>`).join("");
@@ -6163,22 +6347,26 @@ function previewClass(c) {
 function renderClasses() {
   const classes = ui.editing.classes;
   $("#ltab-classes").textContent = classes.length || "";
-  $("#class-list").innerHTML = classes.length ? classes.map((c, i) => {
+  const cardHtml = (c, i) => {
     const mode = c.logo_bg === "keep" ? "keep" : /^#/.test(c.logo_bg || "") ? "pick" : "auto";
     return `<div class="class-card ${isSecondary(c) ? "secondary" : ""}" data-class="${i}">
       <div class="class-preview"></div>
       <div class="class-fields">
         <label>Name <input data-cfield="name" value="${esc(c.name)}" placeholder="e.g. Pro"></label>
         <label>Colour <input type="color" data-cfield="color" value="${esc(c.color)}"></label>
-        <label title="Main: shown on the overlays. Secondary: picked by hand, only for its own championship">Kind
+        <label title="Car class: shown on the overlays, joined by the car. Category: Pro, Semi-Pro, Rookie…, picked per driver, for its own championships">Kind
           <select data-cfield="role">
-            <option value="main" ${isSecondary(c) ? "" : "selected"}>Main class (on the overlays)</option>
-            <option value="secondary" ${isSecondary(c) ? "selected" : ""}>Secondary class (own championship only)</option>
+            <option value="main" ${isSecondary(c) ? "" : "selected"}>Car class (on the overlays)</option>
+            <option value="secondary" ${isSecondary(c) ? "selected" : ""}>Category (Pro, Am…: points)</option>
           </select></label>
-        ${isSecondary(c) ? '<span class="grow hint">Give drivers this class in the Drivers list\'s <i>2nd class</i> column.</span>'
+        ${isSecondary(c) ? `<label title="Its short name on the tower (when the tower shows categories)">Short tag
+            <input data-cfield="tag" value="${esc(c.tag || "")}" placeholder="${esc((c.name || "").slice(0, 4).toUpperCase() || "PRO")}" maxlength="6" class="short"></label>
+          <label class="grow" title="Drivers whose name starts with this tag, e.g. (P) Dave Price, are put in it without picking (leave empty to pick by hand)">Name tag (optional)
+            <input data-cfield="name_tag" value="${esc(c.name_tag ? `(${c.name_tag})` : "")}" placeholder="e.g. (P)" maxlength="10" class="short"></label>`
           : `<label class="grow">iRacing classes <input data-cfield="match" value="${esc((c.match || []).join(", "))}" placeholder="e.g. GT3, GT4 (optional)"></label>`}
         <button class="btn icon danger" data-remove-class="${i}" title="Remove class">✕</button>
       </div>
+      ${isSecondary(c) ? categoryScopeHtml(c, i) : ""}
       <div class="class-fields">
         <span class="field-label">Logo</span>
         <select data-cfield="library" aria-label="Logo from library">
@@ -6202,8 +6390,54 @@ function renderClasses() {
         <span class="detected hint"></span>
       </div>
     </div>`;
-  }).join("") : '<p class="hint">No classes yet: drivers are grouped by their iRacing car class.</p>';
+  };
+  const list = classes.map((c, i) => [c, i]);
+  const mains = list.filter(([c]) => !isSecondary(c));
+  const cats = list.filter(([c]) => isSecondary(c));
+  $("#class-list").innerHTML = `
+    <div class="class-section-head"><h3 class="section-title">Car classes</h3>
+      <span class="hint">What the overlays show. Drivers join one by the car they drive (iRacing classes), a name tag, or by hand.</span></div>
+    ${mains.length ? mains.map(([c, i]) => cardHtml(c, i)).join("") : '<p class="hint">No car classes yet: drivers are grouped by their iRacing car class.</p>'}
+    <div class="row"><button class="btn subtle" data-add-class="main">+ Add car class</button></div>
+    <div class="class-section-head"><h3 class="section-title">Categories</h3>
+      <span class="hint">Pro, Semi-Pro, Am, Rookie… set once, picked per driver (Drivers list, <i>Category</i>). Each has a
+        championship of its own in every car class (LMP2 · Pro, GT3 · Pro), or one for the whole field.</span></div>
+    ${cats.map(([c, i]) => cardHtml(c, i)).join("")}
+    <div class="row"><button class="btn subtle" data-add-class="secondary">+ Add category</button>
+      ${cats.length ? "" : `<button class="btn subtle" data-class-preset="pro-sp" title="Adds Pro and Semi-Pro, each scored in every car class">Pro / Semi-Pro</button>
+      <button class="btn subtle" data-class-preset="pro-am" title="Adds Pro and Am, each scored in every car class">Pro / Am</button>`}</div>
+    ${championshipsSummary(classes)}`;
   classes.forEach((_, i) => renderClassPreview(i));
+}
+
+// A category's championships: one in each car class (those ticked), or one for the whole field.
+function categoryScopeHtml(c, i) {
+  const mains = (ui.editing.classes || []).filter((x) => !isSecondary(x));
+  const perClass = c.scope === "class";
+  const inside = c.in || [];
+  return `<div class="class-fields category-scope">
+    <span class="field-label">Championship</span>
+    <span class="seg" role="group" aria-label="Its championship">
+      <button type="button" class="${perClass ? "active" : ""}" data-cscope="class" data-class-i="${i}">One per car class</button>
+      <button type="button" class="${perClass ? "" : "active"}" data-cscope="field" data-class-i="${i}">One for the whole field</button></span>
+    ${perClass && mains.length ? `<span class="hint">in</span>${mains.map((m) => `<label class="check chip-check"><input type="checkbox" data-cfield="in" data-main="${esc(m.id)}"
+      ${!inside.length || inside.includes(m.id) ? "checked" : ""}> ${esc(m.name || "Unnamed")}</label>`).join("")}` : ""}
+  </div>`;
+}
+
+// The championships the classes and categories make (which run is ticked under Season & points).
+function championshipsSummary(classes) {
+  const mains = classes.filter((c) => !isSecondary(c));
+  const cats = classes.filter(isSecondary);
+  if (!cats.length) return "";
+  const names = [];
+  for (const m of mains) {
+    for (const c of cats) if (c.scope === "class" && (!(c.in || []).length || c.in.includes(m.id))) names.push(`${m.name || "Unnamed"} · ${c.name || "Unnamed"}`);
+  }
+  for (const c of cats) if (c.scope !== "class" || !mains.length) names.push(`${c.name || "Unnamed"} (whole field)`);
+  return `<div class="champ-summary"><b>Championships these make</b>${mains.length ? ` <span class="hint">(and ${mains.map((m) => esc(m.name || "Unnamed")).join(", ")} as a whole)</span>` : ""}
+    <div class="row">${names.map((n) => `<span class="chip">${esc(n)}</span>`).join("")}</div>
+    <span class="hint">Turn any of them off under <i>Season &amp; points</i>. Results already in are scored again to these.</span></div>`;
 }
 
 const previewTimers = {};
@@ -6239,9 +6473,25 @@ $("#class-list").addEventListener("input", (e) => {
   const i = +card.dataset.class;
   const c = ui.editing.classes[i];
   const v = e.target.value;
+  if (field === "in") {
+    // The car classes a category is scored in (all ticked: all of them, new ones too).
+    const ticked = [...card.querySelectorAll('[data-cfield="in"]')].filter((b) => b.checked).map((b) => b.dataset.main);
+    if (!ticked.length) {
+      e.target.checked = true;
+      return toast("A category needs at least one car class (or one for the whole field)", true);
+    }
+    const all = (ui.editing.classes || []).filter((x) => !isSecondary(x)).length;
+    c.in = ticked.length === all ? [] : ticked;
+    return renderClasses();
+  }
+  if (field === "name_tag") {
+    c.name_tag = v.replace(/[()]/g, "").trim();
+    return;
+  }
   if (field === "role") {
     // Drivers picked for it move to the matching column.
     c.role = v;
+    if (v === "secondary" && !c.scope) c.scope = "class";
     const [from, to] = v === "secondary" ? ["class_id", "class2_id"] : ["class2_id", "class_id"];
     (ui.editing.drivers || []).forEach((d) => {
       if (d[from] === c.id) {
@@ -6301,6 +6551,23 @@ $("#class-list").addEventListener("change", async (e) => {
 });
 
 $("#class-list").addEventListener("click", (e) => {
+  const scope = e.target.closest("[data-cscope]");
+  if (scope) {
+    ui.editing.classes[+scope.dataset.classI].scope = scope.dataset.cscope;
+    return renderClasses();
+  }
+  const add = e.target.closest("[data-add-class]");
+  if (add) return addClass(add.dataset.addClass);
+  const preset = e.target.closest("[data-class-preset]");
+  if (preset) {
+    const pairs = preset.dataset.classPreset === "pro-am"
+      ? [["Pro", "PRO", "P", "#e8eaef"], ["Am", "AM", "AM", "#8d95a6"]]
+      : [["Pro", "PRO", "P", "#e8eaef"], ["Semi-Pro", "SP", "SP", "#8d95a6"]];
+    for (const [name, tag, nameTag, color] of pairs) addClass("secondary", { name, tag, name_tag: nameTag, color }, false);
+    renderClasses();
+    renderRoster();
+    return toast("Categories added: pick each driver's in the Drivers list (or use name tags)");
+  }
   const rm = e.target.closest("[data-remove-class]");
   if (rm) {
     const [removed] = ui.editing.classes.splice(+rm.dataset.removeClass, 1);
@@ -6319,15 +6586,24 @@ $("#class-list").addEventListener("click", (e) => {
   }
 });
 
-$("#btn-add-class").addEventListener("click", () => {
+// A new car class (role "main") or category ("secondary": scored in each car class to start with).
+function addClass(role, fields = {}, render = true) {
   const used = new Set(ui.editing.classes.map((c) => c.color));
   const color = CLASS_PALETTE.find((c) => !used.has(c)) || CLASS_PALETTE[ui.editing.classes.length % CLASS_PALETTE.length];
   // Client-side id so roster picks work before the first save.
-  ui.editing.classes.push({ id: `class-${Date.now().toString(36)}`, name: "", color, match: [], logo: null, logo_bg: "auto", logo_tolerance: 18, logo_fill: "edges", role: "main" });
+  const c = { id: `class-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: "", color, match: [], logo: null,
+    logo_bg: "auto", logo_tolerance: 18, logo_fill: "edges", role,
+    ...(role === "secondary" ? { scope: "class", in: [], tag: "", name_tag: "" } : {}), ...fields };
+  // Car classes before the categories (the order the standings list them in).
+  const at = role === "main" ? ui.editing.classes.findIndex(isSecondary) : -1;
+  if (at >= 0) ui.editing.classes.splice(at, 0, c);
+  else ui.editing.classes.push(c);
+  if (!render) return;
   renderClasses();
   renderRoster();
-  $("#class-list .class-card:last-child input").focus();
-});
+  const card = document.querySelector(`.class-card[data-class="${ui.editing.classes.indexOf(c)}"] input`);
+  if (card) card.focus();
+}
 
 function readEditor() {
   const p = ui.editing;
@@ -6392,6 +6668,21 @@ $("#roster-rows").addEventListener("change", async (e) => {
   }
 });
 $("#roster-rows").addEventListener("click", (e) => {
+  const tick = e.target.closest("[data-tick]");
+  if (tick) {
+    // Shift-click: every driver between this one and the last ticked, as this one.
+    const order = [...document.querySelectorAll("#roster-rows [data-tick]")].map((b) => +b.dataset.tick);
+    const here = order.indexOf(+tick.dataset.tick);
+    const from = e.shiftKey && rosterLastTick != null ? order.indexOf(rosterLastTick) : -1;
+    const span = from >= 0 ? order.slice(Math.min(from, here), Math.max(from, here) + 1) : [+tick.dataset.tick];
+    for (const i of span) {
+      const d = ui.editing.drivers[i];
+      if (tick.checked) rosterTicks.add(d);
+      else rosterTicks.delete(d);
+    }
+    rosterLastTick = +tick.dataset.tick;
+    return renderRoster();
+  }
   const history = e.target.closest("[data-team-history]");
   if (history) return teamHistory(ui.editing.drivers[+history.dataset.teamHistory]);
   const clearPhoto = e.target.closest("[data-clear-photo]");
@@ -6403,6 +6694,34 @@ $("#roster-rows").addEventListener("click", (e) => {
   if (rm) {
     ui.editing.drivers.splice(+rm.dataset.remove, 1);
     renderRoster();
+  }
+});
+$("#roster-tick-all").addEventListener("change", (e) => {
+  const shown = [...document.querySelectorAll("#roster-rows [data-tick]")].map((b) => ui.editing.drivers[+b.dataset.tick]);
+  for (const d of shown) {
+    if (e.target.checked) rosterTicks.add(d);
+    else rosterTicks.delete(d);
+  }
+  renderRoster();
+});
+$("#roster-tools").addEventListener("click", (e) => {
+  if (e.target.closest("[data-roster-nocat]")) {
+    rosterNoCat = !rosterNoCat;
+    return renderRoster();
+  }
+  if (e.target.closest("[data-bulk-untick]")) {
+    rosterTicks.clear();
+    return renderRoster();
+  }
+  const cat = e.target.closest("[data-bulk-cat]");
+  if (cat) {
+    const n = rosterTicks.size;
+    for (const d of rosterTicks) d.class2_id = cat.dataset.bulkCat;
+    const c = (ui.editing.classes || []).find((x) => x.id === cat.dataset.bulkCat);
+    rosterTicks.clear();
+    renderRoster();
+    renderClasses();
+    toast(`${n} driver${n === 1 ? "" : "s"} set to ${c ? c.name : "no category"}: save the league to keep it`);
   }
 });
 $("#btn-import-session").addEventListener("click", async () => {
@@ -6423,6 +6742,10 @@ $("#btn-add-driver").addEventListener("click", () => {
 });
 
 $("#league-list").addEventListener("click", async (e) => {
+  if (e.target.closest("[data-archive-toggle]")) {
+    leagueArchiveOpen = !leagueArchiveOpen;
+    return loadLeagues();
+  }
   const dup = e.target.closest("[data-duplicate]");
   if (dup) {
     e.stopPropagation();

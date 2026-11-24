@@ -227,6 +227,14 @@ class Handler(BaseHTTPRequestHandler):
                 league = self.app.leagues.copy_settings(path.split("/")[3], str(body.get("from") or ""), body.get("parts") or [])
                 self.app.publish()
                 return self._send_json({"ok": True, "league": league})
+            if path.startswith("/api/leagues/") and (path.endswith("/end") or path.endswith("/reopen")):
+                # End a championship (locked, to the archive) or reopen it.
+                pid = path.split("/")[3]
+                league = self.app.leagues.end(pid) if path.endswith("/end") else self.app.leagues.reopen(pid)
+                if self.app.leagues.active_id == league["id"]:
+                    self.app.leagues.set_active(league["id"], keep_mode=True)  # the active copy too
+                self.app.publish()
+                return self._send_json({"ok": True, "league": league})
             if path.startswith("/api/leagues/") and path.endswith("/duplicate"):
                 league = self.app.leagues.duplicate(path.split("/")[3], body.get("name"))
                 if league and hasattr(self.app.overlays, "copy_league"):  # its widget settings too

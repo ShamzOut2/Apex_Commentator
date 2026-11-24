@@ -269,3 +269,8 @@ body.screen .fl-flash { top: 14px; }
 /* The car's manufacturer badge column (tower and full screen). */
 .make-badge { display: inline-flex; align-items: center; justify-content: center; height: calc(1.25em / var(--ff, 1)); width: calc(2.2em / var(--ff, 1)); vertical-align: middle; }
 .make-badge img { max-height: 100%; max-width: 100%; object-fit: contain; }
+
+/* The driver's category (Pro, Semi-Pro...): a tag after the name or a bar before it. */
+.srow .who .n .cat-tag { display: inline-block; margin-left: .4em; padding: 0 .3em; border-radius: 3px; font-size: .68em;
+  font-weight: 800; letter-spacing: .03em; line-height: 1.45; vertical-align: .12em; }
+.srow .who .n .cat-bar { display: inline-block; width: 3px; height: .95em; margin-right: .4em; border-radius: 2px; vertical-align: -.1em; }

@@ -112,6 +112,18 @@ starting grid", "Clear all penalties"…).
 <!-- whats-new:start -->
 **Coming in the next update**
 
+### New features
+
+- Categories (Pro, Semi-Pro, Am…) inside each car class: LMP2 · Pro, GT3 · Pro and so on, each a championship of its own.
+- Season & points: tick which championships run, car classes and categories alike.
+- End a championship: the league is locked and moved to the Archive, can still be shown and copied from, and can be reopened.
+- Drivers list: tick drivers to set their category together, a No category filter, and categories from name tags like (P).
+- Timing tower can show each driver's category as a tag or a colour bar.
+
+### Improvements
+
+- Results already in are scored again whenever car classes or categories change.
+
 ### Fixes
 
 - Widgets tab, Show / Hide and hotkeys keep working when one part of the app fails to load; the fault goes to apex.log.

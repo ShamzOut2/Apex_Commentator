@@ -455,7 +455,9 @@
             <button id="btn-activate-league" class="btn">Use in overlay</button>
             <button id="btn-copy-settings" class="btn subtle" title="Bring another league's points and rules, classes, teams, logos and sponsors, or calendar into this one: no exporting or importing">⇆ Copy settings from…</button>
             <button class="btn subtle" data-export="league" title="Everything about this league, images included, to import on this PC or another">⤓ Export league</button>
+            <button id="btn-end-league" class="btn subtle" title="The season's over: lock this league as it stands and move it to the Archive (it can still be looked at, shown and copied from)">🏁 End championship</button>
           </div>
+          <div id="league-ended" class="ended-banner" hidden></div>
           <div class="row league-tabs">
             <div class="chips">
               <button class="chip active" data-ltab="drivers">Drivers <span class="count" id="ltab-drivers"></span></button>
@@ -470,9 +472,10 @@
           <div class="ltab" data-ltab-panel="drivers">
             <p class="hint">Nicknames, teams and notes show next to drivers in the overlays. Drivers are matched by iRacing customer
               ID, or by car number when there is no ID. Click a column heading to sort.</p>
+            <div id="roster-tools" class="roster-tools"></div>
             <div class="roster-scroll">
             <table class="grid roster">
-              <thead id="roster-head"><tr><th data-sort="name">Driver</th><th class="c-id" data-sort="cust_id">Cust ID</th><th class="c-num" data-sort="car_number" title="Car number">Car #</th><th class="c-num" data-sort="driver_number" title="Driver's own number, if the league uses one">Driver #</th><th data-sort="nickname">Nickname</th><th class="c-pron" data-sort="pronouns" title="Shown after their name on the overlays and boards, in brackets: e.g. she/her">Pronouns</th><th data-sort="team">Team</th><th data-sort="notes">Notes</th><th class="c-class" data-sort="class_id" title="The class shown on the overlays">Class</th><th class="c-class c-class2" data-sort="class2_id" title="A secondary class: its own championship, never on the overlays">2nd class</th><th class="c-make" data-sort="car_make" title="The car's manufacturer: for badges and the manufacturers' championship. Auto uses the car they drive in iRacing.">Car</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
+              <thead id="roster-head"><tr><th class="c-tick"><input type="checkbox" id="roster-tick-all" aria-label="Tick every driver shown" title="Tick every driver shown (then set their class or category together)"></th><th data-sort="name">Driver</th><th class="c-id" data-sort="cust_id">Cust ID</th><th class="c-num" data-sort="car_number" title="Car number">Car #</th><th class="c-num" data-sort="driver_number" title="Driver's own number, if the league uses one">Driver #</th><th data-sort="nickname">Nickname</th><th class="c-pron" data-sort="pronouns" title="Shown after their name on the overlays and boards, in brackets: e.g. she/her">Pronouns</th><th data-sort="team">Team</th><th data-sort="notes">Notes</th><th class="c-class" data-sort="class_id" title="The class shown on the overlays">Class</th><th class="c-class c-class2" data-sort="class2_id" title="The driver's category (Pro, Semi-Pro…): its own championships">Category</th><th class="c-make" data-sort="car_make" title="The car's manufacturer: for badges and the manufacturers' championship. Auto uses the car they drive in iRacing.">Car</th><th class="c-photos" title="Car livery and helmet photos for the grid walk">Photos</th><th></th></tr></thead>
               <tbody id="roster-rows"></tbody>
             </table>
             </div>
@@ -487,18 +490,17 @@
           </div>
 
           <div class="ltab" data-ltab-panel="classes" hidden>
-            <p class="hint"><b>Main classes</b> are what the overlays show: each gets its own colour and header. Drivers join one by
-              their iRacing car class (the "iRacing classes" field), by a class tag in front of their name, or by picking it in the
-              Drivers list. A logo's background is recoloured to the class colour.</p>
-            <p class="hint"><b>Secondary classes</b> (e.g. a Rookie Cup or Pro-Am trophy) work in the background: pick a driver's in
-              the <i>2nd class</i> column and they score in that class's own championship as well, ranked against the other
-              drivers in it, without changing anything on the overlays. How the points add up is under <i>Season &amp; points</i>.</p>
+            <p class="hint"><b>Car classes</b> (LMP2, GT3…) are what the overlays show: each gets its own colour and header. Drivers
+              join one by their iRacing car class (the "iRacing classes" field), by a class tag in front of their name, or by picking
+              it in the Drivers list. A logo's background is recoloured to the class colour.</p>
+            <p class="hint"><b>Categories</b> (Pro, Semi-Pro, Am, a Rookie Cup…) work in the background: pick a driver's in the
+              <i>Category</i> column and they score in its championships as well, ranked against the others in it: in their own car
+              class (LMP2 · Pro, GT3 · Pro), or across the whole field. How the points add up is under <i>Season &amp; points</i>.</p>
             <label class="field" title="For leagues that put the driver's class in front of their name, e.g. (P) Dave Price. The control panel keeps the full name; the overlays show it without the tag (via the Nickname).">
               <input type="checkbox" id="edit-strip-class"> Hide the class tag in front of names on the overlays, e.g. <i>(P) Dave Price</i></label>
             <label class="field" title="A driver with neither a main nor a secondary class (a safety car, say) is left off the standings, lap tracker, driver card, grid walk and boards, and out of the results. The Timing tab still lists them.">
               <input type="checkbox" id="edit-hide-unclassed"> Drivers with no class (neither main nor secondary, e.g. a safety car) on no overlay and in no results</label>
             <div id="class-list" class="class-list"></div>
-            <button id="btn-add-class" class="btn subtle">+ Add class</button>
           </div>
 
           <div class="ltab" data-ltab-panel="looks" hidden>

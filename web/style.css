@@ -225,7 +225,15 @@ main.fixed { overflow: hidden; }
 .looks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 24px; }
 .roster { min-width: 760px; }
 /* Names and teams wide enough to read; the list scrolls sideways if it has to. */
-.roster td:first-child input { min-width: 160px; }
+.roster input[data-field="name"] { min-width: 160px; }
+.roster .c-tick { width: 28px; text-align: center; }
+.roster .c-tick input { width: auto; }
+.roster tr.ticked td { background: var(--accent-soft); }
+.roster-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; }
+.roster-tools:empty { display: none; }
+.roster-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--accent);
+  border-radius: var(--radius); background: var(--accent-soft); }
+.roster-bulk .label { font-size: 12px; color: var(--muted); margin-left: 6px; }
 .roster input[data-field="team"] { min-width: 140px; }
 .roster input[data-field="nickname"], .roster input[data-field="notes"] { min-width: 110px; }
 .roster input[data-field="cust_id"] { min-width: 84px; }
@@ -1352,3 +1360,32 @@ input[type="color"] { padding: 2px; cursor: pointer; }
 .talk-item .btn { flex: none; }
 .h2h-sel { display: flex; align-items: center; gap: 8px; }
 .h2h-sel select { flex: 1; min-width: 0; }
+
+/* League builder, Classes: car classes, then categories (Pro, Semi-Pro...). */
+.class-section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 14px 0 6px; }
+.class-section-head .section-title { margin: 0; }
+.class-fields input.short { width: 90px; }
+.category-scope { flex-wrap: wrap; }
+.chip-check { border: 1px solid var(--line-2); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+.champ-summary { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel-2);
+  display: flex; flex-direction: column; gap: 8px; }
+.champ-summary .row { flex-wrap: wrap; gap: 6px; }
+/* Season & points: which championships run. */
+.champ-grid { width: auto; }
+.champ-grid th, .champ-grid td { text-align: center; padding: 6px 14px; }
+.champ-grid tbody th { text-align: left; white-space: nowrap; }
+.champ-grid .swatch, .champ-picker .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.champ-tick { justify-content: center; }
+/* Championship standings: a car class, then one of its championships. */
+.champ-picker { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; }
+.champ-picker .row { flex-wrap: wrap; gap: 6px; }
+
+/* A league whose championship has ended: locked, in the Archive. */
+.ended-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 10px 0 4px;
+  padding: 10px 14px; border: 1px solid var(--warn); border-radius: var(--radius); background: rgba(245, 197, 66, .08); font-size: 13px; }
+.ended-banner[hidden] { display: none; }
+.league-editor.locked .ltab { opacity: .78; }
+.league-editor.locked [data-unsaved], .league-editor.locked #btn-save-league { display: none; }
+.league-list li.archive-head { border: 0; background: none; padding: 6px 0 0; }
+.league-list li.archive-head .btn { width: 100%; justify-content: flex-start; }
+.league-list li.ended { opacity: .85; }
