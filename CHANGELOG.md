@@ -11,6 +11,15 @@ How each version's entry is written:
 - One short line per change, saying what the commentator will notice, not
   how it was done. Details belong in the README.
 
+## v1.0.5
+
+### Improvements
+
+- Widgets tab: back to cards packed down each column, so a folded card leaves
+  no gap under it.
+- Teams: each team's other leagues fold into one line ("Also in 2 of 6
+  leagues"); open it to change them.
+
 ## v1.0.4
 
 ### New features
