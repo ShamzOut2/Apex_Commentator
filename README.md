@@ -114,8 +114,8 @@ starting grid", "Clear all penalties"…).
 
 ### Improvements
 
-- Widgets tab: folded cards pack into rows with no gaps; an open card takes a
-  row of its own with its settings across it.
+- Widgets tab: back to cards packed down each column, so a folded card leaves
+  no gap under it.
 - Teams: each team's other leagues fold into one line ("Also in 2 of 6
   leagues"); open it to change them.
 
@@ -628,10 +628,8 @@ on stream or put on a monitor (open it, then F11).
 button, a live preview and its settings; the **Widgets** tab turns them on and off.
 On the Widgets tab each card folds away to its title and its Show / Hide
 (click its title or its ▾; **Fold all** / **Open all** at the top), kept on
-this PC, so only the ones in use are open. The widgets on screen come first
-(switching one on or off, the cards glide to their new places). Folded cards
-pack into rows; an open card takes a row of its own with its settings across
-it, so nothing leaves a gap and the boards stay close. Add each one as a *Browser Source* at 1920×1080 (the
+this PC, so only the ones in use are open; the cards close up around a
+folded one, whatever's beside it. Add each one as a *Browser Source* at 1920×1080 (the
 background is transparent). Settings changed in the tab show on stream
 straight away and are kept in `data/overlays.json`. **Each league has its
 own**: picking a league in the League builder brings in its widget settings

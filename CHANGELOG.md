@@ -15,8 +15,8 @@ How each version's entry is written:
 
 ### Improvements
 
-- Widgets tab: folded cards pack into rows with no gaps; an open card takes a
-  row of its own with its settings across it.
+- Widgets tab: back to cards packed down each column, so a folded card leaves
+  no gap under it.
 - Teams: each team's other leagues fold into one line ("Also in 2 of 6
   leagues"); open it to change them.
 

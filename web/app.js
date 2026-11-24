@@ -4592,18 +4592,12 @@ function quickFields(section, keys, values, s) {
 function renderWidgets(s) {
   const st = s.overlays.settings;
   const gw = s.gridwalk || {};
-  // On or off: the Show button lit while it's on. The ones on come first
-  // (style.css), so what's in use sits together at the top; switching one
-  // on or off, the cards glide to their new places rather than jump.
-  const cards = [...document.querySelectorAll("#tab-widgets .wcards > .wcard")];
-  const isOn = (card) => {
+  // On or off: the Show button lit while it's on.
+  for (const card of document.querySelectorAll("#tab-widgets [data-widget]")) {
     const key = card.dataset.widget;
-    return key === "gridwalk" ? !!gw.visible : key === "fastest" ? !!st.standings.fl_flash : !!(st[key] && st[key].visible);
-  };
-  const moving = cards.some((card) => card.dataset.widget && card.classList.contains("on") !== isOn(card));
-  const apply = () => { for (const card of cards) if (card.dataset.widget) card.classList.toggle("on", isOn(card)); };
-  if (moving) glideCards(apply);
-  else apply();
+    const on = key === "gridwalk" ? !!gw.visible : key === "fastest" ? !!st.standings.fl_flash : !!(st[key] && st[key].visible);
+    card.classList.toggle("on", on);
+  }
   $("#wgw-state").textContent = gw.visible ? (gw.running ? "on air" : "paused") : "";
   // The flag card: a button for each sector (lit while it's yellow), and what's showing.
   const fl = s.overlays.flags;
@@ -4821,10 +4815,9 @@ for (const [attr, on] of [["wshow", true], ["whide", false]]) {
 }
 
 // Each widget card folds away to its title and its Show / Hide (a click on
-// the title, or its ▾), kept on this PC; Fold all / Open all at the top.
-// Folded cards pack into rows; an open card takes a row of its own, its
-// settings across it (no gaps beside or under it). The ones on screen come
-// first (renderWidgets).
+// the title, or its ▾), kept on this PC; Fold all / Open all at the top. The
+// cards are packed down each column (each takes the rows its height needs),
+// so a card folded away leaves no space under it, whatever's beside it.
 const WFOLD = "apex.widgetsFolded";
 const wcards = $("#tab-widgets .wcards");
 let wfolded = new Set();
@@ -4857,7 +4850,7 @@ wcards.addEventListener("click", (e) => {
   // The title or its ▾ (not another button in the title, like the Grid walk tab link).
   if (!head || (e.target.closest("button, a, select, input") && !e.target.closest(".wfold"))) return;
   const card = head.closest(".wcard");
-  glideCards(() => foldCard(card, !card.classList.contains("folded")));
+  foldCard(card, !card.classList.contains("folded"));
   saveFolds();
 });
 const foldBar = document.createElement("span");
@@ -4868,29 +4861,21 @@ $("#tab-widgets .teams-head [data-open-hotkeys]").before(foldBar);
 foldBar.addEventListener("click", (e) => {
   const b = e.target.closest("[data-fold-all]");
   if (!b) return;
-  glideCards(() => { for (const card of wcards.querySelectorAll(".wcard[data-widget]")) foldCard(card, b.dataset.foldAll === "1"); });
+  for (const card of wcards.querySelectorAll(".wcard[data-widget]")) foldCard(card, b.dataset.foldAll === "1");
   saveFolds();
 });
-// The cards move to their new places (folded, opened, switched on or off)
-// gliding there rather than jumping (``change`` makes the change).
-function glideCards(change) {
-  const cards = [...document.querySelectorAll("#tab-widgets .wcards > .wcard")];
-  const before = wcardsShown() ? new Map(cards.map((c) => [c, c.getBoundingClientRect()])) : null;
-  change();
-  if (!before) return;
-  for (const card of cards) {
-    const a = before.get(card), b = card.getBoundingClientRect();
-    const dx = a.left - b.left, dy = a.top - b.top;
-    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-      card.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 380, easing: "cubic-bezier(.2, .8, .2, 1)" });
-    }
+// Packed down the columns: each card spans as many 1 px rows as it's tall (+ the gap).
+const WGAP = 12;
+const packCards = () => {
+  for (const card of wcards.children) {
+    const h = card.getBoundingClientRect().height;
+    if (h > 0) card.style.gridRowEnd = `span ${Math.ceil(h) + WGAP}`;
   }
-}
-
-// The cards are in view (the Widgets tab, or its pop-out): only then do they glide.
-function wcardsShown() {
-  const grid = document.querySelector("#tab-widgets .wcards");
-  return !!grid && grid.getClientRects().length > 0;
+};
+if (typeof ResizeObserver === "function") {
+  const ro = new ResizeObserver(() => requestAnimationFrame(packCards));
+  for (const card of wcards.children) ro.observe(card);
+  wcards.classList.add("packed");
 }
 
 

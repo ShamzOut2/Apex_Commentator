@@ -797,9 +797,10 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 
 /* ---- Widgets tab: each overlay and board on or off, at a glance ---- */
 .wcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin-top: 10px; }
-/* The widgets on screen first, in their usual order; the Everything card last. */
-.wcards > .wcard.on { order: -1; }
-.wcards > .wcard.misc { order: 1; }
+/* Packed (app.js): 1 px rows, each card spanning its own height, so the columns
+   stack tightly and a folded card leaves no gap under it. */
+.wcards.packed { grid-auto-rows: 1px; row-gap: 0; }
+.wcards.packed > .wcard { align-self: start; }
 /* Folding a card away: its title and Show / Hide stay. */
 .wfold-head { cursor: pointer; user-select: none; }
 .wfold {
@@ -809,21 +810,6 @@ body.dropping, body.dropping * { cursor: crosshair !important; }
 .wfold:hover { border-color: var(--line); color: var(--text); }
 .wcard.folded .wfold { transform: rotate(-90deg); }
 .wcard.folded > :not(h4):not(.wmain) { display: none; }
-/* Open, a card takes a row of its own, its settings laid across it in
-   columns; folded cards pack the rows (gaps filled), so folding saves room. */
-.wcards { grid-auto-flow: row dense; }
-.wcards > .wcard[data-widget]:not(.folded) { grid-column: 1 / -1; }
-.wcards > .wcard[data-widget]:not(.folded) > .wmain { max-width: 340px; }
-.wcards > .wcard[data-widget]:not(.folded) > .wq {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); column-gap: 28px; row-gap: 6px; align-items: center;
-}
-.wcards > .wcard[data-widget]:not(.folded) > .wbtns.small { max-width: 640px; }
-/* The Everything card: one row across the bottom, its buttons side by side. */
-.wcards > .wcard.misc { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-.wcards > .wcard.misc > h4 { flex: none; }
-.wcards > .wcard.misc .wbtn.danger { width: auto; padding: 9px 22px; }
-.wcards > .wcard.misc > .wbtns.small > * { flex-basis: auto; }
-.wcards > .wcard.misc > .desk-help { margin: 0 0 0 auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .wfold-all { gap: 6px; }
 .wcard h4 .wlink ~ .wfold { margin-left: 4px; }
 .wcard {
