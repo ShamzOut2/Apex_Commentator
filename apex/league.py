@@ -307,7 +307,47 @@ def normalise_classes(classes):
             # "secondary": picked by hand, only for its own championship.
             "role": "secondary" if c.get("role") == "secondary" else "main",
         })
+        if out[-1]["role"] == "secondary":
+            out[-1].update(_category_fields(c))
+    # A category's car classes: only main classes of this league.
+    main_ids = {c["id"] for c in out if c["role"] == "main"}
+    for c in out:
+        if c["role"] == "secondary":
+            c["in"] = [k for k in c["in"] if k in main_ids]
     return out
+
+
+def _category_fields(c):
+    """A category's own settings (a class with role "secondary": Pro, Semi-Pro,
+    Rookie...). ``scope`` "class": a championship of its own in each car class
+    (LMP2 · Pro, GT3 · Pro), just those in ``in`` when it names some; "field":
+    one for the whole field (how they always worked, so the default for
+    leagues saved before). ``tag``: the short name on the tower (PRO);
+    ``name_tag``: the tag in front of a driver's name that puts them in it,
+    e.g. "P" for "(P) Dave Price" (none: picked by hand only)."""
+    scope = "class" if c.get("scope") == "class" else "field"
+    inside = c.get("in") or []
+    if not isinstance(inside, list):
+        inside = []
+    name_tag = str(c.get("name_tag") or "").strip().strip("()").strip()
+    return {
+        "scope": scope,
+        "in": [str(k) for k in inside if str(k).strip()],
+        "tag": str(c.get("tag") or "").strip()[:6],
+        "name_tag": name_tag[:8],
+    }
+
+
+def category_for_tag(classes, name):
+    """The category a driver's name tag puts them in ("(P) Dave Price" -> the
+    category whose name tag is P), or None. Only categories given a name tag."""
+    tag = class_tag(name)
+    if not tag:
+        return None
+    for c in classes or []:
+        if c.get("role") == "secondary" and c.get("name_tag") and _squash(c["name_tag"]) == _squash(tag):
+            return c
+    return None
 
 
 def main_classes(classes):
@@ -352,8 +392,13 @@ def normalise_profile(profile):
         entry["pronouns"] = clean_pronouns(entry["pronouns"])
         if entry["class_id"] not in class_ids and entry["class_id"] != NO_CLASS:
             entry["class_id"] = ""
-        if entry["class2_id"] not in secondary_ids:
+        if entry["class2_id"] not in secondary_ids and entry["class2_id"] != NO_CLASS:
             entry["class2_id"] = ""
+        if not entry["class2_id"]:
+            # No category picked: the one their name tag stands for, if any.
+            by_tag = category_for_tag(classes, entry["name"])
+            if by_tag:
+                entry["class2_id"] = by_tag["id"]
         for key in DRIVER_IMAGES:
             if not UPLOADED_LOGO.fullmatch(entry[key]):
                 entry[key] = ""
@@ -408,7 +453,20 @@ def normalise_profile(profile):
         # The league's own logo (board headers) and its own calendar graphic.
         "logo": _uploaded(profile.get("logo")),
         "calendar_image": _uploaded(profile.get("calendar_image")),
+        # The championship ended (LeagueStore.end): locked, in the archive.
+        "ended": _ended(profile.get("ended")),
     }
+
+
+def _ended(value):
+    """{"at": when the championship was ended} or None (still running)."""
+    if isinstance(value, dict) and str(value.get("at") or "").strip():
+        return {"at": str(value["at"]).strip()[:40]}
+    return None
+
+
+class LeagueEnded(LeagueError):
+    """A change to a league whose championship has ended (it's locked)."""
 
 
 def driver_key(driver):
@@ -472,6 +530,7 @@ class LeagueStore:
                 "classes": len(p.get("classes", [])),
                 "source": p.get("source"),
                 "updated_at": p.get("updated_at"),
+                "ended": _ended(p.get("ended")),
                 "active": p.get("id", path.stem) == self.active_id,
             })
         return out
@@ -484,7 +543,15 @@ class LeagueStore:
             return json.load(f)
 
     def save(self, profile):
-        """Save a league, and keep the teams it shares with other leagues in step."""
+        """Save a league, and keep the teams it shares with other leagues in step.
+        A league whose championship has ended is locked (``LeagueEnded``): it
+        has to be reopened first."""
+        if isinstance(profile, dict):
+            pid = profile.get("id")
+            old = self.get(str(pid)) if pid else None
+            if old and old.get("ended"):
+                raise LeagueEnded(f"{old.get('name') or 'This league'}'s championship has ended: it's locked. Reopen it to change it.")
+            profile = dict(profile, ended=None)  # ended (and reopened) only with end / reopen
         profile = normalise_profile(profile)
         others = self._linked(profile)
         for team in profile.get("teams", []):  # not itself, nor a league since deleted
@@ -525,7 +592,7 @@ class LeagueStore:
             if path.stem == profile["id"]:
                 continue
             other = self.get(path.stem)
-            if other:
+            if other and not other.get("ended"):  # an ended championship is left as it ended
                 out[other.get("id", path.stem)] = other
         return out
 
@@ -595,6 +662,9 @@ class LeagueStore:
         profile, other = self.get(profile_id), self.get(other_id)
         if profile is None or other is None:
             raise LeagueError("League not found")
+        for p in (profile, other):
+            if p.get("ended"):
+                raise LeagueEnded(f"{p.get('name')}'s championship has ended: it's locked. Reopen it to change it.")
         key = str(team_name or "").strip().lower()
         for t in profile.get("teams", []):
             if t["name"].lower() == key:
@@ -728,7 +798,7 @@ class LeagueStore:
         while _slug(new_name) in taken:
             new_name, n = f"{base} {n}", n + 1
         copy = json.loads(json.dumps(profile))
-        copy.update(id=_slug(new_name), name=new_name, league_id=None)
+        copy.update(id=_slug(new_name), name=new_name, league_id=None, ended=None)  # a copy of an ended one runs
         for t in copy.get("teams", []):
             t["shared"] = []  # a copy of its own: its teams aren't linked to other leagues
         src, dst = self._logo_dir(profile_id), self._logo_dir(copy["id"])
@@ -759,6 +829,9 @@ class LeagueStore:
             raise LeagueError("League not found")
         if profile["id"] == source["id"]:
             raise LeagueError("Pick another league to copy from")
+        if profile.get("ended"):
+            raise LeagueEnded(f"{profile.get('name')}'s championship has ended: it's locked. Reopen it to change it.")
+        # (An ended league can be copied from, as any other.)
         parts = [p for p in parts or [] if p in self.COPY_PARTS]
         if not parts:
             raise LeagueError("Tick at least one thing to copy")
@@ -787,9 +860,12 @@ class LeagueStore:
         cid = lambda k: ours.get(theirs.get(k, ""), k)  # noqa: E731
         if "rules" in parts:
             rules = json.loads(json.dumps((src.get("championship") or {}).get("rules") or {}))
+            both = lambda k: "/".join(cid(part) for part in str(k).split("/"))  # noqa: E731  ("lmp2/pro" too)
             for key in ("class_points", "secondary_scoring"):
                 if isinstance(rules.get(key), dict):
-                    rules[key] = {cid(k): v for k, v in rules[key].items()}
+                    rules[key] = {both(k): v for k, v in rules[key].items()}
+            if isinstance(rules.get("hidden"), list):
+                rules["hidden"] = [both(k) for k in rules["hidden"]]
             champ["rules"] = rules
         if "teams" in parts:
             mine = by_name(dst.setdefault("teams", []))
@@ -814,6 +890,28 @@ class LeagueStore:
                 if key in src:
                     dst[key] = src[key]
         return self.save(dst)
+
+    def end(self, profile_id):
+        """End a league's championship: it's locked as it stands (its results,
+        standings, drivers and settings) and goes to the archive. It can still
+        be looked at, shown on the boards, copied and copied from."""
+        profile = self.get(profile_id)
+        if profile is None:
+            raise LeagueError("League not found")
+        if not profile.get("ended"):
+            profile["ended"] = {"at": _now_iso()}
+            profile = self._write(profile)
+        return profile
+
+    def reopen(self, profile_id):
+        """Take a league out of the archive: its championship runs again."""
+        profile = self.get(profile_id)
+        if profile is None:
+            raise LeagueError("League not found")
+        if profile.get("ended"):
+            profile["ended"] = None
+            profile = self._write(profile)
+        return profile
 
     def delete(self, profile_id):
         path = self._path(profile_id)

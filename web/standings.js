@@ -454,7 +454,7 @@ function rowHtml(e, cfg, cols, cls, race, classMode, multiclass, camIdx, green) 
     stripe: () => `<span class="stripe" style="${stripeColor(e, cls, cfg) ? `background:${esc(bgc(stripeColor(e, cls, cfg)))}` : ""}"></span>`,
     number: () => `<span data-opcol="number">${numberChip(e, cls, cfg)}</span>`,
     logo: () => `<span class="lg" data-opcol="logo">${teamLogoOf(e, cfg) ? `<img class="team-logo" src="${esc(teamLogoOf(e, cfg))}" alt="">` : ""}</span>`,
-    name: () => `<span class="who" data-opcol="name"><span class="n">${nameHtml(e, cfg.name_format)}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
+    name: () => `<span class="who" data-opcol="name"><span class="n">${catMark(e, cfg, "bar")}${nameHtml(e, cfg.name_format)}${catMark(e, cfg, "tag")}${fastestIcon(e, cfg, classMode)}${pit}</span>${cfg.team_under && e.team ? `<span class="tm">${esc(e.team)}</span>` : ""}</span>`,
     team: () => `<span class="tmc" data-opcol="team">${esc(e.team || "")}</span>`,
   };
   return `<div class="srow ${e.car_idx === camIdx ? "cam" : ""} ${e.left ? "left" : ""} ${move ? move.cls : ""}" data-key="${e.car_idx}" style="${move ? move.style : ""}">
@@ -869,3 +869,13 @@ followSnapshots((snap) => {
   last = snap;
   render();
 });
+
+// The driver's category (Pro, Semi-Pro...), when the tower shows it: a tag
+// after the name, or a bar in its colour before it.
+function catMark(e, cfg, kind) {
+  const c = e.category;
+  if (!c || (cfg.category_tag || "off") !== kind) return "";
+  const color = c.color || "#8d95a6";
+  return kind === "bar" ? `<span class="cat-bar" style="background:${esc(color)}"></span>`
+    : `<span class="cat-tag" style="background:${esc(color)};color:${inkFor(color)}">${esc(c.tag)}</span>`;
+}

@@ -21,6 +21,11 @@ def _group_info(league, key):
     """(name, colour, logo url) of a championship: a league class, or overall."""
     if key == championship.OVERALL:
         return "Overall", None, None
+    if championship.car_class_of(key) is not None:
+        # A category in a car class: "LMP2 · Pro", in the car class's colours.
+        info = championship.group_info({c["id"]: c for c in league.get("classes", [])}, key)
+        main = next((c for c in league.get("classes", []) if c["id"] == info["car_class"]), None)
+        return info["name"], info["color"], logo_url(league["id"], main.get("logo")) if main else None
     for c in league.get("classes", []):
         if c["id"] == key:
             return c["name"], c["color"], logo_url(league["id"], c.get("logo"))
@@ -40,7 +45,16 @@ def options(league):
     # Every class of the league (main and secondary), for a finishing order of
     # any of them, whether or not it has points of its own yet.
     classes = [{"key": c["id"], "name": c.get("name") or c["id"], "color": c.get("color") or None,
-                "secondary": c.get("role") == "secondary"} for c in league.get("classes", []) if c.get("id")]
+                "secondary": c.get("role") == "secondary"} for c in league.get("classes", [])
+               if c.get("id") and not (c.get("role") == "secondary" and c.get("scope") == "class")]
+    # A category scored in each car class: one in each (LMP2 · Pro, GT3 · Pro).
+    mains = [c for c in league.get("classes", []) if c.get("role") != "secondary"]
+    for cat in league.get("classes", []):
+        if cat.get("role") == "secondary" and cat.get("scope") == "class":
+            for m in mains:
+                if not cat.get("in") or m["id"] in cat["in"]:
+                    name, color, _ = _group_info(league, f"{m['id']}/{cat['id']}")
+                    classes.append({"key": f"{m['id']}/{cat['id']}", "name": name, "color": color, "secondary": True})
     return {"groups": groups, "rounds": rounds, "classes": classes, "teams": bool(table["teams"]),
             "has_teams": any(d.get("team") for d in league.get("drivers", []))}
 
@@ -240,7 +254,9 @@ def build(league, board, settings, live_results=None):
     elif kind == "grid":
         rows = []
         data = live_results or {"rows": [], "name": "Race", "from": "qualifying"}
-        mine = [e for e in data["rows"] if group == championship.OVERALL or e["class_id"] == group or e.get("class2_id") == group]
+        second = championship.secondary_classes(league)
+        mine = [e for e in data["rows"] if group == championship.OVERALL or e["class_id"] == group
+                or championship._category_group({"driver": e["driver"], "class_id": e["class_id"]}, second) == group]
         roster = {championship._key(d): d for d in league.get("drivers", [])}
         best = {}
         for e in mine:

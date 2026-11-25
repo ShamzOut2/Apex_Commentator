@@ -1966,6 +1966,16 @@ class App:
         return {"main": main.get("color") if main else None,
                 "secondary": second.get("color") if second and second.get("role") == "secondary" else None}
 
+    @staticmethod
+    def _category(class2_id, active_league):
+        """A driver's category for the overlays: {"tag", "name", "color"}, or None."""
+        if not active_league or not class2_id:
+            return None
+        c = next((c for c in active_league.get("classes", []) if c.get("id") == class2_id and c.get("role") == "secondary"), None)
+        if not c:
+            return None
+        return {"tag": c.get("tag") or c["name"][:4].upper(), "name": c["name"], "color": c.get("color")}
+
     def _overlay_entry(self, r, active_league):
         """Who a driver is, for the stream overlays: league details win."""
         lg = r["league"] or {}
@@ -1982,6 +1992,7 @@ class App:
             "class_key": r["class_key"], "car": r["car"], "on_pit": r["on_pit"], "in_world": r["in_world"],
             "tyre": r.get("tyre"),
             "paint": self._paint(r, active_league),
+            "category": self._category(lg.get("class2_id"), active_league),
             # For the full-screen versions.
             "make": r["make"], "make_logo": r["make_logo"],
             "lap": r["lap"], "last_lap": r["last_lap"], "best_lap": r["best_lap"], "pit_stops": r["pit_stops"],
@@ -4761,6 +4772,9 @@ class App:
     def _save_results(self, profile, key, results, track):
         self._results_saved.add(key)
         if not profile or not results:
+            return
+        if profile.get("ended"):
+            print(f"[apex] results of {key} not saved: {profile.get('name')}'s championship has ended (reopen it to add them)")
             return
         champ = championship.normalise(profile.get("championship"))
         if any(rd["session"] == key for rd in champ["rounds"]):

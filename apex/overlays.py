@@ -138,6 +138,7 @@ DEFAULTS = {
         # or their "team" colour (their main class's when the team has none).
         "class_colors": "main",
         "stripe_colors": "same",  # the bar's colour: "same" class as the car number's, its own "main" / "secondary", or "team"
+        "category_tag": "off",    # the driver's category (Pro, Semi-Pro...): "off", a "tag" after the name, or a colour "bar" before it
         "show_number": True,
         "show_stripe": True,      # the coloured bar by each driver (class or team colour)
         "show_col_labels": True,  # the column headings (GAP, INT...) under the header
@@ -583,7 +584,7 @@ LIMITS = {"panel_width": (700, 1840), "gap_s": (0.1, 30.0), "settle_s": (0.0, 3.
 PLACES = ("top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
 CHOICES = {"follow": ("delay", "now"), "fastest_icon_for": ("classes", "view", "overall"), "target": ("ahead", "behind", "nearest", "picked"), "champ": ("class", "overall"), "board_overlays": ("stay", "dim", "hide"), "grid_scroll": ("page", "scroll"), "banner": ("none", "top", "bottom", "left", "right"), "sponsors": ("none", "top", "bottom", "left", "right"), "board_sponsors": ("top", "bottom", "left", "right"), "sponsor_mode": ("theme", "own"),
            "bg": ("default", "color", "image"), "place": PLACES,
-           "round_title": ("both", "name", "number"), "rows_extra_mode": ("rotate", "last"),
+           "round_title": ("both", "name", "number"), "category_tag": ("off", "tag", "bar"), "rows_extra_mode": ("rotate", "last"),
            "leader_cell": ("leader", "lap"), "leader_interval": ("leader", "lap", "blank"), "round_titles": ("name", "off"), "team_place": ("under", "end"), "accent": ("default", "color", "session"), "gap_to": ("first", "ahead"), "team_logo_side": ("first", "last"), "team_name_place": ("under", "column"), "class_colors": ("main", "secondary", "team"), "stripe_colors": ("same", "main", "secondary", "team"), "who": ("all", "camera"), "position_shown": ("overall", "class", "both", "class_both"), "winner_cell": ("time", "laps"), "neighbours": ("show", "hide"), "grid_source": ("auto", "qualifying", "previous", "gridwalk", "current"), "grid_layout": ("list", "grid"), "grid_reveal": ("all", "rows"), "qual_shown": ("gap", "interval", "time", "none"),
            "date_format": ("weekday_short", "numeric", "day_month", "full", "weekday"), "style": ("cards", "image"), "layout": ("rotate", "row"), "mode": ("overall", "class"), "header_info": ("auto", "laps", "time", "none"), "reference": ("personal", "session", "overall", "leader", "leader_overall"), "name_format": NAME_FORMATS,
            "font": FONTS,
